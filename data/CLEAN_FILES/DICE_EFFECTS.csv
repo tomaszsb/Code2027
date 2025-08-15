@@ -1,0 +1,34 @@
+space_name,visit_type,effect_type,card_type,roll_1,roll_2,roll_3,roll_4,roll_5,roll_6
+OWNER-SCOPE-INITIATION,First,cards,W,Draw 1,Draw 1,Draw 2,Draw 2,Draw 3,Draw 3
+OWNER-SCOPE-INITIATION,Subsequent,cards,W,Draw 1,Draw 1,Draw 2,Draw 2,Draw 3,Draw 3
+ARCH-FEE-REVIEW,First,money,fee,8%,8%,10%,10%,12%,12%
+ARCH-FEE-REVIEW,Subsequent,money,fee,0%,0%,1%,1%,2%,2%
+ARCH-SCOPE-CHECK,First,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+ARCH-SCOPE-CHECK,Subsequent,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+CHEAT-BYPASS,First,time,days,1,2,3,4,60,365
+CHEAT-BYPASS,Subsequent,time,days,1,2,3,4,60,365
+CON-INITIATION,First,quality,contractor,HIGH,HIGH,MED,MED,LOW,LOW
+CON-INITIATION,First,multiplier,cost,1,2,3,4,5,6
+CON-INITIATION,Subsequent,time,days,5,10,15,20,25,30
+CON-INITIATION,Subsequent,money,fee,0%,2%,4%,6%,8%,10%
+CON-INSPECT,First,time,days,1,5,25,1,1,1
+CON-INSPECT,Subsequent,time,days,1,1,1,5,25,1
+CON-ISSUES,First,time,days,1,15,1,1,1,1
+CON-ISSUES,Subsequent,time,days,1,1,1,15,1,1
+ENG-FEE-REVIEW,First,money,fee,2%,2%,4%,4%,6%,6%
+ENG-FEE-REVIEW,Subsequent,money,fee,0%,0%,1%,1%,2%,2%
+ENG-SCOPE-CHECK,First,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+ENG-SCOPE-CHECK,Subsequent,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+INVESTOR-FUND-REVIEW,First,cards,I,Draw 1,Draw 1,Draw 1,Draw 2,Draw 2,Draw 2
+INVESTOR-FUND-REVIEW,Subsequent,cards,I,Draw 1,Draw 1,Draw 1,Draw 2,Draw 2,Draw 2
+INVESTOR-FUND-REVIEW,First,time,days,30,30,30,50,50,70
+INVESTOR-FUND-REVIEW,Subsequent,time,days,30,30,50,50,70,70
+LEND-SCOPE-CHECK,First,cards,W,Remove 1,Draw 1,Draw 1,Replace 1,Replace 1,No change
+LEND-SCOPE-CHECK,Subsequent,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+OWNER-DECISION-REVIEW,First,cards,W,Remove 1,Draw 1,Draw 1,Replace 1,Replace 1,No change
+OWNER-DECISION-REVIEW,Subsequent,cards,W,Remove 1,Draw 1,Replace 1,No change,No change,No change
+OWNER-DECISION-REVIEW,First,cards,E,Remove 1,Draw 1,Draw 1,Replace 1,Replace 1,No change
+OWNER-DECISION-REVIEW,Subsequent,cards,E,Remove 1,Draw 1,Replace 1,No change,No change,No change
+REG-DOB-FEE-REVIEW,Subsequent,money,fee,0%,0%,0%,1%,1%,1%
+REG-DOB-FINAL-REVIEW,First,time,days,1,1,10,30,1,1
+REG-DOB-FINAL-REVIEW,Subsequent,time,days,1,1,1,10,30,1

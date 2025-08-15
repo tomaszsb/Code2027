@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean CSV Architecture - Test Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .status-item.success {
+            border-left-color: #28a745;
+        }
+        
+        .status-item.error {
+            border-left-color: #dc3545;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .space-content {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .movement-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .player-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .effects {
+            background: #f0f8f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .choice-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+        }
+        
+        .choice-button:hover {
+            background: #218838;
+        }
+        
+        .modal-close {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            float: right;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+        
+        .negotiate-btn {
+            background: #ffc107;
+            color: #212529;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        .negotiate-btn:hover {
+            background: #e0a800;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Clean CSV Architecture Test</h1>
+        <p>Testing the new 6-file clean CSV system for the board game</p>
+    </div>
+
+    <div class="section">
+        <h2>System Status</h2>
+        <div class="status" id="status">
+            <!-- Status items will be populated by JavaScript -->
+        </div>
+        
+        <div>
+            <button onclick="initializeGame()">Initialize Game System</button>
+            <button onclick="runDataValidation()">Validate Data Integrity</button>
+            <button onclick="toggleDebug()">Toggle Debug Mode</button>
+            <button onclick="showGameStats()">Show Statistics</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Test Player</h2>
+        <div class="player-info" id="player-info">
+            <p>No player created yet</p>
+        </div>
+        
+        <div>
+            <button onclick="createTestPlayer()">Create Test Player</button>
+            <button onclick="moveToSpace()">Test Space Movement</button>
+            <button onclick="testDiceRoll()">Test Dice Roll</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Current Space Content</h2>
+        <div class="space-content" id="space-content">
+            <p>No space content loaded</p>
+        </div>
+        
+        <div class="movement-options" id="movement-options">
+            <!-- Movement buttons will appear here -->
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Effects Applied</h2>
+        <div class="effects" id="effects-log">
+            <p>No effects applied yet</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>System Log</h2>
+        <div class="log" id="system-log">
+            <p>System ready. Click "Initialize Game System" to begin.</p>
+        </div>
+    </div>
+
+    <!-- Error message display -->
+    <div class="error-message" id="error-message"></div>
+
+    <!-- Choice Modal -->
+    <div id="choice-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="choice-modal-title">Choose Your Move</h3>
+                <button class="modal-close" onclick="closeChoiceModal()">&times;</button>
+            </div>
+            <p id="choice-modal-description">Select where you want to move:</p>
+            <div class="modal-buttons" id="choice-modal-buttons">
+                <!-- Choice buttons will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game End Modal -->
+    <div id="game-end-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎉 Game Complete!</h3>
+            </div>
+            <div id="game-end-content">
+                <p>Congratulations! You have completed the game.</p>
+            </div>
+            <button onclick="closeGameEndModal()" class="choice-button">Start New Game</button>
+        </div>
+    </div>
+
+    <!-- Load game systems in correct order -->
+    <script src="js/data/CSVDatabase.js"></script>
+    <script src="js/data/GameStateManager.js"></script>
+    <script src="js/utils/CardUtils.js"></script>
+    <script src="js/utils/MovementEngine.js"></script>
+    <script src="js/utils/EffectsEngine.js"></script>
+    <script src="js/utils/ContentEngine.js"></script>
+    <script src="js/components/GameManager.js"></script>
+
+    <script>
+        // Global variables
+        let gameManager = null;
+        let testPlayer = null;
+        let debugMode = false;
+
+        // Initialize the game system
+        async function initializeGame() {
+            try {
+                logMessage('🚀 Initializing clean CSV game system...');
+                
+                gameManager = window.GameManager;
+                await gameManager.initialize();
+                
+                updateSystemStatus();
+                logMessage('✅ Game system initialized successfully!');
+                
+            } catch (error) {
+                logMessage(`❌ Initialization failed: ${error.message}`);
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Create a test player
+        function createTestPlayer() {
+            if (!gameManager || !gameManager.initialized) {
+                logMessage('❌ Game system not initialized');
+                return;
+            }
+
+            testPlayer = {
+                name: 'Test Player',
+                currentSpace: 'START-QUICK-PLAY-GUIDE',
+                visitedSpaces: [],
+                cards: { w: 2, b: 1, i: 0, l: 1, e: 3 },
+                money: 50000,
+                time: 5
+            };
+
+            gameManager.addPlayer(testPlayer);
+            updatePlayerInfo();
+            displayCurrentSpace();
+            logMessage(`👤 Created test player: ${testPlayer.name}`);
+        }
+
+        // Test space movement
+        async function moveToSpace(destination = null) {
+            if (!testPlayer) {
+                logMessage('❌ No test player available');
+                return;
+            }
+
+            try {
+                if (!destination) {
+                    // Use first available movement option
+                    const movement = gameManager.movementEngine.getAvailableMovements(
+                        testPlayer.currentSpace, 'First'
+                    );
+                    if (movement.destinations.length > 0) {
+                        destination = movement.destinations[0];
+                    } else {
+                        logMessage('❌ No movement destinations available');
+                        return;
+                    }
+                }
+
+                const result = await gameManager.processSpaceTurn(
+                    testPlayer, destination, 'First'
+                );
+
+                updatePlayerInfo();
+                displayCurrentSpace();
+                displayEffects(result.spaceEffects || []);
+                logMessage(`🚶 Moved to: ${destination}`);
+
+            } catch (error) {
+                logMessage(`❌ Movement failed: ${error.message}`);
+            }
+        }
+
+        // Test dice roll
+        async function testDiceRoll() {
+            if (!testPlayer) {
+                logMessage('❌ No test player available');
+                return;
+            }
+
+            try {
+                const diceRoll = Math.floor(Math.random() * 6) + 1;
+                const result = await gameManager.processDiceRoll(
+                    testPlayer, testPlayer.currentSpace, 'First', diceRoll
+                );
+
+                updatePlayerInfo();
+                displayCurrentSpace();
+                displayEffects(result.diceEffects || []);
+                logMessage(`🎲 Rolled ${diceRoll}, moved to: ${result.destination}`);
+
+            } catch (error) {
+                logMessage(`❌ Dice roll failed: ${error.message}`);
+            }
+        }
+
+        // Update system status display
+        function updateSystemStatus() {
+            const statusDiv = document.getElementById('status');
+            const status = gameManager ? gameManager.getStatus() : {
+                initialized: false,
+                databaseLoaded: false,
+                enginesReady: false,
+                playerCount: 0,
+                debug: false
+            };
+
+            statusDiv.innerHTML = `
+                <div class="status-item ${status.initialized ? 'success' : 'error'}">
+                    <strong>Game Manager</strong><br>
+                    ${status.initialized ? '✅ Initialized' : '❌ Not Initialized'}
+                </div>
+                <div class="status-item ${status.databaseLoaded ? 'success' : 'error'}">
+                    <strong>CSV Database</strong><br>
+                    ${status.databaseLoaded ? '✅ Loaded' : '❌ Not Loaded'}
+                </div>
+                <div class="status-item ${status.enginesReady ? 'success' : 'error'}">
+                    <strong>Game Engines</strong><br>
+                    ${status.enginesReady ? '✅ Ready' : '❌ Not Ready'}
+                </div>
+                <div class="status-item">
+                    <strong>Players</strong><br>
+                    ${status.playerCount} Active
+                </div>
+                <div class="status-item">
+                    <strong>Debug Mode</strong><br>
+                    ${status.debug ? '🔍 Enabled' : '🔇 Disabled'}
+                </div>
+            `;
+        }
+
+        // Update player info display
+        function updatePlayerInfo() {
+            const playerDiv = document.getElementById('player-info');
+            if (!testPlayer) {
+                playerDiv.innerHTML = '<p>No player created yet</p>';
+                return;
+            }
+
+            playerDiv.innerHTML = `
+                <h3>${testPlayer.name}</h3>
+                <p><strong>Current Space:</strong> ${testPlayer.currentSpace}</p>
+                <p><strong>Money:</strong> $${testPlayer.money?.toLocaleString() || 0}</p>
+                <p><strong>Time:</strong> ${testPlayer.time || 0} days</p>
+                <p><strong>Cards:</strong> 
+                    W:${testPlayer.cards?.w || 0} 
+                    B:${testPlayer.cards?.b || 0} 
+                    I:${testPlayer.cards?.i || 0} 
+                    L:${testPlayer.cards?.l || 0} 
+                    E:${testPlayer.cards?.e || 0}
+                </p>
+                <p><strong>Visited Spaces:</strong> ${testPlayer.visitedSpaces?.length || 0}</p>
+            `;
+        }
+
+        // Display current space content and movement options
+        function displayCurrentSpace() {
+            if (!testPlayer || !gameManager) return;
+
+            try {
+                const content = gameManager.contentEngine.getSpaceContent(
+                    testPlayer.currentSpace, 'First'
+                );
+                
+                const contentDiv = document.getElementById('space-content');
+                if (content) {
+                    contentDiv.innerHTML = `
+                        <h3>${content.title}</h3>
+                        <p><strong>Story:</strong> ${content.story}</p>
+                        <p><strong>Action:</strong> ${content.action_description}</p>
+                        <p><strong>Outcome:</strong> ${content.outcome_description}</p>
+                        <p><strong>Can Negotiate:</strong> ${content.can_negotiate}</p>
+                        ${content.can_negotiate === 'Yes' ? '<button class="negotiate-btn" onclick="handleNegotiation()">Negotiate</button>' : ''}
+                    `;
+                } else {
+                    contentDiv.innerHTML = '<p>No content available for current space</p>';
+                }
+
+                // Show movement options
+                const movement = gameManager.movementEngine.getAvailableMovements(
+                    testPlayer.currentSpace, 'First'
+                );
+                
+                const movementDiv = document.getElementById('movement-options');
+                if (movement.destinations.length > 1) {
+                    // Multiple destinations - show choice modal
+                    movementDiv.innerHTML = `<button onclick="showChoiceModal()">Choose Movement</button>`;
+                } else if (movement.destinations.length === 1) {
+                    // Single destination - direct button
+                    movementDiv.innerHTML = `<button onclick="moveToSpace('${movement.destinations[0]}')">${movement.destinations[0]}</button>`;
+                } else {
+                    movementDiv.innerHTML = '<p>No movement options available</p>';
+                }
+
+            } catch (error) {
+                showErrorMessage(`Error displaying space: ${error.message}`);
+            }
+        }
+
+        // Display applied effects
+        function displayEffects(effects) {
+            const effectsDiv = document.getElementById('effects-log');
+            if (!effects || effects.length === 0) {
+                effectsDiv.innerHTML = '<p>No effects applied</p>';
+                return;
+            }
+
+            effectsDiv.innerHTML = effects.map(effectData => {
+                const effect = effectData.effect || effectData;
+                const result = effectData.result || {};
+                return `
+                    <div style="margin: 5px 0; padding: 5px; background: #f0f8f0; border-radius: 3px;">
+                        <strong>${effect.effect_type}:</strong> ${effect.effect_action} 
+                        (${effect.effect_value}) - ${result.success ? '✅' : '❌'}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Run data validation
+        function runDataValidation() {
+            if (!gameManager) {
+                logMessage('❌ Game system not initialized');
+                return;
+            }
+
+            const validation = gameManager.validateDataIntegrity();
+            const allValid = Object.values(validation).every(result => result.valid);
+            
+            if (allValid) {
+                logMessage('✅ Data validation passed - all systems have valid data');
+            } else {
+                logMessage('⚠️ Data validation found issues - check console for details');
+                console.warn('Validation results:', validation);
+            }
+        }
+
+        // Toggle debug mode
+        function toggleDebug() {
+            if (!gameManager) {
+                logMessage('❌ Game system not initialized');
+                return;
+            }
+
+            debugMode = !debugMode;
+            if (debugMode) {
+                gameManager.enableDebug();
+                logMessage('🔍 Debug mode enabled');
+            } else {
+                gameManager.disableDebug();
+                logMessage('🔇 Debug mode disabled');
+            }
+            
+            updateSystemStatus();
+        }
+
+        // Show game statistics
+        function showGameStats() {
+            if (!gameManager) {
+                logMessage('❌ Game system not initialized');
+                return;
+            }
+
+            const stats = gameManager.getGameStats();
+            logMessage('📊 Game Statistics:');
+            logMessage(`  Database: ${JSON.stringify(stats.database.dataCount)}`);
+            logMessage(`  Game State: ${JSON.stringify(stats.gameState)}`);
+            console.log('Full stats:', stats);
+        }
+
+        // Log message to system log
+        function logMessage(message) {
+            const logDiv = document.getElementById('system-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<br>[${timestamp}] ${message}`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Choice Modal Functions
+        function showChoiceModal() {
+            if (!testPlayer || !gameManager) {
+                showErrorMessage('Game system not ready');
+                return;
+            }
+
+            const movement = gameManager.movementEngine.getAvailableMovements(
+                testPlayer.currentSpace, 'First'
+            );
+
+            if (movement.destinations.length <= 1) {
+                showErrorMessage('No multiple choices available');
+                return;
+            }
+
+            const modal = document.getElementById('choice-modal');
+            const buttonsDiv = document.getElementById('choice-modal-buttons');
+            
+            buttonsDiv.innerHTML = movement.destinations.map(dest => 
+                `<button class="choice-button" onclick="makeChoice('${dest}')">${dest}</button>`
+            ).join('');
+
+            modal.style.display = 'block';
+        }
+
+        function closeChoiceModal() {
+            document.getElementById('choice-modal').style.display = 'none';
+        }
+
+        function makeChoice(destination) {
+            closeChoiceModal();
+            moveToSpace(destination);
+        }
+
+        // Error Display Functions
+        function showErrorMessage(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+            
+            logMessage(`❌ ${message}`);
+        }
+
+        // Game End Functions
+        function showGameEndScreen(playerStats = null) {
+            const modal = document.getElementById('game-end-modal');
+            const contentDiv = document.getElementById('game-end-content');
+            
+            if (playerStats) {
+                contentDiv.innerHTML = `
+                    <p>🎉 Congratulations! You have completed the game.</p>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <h4>Final Stats:</h4>
+                        <p><strong>Money:</strong> $${playerStats.money?.toLocaleString() || 0}</p>
+                        <p><strong>Time:</strong> ${playerStats.time || 0} days</p>
+                        <p><strong>Cards:</strong> W:${playerStats.cards?.w || 0} B:${playerStats.cards?.b || 0} I:${playerStats.cards?.i || 0} L:${playerStats.cards?.l || 0} E:${playerStats.cards?.e || 0}</p>
+                        <p><strong>Spaces Visited:</strong> ${playerStats.visitedSpaces?.length || 0}</p>
+                    </div>
+                `;
+            }
+            
+            modal.style.display = 'block';
+            logMessage('🎉 Game completed!');
+        }
+
+        function closeGameEndModal() {
+            document.getElementById('game-end-modal').style.display = 'none';
+            // Reset game
+            testPlayer = null;
+            updatePlayerInfo();
+            updateSystemStatus();
+        }
+
+        // Negotiation Handler
+        function handleNegotiation() {
+            if (!testPlayer) {
+                showErrorMessage('No player available for negotiation');
+                return;
+            }
+
+            // Simple negotiation simulation
+            const negotiationSuccess = Math.random() > 0.5;
+            
+            if (negotiationSuccess) {
+                // Apply negotiation bonus
+                testPlayer.money += 10000;
+                updatePlayerInfo();
+                logMessage('💰 Negotiation successful! Gained $10,000');
+                showSuccessMessage('Negotiation successful! You gained $10,000');
+            } else {
+                logMessage('💸 Negotiation failed. No bonus received.');
+                showErrorMessage('Negotiation failed. Better luck next time!');
+            }
+        }
+
+        // Success message helper
+        function showSuccessMessage(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'error-message';
+            successDiv.style.background = '#d4edda';
+            successDiv.style.color = '#155724';
+            successDiv.style.borderLeftColor = '#28a745';
+            successDiv.style.display = 'block';
+            successDiv.textContent = message;
+            
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                document.body.removeChild(successDiv);
+            }, 3000);
+        }
+
+        // Check for game end condition
+        function checkGameEnd() {
+            if (!testPlayer || !gameManager) return;
+            
+            const config = gameManager.contentEngine.getGameConfig(testPlayer.currentSpace);
+            if (config && config.is_ending_space === 'Yes') {
+                showGameEndScreen(testPlayer);
+            }
+        }
+
+        // Override moveToSpace to check for game end
+        const originalMoveToSpace = moveToSpace;
+        moveToSpace = async function(destination = null) {
+            await originalMoveToSpace(destination);
+            checkGameEnd();
+        };
+
+        // Initialize status display on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSystemStatus();
+            logMessage('📄 Clean CSV Architecture Test Page Loaded');
+            logMessage('👉 Click "Initialize Game System" to start testing');
+        });
+    </script>
+</body>
+</html>
