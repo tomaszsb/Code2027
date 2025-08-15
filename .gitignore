@@ -13,6 +13,9 @@ yarn-error.log*
 # Test reports
 /coverage
 
+# Vite
+.vite
+
 # Environment variables
 .env
 .env.local
