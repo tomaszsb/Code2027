@@ -10,14 +10,49 @@ import {
 export class StateService implements IStateService {
   private currentState: GameState;
   private readonly dataService: IDataService;
+  private listeners: Array<(state: GameState) => void> = [];
 
   constructor(dataService: IDataService) {
     this.dataService = dataService;
     this.currentState = this.createInitialState();
   }
 
+  // Subscription methods
+  subscribe(callback: (state: GameState) => void): () => void {
+    this.listeners.push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.listeners.indexOf(callback);
+      if (index > -1) {
+        this.listeners.splice(index, 1);
+      }
+    };
+  }
+
+  private notifyListeners(): void {
+    const currentStateSnapshot = this.getGameState();
+    this.listeners.forEach(callback => {
+      try {
+        callback(currentStateSnapshot);
+      } catch (error) {
+        console.error('Error in state change listener:', error);
+      }
+    });
+  }
+
   // State access methods
   getGameState(): GameState {
+    // Optimized: return a shallow copy for most properties, 
+    // deep clone only when necessary (not on every subscription notification)
+    return {
+      ...this.currentState,
+      players: this.currentState.players // Return direct reference for performance
+    };
+  }
+
+  // Method for when deep cloning is actually needed
+  getGameStateDeepCopy(): GameState {
     return {
       ...this.currentState,
       players: this.currentState.players.map(player => ({ ...player, cards: { ...player.cards } }))
@@ -46,6 +81,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -69,8 +105,11 @@ export class StateService implements IStateService {
       } : currentPlayer.cards
     };
 
-    const newPlayers = [...this.currentState.players];
+    let newPlayers = [...this.currentState.players];
     newPlayers[playerIndex] = updatedPlayer;
+
+    // Handle avatar/color conflicts intelligently
+    newPlayers = this.resolveConflicts(newPlayers);
 
     const newState: GameState = {
       ...this.currentState,
@@ -78,6 +117,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -105,6 +145,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -130,6 +171,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -148,6 +190,7 @@ export class StateService implements IStateService {
     }
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -158,6 +201,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -179,12 +223,14 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
   // Game lifecycle methods
   initializeGame(): GameState {
     this.currentState = this.createInitialState();
+    this.notifyListeners();
     return { ...this.currentState };
   }
 
@@ -201,6 +247,7 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
@@ -213,11 +260,13 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
+    this.notifyListeners();
     return { ...newState };
   }
 
   resetGame(): GameState {
     this.currentState = this.createInitialState();
+    this.notifyListeners();
     return { ...this.currentState };
   }
 
@@ -276,6 +325,8 @@ export class StateService implements IStateService {
 
   private createNewPlayer(name: string): Player {
     const startingSpace = this.getStartingSpace();
+    const defaultColor = this.getNextAvailableColor();
+    const defaultAvatar = this.getNextAvailableAvatar();
     
     return {
       id: this.generatePlayerId(),
@@ -284,6 +335,8 @@ export class StateService implements IStateService {
       visitType: 'First',
       money: 0,
       time: 0,
+      color: defaultColor,
+      avatar: defaultAvatar,
       cards: {
         W: [],
         B: [],
@@ -308,5 +361,65 @@ export class StateService implements IStateService {
     }
     
     return 'START-QUICK-PLAY-GUIDE';
+  }
+
+  private getNextAvailableColor(): string {
+    const availableColors = [
+      '#007bff', '#28a745', '#dc3545', '#fd7e14', 
+      '#6f42c1', '#e83e8c', '#20c997', '#ffc107'
+    ];
+    const usedColors = this.currentState.players.map(p => p.color).filter(Boolean);
+    const available = availableColors.filter(color => !usedColors.includes(color));
+    return available.length > 0 ? available[0] : availableColors[0];
+  }
+
+  private getNextAvailableAvatar(): string {
+    const availableAvatars = [
+      '👤', '👨‍💼', '👩‍💼', '👨‍🔧', '👩‍🔧', 
+      '👨‍💻', '👩‍💻', '🧑‍🎨', '👨‍🏫', '👩‍🏫'
+    ];
+    const usedAvatars = this.currentState.players.map(p => p.avatar).filter(Boolean);
+    const available = availableAvatars.filter(avatar => !usedAvatars.includes(avatar));
+    return available.length > 0 ? available[0] : availableAvatars[0];
+  }
+
+  private resolveConflicts(players: Player[]): Player[] {
+    const availableColors = [
+      '#007bff', '#28a745', '#dc3545', '#fd7e14', 
+      '#6f42c1', '#e83e8c', '#20c997', '#ffc107'
+    ];
+    const availableAvatars = [
+      '👤', '👨‍💼', '👩‍💼', '👨‍🔧', '👩‍🔧', 
+      '👨‍💻', '👩‍💻', '🧑‍🎨', '👨‍🏫', '👩‍🏫'
+    ];
+
+    const result = [...players];
+    const usedColors = new Set<string>();
+    const usedAvatars = new Set<string>();
+
+    // First pass: collect unique colors and avatars, resolve conflicts
+    for (let i = 0; i < result.length; i++) {
+      const player = result[i];
+      
+      // Handle color conflicts
+      if (player.color && usedColors.has(player.color)) {
+        // Find next available color
+        const availableColor = availableColors.find(color => !usedColors.has(color));
+        result[i] = { ...player, color: availableColor || availableColors[i % availableColors.length] };
+      } else if (player.color) {
+        usedColors.add(player.color);
+      }
+
+      // Handle avatar conflicts
+      if (player.avatar && usedAvatars.has(player.avatar)) {
+        // Find next available avatar
+        const availableAvatar = availableAvatars.find(avatar => !usedAvatars.has(avatar));
+        result[i] = { ...result[i], avatar: availableAvatar || availableAvatars[i % availableAvatars.length] };
+      } else if (player.avatar) {
+        usedAvatars.add(player.avatar);
+      }
+    }
+
+    return result;
   }
 }

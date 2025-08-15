@@ -81,6 +81,8 @@ export interface Player {
   visitType: 'First' | 'Subsequent';
   money: number;
   time: number;
+  color?: string;
+  avatar?: string;
   cards: {
     W: string[];
     B: string[];

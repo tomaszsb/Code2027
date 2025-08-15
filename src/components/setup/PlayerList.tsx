@@ -1,13 +1,14 @@
 // src/components/setup/PlayerList.tsx
 
 import React from 'react';
-import { Player, ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
+import { Player } from '../../types/StateTypes';
+import { ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
 
 interface PlayerListProps {
   players: Player[];
-  onUpdatePlayer: (playerId: number, property: string, value: string) => void;
-  onRemovePlayer: (playerId: number) => void;
-  onCycleAvatar: (playerId: number) => void;
+  onUpdatePlayer: (playerId: string, property: string, value: string) => void;
+  onRemovePlayer: (playerId: string) => void;
+  onCycleAvatar: (playerId: string) => void;
   canRemovePlayer: boolean;
 }
 

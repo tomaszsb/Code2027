@@ -1,14 +1,31 @@
 // src/components/layout/GameLayout.tsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CardModal } from '../modals/CardModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
+import { useGameContext } from '../../context/GameContext';
+import { GamePhase } from '../../types/StateTypes';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
  * This provides the main grid-based layout for the game application.
  */
 export function GameLayout(): JSX.Element {
+  const { stateService } = useGameContext();
+  const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
+
+  // Subscribe to game state changes to track phase transitions
+  useEffect(() => {
+    const unsubscribe = stateService.subscribe((gameState) => {
+      setGamePhase(gameState.gamePhase);
+    });
+    
+    // Initialize with current phase
+    setGamePhase(stateService.getGameState().gamePhase);
+    
+    return unsubscribe;
+  }, [stateService]);
+
   return (
     <div 
       className="game-interface"
@@ -116,13 +133,35 @@ export function GameLayout(): JSX.Element {
         </div>
       </div>
 
-      {/* Player Setup - positioned over the layout for visual verification */}
-      <PlayerSetup
-        onStartGame={(players, settings) => {
-          console.log('Starting game with players:', players);
-          console.log('Game settings:', settings);
-        }}
-      />
+      {/* Conditional rendering based on game phase */}
+      {gamePhase === 'SETUP' && (
+        <PlayerSetup
+          onStartGame={(players, settings) => {
+            console.log('Starting game with players:', players);
+            console.log('Game settings:', settings);
+          }}
+        />
+      )}
+      
+      {gamePhase === 'PLAY' && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(255, 255, 255, 0.95)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '2rem',
+          color: '#2c5530',
+          fontWeight: 'bold',
+          zIndex: 1000
+        }}>
+          🎮 Game in Progress
+        </div>
+      )}
     </div>
   );
 }

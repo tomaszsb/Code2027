@@ -1,9 +1,11 @@
 // src/components/setup/PlayerSetup.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlayerForm } from './PlayerForm';
 import { PlayerList } from './PlayerList';
-import { usePlayerValidation, Player, GameSettings } from './usePlayerValidation';
+import { usePlayerValidation, GameSettings } from './usePlayerValidation';
+import { useGameContext } from '../../context/GameContext';
+import { Player } from '../../types/StateTypes';
 
 interface PlayerSetupProps {
   onStartGame?: (players: Player[], settings: GameSettings) => void;
@@ -17,15 +19,23 @@ export function PlayerSetup({
   onStartGame = (players, settings) => console.log('Start game:', players, settings) 
 }: PlayerSetupProps): JSX.Element {
   
-  // Player state
-  const [players, setPlayers] = useState<Player[]>([
-    { 
-      id: 1, 
-      name: 'Player 1', 
-      color: '#007bff',
-      avatar: '👤'
-    }
-  ]);
+  // Get services from context
+  const { stateService, gameRulesService } = useGameContext();
+  
+  // Get players from StateService instead of local state
+  const [players, setPlayers] = useState<Player[]>([]);
+  
+  // Subscribe to state changes
+  useEffect(() => {
+    const unsubscribe = stateService.subscribe((gameState) => {
+      setPlayers(gameState.players);
+    });
+    
+    // Initialize with current state
+    setPlayers(stateService.getGameState().players);
+    
+    return unsubscribe;
+  }, [stateService]);
 
   // Game settings state
   const [gameSettings, setGameSettings] = useState<GameSettings>({
@@ -36,8 +46,8 @@ export function PlayerSetup({
 
   const [isStarting, setIsStarting] = useState(false);
 
-  // Use validation hook
-  const validation = usePlayerValidation(players, gameSettings);
+  // Use validation hook with services
+  const validation = usePlayerValidation(players, gameSettings, stateService, gameRulesService);
 
   /**
    * Add a new player
@@ -51,73 +61,48 @@ export function PlayerSetup({
       return;
     }
 
-    const nextColor = validation.getNextAvailableColor();
-    const nextAvatar = validation.getNextAvailableAvatar();
-
-    if (!nextColor || !nextAvatar) {
-      alert('Cannot add player: No available colors or avatars');
-      return;
+    try {
+      const playerName = `Player ${players.length + 1}`;
+      stateService.addPlayer(playerName);
+    } catch (error) {
+      alert(`Failed to add player: ${error.message}`);
     }
-
-    setPlayers(currentPlayers => [
-      ...currentPlayers,
-      {
-        id: Date.now(),
-        name: `Player ${currentPlayers.length + 1}`,
-        color: nextColor,
-        avatar: nextAvatar
-      }
-    ]);
   };
 
   /**
    * Remove a player
    */
-  const handleRemovePlayer = (playerId: number) => {
+  const handleRemovePlayer = (playerId: string) => {
     if (!validation.canRemovePlayer) {
       alert('Cannot remove player: Must have at least one player');
       return;
     }
 
-    setPlayers(currentPlayers => 
-      currentPlayers.filter(p => p.id !== playerId)
-    );
+    try {
+      stateService.removePlayer(playerId);
+    } catch (error) {
+      alert(`Failed to remove player: ${error.message}`);
+    }
   };
 
   /**
    * Update a player property
    */
-  const handleUpdatePlayer = (playerId: number, property: string, value: string) => {
-    // Special handling for color and avatar validation
-    if (property === 'color') {
-      const colorValidation = validation.validateColorChoice(playerId, value);
-      if (!colorValidation.isValid && colorValidation.errorMessage) {
-        alert(colorValidation.errorMessage);
-        return;
-      }
+  const handleUpdatePlayer = (playerId: string, property: string, value: string) => {
+    // Remove validation - let StateService handle conflicts gracefully
+    // Users should be able to select any color/avatar without getting errors
+    
+    try {
+      stateService.updatePlayer({ id: playerId, [property]: value });
+    } catch (error) {
+      alert(`Failed to update player: ${error.message}`);
     }
-
-    if (property === 'avatar') {
-      const avatarValidation = validation.validateAvatarChoice(playerId, value);
-      if (!avatarValidation.isValid && avatarValidation.errorMessage) {
-        alert(avatarValidation.errorMessage);
-        return;
-      }
-    }
-
-    setPlayers(currentPlayers =>
-      currentPlayers.map(player =>
-        player.id === playerId
-          ? { ...player, [property]: value }
-          : player
-      )
-    );
   };
 
   /**
    * Cycle through avatars for a player
    */
-  const handleCycleAvatar = (playerId: number) => {
+  const handleCycleAvatar = (playerId: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
@@ -138,7 +123,8 @@ export function PlayerSetup({
     setIsStarting(true);
     
     try {
-      // Filter out players with empty names
+      stateService.startGame();
+      // Filter out players with empty names for the callback
       const validPlayers = players.filter(p => p.name.trim());
       await onStartGame(validPlayers, gameSettings);
     } catch (error) {
@@ -170,12 +156,17 @@ export function PlayerSetup({
 
   return (
     <div style={{
-      minHeight: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem'
+      padding: '2rem',
+      zIndex: 1000
     }}>
       <div style={{
         background: 'white',

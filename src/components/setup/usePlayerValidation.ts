@@ -1,16 +1,8 @@
 // src/components/setup/usePlayerValidation.ts
 
 import { useMemo } from 'react';
-
-/**
- * Player interface based on the legacy component structure
- */
-export interface Player {
-  id: number;
-  name: string;
-  color: string;
-  avatar: string;
-}
+import { Player } from '../../types/StateTypes';
+import { IStateService, IGameRulesService } from '../../types/ServiceContracts';
 
 /**
  * Color option interface
@@ -62,13 +54,21 @@ export interface GameSettings {
 /**
  * Custom hook for player validation logic
  * Encapsulates all validation rules from the legacy component
+ * Now uses services for validation instead of local logic
  */
-export function usePlayerValidation(players: Player[], gameSettings: GameSettings) {
+export function usePlayerValidation(
+  players: Player[], 
+  gameSettings: GameSettings,
+  stateService: IStateService,
+  gameRulesService: IGameRulesService
+) {
   
   /**
    * Check if we can add more players
    */
   const canAddPlayer = useMemo(() => {
+    // Remove the stateService call that was causing infinite re-renders
+    // The gamePhase check should be handled at the component level, not in validation
     return players.length < gameSettings.maxPlayers;
   }, [players.length, gameSettings.maxPlayers]);
 
@@ -98,7 +98,7 @@ export function usePlayerValidation(players: Player[], gameSettings: GameSetting
   /**
    * Validate if a color can be used by a specific player
    */
-  const validateColorChoice = (playerId: number, color: string): ValidationResult => {
+  const validateColorChoice = (playerId: string, color: string): ValidationResult => {
     const isUsedByOtherPlayer = players.some(p => p.id !== playerId && p.color === color);
     
     if (isUsedByOtherPlayer) {
@@ -116,7 +116,7 @@ export function usePlayerValidation(players: Player[], gameSettings: GameSetting
   /**
    * Validate if an avatar can be used by a specific player
    */
-  const validateAvatarChoice = (playerId: number, avatar: string): ValidationResult => {
+  const validateAvatarChoice = (playerId: string, avatar: string): ValidationResult => {
     const isUsedByOtherPlayer = players.some(p => p.id !== playerId && p.avatar === avatar);
     
     if (isUsedByOtherPlayer) {
@@ -140,22 +140,18 @@ export function usePlayerValidation(players: Player[], gameSettings: GameSetting
       };
     }
 
-    if (availableColors.length === 0) {
-      return {
-        isValid: false,
-        errorMessage: `Cannot add more players. All ${AVAILABLE_COLORS.length} available colors are already in use.`
-      };
-    }
-
-    if (availableAvatars.length === 0) {
-      return {
-        isValid: false,
-        errorMessage: `Cannot add more players. All ${AVAILABLE_AVATARS.length} available avatars are already in use.`
-      };
-    }
-
+    // Remove the strict avatar/color validation since StateService handles assignment gracefully
+    // The StateService will automatically assign available colors/avatars or reuse them if needed
+    
     return { isValid: true };
   };
+
+  /**
+   * Cache StateService validation to avoid calling it on every render
+   */
+  const canStartGame = useMemo(() => {
+    return stateService.canStartGame();
+  }, [players.length, stateService]);
 
   /**
    * Validate if players can start the game
@@ -167,6 +163,14 @@ export function usePlayerValidation(players: Player[], gameSettings: GameSetting
       return {
         isValid: false,
         errorMessage: 'Please add at least one player with a valid name.'
+      };
+    }
+
+    // Use cached StateService validation
+    if (!canStartGame) {
+      return {
+        isValid: false,
+        errorMessage: 'Game cannot be started. Check player requirements.'
       };
     }
 
