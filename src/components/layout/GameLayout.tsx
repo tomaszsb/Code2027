@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { CardModal } from '../modals/CardModal';
+import { PlayerSetup } from '../setup/PlayerSetup';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
@@ -115,13 +116,12 @@ export function GameLayout(): JSX.Element {
         </div>
       </div>
 
-      {/* Card Modal - positioned over the layout for visual verification */}
-      <CardModal
-        isVisible={true}
-        title="Sample Card Modal"
-        canPlay={true}
-        onPlay={() => console.log('Sample card played')}
-        onClose={() => console.log('Sample modal closed')}
+      {/* Player Setup - positioned over the layout for visual verification */}
+      <PlayerSetup
+        onStartGame={(players, settings) => {
+          console.log('Starting game with players:', players);
+          console.log('Game settings:', settings);
+        }}
       />
     </div>
   );
