@@ -4,11 +4,14 @@ import React, { ReactNode } from 'react';
 import { GameContext } from './GameContext';
 import { IServiceContainer } from '../types/ServiceContracts';
 
-// --- Service Imports (will be implemented in Week 2-3) ---
-// import { DataService } from '../services/DataService';
-// import { StateService } from '../services/StateService';
-// import { TurnService } from '../services/TurnService';
-// ... etc.
+// --- Service Imports ---
+import { DataService } from '../services/DataService';
+import { StateService } from '../services/StateService';
+import { TurnService } from '../services/TurnService';
+import { CardService } from '../services/CardService';
+import { MovementService } from '../services/MovementService';
+import { GameRulesService } from '../services/GameRulesService';
+// ... etc. (other services will be implemented in future phases)
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -24,19 +27,22 @@ interface ServiceProviderProps {
  * @returns {JSX.Element} The provider component.
  */
 export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element => {
-  // In Week 2-3, we will instantiate the actual services here.
-  // For now, we use placeholder objects that match the service contracts.
+  // Instantiate services - Phase 1: Core services implemented
+  const dataService = new DataService();
+  const stateService = new StateService(dataService);
+  const turnService = new TurnService(dataService, stateService);
+  const cardService = new CardService(dataService, stateService);
+  const movementService = new MovementService(dataService, stateService);
+  const gameRulesService = new GameRulesService(dataService, stateService);
+  
   const services: IServiceContainer = {
-    // Example: dataService: new DataService(),
-    // Example: stateService: new StateService(),
-    // ...
-    dataService: {} as any, // Placeholder
-    stateService: {} as any, // Placeholder
-    turnService: {} as any, // Placeholder
-    cardService: {} as any, // Placeholder
-    playerActionService: {} as any, // Placeholder
-    movementService: {} as any, // Placeholder
-    gameRulesService: {} as any, // Placeholder
+    dataService,
+    stateService,
+    turnService,
+    cardService,
+    movementService,
+    gameRulesService,
+    playerActionService: {} as any, // Placeholder - to be implemented in future phases
   };
 
   return (
