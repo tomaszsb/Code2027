@@ -1,6 +1,7 @@
 // src/components/layout/GameLayout.tsx
 
 import React from 'react';
+import { CardModal } from '../modals/CardModal';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
@@ -113,6 +114,15 @@ export function GameLayout(): JSX.Element {
           Turn controls will be displayed here
         </div>
       </div>
+
+      {/* Card Modal - positioned over the layout for visual verification */}
+      <CardModal
+        isVisible={true}
+        title="Sample Card Modal"
+        canPlay={true}
+        onPlay={() => console.log('Sample card played')}
+        onClose={() => console.log('Sample modal closed')}
+      />
     </div>
   );
 }
