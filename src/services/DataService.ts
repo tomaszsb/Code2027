@@ -20,28 +20,38 @@ export class DataService implements IDataService {
   private spaceContents: SpaceContent[] = [];
   private spaces: Space[] = [];
   private loaded = false;
+  private loadingPromise: Promise<void> | null = null;
 
   constructor() {}
 
   async loadData(): Promise<void> {
+    if (this.loadingPromise) {
+      return this.loadingPromise;
+    }
+
     if (this.loaded) return;
 
-    try {
-      await Promise.all([
-        this.loadGameConfig(),
-        this.loadMovements(),
-        this.loadDiceOutcomes(),
-        this.loadSpaceEffects(),
-        this.loadDiceEffects(),
-        this.loadSpaceContents()
-      ]);
+    this.loadingPromise = (async () => {
+      try {
+        await Promise.all([
+          this.loadGameConfig(),
+          this.loadMovements(),
+          this.loadDiceOutcomes(),
+          this.loadSpaceEffects(),
+          this.loadDiceEffects(),
+          this.loadSpaceContents()
+        ]);
 
-      this.buildSpaces();
-      this.loaded = true;
-    } catch (error) {
-      console.error('Error loading CSV data:', error);
-      throw new Error('Failed to load game data');
-    }
+        this.buildSpaces();
+        this.loaded = true;
+      } catch (error) {
+        console.error('Error loading CSV data:', error);
+        this.loadingPromise = null; // Reset on error so it can be retried
+        throw new Error('Failed to load game data');
+      }
+    })();
+
+    return this.loadingPromise;
   }
 
   isLoaded(): boolean {

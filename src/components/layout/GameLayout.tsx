@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CardModal } from '../modals/CardModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
+import { GameBoard } from '../game/GameBoard';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase } from '../../types/StateTypes';
 
@@ -72,32 +73,44 @@ export function GameLayout(): JSX.Element {
           background: '#fff',
           border: '3px solid #4285f4',
           borderRadius: '8px',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center'
+          padding: '0',
+          overflow: 'hidden'
         }}
       >
-        <h2 style={{ color: '#4285f4' }}>🎯 Game Board</h2>
-        <div style={{ padding: '20px', textAlign: 'center' }}>
+        {gamePhase === 'PLAY' ? (
+          <GameBoard />
+        ) : (
           <div 
             style={{
-              background: '#e3f2fd',
-              border: '3px solid #2196f3',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '20px'
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              padding: '20px'
             }}
           >
-            <h3 style={{ margin: '0 0 10px 0', color: '#1976d2' }}>
-              Current Space
-            </h3>
-            <p style={{ margin: '0', color: '#666' }}>
-              Game board will be displayed here
-            </p>
+            <h2 style={{ color: '#4285f4' }}>🎯 Game Board</h2>
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <div 
+                style={{
+                  background: '#e3f2fd',
+                  border: '3px solid #2196f3',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '20px'
+                }}
+              >
+                <h3 style={{ margin: '0 0 10px 0', color: '#1976d2' }}>
+                  Current Space
+                </h3>
+                <p style={{ margin: '0', color: '#666' }}>
+                  Game board will be displayed here
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Right Panel - Empty (Actions moved to current player) */}

@@ -4,11 +4,13 @@
 # Build artifacts
 /build
 /dist
+/public
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
 # Test reports
 /coverage
