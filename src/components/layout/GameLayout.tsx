@@ -5,6 +5,7 @@ import { CardModal } from '../modals/CardModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { GameBoard } from '../game/GameBoard';
+import { TurnControls } from '../game/TurnControls';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase } from '../../types/StateTypes';
 
@@ -143,20 +144,11 @@ export function GameLayout(): JSX.Element {
         style={{
           gridColumn: '1 / -1',
           gridRow: '2',
-          background: '#f8f9fa',
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          padding: '15px',
-          minHeight: '80px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          padding: '0',
+          minHeight: '80px'
         }}
       >
-        <h3 style={{ margin: 0, color: '#666' }}>🎲 Turn Controls</h3>
-        <div style={{ marginLeft: '20px', color: '#666' }}>
-          Turn controls will be displayed here
-        </div>
+        <TurnControls />
       </div>
 
       {/* Conditional rendering based on game phase */}
