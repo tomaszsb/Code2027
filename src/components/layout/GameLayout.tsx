@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CardModal } from '../modals/CardModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
+import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase } from '../../types/StateTypes';
 
@@ -48,13 +49,19 @@ export function GameLayout(): JSX.Element {
           background: '#f5f5f5',
           border: '2px solid #ddd',
           borderRadius: '8px',
-          padding: '15px'
+          padding: gamePhase === 'PLAY' ? '0' : '15px'
         }}
       >
-        <h3>👤 Player Status</h3>
-        <div style={{ color: '#666' }}>
-          Player information will be displayed here
-        </div>
+        {gamePhase === 'PLAY' ? (
+          <PlayerStatusPanel />
+        ) : (
+          <>
+            <h3>👤 Player Status</h3>
+            <div style={{ color: '#666' }}>
+              Player information will be displayed here
+            </div>
+          </>
+        )}
       </div>
 
       {/* Center Panel - Game Board */}
@@ -93,46 +100,27 @@ export function GameLayout(): JSX.Element {
         </div>
       </div>
 
-      {/* Right Panel - Game Actions */}
+      {/* Right Panel - Empty (Actions moved to current player) */}
       <div 
         style={{
           gridColumn: '3',
           gridRow: '1',
-          background: '#fff4e6',
-          border: '2px solid #ff9800',
+          background: '#f8f9fa',
+          border: '2px solid #e9ecef',
           borderRadius: '8px',
-          padding: '15px'
+          padding: '15px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#6c757d'
         }}
       >
-        <h3>🎮 Game Actions</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button
-            onClick={() => stateService.showCardModal('W001')}
-            style={{
-              background: 'linear-gradient(45deg, #007bff, #0056b3)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 16px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 2px 8px rgba(0, 123, 255, 0.3)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 123, 255, 0.3)';
-            }}
-          >
-            🃏 Show Test Card
-          </button>
-          <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
-            Test the card modal functionality
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '10px', opacity: 0.5 }}>
+            📋
+          </div>
+          <div style={{ fontSize: '1rem' }}>
+            Additional UI elements will be placed here
           </div>
         </div>
       </div>
@@ -170,25 +158,6 @@ export function GameLayout(): JSX.Element {
         />
       )}
       
-      {gamePhase === 'PLAY' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'rgba(255, 255, 255, 0.95)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '2rem',
-          color: '#2c5530',
-          fontWeight: 'bold',
-          zIndex: 1000
-        }}>
-          🎮 Game in Progress
-        </div>
-      )}
 
       {/* CardModal - always rendered, visibility controlled by state */}
       <CardModal />
