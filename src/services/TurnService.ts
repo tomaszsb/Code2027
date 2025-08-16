@@ -1,4 +1,4 @@
-import { ITurnService, IDataService, IStateService } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { DiceEffect } from '../types/DataTypes';
 
@@ -11,7 +11,7 @@ export class TurnService implements ITurnService {
     this.stateService = stateService;
   }
 
-  takeTurn(playerId: string): GameState {
+  takeTurn(playerId: string): TurnResult {
     // Validation: Check if it's the player's turn
     if (!this.canPlayerTakeTurn(playerId)) {
       throw new Error(`It is not player ${playerId}'s turn`);
@@ -33,7 +33,10 @@ export class TurnService implements ITurnService {
     const advancedState = this.stateService.advanceTurn();
     const nextPlayerState = this.stateService.nextPlayer();
 
-    return nextPlayerState;
+    return {
+      newState: nextPlayerState,
+      diceRoll: diceRoll
+    };
   }
 
   rollDice(): number {

@@ -9,6 +9,7 @@ export function TurnControls(): JSX.Element {
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
   const [humanPlayerId, setHumanPlayerId] = useState<string | null>(null);
+  const [lastRoll, setLastRoll] = useState<number | null>(null);
 
   // Subscribe to state changes for live updates
   useEffect(() => {
@@ -45,6 +46,34 @@ export function TurnControls(): JSX.Element {
     return unsubscribe;
   }, [stateService, humanPlayerId]);
 
+  // Handle automatic AI turns
+  useEffect(() => {
+    if (gamePhase === 'PLAY' && currentPlayer && currentPlayer.id !== humanPlayerId && !isProcessingTurn) {
+      console.log(`AI player ${currentPlayer.name} taking turn...`);
+      
+      // Add delay to make AI turns feel natural
+      const aiTurnTimer = setTimeout(() => {
+        try {
+          setIsProcessingTurn(true);
+          const result = turnService.takeTurn(currentPlayer.id);
+          setLastRoll(result.diceRoll);
+          console.log(`AI player ${currentPlayer.name} rolled a ${result.diceRoll}`);
+          
+          // Clear the dice roll display after 2 seconds for AI players
+          setTimeout(() => {
+            setLastRoll(null);
+          }, 2000);
+        } catch (error) {
+          console.error('Error during AI turn:', error);
+        } finally {
+          setIsProcessingTurn(false);
+        }
+      }, 1500); // 1.5 second delay for AI turns
+      
+      return () => clearTimeout(aiTurnTimer);
+    }
+  }, [currentPlayer, gamePhase, humanPlayerId, isProcessingTurn, turnService]);
+
   const handleRollDice = async () => {
     if (!currentPlayer || isProcessingTurn) return;
 
@@ -52,8 +81,14 @@ export function TurnControls(): JSX.Element {
       setIsProcessingTurn(true);
       console.log(`Rolling dice for player: ${currentPlayer.name}`);
       
-      const updatedState = turnService.takeTurn(currentPlayer.id);
-      console.log('Turn completed, updated state:', updatedState);
+      const result = turnService.takeTurn(currentPlayer.id);
+      setLastRoll(result.diceRoll);
+      console.log(`Turn completed! ${currentPlayer.name} rolled a ${result.diceRoll}`);
+      
+      // Clear the dice roll display after 3 seconds
+      setTimeout(() => {
+        setLastRoll(null);
+      }, 3000);
     } catch (error) {
       console.error('Error taking turn:', error);
     } finally {
@@ -139,11 +174,33 @@ export function TurnControls(): JSX.Element {
         )}
       </div>
 
-      {/* Roll Dice Button */}
+      {/* Roll Dice Button and Result */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
         {isHumanPlayerTurn && (
           <div style={{ fontSize: '14px', color: '#28a745', fontWeight: 'bold' }}>
             Your Turn!
+          </div>
+        )}
+        
+        {/* Dice Roll Result Display */}
+        {lastRoll !== null && (
+          <div 
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#fff3cd',
+              border: '2px solid #ffc107',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              color: '#856404',
+              animation: 'fadeIn 0.3s ease-in'
+            }}
+          >
+            {isHumanPlayerTurn ? (
+              <>🎲 You rolled a {lastRoll}!</>
+            ) : (
+              <>🎲 {currentPlayer?.name} rolled a {lastRoll}!</>
+            )}
           </div>
         )}
         

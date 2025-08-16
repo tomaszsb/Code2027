@@ -172,7 +172,9 @@ describe('TurnService', () => {
     it('should successfully execute a player turn', () => {
       const result = turnService.takeTurn('player1');
       
-      expect(result).toBe(mockGameState);
+      expect(result.newState).toBe(mockGameState);
+      expect(result.diceRoll).toBeGreaterThanOrEqual(1);
+      expect(result.diceRoll).toBeLessThanOrEqual(6);
       expect(mockStateService.advanceTurn).toHaveBeenCalled();
       expect(mockStateService.nextPlayer).toHaveBeenCalled();
     });

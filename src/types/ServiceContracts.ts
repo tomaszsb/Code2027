@@ -90,9 +90,14 @@ export interface IStateService {
   canStartGame(): boolean;
 }
 
+export interface TurnResult {
+  newState: GameState;
+  diceRoll: number;
+}
+
 export interface ITurnService {
   // Turn management methods
-  takeTurn(playerId: string): GameState;
+  takeTurn(playerId: string): TurnResult;
   rollDice(): number;
   
   // Turn validation methods  
