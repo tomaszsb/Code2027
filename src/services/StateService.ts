@@ -4,7 +4,8 @@ import {
   Player, 
   GamePhase, 
   PlayerUpdateData,
-  PlayerCards 
+  PlayerCards,
+  ActiveModal
 } from '../types/StateTypes';
 
 export class StateService implements IStateService {
@@ -303,12 +304,39 @@ export class StateService implements IStateService {
         const minPlayers = Math.min(...gameConfigs.map(c => c.min_players));
         const maxPlayers = Math.max(...gameConfigs.map(c => c.max_players));
         
+        
         return this.currentState.players.length >= minPlayers && 
                this.currentState.players.length <= maxPlayers;
       }
     }
 
     return this.currentState.players.length >= 1 && this.currentState.players.length <= 6;
+  }
+
+  // Modal management methods
+  showCardModal(cardId: string): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      activeModal: {
+        type: 'CARD',
+        cardId
+      }
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  dismissModal(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      activeModal: null
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
   }
 
   // Private helper methods
@@ -319,7 +347,8 @@ export class StateService implements IStateService {
       players: [],
       currentPlayerId: null,
       gamePhase: 'SETUP',
-      turn: 0
+      turn: 0,
+      activeModal: null
     };
   }
 

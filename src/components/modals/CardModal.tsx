@@ -1,48 +1,56 @@
 // src/components/modals/CardModal.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CardContent } from './CardContent';
 import { CardActions } from './CardActions';
-
-/**
- * Card data interface - simplified from the full legacy interface
- */
-interface CardData {
-  card_name?: string;
-  description?: string;
-  phase_restriction?: string;
-  time_effect?: string;
-  money_cost?: string;
-  draw_cards?: string;
-  immediate_effect?: string;
-  [key: string]: any; // Allow for additional properties
-}
-
-interface CardModalProps {
-  card?: CardData;
-  isVisible?: boolean;
-  onPlay?: () => void;
-  onClose?: () => void;
-  canPlay?: boolean;
-  title?: string;
-}
+import { useGameContext } from '../../context/GameContext';
+import { ActiveModal } from '../../types/StateTypes';
+import { Card } from '../../types/DataTypes';
 
 /**
  * CardModal is the main container component that composes CardContent and CardActions
- * This replaces the legacy CardModalContent with a clean, composable structure
+ * Now connected to services for real data and state management
  */
-export function CardModal({
-  card,
-  isVisible = true,
-  onPlay = () => console.log('Card played'),
-  onClose = () => console.log('Modal closed'),
-  canPlay = true,
-  title = "Card Details"
-}: CardModalProps): JSX.Element | null {
+export function CardModal(): JSX.Element | null {
+  const { stateService, dataService, cardService, gameRulesService } = useGameContext();
   const [isFlipped, setIsFlipped] = useState(false);
+  const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
+  const [cardData, setCardData] = useState<Card | null>(null);
+  const [canPlay, setCanPlay] = useState(false);
+  
+  // Subscribe to state changes for modal visibility
+  useEffect(() => {
+    const unsubscribe = stateService.subscribe((gameState) => {
+      setActiveModal(gameState.activeModal);
+      
+      // Fetch card data when modal becomes active
+      if (gameState.activeModal?.type === 'CARD') {
+        const cards = dataService.getCards();
+        const card = cards.find(c => c.card_id === gameState.activeModal.cardId);
+        setCardData(card || null);
+        
+        // Check if card can be played
+        const currentPlayer = gameState.currentPlayerId;
+        if (currentPlayer && card) {
+          setCanPlay(gameRulesService.canPlayCard(currentPlayer, card.card_id));
+        } else {
+          setCanPlay(false);
+        }
+      } else {
+        setCardData(null);
+        setCanPlay(false);
+      }
+    });
+    
+    // Initialize with current state
+    const currentState = stateService.getGameState();
+    setActiveModal(currentState.activeModal);
+    
+    return unsubscribe;
+  }, [stateService, dataService, gameRulesService]);
 
-  // Don't render if not visible
-  if (!isVisible) {
+  // Don't render if modal is not active
+  if (!activeModal || activeModal.type !== 'CARD') {
     return null;
   }
 
@@ -57,10 +65,18 @@ export function CardModal({
    * Handle play card action
    */
   const handlePlay = () => {
-    if (canPlay) {
-      onPlay();
-      // Optionally close modal after playing
-      // onClose();
+    if (canPlay && cardData) {
+      const currentPlayer = stateService.getGameState().currentPlayerId;
+      if (currentPlayer) {
+        try {
+          cardService.playCard(currentPlayer, cardData.card_id);
+          // Close modal after successful play
+          handleClose();
+        } catch (error) {
+          console.error('Failed to play card:', error);
+          alert(`Cannot play card: ${error.message}`);
+        }
+      }
     }
   };
 
@@ -70,7 +86,7 @@ export function CardModal({
   const handleClose = () => {
     // Reset flip state when closing
     setIsFlipped(false);
-    onClose();
+    stateService.dismissModal();
   };
 
   /**
@@ -143,7 +159,7 @@ export function CardModal({
               fontWeight: 'bold',
               color: '#495057'
             }}>
-              {isFlipped ? "Card Back" : title}
+              {isFlipped ? "Card Back" : (cardData?.card_name || "Card Details")}
             </h3>
             
             {/* Close button in header */}
@@ -173,15 +189,15 @@ export function CardModal({
             </button>
           </div>
 
-          {/* Card name subtitle when available */}
-          {card?.card_name && !isFlipped && (
+          {/* Card type subtitle when available */}
+          {cardData?.card_type && !isFlipped && (
             <p style={{
               margin: '8px 0 0',
               fontSize: '14px',
               color: '#6c757d',
               fontStyle: 'italic'
             }}>
-              {card.card_name}
+              {cardData.card_type} Card
             </p>
           )}
         </div>
@@ -192,7 +208,7 @@ export function CardModal({
           overflow: 'auto'
         }}>
           <CardContent 
-            card={card} 
+            card={cardData} 
             isFlipped={isFlipped}
           />
         </div>
@@ -204,7 +220,7 @@ export function CardModal({
           onFlip={handleFlip}
           canPlay={canPlay && !isFlipped}
           isFlipped={isFlipped}
-          playButtonText={card?.immediate_effect ? "Activate Effect" : "Play Card"}
+          playButtonText={cardData?.effects_on_play ? "Activate Effect" : "Play Card"}
         />
       </div>
     </div>

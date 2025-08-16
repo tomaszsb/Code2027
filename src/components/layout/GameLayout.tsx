@@ -106,8 +106,33 @@ export function GameLayout(): JSX.Element {
       >
         <h3>🎮 Game Actions</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ color: '#666' }}>
-            Game actions will be displayed here
+          <button
+            onClick={() => stateService.showCardModal('W001')}
+            style={{
+              background: 'linear-gradient(45deg, #007bff, #0056b3)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 8px rgba(0, 123, 255, 0.3)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 123, 255, 0.3)';
+            }}
+          >
+            🃏 Show Test Card
+          </button>
+          <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
+            Test the card modal functionality
           </div>
         </div>
       </div>
@@ -139,6 +164,8 @@ export function GameLayout(): JSX.Element {
           onStartGame={(players, settings) => {
             console.log('Starting game with players:', players);
             console.log('Game settings:', settings);
+            // Actually start the game through StateService
+            stateService.startGame();
           }}
         />
       )}
@@ -162,6 +189,9 @@ export function GameLayout(): JSX.Element {
           🎮 Game in Progress
         </div>
       )}
+
+      {/* CardModal - always rendered, visibility controlled by state */}
+      <CardModal />
     </div>
   );
 }

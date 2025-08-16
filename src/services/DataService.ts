@@ -7,7 +7,8 @@ import {
   DiceEffect,
   SpaceContent,
   Space,
-  VisitType
+  VisitType,
+  Card
 } from '../types/DataTypes';
 
 export class DataService implements IDataService {
@@ -310,5 +311,39 @@ export class DataService implements IDataService {
         diceOutcomes
       };
     });
+  }
+
+  // Card management methods (mock data for now)
+  getCards(): Card[] {
+    // Mock card data for testing the modal functionality
+    return [
+      {
+        card_id: 'W001',
+        card_name: 'Strategic Planning',
+        card_type: 'W',
+        description: 'Plan your next moves carefully to gain advantage in the project.',
+        effects_on_play: 'Draw 2 additional cards and gain 1 time unit.',
+        cost: 0,
+        phase_restriction: 'Planning'
+      },
+      {
+        card_id: 'B001',
+        card_name: 'Budget Allocation',
+        card_type: 'B',
+        description: 'Allocate resources efficiently to maximize project outcomes.',
+        effects_on_play: 'Gain $500 and reduce next action cost by 50%.',
+        cost: 2,
+        phase_restriction: 'Any'
+      },
+      {
+        card_id: 'E001',
+        card_name: 'Equipment Upgrade',
+        card_type: 'E',
+        description: 'Upgrade your equipment to improve efficiency.',
+        effects_on_play: 'All work actions gain +1 effectiveness for 3 turns.',
+        cost: 1,
+        phase_restriction: 'Development'
+      }
+    ];
   }
 }

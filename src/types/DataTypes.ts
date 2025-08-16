@@ -100,6 +100,16 @@ export interface GameState {
   winner?: string;
 }
 
+export interface Card {
+  card_id: string;
+  card_name: string;
+  card_type: 'W' | 'B' | 'E' | 'L' | 'I';
+  description: string;
+  effects_on_play?: string;
+  cost?: number;
+  phase_restriction?: string;
+}
+
 export type VisitType = 'First' | 'Subsequent';
 export type MovementType = 'fixed' | 'choice' | 'dice' | 'logic' | 'none';
 export type EffectType = 'time' | 'cards' | 'money';

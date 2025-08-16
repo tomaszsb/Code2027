@@ -2,11 +2,17 @@ import { Player } from './DataTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
+export interface ActiveModal {
+  type: 'CARD';
+  cardId: string;
+}
+
 export interface GameState {
   players: Player[];
   currentPlayerId: string | null;
   gamePhase: GamePhase;
   turn: number;
+  activeModal: ActiveModal | null;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;

@@ -123,7 +123,6 @@ export function PlayerSetup({
     setIsStarting(true);
     
     try {
-      stateService.startGame();
       // Filter out players with empty names for the callback
       const validPlayers = players.filter(p => p.name.trim());
       await onStartGame(validPlayers, gameSettings);
@@ -314,6 +313,7 @@ export function PlayerSetup({
 
         {/* Start game button */}
         <button
+          type="button"
           onClick={handleStartGame}
           disabled={isStarting}
           style={{
