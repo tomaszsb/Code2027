@@ -1,6 +1,6 @@
 import { ITurnService, IDataService, IStateService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
-import { DiceEffect } from '../types/DataTypes';
+import { DiceEffect, Movement } from '../types/DataTypes';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -17,6 +17,12 @@ export class TurnService implements ITurnService {
       throw new Error(`It is not player ${playerId}'s turn`);
     }
 
+    // Check if player has already moved this turn
+    const gameState = this.stateService.getGameState();
+    if (gameState.hasPlayerMovedThisTurn) {
+      throw new Error(`Player ${playerId} has already moved this turn`);
+    }
+
     // Get current player data
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
@@ -27,16 +33,46 @@ export class TurnService implements ITurnService {
     const diceRoll = this.rollDice();
 
     // Process turn effects based on dice roll
-    const updatedState = this.processTurnEffects(playerId, diceRoll);
+    this.processTurnEffects(playerId, diceRoll);
 
-    // Advance turn counter and move to next player
-    const advancedState = this.stateService.advanceTurn();
-    const nextPlayerState = this.stateService.nextPlayer();
+    // Handle movement based on current space
+    const newGameState = this.handleMovement(playerId, diceRoll);
+
+    // Mark that the player has moved this turn
+    this.stateService.setPlayerHasMoved();
 
     return {
-      newState: nextPlayerState,
+      newState: newGameState,
       diceRoll: diceRoll
     };
+  }
+
+  endTurn(): GameState {
+    const gameState = this.stateService.getGameState();
+    
+    // Validation: Game must be in PLAY phase
+    if (gameState.gamePhase !== 'PLAY') {
+      throw new Error('Cannot end turn outside of PLAY phase');
+    }
+
+    // Validation: Must have a current player
+    if (!gameState.currentPlayerId) {
+      throw new Error('No current player to end turn for');
+    }
+
+    // Validation: Player must have moved this turn
+    if (!gameState.hasPlayerMovedThisTurn) {
+      throw new Error('Cannot end turn: player has not moved yet');
+    }
+
+    // Validation: Cannot end turn while awaiting choice
+    if (gameState.awaitingChoice) {
+      throw new Error('Cannot end turn while awaiting player choice');
+    }
+
+    // Advance turn counter and move to next player
+    this.stateService.advanceTurn();
+    return this.stateService.nextPlayer();
   }
 
   rollDice(): number {
@@ -238,5 +274,129 @@ export class TurnService implements ITurnService {
     }
     
     return 0;
+  }
+
+  private handleMovement(playerId: string, diceRoll: number): GameState {
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    // Get movement data for current space
+    const movement = this.dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
+    if (!movement) {
+      // No movement data - player stays in current space
+      return this.stateService.getGameState();
+    }
+
+    // Handle movement based on type
+    switch (movement.movement_type) {
+      case 'choice':
+        // Player must choose destination - set awaitingChoice state
+        return this.setAwaitingChoice(playerId, movement);
+      
+      case 'fixed':
+        // Move to fixed destination
+        return this.moveToFixedDestination(playerId, movement);
+      
+      case 'dice':
+        // Move based on dice roll
+        return this.moveToDiceDestination(playerId, movement, diceRoll);
+      
+      case 'none':
+        // Terminal space - stay in place
+        return this.stateService.getGameState();
+      
+      default:
+        console.warn(`Unknown movement type: ${movement.movement_type}`);
+        return this.stateService.getGameState();
+    }
+  }
+
+  private setAwaitingChoice(playerId: string, movement: Movement): GameState {
+    // Extract destination options
+    const options: string[] = [];
+    if (movement.destination_1) options.push(movement.destination_1);
+    if (movement.destination_2) options.push(movement.destination_2);
+    if (movement.destination_3) options.push(movement.destination_3);
+    if (movement.destination_4) options.push(movement.destination_4);
+    if (movement.destination_5) options.push(movement.destination_5);
+
+    // Update game state with choice waiting
+    return this.stateService.setAwaitingChoice(playerId, options);
+  }
+
+  private moveToFixedDestination(playerId: string, movement: Movement): GameState {
+    const destination = movement.destination_1;
+    if (!destination) {
+      throw new Error('Fixed movement requires a destination');
+    }
+
+    // Move player to destination
+    this.movePlayerToSpace(playerId, destination);
+    
+    // Return current game state
+    return this.stateService.getGameState();
+  }
+
+  private moveToDiceDestination(playerId: string, movement: Movement, diceRoll: number): GameState {
+    const diceOutcome = this.dataService.getDiceOutcome(movement.space_name, movement.visit_type);
+    if (!diceOutcome) {
+      throw new Error(`No dice outcome data for space ${movement.space_name}`);
+    }
+
+    // Get destination based on dice roll
+    let destination: string | undefined;
+    switch (diceRoll) {
+      case 1: destination = diceOutcome.roll_1; break;
+      case 2: destination = diceOutcome.roll_2; break;
+      case 3: destination = diceOutcome.roll_3; break;
+      case 4: destination = diceOutcome.roll_4; break;
+      case 5: destination = diceOutcome.roll_5; break;
+      case 6: destination = diceOutcome.roll_6; break;
+    }
+
+    if (!destination) {
+      throw new Error(`No destination for dice roll ${diceRoll} on space ${movement.space_name}`);
+    }
+
+    // Move player to destination
+    this.movePlayerToSpace(playerId, destination);
+    
+    // Return current game state
+    return this.stateService.getGameState();
+  }
+
+  private movePlayerToSpace(playerId: string, destinationSpace: string): void {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    // Determine visit type for destination space
+    const newVisitType = this.hasPlayerVisitedSpace(player, destinationSpace) 
+      ? 'Subsequent' 
+      : 'First';
+
+    // Update player's position
+    this.stateService.updatePlayer({
+      id: playerId,
+      currentSpace: destinationSpace,
+      visitType: newVisitType
+    });
+  }
+
+  private hasPlayerVisitedSpace(player: Player, spaceName: string): boolean {
+    // Simple heuristic: if player is at starting space, destination is first visit
+    const allSpaces = this.dataService.getAllSpaces();
+    const startingSpaces = allSpaces
+      .filter(space => space.config.is_starting_space)
+      .map(space => space.name);
+    
+    if (startingSpaces.includes(player.currentSpace) && player.currentSpace !== spaceName) {
+      return false;
+    }
+    
+    return true;
   }
 }

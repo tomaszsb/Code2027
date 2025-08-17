@@ -85,6 +85,18 @@ export interface IStateService {
   endGame(winnerId?: string): GameState;
   resetGame(): GameState;
   
+  // Choice management methods
+  setAwaitingChoice(playerId: string, options: string[]): GameState;
+  clearAwaitingChoice(): GameState;
+  
+  // Turn state management methods
+  setPlayerHasMoved(): GameState;
+  clearPlayerHasMoved(): GameState;
+  
+  // Modal management methods
+  showCardModal(cardId: string): GameState;
+  dismissModal(): GameState;
+  
   // Validation methods
   validatePlayerAction(playerId: string, action: string): boolean;
   canStartGame(): boolean;
@@ -98,6 +110,7 @@ export interface TurnResult {
 export interface ITurnService {
   // Turn management methods
   takeTurn(playerId: string): TurnResult;
+  endTurn(): GameState;
   rollDice(): number;
   
   // Turn validation methods  
@@ -139,6 +152,9 @@ export interface IMovementService {
   
   // Movement execution methods
   movePlayer(playerId: string, destinationSpace: string): GameState;
+  
+  // Choice resolution methods
+  resolveChoice(destination: string): GameState;
 }
 
 export interface IGameRulesService {

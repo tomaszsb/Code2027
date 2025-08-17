@@ -220,7 +220,8 @@ export class StateService implements IStateService {
 
     const newState: GameState = {
       ...this.currentState,
-      currentPlayerId: nextPlayerId
+      currentPlayerId: nextPlayerId,
+      hasPlayerMovedThisTurn: false
     };
 
     this.currentState = newState;
@@ -269,6 +270,53 @@ export class StateService implements IStateService {
     this.currentState = this.createInitialState();
     this.notifyListeners();
     return { ...this.currentState };
+  }
+
+  setAwaitingChoice(playerId: string, options: string[]): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      awaitingChoice: {
+        playerId: playerId,
+        options: options
+      }
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  clearAwaitingChoice(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      awaitingChoice: null
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  setPlayerHasMoved(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      hasPlayerMovedThisTurn: true
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  clearPlayerHasMoved(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      hasPlayerMovedThisTurn: false
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
   }
 
   // Validation methods
@@ -348,7 +396,9 @@ export class StateService implements IStateService {
       currentPlayerId: null,
       gamePhase: 'SETUP',
       turn: 0,
-      activeModal: null
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false
     };
   }
 

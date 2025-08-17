@@ -125,6 +125,32 @@ export class MovementService implements IMovementService {
   }
 
   /**
+   * Resolves a player choice by moving them to the chosen destination
+   * @param destination - The chosen destination space name
+   * @returns Updated game state after the move and turn advancement
+   * @throws Error if no choice is awaiting or destination is invalid
+   */
+  resolveChoice(destination: string): GameState {
+    const gameState = this.stateService.getGameState();
+    
+    if (!gameState.awaitingChoice) {
+      throw new Error('No choice is currently awaiting resolution');
+    }
+
+    const { playerId, options } = gameState.awaitingChoice;
+    
+    if (!options.includes(destination)) {
+      throw new Error(`Invalid choice: ${destination} is not among the available options`);
+    }
+
+    this.movePlayer(playerId, destination);
+    this.stateService.clearAwaitingChoice();
+    
+    // Don't advance turn - player's turn continues after resolving choice
+    return this.stateService.getGameState();
+  }
+
+  /**
    * Checks if a player has previously visited a space
    * @private
    */

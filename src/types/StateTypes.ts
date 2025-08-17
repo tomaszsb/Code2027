@@ -13,6 +13,8 @@ export interface GameState {
   gamePhase: GamePhase;
   turn: number;
   activeModal: ActiveModal | null;
+  awaitingChoice: { playerId: string; options: string[] } | null;
+  hasPlayerMovedThisTurn: boolean;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;
