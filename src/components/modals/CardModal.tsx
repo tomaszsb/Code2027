@@ -215,6 +215,8 @@ export function CardModal(): JSX.Element | null {
 
         {/* Modal Footer - CardActions */}
         <CardActions
+          playerId={stateService.getGameState().currentPlayerId || undefined}
+          cardId={cardData?.card_id}
           onPlay={handlePlay}
           onClose={handleClose}
           onFlip={handleFlip}

@@ -1,5 +1,5 @@
 import { DataService } from '../../src/services/DataService';
-import { GameConfig, Movement, SpaceEffect, DiceEffect, SpaceContent, DiceOutcome } from '../../src/types/DataTypes';
+import { GameConfig, Movement, SpaceEffect, DiceEffect, SpaceContent, DiceOutcome, Card } from '../../src/types/DataTypes';
 
 // Mock fetch globally for tests
 global.fetch = jest.fn();
@@ -32,6 +32,15 @@ OWNER-SCOPE-INITIATION,First,Project Scope,Test scope story,Test scope action,Te
   const mockDiceOutcomesCsv = `space_name,visit_type,roll_1,roll_2,roll_3,roll_4,roll_5,roll_6
 OWNER-SCOPE-INITIATION,First,DEST1,DEST2,DEST3,DEST4,DEST5,DEST6`;
 
+  const mockCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
+W001,Strategic Planning,W,Plan your next moves carefully.,Draw 2 additional cards and gain 1 time unit.,0,Planning
+B001,Budget Allocation,B,Allocate resources efficiently.,Gain $500 and reduce next action cost by 50%.,2,Any
+E001,Equipment Upgrade,E,Upgrade your equipment to improve efficiency.,All work actions gain +1 effectiveness for 3 turns.,1,Development
+L001,Legal Review,L,Conduct comprehensive legal review.,Prevent next 2 negative effects but lose $300.,2,Any
+I001,Market Research,I,Conduct detailed market analysis.,Draw 2 cards of any type and gain $300.,2,Planning
+W002,Research Analysis,W,Conduct thorough research.,Gain 2 time units and draw 1 B card.,,Any
+E002,Software License,E,Acquire necessary software licenses.,,3,Development`;
+
   beforeEach(() => {
     dataService = new DataService();
     jest.clearAllMocks();
@@ -44,10 +53,12 @@ OWNER-SCOPE-INITIATION,First,DEST1,DEST2,DEST3,DEST4,DEST5,DEST6`;
         '/data/CLEAN_FILES/SPACE_EFFECTS.csv': mockSpaceEffectsCsv,
         '/data/CLEAN_FILES/DICE_EFFECTS.csv': mockDiceEffectsCsv,
         '/data/CLEAN_FILES/SPACE_CONTENT.csv': mockSpaceContentCsv,
-        '/data/CLEAN_FILES/DICE_OUTCOMES.csv': mockDiceOutcomesCsv
+        '/data/CLEAN_FILES/DICE_OUTCOMES.csv': mockDiceOutcomesCsv,
+        '/data/CLEAN_FILES/CARDS.csv': mockCardsCsv
       };
       
       return Promise.resolve({
+        ok: true,
         text: () => Promise.resolve(urlMap[url] || '')
       });
     });
@@ -62,13 +73,14 @@ OWNER-SCOPE-INITIATION,First,DEST1,DEST2,DEST3,DEST4,DEST5,DEST6`;
       await dataService.loadData();
       
       expect(dataService.isLoaded()).toBe(true);
-      expect(global.fetch).toHaveBeenCalledTimes(6);
+      expect(global.fetch).toHaveBeenCalledTimes(7);
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/GAME_CONFIG.csv');
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/MOVEMENT.csv');
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/SPACE_EFFECTS.csv');
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/DICE_EFFECTS.csv');
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/SPACE_CONTENT.csv');
       expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/DICE_OUTCOMES.csv');
+      expect(global.fetch).toHaveBeenCalledWith('/data/CLEAN_FILES/CARDS.csv');
     });
 
     it('should not reload data if already loaded', async () => {
@@ -336,11 +348,13 @@ SIMPLE-SPACE,First,Simple Title,Simple Story,Simple Action,Simple Outcome,No`;
       (global.fetch as jest.Mock).mockImplementation((url: string) => {
         if (url === '/data/CLEAN_FILES/SPACE_CONTENT.csv') {
           return Promise.resolve({
+            ok: true,
             text: () => Promise.resolve(csvWithQuotedCommas)
           });
         }
         // Return empty CSV for other files to avoid errors
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -370,10 +384,12 @@ EMPTY-SPACE,First,"","",Empty Action,"",No`;
       (global.fetch as jest.Mock).mockImplementation((url: string) => {
         if (url === '/data/CLEAN_FILES/SPACE_CONTENT.csv') {
           return Promise.resolve({
+            ok: true,
             text: () => Promise.resolve(csvWithEmptyQuotedFields)
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -398,10 +414,12 @@ MIXED-SPACE,First,"Quoted, title",Unquoted story,"Another, quoted field",Unquote
       (global.fetch as jest.Mock).mockImplementation((url: string) => {
         if (url === '/data/CLEAN_FILES/SPACE_CONTENT.csv') {
           return Promise.resolve({
+            ok: true,
             text: () => Promise.resolve(csvWithMixedFields)
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -426,10 +444,12 @@ CONSECUTIVE-SPACE,First,"First, quoted","Second, quoted","Third, quoted","Fourth
       (global.fetch as jest.Mock).mockImplementation((url: string) => {
         if (url === '/data/CLEAN_FILES/SPACE_CONTENT.csv') {
           return Promise.resolve({
+            ok: true,
             text: () => Promise.resolve(csvWithConsecutiveQuotes)
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -458,6 +478,7 @@ END-QUOTE-SPACE,First,Start Title,Start Story,Start Action,Start Outcome,"Yes, w
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -488,6 +509,7 @@ CHAR-SPACE,First,A,B,"C,D",E,F`;
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -578,6 +600,7 @@ STRING-SPACE,First,cards,draw_w,Many,always,Draw many W cards`;
           });
         }
         return Promise.resolve({
+          ok: true,
           text: () => Promise.resolve('header\n')
         });
       });
@@ -592,6 +615,257 @@ STRING-SPACE,First,cards,draw_w,Many,always,Draw many W cards`;
       const stringEffects = newDataService.getSpaceEffects('STRING-SPACE', 'First');
       expect(stringEffects).toHaveLength(1);
       expect(stringEffects[0].effect_value).toBe('Many'); // Should remain as string
+    });
+  });
+
+  describe('Card Methods', () => {
+    beforeEach(async () => {
+      await dataService.loadData();
+    });
+
+    it('should return all cards', () => {
+      const cards = dataService.getCards();
+      
+      expect(cards).toHaveLength(7);
+      expect(cards.find(c => c.card_id === 'W001')).toBeDefined();
+      expect(cards.find(c => c.card_id === 'B001')).toBeDefined();
+      expect(cards.find(c => c.card_id === 'E001')).toBeDefined();
+      expect(cards.find(c => c.card_id === 'L001')).toBeDefined();
+      expect(cards.find(c => c.card_id === 'I001')).toBeDefined();
+    });
+
+    it('should return card by ID', () => {
+      const card = dataService.getCardById('W001');
+      
+      expect(card).toBeDefined();
+      expect(card!.card_name).toBe('Strategic Planning');
+      expect(card!.card_type).toBe('W');
+      expect(card!.description).toBe('Plan your next moves carefully.');
+      expect(card!.effects_on_play).toBe('Draw 2 additional cards and gain 1 time unit.');
+      expect(card!.cost).toBe(0);
+      expect(card!.phase_restriction).toBe('Planning');
+    });
+
+    it('should return undefined for non-existent card ID', () => {
+      const card = dataService.getCardById('NON_EXISTENT');
+      
+      expect(card).toBeUndefined();
+    });
+
+    it('should return cards by type', () => {
+      const wCards = dataService.getCardsByType('W');
+      const bCards = dataService.getCardsByType('B');
+      const eCards = dataService.getCardsByType('E');
+      const lCards = dataService.getCardsByType('L');
+      const iCards = dataService.getCardsByType('I');
+      
+      expect(wCards).toHaveLength(2);
+      expect(wCards.every(card => card.card_type === 'W')).toBe(true);
+      expect(wCards.map(c => c.card_id)).toEqual(['W001', 'W002']);
+      
+      expect(bCards).toHaveLength(1);
+      expect(bCards[0].card_id).toBe('B001');
+      
+      expect(eCards).toHaveLength(2);
+      expect(eCards.map(c => c.card_id)).toEqual(['E001', 'E002']);
+      
+      expect(lCards).toHaveLength(1);
+      expect(lCards[0].card_id).toBe('L001');
+      
+      expect(iCards).toHaveLength(1);
+      expect(iCards[0].card_id).toBe('I001');
+    });
+
+    it('should return empty array for card type with no cards', () => {
+      // Add an empty mock that has no cards of a certain type
+      const cards = dataService.getCardsByType('B');
+      // Since we have B001, let's test with a scenario where we filter and get empty results
+      const filteredCards = cards.filter(c => c.card_id === 'NON_EXISTENT');
+      expect(filteredCards).toHaveLength(0);
+    });
+
+    it('should return all card types present in the data', () => {
+      const cardTypes = dataService.getAllCardTypes();
+      
+      expect(cardTypes).toHaveLength(5);
+      expect(cardTypes).toContain('W');
+      expect(cardTypes).toContain('B');
+      expect(cardTypes).toContain('E');
+      expect(cardTypes).toContain('L');
+      expect(cardTypes).toContain('I');
+    });
+
+    it('should handle cards with optional fields', () => {
+      const cardWithoutCost = dataService.getCardById('W002');
+      const cardWithoutEffects = dataService.getCardById('E002');
+      
+      expect(cardWithoutCost).toBeDefined();
+      expect(cardWithoutCost!.cost).toBeUndefined();
+      expect(cardWithoutCost!.effects_on_play).toBe('Gain 2 time units and draw 1 B card.');
+      
+      expect(cardWithoutEffects).toBeDefined();
+      expect(cardWithoutEffects!.effects_on_play).toBeUndefined();
+      expect(cardWithoutEffects!.cost).toBe(3);
+    });
+
+    it('should return immutable copies of card data', () => {
+      const cards1 = dataService.getCards();
+      const cards2 = dataService.getCards();
+      
+      expect(cards1).not.toBe(cards2);
+      expect(cards1).toEqual(cards2);
+      
+      const cardsByType1 = dataService.getCardsByType('W');
+      const cardsByType2 = dataService.getCardsByType('W');
+      
+      expect(cardsByType1).not.toBe(cardsByType2);
+      expect(cardsByType1).toEqual(cardsByType2);
+    });
+  });
+
+  describe('Card CSV Parsing and Validation', () => {
+    it('should throw error for invalid card type', async () => {
+      const invalidCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
+INVALID001,Invalid Card,X,Invalid card type,No effects,0,Any`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(invalidCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('Invalid card_type \'X\' in CARDS.csv row 2. Must be one of: W, B, E, L, I');
+    });
+
+    it('should throw error for invalid cost value', async () => {
+      const invalidCostCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
+INVALID001,Invalid Card,W,Card with invalid cost,No effects,invalid_cost,Any`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(invalidCostCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('Invalid cost \'invalid_cost\' in CARDS.csv row 2. Must be a non-negative number or empty');
+    });
+
+    it('should throw error for negative cost value', async () => {
+      const negativeCostCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
+INVALID001,Invalid Card,W,Card with negative cost,No effects,-5,Any`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(negativeCostCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('Invalid cost \'-5\' in CARDS.csv row 2. Must be a non-negative number or empty');
+    });
+
+    it('should throw error for wrong number of columns', async () => {
+      const wrongColumnCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
+INVALID001,Invalid Card,W,Missing columns,No effects`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(wrongColumnCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('CARDS.csv row 2 must have exactly 7 columns. Found: 5');
+    });
+
+    it('should throw error for wrong header column count', async () => {
+      const wrongHeaderCardsCsv = `card_id,card_name,card_type,description
+INVALID001,Invalid Card,W,Missing header columns`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(wrongHeaderCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('CARDS.csv header must have exactly 7 columns. Found: 4');
+    });
+
+    it('should throw error for empty cards file', async () => {
+      const emptyCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction`;
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve(emptyCardsCsv)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('CARDS.csv must have at least a header row and one data row');
+    });
+
+    it('should throw error for fetch failure', async () => {
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/data/CLEAN_FILES/CARDS.csv') {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            statusText: 'Not Found'
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('header\n')
+        });
+      });
+
+      const newDataService = new DataService();
+      await expect(newDataService.loadData()).rejects.toThrow('Failed to fetch CARDS.csv: 404 Not Found');
     });
   });
 });

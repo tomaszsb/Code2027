@@ -9,9 +9,9 @@ import { DataService } from '../services/DataService';
 import { StateService } from '../services/StateService';
 import { TurnService } from '../services/TurnService';
 import { CardService } from '../services/CardService';
+import { PlayerActionService } from '../services/PlayerActionService';
 import { MovementService } from '../services/MovementService';
 import { GameRulesService } from '../services/GameRulesService';
-// ... etc. (other services will be implemented in future phases)
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -27,22 +27,23 @@ interface ServiceProviderProps {
  * @returns {JSX.Element} The provider component.
  */
 export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element => {
-  // Instantiate services - Phase 1: Core services implemented
+  // Instantiate services - Phase 1 & 2: Core services implemented
   const dataService = new DataService();
   const stateService = new StateService(dataService);
   const turnService = new TurnService(dataService, stateService);
   const cardService = new CardService(dataService, stateService);
-  const movementService = new MovementService(dataService, stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
+  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService);
+  const movementService = new MovementService(dataService, stateService);
   
   const services: IServiceContainer = {
     dataService,
     stateService,
     turnService,
     cardService,
+    playerActionService,
     movementService,
     gameRulesService,
-    playerActionService: {} as any, // Placeholder - to be implemented in future phases
   };
 
   return (

@@ -13,7 +13,8 @@ import {
   DiceEffect, 
   SpaceContent, 
   Space,
-  VisitType 
+  VisitType,
+  Card
 } from './DataTypes';
 
 import { 
@@ -55,6 +56,12 @@ export interface IDataService {
   // Content methods
   getSpaceContent(spaceName: string, visitType: VisitType): SpaceContent | undefined;
   getAllSpaceContent(): SpaceContent[];
+  
+  // Card methods
+  getCards(): Card[];
+  getCardById(cardId: string): Card | undefined;
+  getCardsByType(cardType: CardType): Card[];
+  getAllCardTypes(): CardType[];
   
   // Data loading
   isLoaded(): boolean;
@@ -144,6 +151,7 @@ export interface ICardService {
 
 export interface IPlayerActionService {
   // Methods for handling player commands and orchestrating actions
+  playCard(playerId: string, cardId: string): Promise<void>;
 }
 
 export interface IMovementService {

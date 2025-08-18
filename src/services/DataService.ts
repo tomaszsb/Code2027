@@ -18,6 +18,7 @@ export class DataService implements IDataService {
   private spaceEffects: SpaceEffect[] = [];
   private diceEffects: DiceEffect[] = [];
   private spaceContents: SpaceContent[] = [];
+  private cards: Card[] = [];
   private spaces: Space[] = [];
   private loaded = false;
   private loadingPromise: Promise<void> | null = null;
@@ -39,7 +40,8 @@ export class DataService implements IDataService {
           this.loadDiceOutcomes(),
           this.loadSpaceEffects(),
           this.loadDiceEffects(),
-          this.loadSpaceContents()
+          this.loadSpaceContents(),
+          this.loadCards()
         ]);
 
         this.buildSpaces();
@@ -134,38 +136,65 @@ export class DataService implements IDataService {
   // Private CSV loading methods
   private async loadGameConfig(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/GAME_CONFIG.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch GAME_CONFIG.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.gameConfigs = this.parseGameConfigCsv(csvText);
   }
 
   private async loadMovements(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/MOVEMENT.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch MOVEMENT.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.movements = this.parseMovementCsv(csvText);
   }
 
   private async loadDiceOutcomes(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/DICE_OUTCOMES.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch DICE_OUTCOMES.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.diceOutcomes = this.parseDiceOutcomesCsv(csvText);
   }
 
   private async loadSpaceEffects(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/SPACE_EFFECTS.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch SPACE_EFFECTS.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.spaceEffects = this.parseSpaceEffectsCsv(csvText);
   }
 
   private async loadDiceEffects(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/DICE_EFFECTS.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch DICE_EFFECTS.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.diceEffects = this.parseDiceEffectsCsv(csvText);
   }
 
   private async loadSpaceContents(): Promise<void> {
     const response = await fetch('/data/CLEAN_FILES/SPACE_CONTENT.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch SPACE_CONTENT.csv: ${response.status} ${response.statusText}`);
+    }
     const csvText = await response.text();
     this.spaceContents = this.parseSpaceContentCsv(csvText);
+  }
+
+  private async loadCards(): Promise<void> {
+    const response = await fetch('/data/CLEAN_FILES/CARDS.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch CARDS.csv: ${response.status} ${response.statusText}`);
+    }
+    const csvText = await response.text();
+    this.cards = this.parseCardsCsv(csvText);
   }
 
   // CSV parsing methods
@@ -300,6 +329,48 @@ export class DataService implements IDataService {
     return result;
   }
 
+  private parseCardsCsv(csvText: string): Card[] {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) {
+      throw new Error('CARDS.csv must have at least a header row and one data row');
+    }
+    
+    const header = lines[0].split(',');
+    const expectedColumns = ['card_id', 'card_name', 'card_type', 'description', 'effects_on_play', 'cost', 'phase_restriction'];
+    
+    if (header.length !== expectedColumns.length) {
+      throw new Error(`CARDS.csv header must have exactly ${expectedColumns.length} columns. Found: ${header.length}`);
+    }
+    
+    return lines.slice(1).map((line, index) => {
+      const values = this.parseCsvLine(line);
+      
+      if (values.length !== expectedColumns.length) {
+        throw new Error(`CARDS.csv row ${index + 2} must have exactly ${expectedColumns.length} columns. Found: ${values.length}`);
+      }
+      
+      const cardType = values[2] as CardType;
+      if (!['W', 'B', 'E', 'L', 'I'].includes(cardType)) {
+        throw new Error(`Invalid card_type '${cardType}' in CARDS.csv row ${index + 2}. Must be one of: W, B, E, L, I`);
+      }
+      
+      const cost = values[5] ? parseInt(values[5]) : undefined;
+      if (values[5] && (isNaN(cost!) || cost! < 0)) {
+        throw new Error(`Invalid cost '${values[5]}' in CARDS.csv row ${index + 2}. Must be a non-negative number or empty`);
+      }
+      
+      return {
+        card_id: values[0],
+        card_name: values[1],
+        card_type: cardType,
+        description: values[3],
+        effects_on_play: values[4] || undefined,
+        cost: cost,
+        phase_restriction: values[6] || undefined
+      };
+    });
+  }
+
   private buildSpaces(): void {
     const spaceNames = [...new Set(this.gameConfigs.map(config => config.space_name))];
     
@@ -323,37 +394,21 @@ export class DataService implements IDataService {
     });
   }
 
-  // Card management methods (mock data for now)
+  // Card management methods
   getCards(): Card[] {
-    // Mock card data for testing the modal functionality
-    return [
-      {
-        card_id: 'W001',
-        card_name: 'Strategic Planning',
-        card_type: 'W',
-        description: 'Plan your next moves carefully to gain advantage in the project.',
-        effects_on_play: 'Draw 2 additional cards and gain 1 time unit.',
-        cost: 0,
-        phase_restriction: 'Planning'
-      },
-      {
-        card_id: 'B001',
-        card_name: 'Budget Allocation',
-        card_type: 'B',
-        description: 'Allocate resources efficiently to maximize project outcomes.',
-        effects_on_play: 'Gain $500 and reduce next action cost by 50%.',
-        cost: 2,
-        phase_restriction: 'Any'
-      },
-      {
-        card_id: 'E001',
-        card_name: 'Equipment Upgrade',
-        card_type: 'E',
-        description: 'Upgrade your equipment to improve efficiency.',
-        effects_on_play: 'All work actions gain +1 effectiveness for 3 turns.',
-        cost: 1,
-        phase_restriction: 'Development'
-      }
-    ];
+    return [...this.cards];
+  }
+
+  getCardById(cardId: string): Card | undefined {
+    return this.cards.find(card => card.card_id === cardId);
+  }
+
+  getCardsByType(cardType: CardType): Card[] {
+    return this.cards.filter(card => card.card_type === cardType);
+  }
+
+  getAllCardTypes(): CardType[] {
+    const types = new Set(this.cards.map(card => card.card_type));
+    return Array.from(types) as CardType[];
   }
 }

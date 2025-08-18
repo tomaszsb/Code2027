@@ -1,8 +1,11 @@
 // src/components/modals/CardActions.tsx
 
 import React from 'react';
+import { useGameContext } from '../../context/GameContext';
 
 interface CardActionsProps {
+  playerId?: string;
+  cardId?: string;
   onPlay?: () => void;
   onClose?: () => void;
   onFlip?: () => void;
@@ -16,6 +19,8 @@ interface CardActionsProps {
  * Extracted from the legacy modal's action handling patterns
  */
 export function CardActions({
+  playerId,
+  cardId,
   onPlay = () => {},
   onClose = () => {},
   onFlip = () => {},
@@ -23,6 +28,46 @@ export function CardActions({
   isFlipped = false,
   playButtonText = "Play Card"
 }: CardActionsProps): JSX.Element {
+  
+  // Access the PlayerActionService via context
+  const { playerActionService, stateService } = useGameContext();
+
+  /**
+   * Handle playing a card using the PlayerActionService
+   * This creates the end-to-end connection from UI to service layer
+   */
+  const handlePlayCard = async () => {
+    try {
+      // If playerId and cardId are provided as props, use them
+      if (playerId && cardId) {
+        await playerActionService.playCard(playerId, cardId);
+        
+        // Call the original onPlay callback for any additional UI updates (like closing modal)
+        onPlay();
+      } else {
+        // Fallback: Get current player from state if not provided as props
+        const gameState = stateService.getGameState();
+        const currentPlayerId = gameState.currentPlayerId;
+        
+        if (!currentPlayerId) {
+          throw new Error('No current player found');
+        }
+        
+        if (!cardId) {
+          throw new Error('No card ID provided');
+        }
+        
+        await playerActionService.playCard(currentPlayerId, cardId);
+        onPlay();
+      }
+      
+    } catch (error) {
+      // Display error to user with descriptive message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to play card: ${errorMessage}`);
+      console.error('Card play error:', error);
+    }
+  };
 
   /**
    * Base button styles
@@ -117,7 +162,7 @@ export function CardActions({
       {/* Play Card button - only show when not flipped and card can be played */}
       {!isFlipped && (
         <button
-          onClick={onPlay}
+          onClick={handlePlayCard}
           disabled={!canPlay}
           style={{
             ...primaryButtonStyle,
