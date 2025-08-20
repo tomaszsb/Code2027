@@ -1,5 +1,5 @@
 import { PlayerActionService } from '../../src/services/PlayerActionService';
-import { IDataService, IStateService, IGameRulesService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService } from '../../src/types/ServiceContracts';
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
 
@@ -61,6 +61,23 @@ const mockGameRulesService: jest.Mocked<IGameRulesService> = {
   isPlayerTurn: jest.fn(),
   isGameInProgress: jest.fn(),
   canPlayerTakeAction: jest.fn(),
+  checkWinCondition: jest.fn(),
+};
+
+const mockMovementService: jest.Mocked<IMovementService> = {
+  getValidMoves: jest.fn(),
+  movePlayer: jest.fn(),
+  getDiceDestination: jest.fn(),
+  resolveChoice: jest.fn(),
+};
+
+const mockTurnService: jest.Mocked<ITurnService> = {
+  takeTurn: jest.fn(),
+  endTurn: jest.fn(),
+  rollDice: jest.fn(),
+  canPlayerTakeTurn: jest.fn(),
+  getCurrentPlayerTurn: jest.fn(),
+  processTurnEffects: jest.fn(),
 };
 
 describe('PlayerActionService', () => {
@@ -131,12 +148,25 @@ describe('PlayerActionService', () => {
     playerActionService = new PlayerActionService(
       mockDataService,
       mockStateService,
-      mockGameRulesService
+      mockGameRulesService,
+      mockMovementService,
+      mockTurnService
     );
 
     // Setup default mock implementations
     mockStateService.getGameState.mockReturnValue(mockGameState);
     mockStateService.getPlayer.mockReturnValue(mockPlayer);
+    
+    // Setup default MovementService mock implementations
+    mockMovementService.getValidMoves.mockReturnValue([]);
+    mockMovementService.getDiceDestination.mockReturnValue(null);
+    mockMovementService.movePlayer.mockReturnValue(mockGameState);
+    mockMovementService.resolveChoice.mockReturnValue(mockGameState);
+    
+    // Setup default TurnService mock implementations
+    mockTurnService.endTurn.mockResolvedValue({ nextPlayerId: 'player2' });
+    mockTurnService.canPlayerTakeTurn.mockReturnValue(true);
+    mockTurnService.getCurrentPlayerTurn.mockReturnValue('player1');
   });
 
   describe('playCard', () => {
@@ -444,6 +474,289 @@ describe('PlayerActionService', () => {
 
       // Verify updatePlayer was not called
       expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rollDice', () => {
+    it('should successfully roll dice and return result with two numbers between 1-6', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.roll1).toBeGreaterThanOrEqual(1);
+      expect(result.roll1).toBeLessThanOrEqual(6);
+      expect(result.roll2).toBeGreaterThanOrEqual(1);
+      expect(result.roll2).toBeLessThanOrEqual(6);
+      expect(result.total).toBe(result.roll1 + result.roll2);
+      expect(result.total).toBeGreaterThanOrEqual(2);
+      expect(result.total).toBeLessThanOrEqual(12);
+    });
+
+    it('should call StateService to update player with dice roll result', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(mockStateService.getGameState).toHaveBeenCalled();
+      expect(mockStateService.getPlayer).toHaveBeenCalledWith('player1');
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
+        id: 'player1',
+        lastDiceRoll: {
+          roll1: result.roll1,
+          roll2: result.roll2,
+          total: result.total
+        }
+      });
+    });
+
+    it('should throw error when player not found', async () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(undefined);
+
+      // Act & Assert
+      await expect(playerActionService.rollDice('nonexistent'))
+        .rejects.toThrow("Failed to roll dice: Player with ID 'nonexistent' not found");
+
+      // Verify updatePlayer was not called
+      expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+    });
+
+    it('should handle state service errors gracefully', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockImplementation(() => {
+        throw new Error('State update failed');
+      });
+
+      // Act & Assert
+      await expect(playerActionService.rollDice('player1'))
+        .rejects.toThrow('Failed to roll dice: State update failed');
+
+      // Verify that player lookup was still attempted
+      expect(mockStateService.getGameState).toHaveBeenCalled();
+      expect(mockStateService.getPlayer).toHaveBeenCalledWith('player1');
+    });
+
+    it('should generate different dice rolls on multiple calls', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      const results: Array<{ roll1: number; roll2: number; total: number }> = [];
+
+      // Act - roll dice multiple times
+      for (let i = 0; i < 10; i++) {
+        const result = await playerActionService.rollDice('player1');
+        results.push(result);
+      }
+
+      // Assert - verify that we get some variation (not all the same)
+      const uniqueResults = new Set(results.map(r => `${r.roll1}-${r.roll2}`));
+      expect(uniqueResults.size).toBeGreaterThan(1); // Should have some variation
+
+      // Verify all results are valid
+      results.forEach(result => {
+        expect(result.roll1).toBeGreaterThanOrEqual(1);
+        expect(result.roll1).toBeLessThanOrEqual(6);
+        expect(result.roll2).toBeGreaterThanOrEqual(1);
+        expect(result.roll2).toBeLessThanOrEqual(6);
+        expect(result.total).toBe(result.roll1 + result.roll2);
+      });
+    });
+
+    it('should call services in the correct order', async () => {
+      // Arrange
+      const callOrder: string[] = [];
+      
+      mockStateService.getGameState.mockImplementation(() => {
+        callOrder.push('getGameState');
+        return mockGameState;
+      });
+      
+      mockStateService.getPlayer.mockImplementation(() => {
+        callOrder.push('getPlayer');
+        return mockPlayer;
+      });
+      
+      mockStateService.updatePlayer.mockImplementation(() => {
+        callOrder.push('updatePlayer');
+        return mockGameState;
+      });
+
+      // Act
+      await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(callOrder).toEqual([
+        'getGameState',
+        'getPlayer',
+        'updatePlayer',
+        'getPlayer' // Called again in handlePlayerMovement
+      ]);
+    });
+
+    it('should return dice result with correct structure', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert - verify structure
+      expect(typeof result).toBe('object');
+      expect(typeof result.roll1).toBe('number');
+      expect(typeof result.roll2).toBe('number');
+      expect(typeof result.total).toBe('number');
+      expect(Object.keys(result)).toEqual(['roll1', 'roll2', 'total']);
+    });
+
+    it('should trigger movement after successful dice roll', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockReturnValue(['DESTINATION-1', 'DESTINATION-2']);
+      mockMovementService.getDiceDestination.mockReturnValue('DESTINATION-1');
+      mockMovementService.movePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(mockMovementService.getValidMoves).toHaveBeenCalledWith('player1');
+      expect(mockMovementService.getDiceDestination).toHaveBeenCalledWith(
+        'START-SPACE', 
+        'First', 
+        result.total
+      );
+      expect(mockMovementService.movePlayer).toHaveBeenCalledWith('player1', 'DESTINATION-1');
+    });
+
+    it('should handle terminal spaces (no movement possible)', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockReturnValue([]); // No valid moves
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(mockMovementService.getValidMoves).toHaveBeenCalledWith('player1');
+      expect(mockMovementService.getDiceDestination).not.toHaveBeenCalled();
+      expect(mockMovementService.movePlayer).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it('should handle no destination found for dice roll', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockReturnValue(['DESTINATION-1']);
+      mockMovementService.getDiceDestination.mockReturnValue(null); // No destination for this roll
+
+      // Act
+      const result = await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(mockMovementService.getValidMoves).toHaveBeenCalledWith('player1');
+      expect(mockMovementService.getDiceDestination).toHaveBeenCalledWith(
+        'START-SPACE',
+        'First',
+        result.total
+      );
+      expect(mockMovementService.movePlayer).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it('should handle movement service errors gracefully', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockImplementation(() => {
+        throw new Error('Movement validation failed');
+      });
+
+      // Act & Assert
+      await expect(playerActionService.rollDice('player1'))
+        .rejects.toThrow('Failed to roll dice: Failed to handle player movement: Movement validation failed');
+
+      expect(mockMovementService.getValidMoves).toHaveBeenCalledWith('player1');
+    });
+
+    it('should call endTurn after successful dice roll', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockReturnValue(['DEST-1']);
+      mockMovementService.getDiceDestination.mockReturnValue('DEST-1');
+      mockMovementService.movePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      await playerActionService.rollDice('player1');
+
+      // Assert
+      expect(mockTurnService.endTurn).toHaveBeenCalled();
+    });
+
+    it('should not call endTurn if dice roll fails', async () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(undefined); // Cause failure
+
+      // Act & Assert
+      await expect(playerActionService.rollDice('player1')).rejects.toThrow();
+
+      // Assert - endTurn should not be called if dice roll fails
+      expect(mockTurnService.endTurn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('turn management integration', () => {
+    it('should call endTurn after successful card play', async () => {
+      // Arrange
+      mockDataService.getCardById.mockReturnValue(mockCard);
+      mockGameRulesService.canPlayCard.mockReturnValue(true);
+      mockGameRulesService.canPlayerAfford.mockReturnValue(true);
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+
+      // Act
+      await playerActionService.playCard('player1', 'W001');
+
+      // Assert
+      expect(mockTurnService.endTurn).toHaveBeenCalled();
+    });
+
+    it('should not call endTurn if card play fails', async () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(undefined); // Cause failure
+
+      // Act & Assert
+      await expect(playerActionService.playCard('player1', 'W001')).rejects.toThrow();
+
+      // Assert - endTurn should not be called if card play fails
+      expect(mockTurnService.endTurn).not.toHaveBeenCalled();
+    });
+
+    it('should handle endTurn service errors during dice roll', async () => {
+      // Arrange
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockMovementService.getValidMoves.mockReturnValue([]);
+      mockTurnService.endTurn.mockRejectedValue(new Error('Turn service error'));
+
+      // Act & Assert
+      await expect(playerActionService.rollDice('player1'))
+        .rejects.toThrow('Failed to roll dice: Turn service error');
+    });
+
+    it('should handle endTurn service errors during card play', async () => {
+      // Arrange
+      mockDataService.getCardById.mockReturnValue(mockCard);
+      mockGameRulesService.canPlayCard.mockReturnValue(true);
+      mockGameRulesService.canPlayerAfford.mockReturnValue(true);
+      mockStateService.updatePlayer.mockReturnValue(mockGameState);
+      mockTurnService.endTurn.mockRejectedValue(new Error('Turn service error'));
+
+      // Act & Assert
+      await expect(playerActionService.playCard('player1', 'W001'))
+        .rejects.toThrow('Failed to play card: Turn service error');
     });
   });
 });

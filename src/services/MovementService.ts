@@ -125,6 +125,37 @@ export class MovementService implements IMovementService {
   }
 
   /**
+   * Gets the destination for a dice-based movement
+   * @param spaceName - The current space name
+   * @param visitType - The visit type (First/Subsequent)
+   * @param diceRoll - The dice roll result (2-12)
+   * @returns The destination space name or null if no destination for this roll
+   */
+  getDiceDestination(spaceName: string, visitType: VisitType, diceRoll: number): string | null {
+    // Validate dice roll range first (before calling dataService)
+    if (diceRoll < 2 || diceRoll > 12) {
+      return null;
+    }
+
+    const diceOutcome = this.dataService.getDiceOutcome(spaceName, visitType);
+    if (!diceOutcome) {
+      return null;
+    }
+
+    // Map dice roll total to appropriate roll field
+    // For two-dice games, we typically map the sum modulo 6, or use a lookup table
+    // This is a simplified mapping - actual game rules may vary
+    
+    // Map dice total (2-12) to roll fields (1-6)
+    // Simple modulo mapping: (diceRoll - 2) % 6 + 1 gives us 1-6
+    const rollIndex = ((diceRoll - 2) % 6) + 1;
+    const rollField = `roll_${rollIndex}` as keyof typeof diceOutcome;
+
+    const destination = diceOutcome[rollField];
+    return destination && destination.trim() !== '' ? destination : null;
+  }
+
+  /**
    * Resolves a player choice by moving them to the chosen destination
    * @param destination - The chosen destination space name
    * @returns Updated game state after the move and turn advancement

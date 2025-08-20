@@ -288,4 +288,31 @@ export class GameRulesService implements IGameRulesService {
     // Return total card count across all types
     return Object.values(player.cards).reduce((total, cards) => total + cards.length, 0);
   }
+
+  /**
+   * Checks if a player has met the win condition
+   * @param playerId - The ID of the player to check
+   * @returns Promise<boolean> - true if the player has won
+   */
+  async checkWinCondition(playerId: string): Promise<boolean> {
+    try {
+      // Get the player's current state
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        return false;
+      }
+
+      // Get the space configuration for the player's current space
+      const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
+      if (!spaceConfig) {
+        return false;
+      }
+
+      // Check if the current space is marked as an ending space
+      return spaceConfig.is_ending_space === true;
+    } catch (error) {
+      console.error(`Error checking win condition for player ${playerId}:`, error);
+      return false;
+    }
+  }
 }

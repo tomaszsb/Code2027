@@ -14,6 +14,49 @@ interface PlayerStatusItemProps {
  * Shows avatar, name, money, and time with visual indicator for current player
  */
 export function PlayerStatusItem({ player, isCurrentPlayer, actions }: PlayerStatusItemProps): JSX.Element {
+  // Add CSS animation styles to document head if not already present
+  React.useEffect(() => {
+    const styleId = 'player-status-animations';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        @keyframes positionUpdate {
+          0% {
+            transform: translateX(0) scale(1);
+            background-color: rgba(33, 150, 243, 0.1);
+          }
+          25% {
+            transform: translateX(3px) scale(1.02);
+            background-color: rgba(76, 175, 80, 0.2);
+          }
+          50% {
+            transform: translateX(-3px) scale(1.02);
+            background-color: rgba(255, 193, 7, 0.2);
+          }
+          75% {
+            transform: translateX(1px) scale(1.01);
+            background-color: rgba(76, 175, 80, 0.2);
+          }
+          100% {
+            transform: translateX(0) scale(1);
+            background-color: rgba(33, 150, 243, 0.1);
+          }
+        }
+        
+        @keyframes currentPlayerPulse {
+          0%, 100% {
+            box-shadow: 0 8px 32px rgba(33, 150, 243, 0.4);
+          }
+          50% {
+            box-shadow: 0 8px 32px rgba(33, 150, 243, 0.6);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   const baseStyle = {
     background: isCurrentPlayer ? 'linear-gradient(135deg, #e3f2fd, #f0f9ff)' : '#ffffff',
     border: isCurrentPlayer ? '3px solid #2196f3' : '2px solid #e0e0e0',
@@ -165,7 +208,9 @@ export function PlayerStatusItem({ player, isCurrentPlayer, actions }: PlayerSta
           padding: '8px 12px',
           background: isCurrentPlayer ? 'rgba(33, 150, 243, 0.1)' : 'rgba(248, 249, 250, 0.8)',
           borderRadius: '8px',
-          border: `1px solid ${isCurrentPlayer ? '#2196f3' : '#e0e0e0'}`
+          border: `1px solid ${isCurrentPlayer ? '#2196f3' : '#e0e0e0'}`,
+          transition: 'all 0.4s ease-in-out',
+          animation: isCurrentPlayer ? 'positionUpdate 0.6s ease-out' : undefined
         }}>
           <div style={{
             fontSize: '0.7rem',

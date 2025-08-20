@@ -258,6 +258,7 @@ export class StateService implements IStateService {
       ...this.currentState,
       gamePhase: 'END',
       gameEndTime: new Date(),
+      isGameOver: true,
       winner: winnerId
     };
 
@@ -398,7 +399,8 @@ export class StateService implements IStateService {
       turn: 0,
       activeModal: null,
       awaitingChoice: null,
-      hasPlayerMovedThisTurn: false
+      hasPlayerMovedThisTurn: false,
+      isGameOver: false
     };
   }
 

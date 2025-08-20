@@ -7,6 +7,10 @@ import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTy
 
 // Mock implementations
 const mockDataService: jest.Mocked<IDataService> = {
+  getCardById: jest.fn(),
+  getCards: jest.fn(),
+  getCardsByType: jest.fn(),
+  getAllCardTypes: jest.fn(),
   getGameConfig: jest.fn(),
   getGameConfigBySpace: jest.fn(),
   getAllSpaces: jest.fn(),
@@ -41,6 +45,12 @@ const mockStateService: jest.Mocked<IStateService> = {
   startGame: jest.fn(),
   endGame: jest.fn(),
   resetGame: jest.fn(),
+  setAwaitingChoice: jest.fn(),
+  clearAwaitingChoice: jest.fn(),
+  setPlayerHasMoved: jest.fn(),
+  clearPlayerHasMoved: jest.fn(),
+  showCardModal: jest.fn(),
+  dismissModal: jest.fn(),
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
 };
@@ -339,6 +349,274 @@ describe('MovementService', () => {
         currentSpace: 'START-QUICK-PLAY-GUIDE',
         visitType: 'Subsequent'
       });
+    });
+  });
+
+  describe('getDiceDestination', () => {
+    it('should return correct destination for dice roll 2', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: 'DEST-A',
+        roll_2: 'DEST-B',
+        roll_3: 'DEST-C',
+        roll_4: 'DEST-D',
+        roll_5: 'DEST-E',
+        roll_6: 'DEST-F'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act - dice roll 2 should map to roll_1 (((2-2) % 6) + 1 = 1)
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 2);
+
+      // Assert
+      expect(result).toBe('DEST-A');
+      expect(mockDataService.getDiceOutcome).toHaveBeenCalledWith('TEST-SPACE', 'First');
+    });
+
+    it('should return correct destination for dice roll 7', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: 'DEST-A',
+        roll_2: 'DEST-B',
+        roll_3: 'DEST-C',
+        roll_4: 'DEST-D',
+        roll_5: 'DEST-E',
+        roll_6: 'DEST-F'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act - dice roll 7 should map to roll_6 (((7-2) % 6) + 1 = 6)
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 7);
+
+      // Assert
+      expect(result).toBe('DEST-F');
+    });
+
+    it('should return correct destination for dice roll 12', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: 'DEST-A',
+        roll_2: 'DEST-B',
+        roll_3: 'DEST-C',
+        roll_4: 'DEST-D',
+        roll_5: 'DEST-E',
+        roll_6: 'DEST-F'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act - dice roll 12 should map to roll_5 (((12-2) % 6) + 1 = 5)
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 12);
+
+      // Assert
+      expect(result).toBe('DEST-E');
+    });
+
+    it('should return null when no dice outcome data found', () => {
+      // Arrange
+      mockDataService.getDiceOutcome.mockReturnValue(undefined);
+
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 7);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockDataService.getDiceOutcome).toHaveBeenCalledWith('TEST-SPACE', 'First');
+    });
+
+    it('should return null when destination field is empty', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: 'DEST-A',
+        roll_2: '', // Empty destination
+        roll_3: 'DEST-C'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act - dice roll 3 should map to roll_2 (((3-2) % 6) + 1 = 2)
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 3);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should return null when destination field is whitespace only', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: 'DEST-A',
+        roll_2: '   ', // Whitespace only
+        roll_3: 'DEST-C'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 3);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid dice roll (less than 2)', () => {
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 1);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockDataService.getDiceOutcome).not.toHaveBeenCalled();
+    });
+
+    it('should return null for invalid dice roll (greater than 12)', () => {
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 13);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockDataService.getDiceOutcome).not.toHaveBeenCalled();
+    });
+
+    it('should handle subsequent visit type correctly', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'Subsequent',
+        roll_1: 'SUBSEQUENT-DEST-A',
+        roll_2: 'SUBSEQUENT-DEST-B'
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'Subsequent', 2);
+
+      // Assert
+      expect(result).toBe('SUBSEQUENT-DEST-A');
+      expect(mockDataService.getDiceOutcome).toHaveBeenCalledWith('TEST-SPACE', 'Subsequent');
+    });
+
+    it('should handle destination with whitespace correctly', () => {
+      // Arrange
+      const mockDiceOutcome: DiceOutcome = {
+        space_name: 'TEST-SPACE',
+        visit_type: 'First',
+        roll_1: '  DEST-A  ' // Destination with whitespace
+      };
+      mockDataService.getDiceOutcome.mockReturnValue(mockDiceOutcome);
+
+      // Act
+      const result = movementService.getDiceDestination('TEST-SPACE', 'First', 2);
+
+      // Assert - our implementation returns the destination as-is since trim() !== '' checks for non-empty after trim
+      expect(result).toBe('  DEST-A  ');
+    });
+  });
+
+  describe('resolveChoice', () => {
+    const mockGameStateWithChoice: GameState = {
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY',
+      turn: 1,
+      activeModal: null,
+      awaitingChoice: {
+        playerId: 'player1',
+        options: ['CHOICE-A', 'CHOICE-B', 'CHOICE-C']
+      },
+      hasPlayerMovedThisTurn: false
+    };
+
+    it('should successfully resolve player choice and move player', () => {
+      // Arrange
+      mockStateService.getGameState.mockReturnValue(mockGameStateWithChoice);
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      
+      // Mock the getValidMoves call to allow the choice
+      const mockMovement: Movement = {
+        space_name: 'START-SPACE',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'CHOICE-A',
+        destination_2: 'CHOICE-B',
+        destination_3: 'CHOICE-C'
+      };
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockStateService.updatePlayer.mockReturnValue(mockGameStateWithChoice);
+      mockStateService.clearAwaitingChoice.mockReturnValue(mockGameStateWithChoice);
+
+      // Act
+      const result = movementService.resolveChoice('CHOICE-B');
+
+      // Assert
+      expect(mockStateService.getGameState).toHaveBeenCalled();
+      expect(mockStateService.clearAwaitingChoice).toHaveBeenCalled();
+      expect(result).toEqual(mockGameStateWithChoice);
+    });
+
+    it('should throw error when no choice is awaiting', () => {
+      // Arrange
+      const gameStateNoChoice = {
+        ...mockGameStateWithChoice,
+        awaitingChoice: null
+      };
+      mockStateService.getGameState.mockReturnValue(gameStateNoChoice);
+
+      // Act & Assert
+      expect(() => movementService.resolveChoice('CHOICE-A'))
+        .toThrow('No choice is currently awaiting resolution');
+    });
+
+    it('should throw error when destination is not among available options', () => {
+      // Arrange
+      mockStateService.getGameState.mockReturnValue(mockGameStateWithChoice);
+
+      // Act & Assert
+      expect(() => movementService.resolveChoice('INVALID-CHOICE'))
+        .toThrow('Invalid choice: INVALID-CHOICE is not among the available options');
+    });
+
+    it('should handle choice resolution with subsequent visit type', () => {
+      // Arrange
+      const playerAtNonStarting = {
+        ...mockPlayer,
+        currentSpace: 'NON-STARTING-SPACE'
+      };
+      const gameStateWithPlayer = {
+        ...mockGameStateWithChoice,
+        players: [playerAtNonStarting]
+      };
+      
+      mockStateService.getGameState.mockReturnValue(gameStateWithPlayer);
+      mockStateService.getPlayer.mockReturnValue(playerAtNonStarting);
+      
+      // Mock movement data for this player's current space
+      const mockMovement: Movement = {
+        space_name: 'NON-STARTING-SPACE',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'CHOICE-A',
+        destination_2: 'CHOICE-B'
+      };
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockStateService.updatePlayer.mockReturnValue(gameStateWithPlayer);
+      mockStateService.clearAwaitingChoice.mockReturnValue(gameStateWithPlayer);
+      mockDataService.getAllSpaces.mockReturnValue([
+        { name: 'START-SPACE', config: { is_starting_space: true } },
+        { name: 'NON-STARTING-SPACE', config: { is_starting_space: false } }
+      ] as Space[]);
+
+      // Act
+      const result = movementService.resolveChoice('CHOICE-A');
+
+      // Assert
+      expect(result).toEqual(gameStateWithPlayer);
+      expect(mockStateService.clearAwaitingChoice).toHaveBeenCalled();
     });
   });
 

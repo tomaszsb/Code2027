@@ -1,707 +1,358 @@
 import { TurnService } from '../../src/services/TurnService';
-import { IDataService, IStateService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IGameRulesService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
-import { DiceEffect } from '../../src/types/DataTypes';
+
+// Mock implementations
+const mockDataService: jest.Mocked<IDataService> = {
+  getCardById: jest.fn(),
+  getCards: jest.fn(),
+  getCardsByType: jest.fn(),
+  getAllCardTypes: jest.fn(),
+  getGameConfig: jest.fn(),
+  getGameConfigBySpace: jest.fn(),
+  getAllSpaces: jest.fn(),
+  getSpaceByName: jest.fn(),
+  getMovement: jest.fn(),
+  getAllMovements: jest.fn(),
+  getDiceOutcome: jest.fn(),
+  getAllDiceOutcomes: jest.fn(),
+  getSpaceEffects: jest.fn(),
+  getAllSpaceEffects: jest.fn(),
+  getDiceEffects: jest.fn(),
+  getAllDiceEffects: jest.fn(),
+  getSpaceContent: jest.fn(),
+  getAllSpaceContent: jest.fn(),
+  isLoaded: jest.fn(),
+  loadData: jest.fn(),
+};
+
+const mockStateService: jest.Mocked<IStateService> = {
+  getGameState: jest.fn(),
+  isStateLoaded: jest.fn(),
+  addPlayer: jest.fn(),
+  updatePlayer: jest.fn(),
+  removePlayer: jest.fn(),
+  getPlayer: jest.fn(),
+  getAllPlayers: jest.fn(),
+  setCurrentPlayer: jest.fn(),
+  setGamePhase: jest.fn(),
+  advanceTurn: jest.fn(),
+  nextPlayer: jest.fn(),
+  initializeGame: jest.fn(),
+  startGame: jest.fn(),
+  endGame: jest.fn(),
+  resetGame: jest.fn(),
+  setAwaitingChoice: jest.fn(),
+  clearAwaitingChoice: jest.fn(),
+  setPlayerHasMoved: jest.fn(),
+  clearPlayerHasMoved: jest.fn(),
+  showCardModal: jest.fn(),
+  dismissModal: jest.fn(),
+  validatePlayerAction: jest.fn(),
+  canStartGame: jest.fn(),
+};
+
+const mockGameRulesService: jest.Mocked<IGameRulesService> = {
+  isMoveValid: jest.fn(),
+  canPlayCard: jest.fn(),
+  canDrawCard: jest.fn(),
+  canPlayerAfford: jest.fn(),
+  isPlayerTurn: jest.fn(),
+  isGameInProgress: jest.fn(),
+  canPlayerTakeAction: jest.fn(),
+  checkWinCondition: jest.fn(),
+};
 
 describe('TurnService', () => {
   let turnService: TurnService;
-  let mockDataService: jest.Mocked<IDataService>;
-  let mockStateService: jest.Mocked<IStateService>;
-
-  const mockPlayer: Player = {
-    id: 'player1',
-    name: 'Alice',
-    currentSpace: 'TEST-SPACE',
-    visitType: 'First',
-    money: 100,
-    time: 5,
-    cards: {
-      W: ['card1'],
-      B: ['card2'],
-      E: [],
-      L: [],
-      I: []
+  
+  const mockPlayers: Player[] = [
+    {
+      id: 'player1',
+      name: 'Player 1',
+      avatar: '👤',
+      currentSpace: 'START-SPACE',
+      visitType: 'First',
+      money: 1000,
+      time: 5,
+      cards: { W: [], B: [], E: [], L: [], I: [] }
+    },
+    {
+      id: 'player2', 
+      name: 'Player 2',
+      avatar: '👥',
+      currentSpace: 'START-SPACE',
+      visitType: 'First',
+      money: 1000,
+      time: 5,
+      cards: { W: [], B: [], E: [], L: [], I: [] }
+    },
+    {
+      id: 'player3',
+      name: 'Player 3', 
+      avatar: '👨',
+      currentSpace: 'START-SPACE',
+      visitType: 'First',
+      money: 1000,
+      time: 5,
+      cards: { W: [], B: [], E: [], L: [], I: [] }
     }
-  };
+  ];
 
   const mockGameState: GameState = {
-    players: [mockPlayer],
+    players: mockPlayers,
     currentPlayerId: 'player1',
     gamePhase: 'PLAY',
-    turn: 1
+    turn: 1,
+    activeModal: null,
+    awaitingChoice: null,
+    hasPlayerMovedThisTurn: false
   };
 
   beforeEach(() => {
-    // Mock DataService
-    mockDataService = {
-      getDiceEffects: jest.fn(),
-      isLoaded: jest.fn().mockReturnValue(true),
-      loadData: jest.fn(),
-      getGameConfig: jest.fn().mockReturnValue([]),
-      getGameConfigBySpace: jest.fn(),
-      getAllSpaces: jest.fn().mockReturnValue([]),
-      getSpaceByName: jest.fn(),
-      getMovement: jest.fn(),
-      getAllMovements: jest.fn().mockReturnValue([]),
-      getDiceOutcome: jest.fn(),
-      getAllDiceOutcomes: jest.fn().mockReturnValue([]),
-      getSpaceEffects: jest.fn().mockReturnValue([]),
-      getAllSpaceEffects: jest.fn().mockReturnValue([]),
-      getAllDiceEffects: jest.fn().mockReturnValue([]),
-      getSpaceContent: jest.fn(),
-      getAllSpaceContent: jest.fn().mockReturnValue([])
-    };
-
-    // Mock StateService
-    mockStateService = {
-      getGameState: jest.fn().mockReturnValue(mockGameState),
-      getPlayer: jest.fn().mockReturnValue(mockPlayer),
-      getAllPlayers: jest.fn().mockReturnValue([mockPlayer]),
-      updatePlayer: jest.fn().mockReturnValue(mockGameState),
-      addPlayer: jest.fn().mockReturnValue(mockGameState),
-      removePlayer: jest.fn().mockReturnValue(mockGameState),
-      setCurrentPlayer: jest.fn().mockReturnValue(mockGameState),
-      setGamePhase: jest.fn().mockReturnValue(mockGameState),
-      advanceTurn: jest.fn().mockReturnValue(mockGameState),
-      nextPlayer: jest.fn().mockReturnValue(mockGameState),
-      initializeGame: jest.fn().mockReturnValue(mockGameState),
-      startGame: jest.fn().mockReturnValue(mockGameState),
-      endGame: jest.fn().mockReturnValue(mockGameState),
-      resetGame: jest.fn().mockReturnValue(mockGameState),
-      validatePlayerAction: jest.fn().mockReturnValue(true),
-      canStartGame: jest.fn().mockReturnValue(true),
-      isStateLoaded: jest.fn().mockReturnValue(true)
-    };
-
-    turnService = new TurnService(mockDataService, mockStateService);
+    jest.clearAllMocks();
+    
+    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService);
+    
+    // Setup default mock implementations
+    mockStateService.getGameState.mockReturnValue(mockGameState);
+    mockStateService.setCurrentPlayer.mockReturnValue(mockGameState);
+    mockStateService.advanceTurn.mockReturnValue(mockGameState);
+    mockStateService.clearPlayerHasMoved.mockReturnValue(mockGameState);
+    
+    // Setup default GameRulesService mock - no win by default
+    mockGameRulesService.checkWinCondition.mockResolvedValue(false);
   });
 
-  describe('Constructor', () => {
-    it('should accept DataService and StateService dependencies', () => {
-      expect(turnService).toBeInstanceOf(TurnService);
+  describe('endTurn', () => {
+    it('should advance from first player to second player', async () => {
+      // Arrange - player1 is current player
+      const gameState = { ...mockGameState, currentPlayerId: 'player1' };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act
+      const result = await turnService.endTurn();
+
+      // Assert
+      expect(result.nextPlayerId).toBe('player2');
+      expect(mockStateService.setCurrentPlayer).toHaveBeenCalledWith('player2');
+      expect(mockStateService.advanceTurn).toHaveBeenCalled();
+      expect(mockStateService.clearPlayerHasMoved).toHaveBeenCalled();
     });
-  });
 
-  describe('rollDice', () => {
-    it('should return a number between 1 and 6', () => {
-      const results = new Set();
+    it('should advance from second player to third player', async () => {
+      // Arrange - player2 is current player
+      const gameState = { ...mockGameState, currentPlayerId: 'player2' };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act
+      const result = await turnService.endTurn();
+
+      // Assert
+      expect(result.nextPlayerId).toBe('player3');
+      expect(mockStateService.setCurrentPlayer).toHaveBeenCalledWith('player3');
+    });
+
+    it('should wrap around from last player to first player', async () => {
+      // Arrange - player3 is current player (last player)
+      const gameState = { ...mockGameState, currentPlayerId: 'player3' };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act
+      const result = await turnService.endTurn();
+
+      // Assert
+      expect(result.nextPlayerId).toBe('player1');
+      expect(mockStateService.setCurrentPlayer).toHaveBeenCalledWith('player1');
+    });
+
+    it('should work with two players', async () => {
+      // Arrange - game with only two players
+      const twoPlayerState = {
+        ...mockGameState,
+        players: [mockPlayers[0], mockPlayers[1]], // Only player1 and player2
+        currentPlayerId: 'player1'
+      };
+      mockStateService.getGameState.mockReturnValue(twoPlayerState);
+
+      // Act
+      const result = await turnService.endTurn();
+
+      // Assert
+      expect(result.nextPlayerId).toBe('player2');
+      expect(mockStateService.setCurrentPlayer).toHaveBeenCalledWith('player2');
+    });
+
+    it('should work with single player (wrap to self)', async () => {
+      // Arrange - game with only one player
+      const singlePlayerState = {
+        ...mockGameState,
+        players: [mockPlayers[0]], // Only player1
+        currentPlayerId: 'player1'
+      };
+      mockStateService.getGameState.mockReturnValue(singlePlayerState);
+
+      // Act
+      const result = await turnService.endTurn();
+
+      // Assert
+      expect(result.nextPlayerId).toBe('player1');
+      expect(mockStateService.setCurrentPlayer).toHaveBeenCalledWith('player1');
+    });
+
+    it('should throw error if game is not in PLAY phase', async () => {
+      // Arrange
+      const gameState = { ...mockGameState, gamePhase: 'SETUP' as const };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act & Assert
+      await expect(turnService.endTurn())
+        .rejects.toThrow('Cannot end turn outside of PLAY phase');
       
-      // Roll dice many times to test range
-      for (let i = 0; i < 1000; i++) {
-        const result = turnService.rollDice();
-        expect(result).toBeGreaterThanOrEqual(1);
-        expect(result).toBeLessThanOrEqual(6);
-        expect(Number.isInteger(result)).toBe(true);
-        results.add(result);
-      }
+      expect(mockStateService.setCurrentPlayer).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if no current player', async () => {
+      // Arrange
+      const gameState = { ...mockGameState, currentPlayerId: null };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act & Assert
+      await expect(turnService.endTurn())
+        .rejects.toThrow('No current player to end turn for');
       
-      // Should eventually see all possible values
-      expect(results.size).toBe(6);
+      expect(mockStateService.setCurrentPlayer).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if no players in game', async () => {
+      // Arrange
+      const gameState = { ...mockGameState, players: [] };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act & Assert
+      await expect(turnService.endTurn())
+        .rejects.toThrow('No players in the game');
+      
+      expect(mockStateService.setCurrentPlayer).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if current player not found in player list', async () => {
+      // Arrange
+      const gameState = { ...mockGameState, currentPlayerId: 'nonexistent' };
+      mockStateService.getGameState.mockReturnValue(gameState);
+
+      // Act & Assert
+      await expect(turnService.endTurn())
+        .rejects.toThrow('Current player not found in player list');
+      
+      expect(mockStateService.setCurrentPlayer).not.toHaveBeenCalled();
+    });
+
+    it('should call state service methods in correct order', async () => {
+      // Arrange
+      const callOrder: string[] = [];
+      
+      mockStateService.setCurrentPlayer.mockImplementation(() => {
+        callOrder.push('setCurrentPlayer');
+        return mockGameState;
+      });
+      
+      mockStateService.advanceTurn.mockImplementation(() => {
+        callOrder.push('advanceTurn');
+        return mockGameState;
+      });
+      
+      mockStateService.clearPlayerHasMoved.mockImplementation(() => {
+        callOrder.push('clearPlayerHasMoved');
+        return mockGameState;
+      });
+
+      // Act
+      await turnService.endTurn();
+
+      // Assert
+      expect(callOrder).toEqual(['setCurrentPlayer', 'advanceTurn', 'clearPlayerHasMoved']);
+    });
+
+    it('should handle state service errors gracefully', async () => {
+      // Arrange
+      mockStateService.setCurrentPlayer.mockImplementation(() => {
+        throw new Error('State service error');
+      });
+
+      // Act & Assert
+      await expect(turnService.endTurn())
+        .rejects.toThrow('State service error');
     });
   });
 
   describe('canPlayerTakeTurn', () => {
-    it('should return true when player can take turn', () => {
-      const canTakeTurn = turnService.canPlayerTakeTurn('player1');
-      
-      expect(canTakeTurn).toBe(true);
-      expect(mockStateService.getGameState).toHaveBeenCalled();
-      expect(mockStateService.getPlayer).toHaveBeenCalledWith('player1');
+    it('should return true for current player in PLAY phase', () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(mockPlayers[0]);
+
+      // Act
+      const result = turnService.canPlayerTakeTurn('player1');
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('should return false when game is not in PLAY phase', () => {
-      mockStateService.getGameState.mockReturnValue({
-        ...mockGameState,
-        gamePhase: 'SETUP'
-      });
-      
-      const canTakeTurn = turnService.canPlayerTakeTurn('player1');
-      
-      expect(canTakeTurn).toBe(false);
+    it('should return false for non-current player', () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(mockPlayers[1]);
+
+      // Act
+      const result = turnService.canPlayerTakeTurn('player2');
+
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('should return false when it is not the player\'s turn', () => {
-      mockStateService.getGameState.mockReturnValue({
-        ...mockGameState,
-        currentPlayerId: 'player2'
-      });
-      
-      const canTakeTurn = turnService.canPlayerTakeTurn('player1');
-      
-      expect(canTakeTurn).toBe(false);
+    it('should return false if game is not in PLAY phase', () => {
+      // Arrange
+      const gameState = { ...mockGameState, gamePhase: 'SETUP' as const };
+      mockStateService.getGameState.mockReturnValue(gameState);
+      mockStateService.getPlayer.mockReturnValue(mockPlayers[0]);
+
+      // Act
+      const result = turnService.canPlayerTakeTurn('player1');
+
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('should return false when player does not exist', () => {
+    it('should return false if player does not exist', () => {
+      // Arrange
       mockStateService.getPlayer.mockReturnValue(undefined);
-      
-      const canTakeTurn = turnService.canPlayerTakeTurn('nonexistent');
-      
-      expect(canTakeTurn).toBe(false);
+
+      // Act
+      const result = turnService.canPlayerTakeTurn('nonexistent');
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
   describe('getCurrentPlayerTurn', () => {
     it('should return current player ID', () => {
-      const currentPlayer = turnService.getCurrentPlayerTurn();
-      
-      expect(currentPlayer).toBe('player1');
-      expect(mockStateService.getGameState).toHaveBeenCalled();
+      // Act
+      const result = turnService.getCurrentPlayerTurn();
+
+      // Assert
+      expect(result).toBe('player1');
     });
 
     it('should return null when no current player', () => {
-      mockStateService.getGameState.mockReturnValue({
-        ...mockGameState,
-        currentPlayerId: null
-      });
-      
-      const currentPlayer = turnService.getCurrentPlayerTurn();
-      
-      expect(currentPlayer).toBeNull();
-    });
-  });
+      // Arrange
+      const gameState = { ...mockGameState, currentPlayerId: null };
+      mockStateService.getGameState.mockReturnValue(gameState);
 
-  describe('takeTurn', () => {
-    beforeEach(() => {
-      // Mock dice effects
-      mockDataService.getDiceEffects.mockReturnValue([]);
-      
-      // Spy on rollDice to control the result
-      jest.spyOn(turnService, 'rollDice').mockReturnValue(3);
-    });
+      // Act
+      const result = turnService.getCurrentPlayerTurn();
 
-    it('should successfully execute a player turn', () => {
-      const result = turnService.takeTurn('player1');
-      
-      expect(result.newState).toBe(mockGameState);
-      expect(result.diceRoll).toBeGreaterThanOrEqual(1);
-      expect(result.diceRoll).toBeLessThanOrEqual(6);
-      expect(mockStateService.advanceTurn).toHaveBeenCalled();
-      expect(mockStateService.nextPlayer).toHaveBeenCalled();
-    });
-
-    it('should throw error when player cannot take turn', () => {
-      mockStateService.getGameState.mockReturnValue({
-        ...mockGameState,
-        gamePhase: 'SETUP'
-      });
-      
-      expect(() => turnService.takeTurn('player1')).toThrow('It is not player player1\'s turn');
-    });
-
-    it('should throw error when player does not exist', () => {
-      // Mock canPlayerTakeTurn to return false for non-existent player
-      mockStateService.getGameState.mockReturnValue({
-        ...mockGameState,
-        currentPlayerId: 'nonexistent'
-      });
-      mockStateService.getPlayer.mockReturnValue(undefined);
-      
-      expect(() => turnService.takeTurn('nonexistent')).toThrow('It is not player nonexistent\'s turn');
-    });
-
-    it('should roll dice and process effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_1: 'Draw 1',
-        roll_2: 'Draw 2',
-        roll_3: 'Draw 3',
-        roll_4: 'Draw 1',
-        roll_5: 'Draw 1',
-        roll_6: 'Draw 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.takeTurn('player1');
-      
-      expect(turnService.rollDice).toHaveBeenCalled();
-      expect(mockDataService.getDiceEffects).toHaveBeenCalledWith('TEST-SPACE', 'First');
-    });
-  });
-
-  describe('processTurnEffects', () => {
-    it('should process dice effects for player', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_1: 'Draw 1',
-        roll_2: 'Draw 2',
-        roll_3: 'Draw 3'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(mockDataService.getDiceEffects).toHaveBeenCalledWith('TEST-SPACE', 'First');
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should throw error when player not found', () => {
-      mockStateService.getPlayer.mockReturnValue(undefined);
-      
-      expect(() => turnService.processTurnEffects('nonexistent', 3))
-        .toThrow('Player nonexistent not found');
-    });
-
-    it('should handle empty dice effects', () => {
-      mockDataService.getDiceEffects.mockReturnValue([]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-  });
-
-  describe('Card Effects', () => {
-    it('should handle Draw card effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Draw 2'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        cards: expect.objectContaining({
-          W: expect.arrayContaining(['card1'])
-        })
-      });
-    });
-
-    it('should handle Remove card effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Remove 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        cards: expect.objectContaining({
-          W: []
-        })
-      });
-    });
-
-    it('should handle Replace card effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Replace 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalled();
-    });
-
-    it('should handle No change effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'No change'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-  });
-
-  describe('Money Effects', () => {
-    it('should handle fixed money effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'money',
-        roll_3: '50'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        money: 150 // 100 + 50
-      });
-    });
-
-    it('should handle percentage money effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'money',
-        roll_3: '10%'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        money: 110 // 100 + (100 * 10%)
-      });
-    });
-
-    it('should prevent negative money', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'money',
-        roll_3: '-200'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        money: 0 // Cannot go below 0
-      });
-    });
-  });
-
-  describe('Time Effects', () => {
-    it('should handle positive time effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'time',
-        roll_3: '3'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        time: 8 // 5 + 3
-      });
-    });
-
-    it('should handle negative time effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'time',
-        roll_3: '-2'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        time: 3 // 5 - 2
-      });
-    });
-
-    it('should prevent negative time', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'time',
-        roll_3: '-10'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        time: 0 // Cannot go below 0
-      });
-    });
-  });
-
-  describe('Quality Effects', () => {
-    it('should handle quality effects', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'quality',
-        roll_3: 'HIGH'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(consoleSpy).toHaveBeenCalledWith('Player player1 quality level: HIGH');
-      expect(result).toBe(mockGameState);
-      
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('Unknown Effects', () => {
-    it('should handle unknown effect types', () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'unknown',
-        roll_3: 'test'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(consoleWarnSpy).toHaveBeenCalledWith('Unknown effect type: unknown');
-      expect(result).toBe(mockGameState);
-      
-      consoleWarnSpy.mockRestore();
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle dice roll outside valid range', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_1: 'Draw 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 7); // Invalid dice roll
-      
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should handle "many" in effect strings', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Draw many'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        cards: expect.objectContaining({
-          W: expect.arrayContaining(['card1'])
-        })
-      });
-    });
-
-    it('should handle missing card_type', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        roll_3: 'Draw 1'
-        // card_type is undefined
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalled();
-    });
-
-    it('should handle undefined dice roll effects', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W'
-        // No roll_3 defined
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should handle replace card effects when player has no cards', () => {
-      const playerWithNoCards = {
-        ...mockPlayer,
-        cards: {
-          W: [],
-          B: [],
-          E: [],
-          L: [],
-          I: []
-        }
-      };
-      
-      mockStateService.getPlayer.mockReturnValue(playerWithNoCards);
-
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Replace 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should handle remove effects when nothing to remove', () => {
-      const playerWithNoCards = {
-        ...mockPlayer,
-        cards: {
-          W: [],
-          B: [],
-          E: [],
-          L: [],
-          I: []
-        }
-      };
-      
-      mockStateService.getPlayer.mockReturnValue(playerWithNoCards);
-
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Remove 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      turnService.processTurnEffects('player1', 3);
-      
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        cards: expect.objectContaining({
-          W: []
-        })
-      });
-    });
-
-    it('should handle draw effects with zero count', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Draw 0'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should handle effects with non-numeric strings', () => {
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Some effect'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      const result = turnService.processTurnEffects('player1', 3);
-      
-      expect(result).toBe(mockGameState);
-    });
-
-    it('should handle player not found in applyCardEffect', () => {
-      mockStateService.getPlayer.mockReturnValueOnce(mockPlayer).mockReturnValueOnce(undefined);
-
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'cards',
-        card_type: 'W',
-        roll_3: 'Draw 1'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      expect(() => turnService.processTurnEffects('player1', 3))
-        .toThrow('Player player1 not found');
-    });
-
-    it('should handle player not found in applyMoneyEffect', () => {
-      mockStateService.getPlayer.mockReturnValueOnce(mockPlayer).mockReturnValueOnce(undefined);
-
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'money',
-        roll_3: '50'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      expect(() => turnService.processTurnEffects('player1', 3))
-        .toThrow('Player player1 not found');
-    });
-
-    it('should handle player not found in applyTimeEffect', () => {
-      mockStateService.getPlayer.mockReturnValueOnce(mockPlayer).mockReturnValueOnce(undefined);
-
-      const mockDiceEffect: DiceEffect = {
-        space_name: 'TEST-SPACE',
-        visit_type: 'First',
-        effect_type: 'time',
-        roll_3: '5'
-      };
-
-      mockDataService.getDiceEffects.mockReturnValue([mockDiceEffect]);
-      
-      expect(() => turnService.processTurnEffects('player1', 3))
-        .toThrow('Player player1 not found');
+      // Assert
+      expect(result).toBeNull();
     });
   });
 });

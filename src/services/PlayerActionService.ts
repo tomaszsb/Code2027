@@ -1,4 +1,4 @@
-import { IPlayerActionService, IDataService, IStateService, IGameRulesService } from '../types/ServiceContracts';
+import { IPlayerActionService, IDataService, IStateService, IGameRulesService, IMovementService, ITurnService } from '../types/ServiceContracts';
 
 /**
  * PlayerActionService handles player actions and orchestrates interactions between multiple services.
@@ -8,7 +8,9 @@ export class PlayerActionService implements IPlayerActionService {
   constructor(
     private dataService: IDataService,
     private stateService: IStateService,
-    private gameRulesService: IGameRulesService
+    private gameRulesService: IGameRulesService,
+    private movementService: IMovementService,
+    private turnService: ITurnService
   ) {}
 
   /**
@@ -76,10 +78,101 @@ export class PlayerActionService implements IPlayerActionService {
       // 6. Card effects will be processed by a dedicated effect system in future phases
       // For now, the card play is complete after state update
 
+      // 7. End the player's turn and advance to next player
+      await this.turnService.endTurn();
+
     } catch (error) {
       // Re-throw with additional context
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`Failed to play card: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Handles a player rolling dice.
+   * 
+   * @param playerId - The ID of the player rolling the dice
+   * @returns Promise resolving to dice roll result with individual rolls and total
+   * @throws Error if the action is invalid (player not found, etc.)
+   */
+  public async rollDice(playerId: string): Promise<{ roll1: number; roll2: number; total: number }> {
+    try {
+      // 1. Get current game state and player
+      const gameState = this.stateService.getGameState();
+      const player = this.stateService.getPlayer(playerId);
+      
+      if (!player) {
+        throw new Error(`Player with ID '${playerId}' not found`);
+      }
+
+      // 2. Generate two random dice rolls (1-6)
+      const roll1 = Math.floor(Math.random() * 6) + 1;
+      const roll2 = Math.floor(Math.random() * 6) + 1;
+      const total = roll1 + roll2;
+
+      const diceResult = { roll1, roll2, total };
+
+      // 3. Update player state with dice roll result
+      this.stateService.updatePlayer({
+        id: playerId,
+        lastDiceRoll: diceResult
+      });
+
+      // 4. Trigger movement based on dice roll
+      await this.handlePlayerMovement(playerId, diceResult.total);
+
+      // 5. End the player's turn and advance to next player
+      await this.turnService.endTurn();
+
+      // 6. Return the dice roll result
+      return diceResult;
+
+    } catch (error) {
+      // Re-throw with additional context
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to roll dice: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Handles player movement after dice roll.
+   * 
+   * @private
+   * @param playerId - The ID of the player to move
+   * @param diceTotal - The total dice roll result
+   * @throws Error if movement fails
+   */
+  private async handlePlayerMovement(playerId: string, diceTotal: number): Promise<void> {
+    try {
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        throw new Error(`Player with ID '${playerId}' not found`);
+      }
+
+      // Check if this space has movement options
+      const validMoves = this.movementService.getValidMoves(playerId);
+      
+      if (validMoves.length === 0) {
+        // Terminal space - no movement possible
+        return;
+      }
+
+      // For dice-based movement, find the destination based on dice roll
+      const destination = this.movementService.getDiceDestination(
+        player.currentSpace, 
+        player.visitType, 
+        diceTotal
+      );
+
+      if (destination) {
+        // Move player to the determined destination
+        this.movementService.movePlayer(playerId, destination);
+      }
+      // If no destination found for this dice roll, player stays in current space
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to handle player movement: ${errorMessage}`);
     }
   }
 }

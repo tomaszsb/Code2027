@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CardModal } from '../modals/CardModal';
 import { ChoiceModal } from '../modals/ChoiceModal';
+import { EndGameModal } from '../modals/EndGameModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { GameBoard } from '../game/GameBoard';
@@ -170,6 +171,9 @@ export function GameLayout(): JSX.Element {
       
       {/* ChoiceModal - always rendered, visibility controlled by state */}
       <ChoiceModal />
+      
+      {/* EndGameModal - always rendered, visibility controlled by state */}
+      <EndGameModal />
     </div>
   );
 }

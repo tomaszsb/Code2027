@@ -90,6 +90,11 @@ export interface Player {
     L: string[];
     I: string[];
   };
+  lastDiceRoll?: {
+    roll1: number;
+    roll2: number;
+    total: number;
+  };
 }
 
 export interface GameState {

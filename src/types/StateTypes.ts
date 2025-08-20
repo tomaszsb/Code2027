@@ -15,6 +15,7 @@ export interface GameState {
   activeModal: ActiveModal | null;
   awaitingChoice: { playerId: string; options: string[] } | null;
   hasPlayerMovedThisTurn: boolean;
+  isGameOver: boolean;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;
@@ -52,6 +53,11 @@ export interface PlayerUpdateData {
     E?: string[];
     L?: string[];
     I?: string[];
+  };
+  lastDiceRoll?: {
+    roll1: number;
+    roll2: number;
+    total: number;
   };
 }
 

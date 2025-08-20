@@ -518,4 +518,122 @@ describe('GameRulesService', () => {
       expect(gameRulesService.isMoveValid('player1', 'DEST-B')).toBe(true);
     });
   });
+
+  describe('checkWinCondition', () => {
+    it('should return true when player is on an ending space', async () => {
+      // Arrange
+      const endingSpaceConfig = {
+        space_name: 'END-SPACE',
+        phase: 'END',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: true,
+        min_players: 1,
+        max_players: 4
+      };
+
+      const playerOnEndingSpace = { ...mockPlayer, currentSpace: 'END-SPACE' };
+      mockStateService.getPlayer.mockReturnValue(playerOnEndingSpace);
+      mockDataService.getGameConfigBySpace.mockReturnValue(endingSpaceConfig);
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('player1');
+
+      // Assert
+      expect(result).toBe(true);
+      expect(mockStateService.getPlayer).toHaveBeenCalledWith('player1');
+      expect(mockDataService.getGameConfigBySpace).toHaveBeenCalledWith('END-SPACE');
+    });
+
+    it('should return false when player is not on an ending space', async () => {
+      // Arrange
+      const normalSpaceConfig = {
+        space_name: 'NORMAL-SPACE',
+        phase: 'PLAY',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockDataService.getGameConfigBySpace.mockReturnValue(normalSpaceConfig);
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('player1');
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('should return false when player does not exist', async () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(undefined);
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('nonexistent');
+
+      // Assert
+      expect(result).toBe(false);
+      expect(mockStateService.getPlayer).toHaveBeenCalledWith('nonexistent');
+      expect(mockDataService.getGameConfigBySpace).not.toHaveBeenCalled();
+    });
+
+    it('should return false when space configuration is not found', async () => {
+      // Arrange
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockDataService.getGameConfigBySpace.mockReturnValue(undefined);
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('player1');
+
+      // Assert
+      expect(result).toBe(false);
+      expect(mockDataService.getGameConfigBySpace).toHaveBeenCalledWith('START-SPACE');
+    });
+
+    it('should return false and log error when an exception occurs', async () => {
+      // Arrange
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      mockStateService.getPlayer.mockImplementation(() => {
+        throw new Error('Database error');
+      });
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('player1');
+
+      // Assert
+      expect(result).toBe(false);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error checking win condition for player player1:',
+        expect.any(Error)
+      );
+
+      // Cleanup
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle space config with is_ending_space as false', async () => {
+      // Arrange
+      const nonEndingSpaceConfig = {
+        space_name: 'MIDDLE-SPACE',
+        phase: 'PLAY',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockDataService.getGameConfigBySpace.mockReturnValue(nonEndingSpaceConfig);
+
+      // Act
+      const result = await gameRulesService.checkWinCondition('player1');
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
 });

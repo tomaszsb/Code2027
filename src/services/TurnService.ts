@@ -1,14 +1,16 @@
-import { ITurnService, IDataService, IStateService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { DiceEffect, Movement } from '../types/DataTypes';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
   private readonly stateService: IStateService;
+  private readonly gameRulesService: IGameRulesService;
 
-  constructor(dataService: IDataService, stateService: IStateService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService) {
     this.dataService = dataService;
     this.stateService = stateService;
+    this.gameRulesService = gameRulesService;
   }
 
   takeTurn(playerId: string): TurnResult {
@@ -47,7 +49,7 @@ export class TurnService implements ITurnService {
     };
   }
 
-  endTurn(): GameState {
+  async endTurn(): Promise<{ nextPlayerId: string }> {
     const gameState = this.stateService.getGameState();
     
     // Validation: Game must be in PLAY phase
@@ -60,19 +62,38 @@ export class TurnService implements ITurnService {
       throw new Error('No current player to end turn for');
     }
 
-    // Validation: Player must have moved this turn
-    if (!gameState.hasPlayerMovedThisTurn) {
-      throw new Error('Cannot end turn: player has not moved yet');
+    // Check for win condition before ending turn
+    const hasWon = await this.gameRulesService.checkWinCondition(gameState.currentPlayerId);
+    if (hasWon) {
+      // Player has won - end the game
+      this.stateService.endGame(gameState.currentPlayerId);
+      return { nextPlayerId: gameState.currentPlayerId }; // Winner remains current player
     }
 
-    // Validation: Cannot end turn while awaiting choice
-    if (gameState.awaitingChoice) {
-      throw new Error('Cannot end turn while awaiting player choice');
+    // Get all players to determine next player
+    const allPlayers = gameState.players;
+    if (allPlayers.length === 0) {
+      throw new Error('No players in the game');
     }
 
-    // Advance turn counter and move to next player
+    // Find the current player index
+    const currentPlayerIndex = allPlayers.findIndex(p => p.id === gameState.currentPlayerId);
+    if (currentPlayerIndex === -1) {
+      throw new Error('Current player not found in player list');
+    }
+
+    // Determine next player (wrap around to first player if at end)
+    const nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
+    const nextPlayer = allPlayers[nextPlayerIndex];
+
+    // Update the current player in the game state
+    this.stateService.setCurrentPlayer(nextPlayer.id);
+
+    // Advance turn counter and clear player moved flag
     this.stateService.advanceTurn();
-    return this.stateService.nextPlayer();
+    this.stateService.clearPlayerHasMoved();
+
+    return { nextPlayerId: nextPlayer.id };
   }
 
   rollDice(): number {

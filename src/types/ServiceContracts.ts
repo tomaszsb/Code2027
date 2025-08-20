@@ -117,7 +117,7 @@ export interface TurnResult {
 export interface ITurnService {
   // Turn management methods
   takeTurn(playerId: string): TurnResult;
-  endTurn(): GameState;
+  endTurn(): Promise<{ nextPlayerId: string }>;
   rollDice(): number;
   
   // Turn validation methods  
@@ -152,6 +152,7 @@ export interface ICardService {
 export interface IPlayerActionService {
   // Methods for handling player commands and orchestrating actions
   playCard(playerId: string, cardId: string): Promise<void>;
+  rollDice(playerId: string): Promise<{ roll1: number; roll2: number; total: number }>;
 }
 
 export interface IMovementService {
@@ -160,6 +161,9 @@ export interface IMovementService {
   
   // Movement execution methods
   movePlayer(playerId: string, destinationSpace: string): GameState;
+  
+  // Dice-based movement methods
+  getDiceDestination(spaceName: string, visitType: VisitType, diceRoll: number): string | null;
   
   // Choice resolution methods
   resolveChoice(destination: string): GameState;
@@ -181,6 +185,10 @@ export interface IGameRulesService {
   
   // Game state validation methods
   isGameInProgress(): boolean;
+  
+  // Win condition methods
+  checkWinCondition(playerId: string): Promise<boolean>;
+  
   canPlayerTakeAction(playerId: string): boolean;
 }
 
