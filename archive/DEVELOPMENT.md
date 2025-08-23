@@ -23,7 +23,63 @@
 - ✅ **User Experience:** Intuitive UI with real-time feedback and error handling
 - ✅ **Data Integrity:** CSV-driven configuration with validation
 
+### **Key Documentation**
+- `CLAUDE.md` - Project charter and architectural guidelines
+- `TASK_HISTORY.md` - Comprehensive log of all implementation phases
+- `CSV_RESTRUCTURE_PLAN.md` - Data architecture specification
+- `INTEGRATION_GUIDE.md` - JavaScript integration examples
+
 **The game is now fully playable from start to finish with a complete multi-player gameplay loop, ready for production use or further feature development.**
+
+---
+
+# Development Standards & Guidelines
+
+## 🏗️ Code Quality Standards
+
+### File Size Enforcement:
+- **Components**: <200 lines (hard limit) - Break down into smaller, focused components
+- **Services**: <300 lines (split if larger into focused services)
+- **Utilities**: <150 lines (single-purpose functions)
+- **Tests**: No limit (comprehensive coverage required)
+
+### Architecture Quality Checklist:
+- [ ] No `window.*` access anywhere (use dependency injection)
+- [ ] All dependencies injected via props/constructor
+- [ ] TypeScript types for all interfaces and function signatures
+- [ ] Unit tests for all business logic
+- [ ] Component tests for all UI components
+- [ ] File size limits respected
+- [ ] Single responsibility principle followed
+- [ ] CSV data accessed only through DataService
+
+### Component Development Guidelines:
+- **Single Responsibility**: UI rendering only, no business logic
+- **Props-Based Data**: All data via props, no global state access
+- **TypeScript Required**: All props and state fully typed
+- **Service Integration**: Use `useGameContext()` hook for service access
+- **Error Handling**: Graceful error handling with user feedback
+
+### Service Development Guidelines:
+- **Dependency Injection**: Constructor-based injection of dependencies
+- **Interface Contracts**: Implement defined interfaces from ServiceContracts.ts  
+- **Immutable Patterns**: Return new objects, never mutate existing state
+- **Error Handling**: Comprehensive try-catch with meaningful error messages
+- **Testing**: 90%+ test coverage with both success and error scenarios
+
+## 🤝 Development Workflow
+
+### When to Ask for Help:
+- Unclear business logic requirements from existing game rules
+- Architecture decision points not covered in established patterns
+- Integration challenges between services or components
+- Testing strategy questions or complex mocking scenarios
+
+### Development Progress Tracking:
+- Document significant architectural decisions and their rationale
+- Update test coverage metrics when adding new features
+- Validate code quality metrics (file sizes, TypeScript coverage)
+- Record any deviations from established patterns with justification
 
 ---
 
