@@ -13,40 +13,178 @@ export class TurnService implements ITurnService {
     this.gameRulesService = gameRulesService;
   }
 
+  /**
+   * Generate dynamic card IDs that reference actual cards from the CSV data
+   * Format: STATIC_ID_timestamp_random_index
+   */
+  private generateCardIds(cardType: string, count: number): string[] {
+    const cardsOfType = this.dataService.getCardsByType(cardType as any);
+    if (cardsOfType.length === 0) {
+      console.warn(`No cards of type ${cardType} found in CSV data`);
+      return [];
+    }
+
+    const cardIds: string[] = [];
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substr(2, 9);
+
+    for (let i = 0; i < count; i++) {
+      // Randomly select a card from available cards of this type
+      const randomCard = cardsOfType[Math.floor(Math.random() * cardsOfType.length)];
+      // Create dynamic ID that starts with the static card ID
+      const dynamicId = `${randomCard.card_id}_${timestamp}_${randomString}_${i}`;
+      cardIds.push(dynamicId);
+    }
+
+    return cardIds;
+  }
+
   takeTurn(playerId: string): TurnResult {
-    // Validation: Check if it's the player's turn
-    if (!this.canPlayerTakeTurn(playerId)) {
-      throw new Error(`It is not player ${playerId}'s turn`);
+    console.log(`🎮 TurnService.takeTurn - Starting turn for player ${playerId}`);
+    
+    try {
+      // Validation: Check if it's the player's turn
+      if (!this.canPlayerTakeTurn(playerId)) {
+        throw new Error(`It is not player ${playerId}'s turn`);
+      }
+
+      // Check if player has already moved this turn
+      const gameState = this.stateService.getGameState();
+      if (gameState.hasPlayerMovedThisTurn) {
+        throw new Error(`Player ${playerId} has already moved this turn`);
+      }
+
+      // Get current player data
+      const currentPlayer = this.stateService.getPlayer(playerId);
+      if (!currentPlayer) {
+        throw new Error(`Player ${playerId} not found`);
+      }
+
+      console.log(`🎮 TurnService.takeTurn - Player ${currentPlayer.name} on space ${currentPlayer.currentSpace}`);
+
+      // Roll dice
+      const diceRoll = this.rollDice();
+      console.log(`🎮 TurnService.takeTurn - Rolled dice: ${diceRoll}`);
+
+      // Process turn effects based on dice roll
+      console.log(`🎮 TurnService.takeTurn - Processing turn effects...`);
+      this.processTurnEffects(playerId, diceRoll);
+
+      // Handle movement based on current space
+      console.log(`🎮 TurnService.takeTurn - Handling movement...`);
+      const newGameState = this.handleMovement(playerId, diceRoll);
+
+      // Mark that the player has moved this turn
+      console.log(`🎮 TurnService.takeTurn - Marking player as moved`);
+      this.stateService.setPlayerHasMoved();
+
+      console.log(`🎮 TurnService.takeTurn - Turn completed successfully`);
+      return {
+        newState: newGameState,
+        diceRoll: diceRoll
+      };
+    } catch (error) {
+      console.error(`🎮 TurnService.takeTurn - Error during turn:`, error);
+      throw error;
     }
+  }
 
-    // Check if player has already moved this turn
-    const gameState = this.stateService.getGameState();
-    if (gameState.hasPlayerMovedThisTurn) {
-      throw new Error(`Player ${playerId} has already moved this turn`);
+  /**
+   * Roll dice and process effects only (no movement)
+   * This is for the "Roll Dice" button
+   */
+  rollDiceAndProcessEffects(playerId: string): { diceRoll: number } {
+    console.log(`🎲 TurnService.rollDiceAndProcessEffects - Starting for player ${playerId}`);
+    
+    try {
+      // Validation: Check if it's the player's turn
+      if (!this.canPlayerTakeTurn(playerId)) {
+        throw new Error(`It is not player ${playerId}'s turn`);
+      }
+
+      // Check if player has already moved this turn
+      const gameState = this.stateService.getGameState();
+      if (gameState.hasPlayerMovedThisTurn) {
+        throw new Error(`Player ${playerId} has already moved this turn`);
+      }
+
+      // Get current player data
+      const currentPlayer = this.stateService.getPlayer(playerId);
+      if (!currentPlayer) {
+        throw new Error(`Player ${playerId} not found`);
+      }
+
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Player ${currentPlayer.name} on space ${currentPlayer.currentSpace}`);
+
+      // Roll dice
+      const diceRoll = this.rollDice();
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Rolled dice: ${diceRoll}`);
+
+      // Process turn effects based on dice roll (but NO movement)
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Processing turn effects...`);
+      this.processTurnEffects(playerId, diceRoll);
+
+      // Mark that the player has moved this turn (enables End Turn button)
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking player as moved`);
+      this.stateService.setPlayerHasMoved();
+
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Dice roll completed successfully`);
+      return { diceRoll };
+    } catch (error) {
+      console.error(`🎲 TurnService.rollDiceAndProcessEffects - Error:`, error);
+      throw error;
     }
+  }
 
-    // Get current player data
-    const currentPlayer = this.stateService.getPlayer(playerId);
-    if (!currentPlayer) {
-      throw new Error(`Player ${playerId} not found`);
+  /**
+   * Handle movement and advance to next player
+   * This is for the "End Turn" button
+   */
+  async endTurnWithMovement(): Promise<{ nextPlayerId: string }> {
+    console.log(`🏁 TurnService.endTurnWithMovement - Starting`);
+    
+    try {
+      const gameState = this.stateService.getGameState();
+      
+      // Validation: Game must be in PLAY phase
+      if (gameState.gamePhase !== 'PLAY') {
+        throw new Error('Cannot end turn outside of PLAY phase');
+      }
+
+      // Validation: Must have a current player
+      if (!gameState.currentPlayerId) {
+        throw new Error('No current player to end turn for');
+      }
+
+      // Get current player
+      const currentPlayer = this.stateService.getPlayer(gameState.currentPlayerId);
+      if (!currentPlayer) {
+        throw new Error('Current player not found');
+      }
+
+      console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
+
+      // Handle movement based on current space
+      // Note: We don't need dice roll here for fixed movement, but we'll pass 0 as placeholder
+      this.handleMovement(gameState.currentPlayerId, 0);
+
+      // Check for win condition before ending turn
+      const hasWon = await this.gameRulesService.checkWinCondition(gameState.currentPlayerId);
+      if (hasWon) {
+        // Player has won - end the game
+        this.stateService.endGame(gameState.currentPlayerId);
+        return { nextPlayerId: gameState.currentPlayerId }; // Winner remains current player
+      }
+
+      // Advance to next player
+      const nextPlayerResult = this.nextPlayer();
+      console.log(`🏁 TurnService.endTurnWithMovement - Advanced to next player: ${nextPlayerResult.nextPlayerId}`);
+      
+      return nextPlayerResult;
+    } catch (error) {
+      console.error(`🏁 TurnService.endTurnWithMovement - Error:`, error);
+      throw error;
     }
-
-    // Roll dice
-    const diceRoll = this.rollDice();
-
-    // Process turn effects based on dice roll
-    this.processTurnEffects(playerId, diceRoll);
-
-    // Handle movement based on current space
-    const newGameState = this.handleMovement(playerId, diceRoll);
-
-    // Mark that the player has moved this turn
-    this.stateService.setPlayerHasMoved();
-
-    return {
-      newState: newGameState,
-      diceRoll: diceRoll
-    };
   }
 
   async endTurn(): Promise<{ nextPlayerId: string }> {
@@ -70,8 +208,14 @@ export class TurnService implements ITurnService {
       return { nextPlayerId: gameState.currentPlayerId }; // Winner remains current player
     }
 
-    // Get all players to determine next player
+    // Use the common nextPlayer method
+    return this.nextPlayer();
+  }
+
+  private nextPlayer(): { nextPlayerId: string } {
+    const gameState = this.stateService.getGameState();
     const allPlayers = gameState.players;
+    
     if (allPlayers.length === 0) {
       throw new Error('No players in the game');
     }
@@ -135,13 +279,18 @@ export class TurnService implements ITurnService {
 
     let currentState = this.stateService.getGameState();
 
+    console.log(`🎯 Processing turn effects for ${currentPlayer.name} on ${currentPlayer.currentSpace} (${currentPlayer.visitType} visit)`);
+
     // First, process space effects (always applied when landing on a space)
     const spaceEffects = this.dataService.getSpaceEffects(
       currentPlayer.currentSpace, 
       currentPlayer.visitType
     );
 
+    console.log(`📋 Found ${spaceEffects.length} space effects:`, spaceEffects);
+
     for (const effect of spaceEffects) {
+      console.log(`⚡ Applying space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition})`);
       currentState = this.applySpaceEffect(playerId, effect, currentState);
     }
 
@@ -151,7 +300,10 @@ export class TurnService implements ITurnService {
       currentPlayer.visitType
     );
 
+    console.log(`🎲 Found ${diceEffects.length} dice effects:`, diceEffects);
+
     for (const effect of diceEffects) {
+      console.log(`🎲 Applying dice effect for roll ${diceRoll}:`, effect);
       currentState = this.applyDiceEffect(playerId, effect, diceRoll, currentState);
     }
 
@@ -237,10 +389,9 @@ export class TurnService implements ITurnService {
     if (effect.includes('Draw')) {
       const drawCount = this.parseNumericValue(effect);
       if (drawCount > 0) {
-        // Add placeholder cards (in real implementation, these would come from a deck)
-        const newCardIds = Array.from({ length: drawCount }, (_, i) => 
-          `${cardType}_${Date.now()}_${i}`
-        );
+        // Generate proper card IDs based on actual CSV card data
+        const newCardIds = this.generateCardIds(cardType, drawCount);
+        console.log(`Player ${player.name} draws ${drawCount} ${cardType} cards:`, newCardIds);
         newCards[cardTypeKey] = [...newCards[cardTypeKey], ...newCardIds];
       }
     } else if (effect.includes('Remove')) {
@@ -253,9 +404,8 @@ export class TurnService implements ITurnService {
       if (replaceCount > 0 && newCards[cardTypeKey].length > 0) {
         // Remove old cards and add new ones
         newCards[cardTypeKey] = newCards[cardTypeKey].slice(replaceCount);
-        const newCardIds = Array.from({ length: replaceCount }, (_, i) => 
-          `${cardType}_${Date.now()}_${i}`
-        );
+        const newCardIds = this.generateCardIds(cardType, replaceCount);
+        console.log(`Player ${player.name} replaces ${replaceCount} ${cardType} cards:`, newCardIds);
         newCards[cardTypeKey] = [...newCards[cardTypeKey], ...newCardIds];
       }
     }
@@ -327,9 +477,7 @@ export class TurnService implements ITurnService {
     if (action === 'draw_w') {
       // Draw W cards
       const newCards = { ...player.cards };
-      const newCardIds = Array.from({ length: value }, (_, i) => 
-        `W_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-      );
+      const newCardIds = this.generateCardIds('W', value);
       newCards.W = [...newCards.W, ...newCardIds];
       
       console.log(`Player ${player.name} draws ${value} W cards:`, newCardIds);
@@ -341,9 +489,7 @@ export class TurnService implements ITurnService {
     } else if (action === 'draw_b') {
       // Draw B cards
       const newCards = { ...player.cards };
-      const newCardIds = Array.from({ length: value }, (_, i) => 
-        `B_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-      );
+      const newCardIds = this.generateCardIds('B', value);
       newCards.B = [...newCards.B, ...newCardIds];
       
       console.log(`Player ${player.name} draws ${value} B cards:`, newCardIds);
@@ -355,9 +501,7 @@ export class TurnService implements ITurnService {
     } else if (action === 'draw_e') {
       // Draw E cards
       const newCards = { ...player.cards };
-      const newCardIds = Array.from({ length: value }, (_, i) => 
-        `E_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-      );
+      const newCardIds = this.generateCardIds('E', value);
       newCards.E = [...newCards.E, ...newCardIds];
       
       console.log(`Player ${player.name} draws ${value} E cards:`, newCardIds);
@@ -369,9 +513,7 @@ export class TurnService implements ITurnService {
     } else if (action === 'draw_l') {
       // Draw L cards  
       const newCards = { ...player.cards };
-      const newCardIds = Array.from({ length: value }, (_, i) => 
-        `L_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-      );
+      const newCardIds = this.generateCardIds('L', value);
       newCards.L = [...newCards.L, ...newCardIds];
       
       console.log(`Player ${player.name} draws ${value} L cards:`, newCardIds);
@@ -383,9 +525,7 @@ export class TurnService implements ITurnService {
     } else if (action === 'draw_i') {
       // Draw I cards
       const newCards = { ...player.cards };
-      const newCardIds = Array.from({ length: value }, (_, i) => 
-        `I_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-      );
+      const newCardIds = this.generateCardIds('I', value);
       newCards.I = [...newCards.I, ...newCardIds];
       
       console.log(`Player ${player.name} draws ${value} I cards:`, newCardIds);
@@ -403,9 +543,7 @@ export class TurnService implements ITurnService {
         // Remove old E cards
         newCards.E = newCards.E.slice(replaceCount);
         // Add new E cards
-        const newCardIds = Array.from({ length: replaceCount }, (_, i) => 
-          `E_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-        );
+        const newCardIds = this.generateCardIds('E', replaceCount);
         newCards.E = [...newCards.E, ...newCardIds];
         
         console.log(`Player ${player.name} replaces ${replaceCount} E cards:`, newCardIds);
@@ -426,9 +564,7 @@ export class TurnService implements ITurnService {
         // Remove old L cards
         newCards.L = newCards.L.slice(replaceCount);
         // Add new L cards
-        const newCardIds = Array.from({ length: replaceCount }, (_, i) => 
-          `L_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-        );
+        const newCardIds = this.generateCardIds('L', replaceCount);
         newCards.L = [...newCards.L, ...newCardIds];
         
         console.log(`Player ${player.name} replaces ${replaceCount} L cards:`, newCardIds);
@@ -575,7 +711,7 @@ export class TurnService implements ITurnService {
     const value = typeof effect.effect_value === 'string' ? 
       parseInt(effect.effect_value) : effect.effect_value;
     
-    let newTime = player.time;
+    let newTime = player.timeSpent || 0;
     
     if (effect.effect_action === 'add') {
       newTime += value;
@@ -595,7 +731,7 @@ export class TurnService implements ITurnService {
 
     return this.stateService.updatePlayer({
       id: playerId,
-      time: newTime
+      timeSpent: newTime
     });
   }
 
@@ -644,10 +780,15 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
+    console.log(`🚶 Movement Debug: Player ${currentPlayer.name} on ${currentPlayer.currentSpace} (${currentPlayer.visitType} visit)`);
+
     // Get movement data for current space
     const movement = this.dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
+    console.log('🚶 Movement data found:', movement);
+    
     if (!movement) {
       // No movement data - player stays in current space
+      console.log('🚶 No movement data found - staying in place');
       return this.stateService.getGameState();
     }
 

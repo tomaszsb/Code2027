@@ -124,6 +124,10 @@ export interface ITurnService {
   endTurn(): Promise<{ nextPlayerId: string }>;
   rollDice(): number;
   
+  // Separate dice and movement methods
+  rollDiceAndProcessEffects(playerId: string): { diceRoll: number };
+  endTurnWithMovement(): Promise<{ nextPlayerId: string }>;
+  
   // Turn validation methods  
   canPlayerTakeTurn(playerId: string): boolean;
   getCurrentPlayerTurn(): string | null;

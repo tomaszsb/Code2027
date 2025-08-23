@@ -199,7 +199,7 @@ export function PlayerStatusItem({ player, isCurrentPlayer, actions }: PlayerSta
           </div>
           <div style={statItemStyle}>
             <div style={statLabelStyle}>Time</div>
-            <div style={statValueStyle}>⏱️ {player.time}m</div>
+            <div style={statValueStyle}>⏱️ {player.timeSpent || 0} days</div>
           </div>
         </div>
 

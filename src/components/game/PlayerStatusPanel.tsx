@@ -10,7 +10,7 @@ import { Player } from '../../types/StateTypes';
  * Subscribes to game state changes and renders PlayerStatusItem for each player
  */
 export function PlayerStatusPanel(): JSX.Element {
-  const { stateService } = useGameContext();
+  const { stateService, dataService } = useGameContext();
 
   // Utility function to extract static card ID from dynamic instance ID
   const extractStaticCardId = (dynamicCardId: string): string => {
@@ -33,6 +33,15 @@ export function PlayerStatusPanel(): JSX.Element {
 
   // PlayerHand component for displaying player's cards
   const PlayerHand = ({ player }: { player: Player }) => {
+    // Debug logging to see what cards are in each type
+    console.log('🃏 Player cards debug:', {
+      W: player.cards.W,
+      B: player.cards.B,
+      E: player.cards.E,
+      L: player.cards.L,
+      I: player.cards.I
+    });
+
     // Organize cards by type for better display
     const cardsByType = [
       { type: 'W', cards: player.cards.W },
@@ -82,6 +91,17 @@ export function PlayerStatusPanel(): JSX.Element {
               const staticCardId = extractStaticCardId(dynamicCardId);
               const colors = getCardTypeColor(type);
               
+              // Get card data to show meaningful name instead of just type
+              const cardData = dataService.getCardById(staticCardId);
+              const displayName = cardData ? cardData.card_name : `${type} Card`;
+              
+              // For W cards, show a shortened version of the work scope
+              const shortName = type === 'W' && cardData ? 
+                cardData.card_name.length > 30 ? 
+                  cardData.card_name.substring(0, 27) + '...' : 
+                  cardData.card_name
+                : displayName;
+              
               return (
                 <button
                   key={`${dynamicCardId}-${index}`}
@@ -92,16 +112,19 @@ export function PlayerStatusPanel(): JSX.Element {
                     border: 'none',
                     borderRadius: '8px',
                     padding: '8px 12px',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     boxShadow: `0 2px 4px ${colors.shadow}`,
-                    minWidth: '50px',
+                    minWidth: '120px',
+                    maxWidth: '200px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '4px'
+                    gap: '4px',
+                    textAlign: 'center',
+                    lineHeight: '1.2'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-1px)';
@@ -111,6 +134,7 @@ export function PlayerStatusPanel(): JSX.Element {
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = `0 2px 4px ${colors.shadow}`;
                   }}
+                  title={cardData ? `${cardData.card_name} - ${cardData.description}` : displayName}
                 >
                   <span style={{
                     width: '12px',
@@ -122,20 +146,14 @@ export function PlayerStatusPanel(): JSX.Element {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '8px',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    flexShrink: 0
                   }}>
                     {type}
                   </span>
-                  {type}
-                  {cards.length > 1 && (
-                    <span style={{
-                      marginLeft: '2px',
-                      fontSize: '10px',
-                      opacity: 0.9
-                    }}>
-                      ×{cards.length}
-                    </span>
-                  )}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {shortName}
+                  </span>
                 </button>
               );
             })

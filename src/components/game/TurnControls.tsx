@@ -8,18 +8,22 @@ interface TurnControlsProps {
 }
 
 export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX.Element {
-  const { stateService, turnService, playerActionService, negotiationService } = useGameContext();
+  const { stateService, turnService, playerActionService, negotiationService, dataService } = useGameContext();
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
   const [humanPlayerId, setHumanPlayerId] = useState<string | null>(null);
   const [lastRoll, setLastRoll] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
+  const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState(false);
+  const [awaitingChoice, setAwaitingChoice] = useState(false);
 
   // Subscribe to state changes for live updates
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
       setGamePhase(gameState.gamePhase);
+      setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
+      setAwaitingChoice(gameState.awaitingChoice !== null);
       
       // Set the first player as the human player (for demo purposes)
       if (gameState.players.length > 0 && !humanPlayerId) {
@@ -37,6 +41,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
     // Initialize with current state
     const gameState = stateService.getGameState();
     setGamePhase(gameState.gamePhase);
+    setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
+    setAwaitingChoice(gameState.awaitingChoice !== null);
     
     // Set the first player as the human player
     if (gameState.players.length > 0 && !humanPlayerId) {
@@ -86,10 +92,10 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       setIsProcessingTurn(true);
       console.log(`Rolling dice for player: ${currentPlayer.name}`);
       
-      // Use playerActionService.rollDice instead of turnService.takeTurn
-      const result = await playerActionService.rollDice(currentPlayer.id);
-      setLastRoll(result.total);
-      console.log(`Dice rolled! ${currentPlayer.name} rolled a ${result.total}`);
+      // Use rollDiceAndProcessEffects for dice roll + effects only (no movement)
+      const result = turnService.rollDiceAndProcessEffects(currentPlayer.id);
+      setLastRoll(result.diceRoll);
+      console.log(`Dice rolled! ${currentPlayer.name} rolled a ${result.diceRoll}`);
       
       // Get updated player state to check current space and set feedback message
       const updatedGameState = stateService.getGameState();
@@ -97,9 +103,9 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       
       if (updatedPlayer) {
         if (updatedPlayer.currentSpace === 'OWNER-SCOPE-INITIATION') {
-          setFeedbackMessage(`You rolled a ${result.total} and will receive that many cards.`);
+          setFeedbackMessage(`You rolled a ${result.diceRoll} and will receive that many cards.`);
         } else {
-          setFeedbackMessage(`You rolled a ${result.total} and moved to ${updatedPlayer.currentSpace}.`);
+          setFeedbackMessage(`You rolled a ${result.diceRoll} and moved to ${updatedPlayer.currentSpace}.`);
         }
       }
       
@@ -122,7 +128,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       setIsProcessingTurn(true);
       console.log(`Ending turn for player: ${currentPlayer.name}`);
       
-      await playerActionService.endTurn();
+      // Use endTurnWithMovement to handle movement and advance to next player
+      await turnService.endTurnWithMovement();
       console.log(`Turn ended for ${currentPlayer.name}`);
     } catch (error) {
       console.error('Error ending turn:', error);
@@ -134,22 +141,41 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
   const handleNegotiate = () => {
     if (!currentPlayer || isProcessingTurn) return;
     
-    // Check if there are other players available for negotiation
-    const gameState = stateService.getGameState();
-    const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
+    // Get space content to check if negotiation is allowed on this space
+    const spaceContent = dataService.getSpaceContent(currentPlayer.currentSpace, currentPlayer.visitType);
+    console.log('🤝 Negotiate Debug:', { 
+      currentSpace: currentPlayer.currentSpace, 
+      visitType: currentPlayer.visitType, 
+      spaceContent,
+      canNegotiate: spaceContent?.can_negotiate 
+    });
     
-    if (otherPlayers.length > 0) {
-      // Open the negotiation modal via parent component
-      onOpenNegotiationModal();
+    if (spaceContent && spaceContent.can_negotiate === true) {
+      // Space-specific negotiation: Allow player to re-roll or modify outcome
+      console.log(`Negotiation available on ${currentPlayer.currentSpace}`);
+      alert(`Negotiation available! You can negotiate the outcome on ${currentPlayer.currentSpace}. This will allow you to re-roll or modify the space effects.`);
+      // TODO: Implement space-specific negotiation logic
     } else {
-      console.log('No other players available for negotiation');
-      alert('No other players available for negotiation!');
+      // Fallback to player-to-player negotiation if space doesn't support it
+      const gameState = stateService.getGameState();
+      const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
+      
+      if (otherPlayers.length > 0) {
+        // Open the negotiation modal via parent component
+        onOpenNegotiationModal();
+      } else {
+        console.log('Negotiation not available on this space and no other players present');
+        alert('Negotiation not available on this space.');
+      }
     }
   };
 
 
   const isHumanPlayerTurn = currentPlayer?.id === humanPlayerId;
-  const canRollDice = gamePhase === 'PLAY' && isHumanPlayerTurn && !isProcessingTurn;
+  const canRollDice = gamePhase === 'PLAY' && isHumanPlayerTurn && 
+                     !isProcessingTurn && !hasPlayerMovedThisTurn && !awaitingChoice;
+  const canEndTurn = gamePhase === 'PLAY' && isHumanPlayerTurn && 
+                    !isProcessingTurn && hasPlayerMovedThisTurn && !awaitingChoice;
 
   if (gamePhase !== 'PLAY') {
     return (
@@ -314,26 +340,26 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           {isHumanPlayerTurn && (
             <button
               onClick={handleEndTurn}
-              disabled={isProcessingTurn}
+              disabled={!canEndTurn}
               style={{
                 padding: '12px 24px',
                 fontSize: '16px',
                 fontWeight: 'bold',
-                color: !isProcessingTurn ? '#fff' : '#6c757d',
-                backgroundColor: !isProcessingTurn ? '#dc3545' : '#e9ecef',
+                color: canEndTurn ? '#fff' : '#6c757d',
+                backgroundColor: canEndTurn ? '#dc3545' : '#e9ecef',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',
+                cursor: canEndTurn ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 transition: 'all 0.2s ease',
-                transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
-                opacity: isProcessingTurn ? 0.7 : 1
+                transform: !canEndTurn ? 'scale(0.95)' : 'scale(1)',
+                opacity: !canEndTurn ? 0.7 : 1
               }}
             >
               <span>⏹️</span>
-              <span>End Turn</span>
+              <span>End Turn 턴 종료</span>
             </button>
           )}
 

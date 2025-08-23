@@ -487,8 +487,8 @@ export class StateService implements IStateService {
       name,
       currentSpace: startingSpace,
       visitType: 'First',
-      money: 0,
-      time: 0,
+      money: 0, // Players start with no money, get funding from owner and loans later
+      timeSpent: 0,
       color: defaultColor,
       avatar: defaultAvatar,
       cards: {

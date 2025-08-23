@@ -189,7 +189,7 @@ export class DataService implements IDataService {
   }
 
   private async loadCards(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/CARDS.csv');
+    const response = await fetch('/data/CLEAN_FILES/CARDS.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch CARDS.csv: ${response.status} ${response.statusText}`);
     }

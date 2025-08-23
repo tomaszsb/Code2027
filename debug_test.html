@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test - Player Money/Time Updates</title>
+</head>
+<body>
+    <h1>Debug Test - Bug 2: Player Money/Time Updates</h1>
+    
+    <div id="test-output"></div>
+    
+    <button onclick="runTest()">Run Debug Test</button>
+    
+    <script>
+        async function runTest() {
+            const output = document.getElementById('test-output');
+            output.innerHTML = '<h2>Running test...</h2>';
+            
+            try {
+                // Simulate the exact game flow that should cause money/time updates
+                output.innerHTML += '<p>1. Loading services...</p>';
+                
+                // This would normally be done via the service provider
+                // For now, just log what we're trying to test
+                output.innerHTML += '<p>2. Testing player money/time update flow:</p>';
+                output.innerHTML += '<ul>';
+                output.innerHTML += '<li>Player starts with 0 time, 0 money</li>';
+                output.innerHTML += '<li>Player takes turn on OWNER-SCOPE-INITIATION (First visit)</li>';
+                output.innerHTML += '<li>Expected space effect: time,add,1,always → should give +1 time</li>';
+                output.innerHTML += '<li>Expected dice effect: cards,W,Draw 1-3 based on dice roll</li>';
+                output.innerHTML += '<li>Expected result: Player should have 1 time and 1-3 W cards</li>';
+                output.innerHTML += '</ul>';
+                
+                output.innerHTML += '<p><strong>To test manually:</strong></p>';
+                output.innerHTML += '<ol>';
+                output.innerHTML += '<li>Start the game at <a href="/" target="_blank">http://localhost:3000/</a></li>';
+                output.innerHTML += '<li>Add a player and start the game</li>';
+                output.innerHTML += '<li>Check the player\'s initial state (should be 0 time, 0 money)</li>';
+                output.innerHTML += '<li>Click "Roll Dice" to take the first turn</li>';
+                output.innerHTML += '<li>Check the browser console for debug logs starting with 🎯</li>';
+                output.innerHTML += '<li>Check the player\'s state after the turn - they should have 1 time</li>';
+                output.innerHTML += '</ol>';
+                
+                output.innerHTML += '<p><strong>Debug logs to look for:</strong></p>';
+                output.innerHTML += '<ul>';
+                output.innerHTML += '<li><code>🎯 Processing turn effects for [Player] on OWNER-SCOPE-INITIATION (First visit)</code></li>';
+                output.innerHTML += '<li><code>📋 Found [X] space effects: [array of effects]</code></li>';
+                output.innerHTML += '<li><code>⚡ Applying space effect: time add 1 (condition: always)</code></li>';
+                output.innerHTML += '<li><code>Player [name] time change: add 1, new total: 1</code></li>';
+                output.innerHTML += '</ul>';
+                
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

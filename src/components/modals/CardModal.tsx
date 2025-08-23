@@ -25,8 +25,22 @@ export function CardModal(): JSX.Element | null {
       
       // Fetch card data when modal becomes active
       if (gameState.activeModal?.type === 'CARD') {
+        const requestedCardId = gameState.activeModal.cardId;
+        console.log('🃏 CardModal Debug - Requested card ID:', requestedCardId);
+        
+        // Ensure DataService is loaded before trying to get cards
+        if (!dataService.isLoaded()) {
+          console.log('🃏 CardModal Debug - DataService not loaded yet');
+          setCardData(null);
+          return;
+        }
+
         const cards = dataService.getCards();
-        const card = cards.find(c => c.card_id === gameState.activeModal.cardId);
+        console.log('🃏 CardModal Debug - Available cards:', cards.length);
+        console.log('🃏 CardModal Debug - First few card IDs:', cards.slice(0, 5).map(c => c.card_id));
+        
+        const card = cards.find(c => c.card_id === requestedCardId);
+        console.log('🃏 CardModal Debug - Found card:', card);
         setCardData(card || null);
         
         // Check if card can be played
@@ -45,6 +59,15 @@ export function CardModal(): JSX.Element | null {
     // Initialize with current state
     const currentState = stateService.getGameState();
     setActiveModal(currentState.activeModal);
+    
+    // Also handle initial card data if modal is already active
+    if (currentState.activeModal?.type === 'CARD') {
+      if (dataService.isLoaded()) {
+        const cards = dataService.getCards();
+        const card = cards.find(c => c.card_id === currentState.activeModal.cardId);
+        setCardData(card || null);
+      }
+    }
     
     return unsubscribe;
   }, [stateService, dataService, gameRulesService]);

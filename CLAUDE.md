@@ -3,7 +3,7 @@
 ## 🎯 Current Project Status: PRODUCTION READY
 
 **Core Game Complete**: Fully playable multi-player board game with clean service architecture
-**Last Updated**: August 23, 2025
+**Last Updated**: August 23, 2025 - All Critical Bugs Fixed
 
 ## 🏗️ Architecture Foundation
 
@@ -91,14 +91,90 @@ npm run test          # Run test suite
 
 ## 📝 Recent Work Log
 
-### August 23, 2025: Critical Bug Fixes ✅
-**Issue**: Players starting on wrong space, tutorial space showing on game board
-**Root Cause**: CSV data loading from `/public/data/` not `/data/` directory  
-**Solution**: Updated correct GAME_CONFIG.csv, added tutorial space filtering in GameBoard.tsx
-**Result**: Players now start correctly, clean game board display
+### August 23, 2025: Complete Bug Fix Session ✅
+**ALL 5 Critical Bugs Successfully Resolved**
 
-*See `TASK_HISTORY.md` for complete technical details*
+1. **CardModal Data Display Issue** ✅  
+   - **Problem**: Cards showing no data when clicked  
+   - **Root Cause**: Dynamic card IDs not mapping to static CSV card data  
+   - **Fix**: Implemented proper card ID generation starting with CSV card IDs
+
+2. **Player Money/Time Not Updating** ✅  
+   - **Problem**: UI not reflecting player money/time changes  
+   - **Root Cause**: Property name mismatch - code2026 used `timeSpent`, code2027 used `time`  
+   - **Fix**: Updated all code to use consistent `timeSpent` property naming
+
+3. **Roll Dice Button Remaining Active** ✅  
+   - **Problem**: Button not becoming inactive during processing  
+   - **Root Cause**: Missing turn state management (`hasPlayerMovedThisTurn`, `awaitingChoice`)  
+   - **Fix**: Enhanced button logic with proper state tracking
+
+4. **End Turn Button Not Advancing Turns** ✅  
+   - **Problem**: End Turn button not progressing to next player  
+   - **Root Cause**: `PlayerActionService.rollDice()` not calling `setPlayerHasMoved()`  
+   - **Fix**: Added missing state update to enable End Turn button
+
+5. **Negotiate Button Wrong Behavior** ✅  
+   - **Problem**: Button asking for other players instead of space-specific negotiation  
+   - **Root Cause**: Missing space-based negotiation logic  
+   - **Fix**: Implemented space content checking for `can_negotiate` flag
+
+**Result**: Game now has proper turn progression, card functionality, and UI state management
+
+*See complete technical details in comments above*
 
 ---
 
-**Development Status**: Core game complete and production-ready. Focus on maintaining architectural quality while extending functionality.
+## CRITICAL BUG FIXES COMPLETED - December 2024 ✅
+
+### **Session Summary: Multi-Action Turn System & W Card Data Fixes**
+
+**Date**: December 2024  
+**Scope**: Fixed 5 critical bugs impacting game functionality and user experience
+
+#### **Major Architectural Fix: Multi-Action Turn System**
+**Problem**: Game was auto-advancing players on dice roll, breaking proper turn flow  
+**Solution**: Completely separated dice rolling from movement:
+
+1. **Roll Dice Button**: Now calls `TurnService.rollDiceAndProcessEffects()` 
+   - Rolls dice + processes space/dice effects + marks player as moved
+   - **Does NOT** move player to next space
+2. **End Turn Button**: Now calls `TurnService.endTurnWithMovement()`
+   - Handles movement + advances to next player + checks win condition
+   - **Only available after** player has rolled dice
+
+#### **Critical Data Fix: W Cards Show Construction Work Scope**
+**Problem**: W cards showed generic planning content instead of construction work scopes  
+**Root Cause**: Wrong CSV data - 2027 had placeholder cards instead of 2026 construction projects  
+**Solution**: 
+- Replaced W cards with correct construction work types from 2026
+- W cards now show actual projects like "Lobby renovation", "Attic conversion", "Green wall installation"
+- Set W cards to cost $0 (scope assignments, not purchases)
+- Added estimated costs in descriptions for funding planning
+
+#### **Data Structure Consolidation**
+**Problem**: 3 copies of CARDS.csv causing confusion and deployment issues  
+**Solution**: Consolidated to single source of truth in `/public/data/CLEAN_FILES/`
+- ❌ Removed `/data/CLEAN_FILES/` (redundant)
+- ❌ Removed `/dist/data/` (build output)  
+- ✅ Kept `/public/data/CLEAN_FILES/` (web server source)
+
+#### **UI Enhancement: Player Cards Show Work Scope**
+**Problem**: W card buttons only showed "W" instead of actual work descriptions  
+**Solution**: Enhanced PlayerStatusPanel to display:
+- **Before**: `W` `W` `W` (meaningless)
+- **After**: `Conversion of attic space...` `Lobby renovation...` (meaningful scope)
+- Added tooltips with full descriptions and estimated costs
+
+#### **Negotiation Button Fix**
+**Problem**: Button showed "unavailable" despite `canNegotiate: true` in CSV  
+**Root Cause**: Type mismatch - checking `=== 'Yes'` (string) vs `=== true` (boolean)  
+**Solution**: Fixed comparison in TurnControls.tsx
+
+#### **Game Flow Now Complete**
+1. **Setup Phase**: Create players → Start game
+2. **Turn Phase**: Roll dice (get cards/effects) → End turn (move to next space)  
+3. **Win Phase**: Reach ending space → End game celebration
+4. **Reset**: Play again button returns to setup
+
+**Development Status**: Core game complete and production-ready with critical bugs resolved.

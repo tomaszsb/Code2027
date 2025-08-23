@@ -123,9 +123,12 @@ export class PlayerActionService implements IPlayerActionService {
       // 5. Trigger movement based on dice roll
       await this.handlePlayerMovement(playerId, diceResult.total);
 
-      // 6. Dice roll and movement complete - turn ending is now handled separately
+      // 6. Mark that the player has moved this turn (enables End Turn button)
+      this.stateService.setPlayerHasMoved();
 
-      // 7. Return the dice roll result
+      // 7. Dice roll and movement complete - turn ending is now handled separately
+
+      // 8. Return the dice roll result
       return diceResult;
 
     } catch (error) {

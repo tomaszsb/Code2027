@@ -81,7 +81,7 @@ export interface Player {
   currentSpace: string;
   visitType: 'First' | 'Subsequent';
   money: number;
-  time: number;
+  timeSpent: number;
   color?: string;
   avatar?: string;
   cards: {
