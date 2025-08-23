@@ -109,6 +109,8 @@ describe('TurnService', () => {
     hasPlayerMovedThisTurn: false
   };
 
+  const mockPlayer: Player = mockPlayers[0];
+
   beforeEach(() => {
     jest.clearAllMocks();
     
@@ -353,6 +355,115 @@ describe('TurnService', () => {
 
       // Assert
       expect(result).toBeNull();
+    });
+  });
+
+  describe('Space Effect Actions', () => {
+    beforeEach(() => {
+      mockStateService.getGameState.mockReturnValue(mockGameState);
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockGameRulesService.checkWinCondition.mockResolvedValue(false);
+    });
+
+    it('should handle replace_e action', () => {
+      // Arrange
+      const playerWithCards = {
+        ...mockPlayer,
+        cards: { W: [], B: [], E: ['E_old_1', 'E_old_2'], L: [], I: [] }
+      };
+      mockStateService.getPlayer.mockReturnValue(playerWithCards);
+      
+      const spaceEffect = {
+        space_name: 'TEST_SPACE',
+        visit_type: 'First' as const,
+        effect_type: 'cards',
+        effect_action: 'replace_e',
+        effect_value: 1,
+        condition: 'always',
+        description: 'Replace 1 E card'
+      };
+      
+      mockDataService.getSpaceEffects.mockReturnValue([spaceEffect]);
+      mockDataService.getDiceEffects.mockReturnValue([]);
+
+      // Act
+      const result = turnService.processTurnEffects('player1', 3);
+
+      // Assert
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'player1',
+          cards: expect.objectContaining({
+            E: expect.arrayContaining([expect.stringMatching(/^E_\d+_/)]) // Should have 1 new E card
+          })
+        })
+      );
+    });
+
+    it('should handle transfer action', () => {
+      // Arrange
+      const mockPlayers = [
+        { ...mockPlayer, id: 'player1', name: 'Player 1', cards: { W: ['W_1'], B: [], E: [], L: [], I: [] } },
+        { ...mockPlayer, id: 'player2', name: 'Player 2', cards: { W: [], B: [], E: [], L: [], I: [] } }
+      ];
+      
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        players: mockPlayers
+      });
+      mockStateService.getPlayer.mockReturnValue(mockPlayers[0]);
+      
+      const spaceEffect = {
+        space_name: 'TEST_SPACE',
+        visit_type: 'First' as const,
+        effect_type: 'cards',
+        effect_action: 'transfer',
+        effect_value: 1,
+        condition: 'to_right',
+        description: 'Transfer 1 card to right player'
+      };
+      
+      mockDataService.getSpaceEffects.mockReturnValue([spaceEffect]);
+      mockDataService.getDiceEffects.mockReturnValue([]);
+
+      // Act
+      turnService.processTurnEffects('player1', 3);
+
+      // Assert
+      expect(mockStateService.updatePlayer).toHaveBeenCalledTimes(2); // Both players updated
+    });
+
+    it('should handle fee_percent action', () => {
+      // Arrange
+      const playerWithMoney = {
+        ...mockPlayer,
+        money: 1000
+      };
+      mockStateService.getPlayer.mockReturnValue(playerWithMoney);
+      
+      const spaceEffect = {
+        space_name: 'TEST_SPACE',
+        visit_type: 'First' as const,
+        effect_type: 'money',
+        effect_action: 'fee_percent',
+        effect_value: 5, // 5% fee
+        condition: 'always',
+        description: '5% fee'
+      };
+      
+      mockDataService.getSpaceEffects.mockReturnValue([spaceEffect]);
+      mockDataService.getDiceEffects.mockReturnValue([]);
+
+      // Act
+      turnService.processTurnEffects('player1', 3);
+
+      // Assert
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'player1',
+          money: 950 // 1000 - (1000 * 5% = 50)
+        })
+      );
     });
   });
 });

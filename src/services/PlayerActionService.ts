@@ -78,8 +78,7 @@ export class PlayerActionService implements IPlayerActionService {
       // 6. Card effects will be processed by a dedicated effect system in future phases
       // For now, the card play is complete after state update
 
-      // 7. End the player's turn and advance to next player
-      await this.turnService.endTurn();
+      // 7. Card play is complete - turn ending is now handled separately
 
     } catch (error) {
       // Re-throw with additional context
@@ -92,7 +91,7 @@ export class PlayerActionService implements IPlayerActionService {
    * Handles a player rolling dice.
    * 
    * @param playerId - The ID of the player rolling the dice
-   * @returns Promise resolving to dice roll result with individual rolls and total
+   * @returns Promise resolving to dice roll result with single die value
    * @throws Error if the action is invalid (player not found, etc.)
    */
   public async rollDice(playerId: string): Promise<{ roll1: number; roll2: number; total: number }> {
@@ -105,12 +104,11 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Player with ID '${playerId}' not found`);
       }
 
-      // 2. Generate two random dice rolls (1-6)
-      const roll1 = Math.floor(Math.random() * 6) + 1;
-      const roll2 = Math.floor(Math.random() * 6) + 1;
-      const total = roll1 + roll2;
-
-      const diceResult = { roll1, roll2, total };
+      // 2. Generate single die roll (1-6) - matching CSV data expectations
+      const diceRoll = Math.floor(Math.random() * 6) + 1;
+      
+      // Maintain interface compatibility by setting both roll1 and roll2 to the same value
+      const diceResult = { roll1: diceRoll, roll2: diceRoll, total: diceRoll };
 
       // 3. Update player state with dice roll result
       this.stateService.updatePlayer({
@@ -118,13 +116,16 @@ export class PlayerActionService implements IPlayerActionService {
         lastDiceRoll: diceResult
       });
 
-      // 4. Trigger movement based on dice roll
+      // 4. Process turn effects based on dice roll result (space effects, dice effects, etc.)
+      // This must happen before movement as effects might alter movement conditions
+      this.turnService.processTurnEffects(playerId, diceResult.total);
+
+      // 5. Trigger movement based on dice roll
       await this.handlePlayerMovement(playerId, diceResult.total);
 
-      // 5. End the player's turn and advance to next player
-      await this.turnService.endTurn();
+      // 6. Dice roll and movement complete - turn ending is now handled separately
 
-      // 6. Return the dice roll result
+      // 7. Return the dice roll result
       return diceResult;
 
     } catch (error) {
@@ -173,6 +174,21 @@ export class PlayerActionService implements IPlayerActionService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`Failed to handle player movement: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Ends the current player's turn and advances to the next player.
+   * This method should be called explicitly after all player actions are complete.
+   * 
+   * @throws Error if ending the turn fails
+   */
+  public async endTurn(): Promise<void> {
+    try {
+      await this.turnService.endTurn();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to end turn: ${errorMessage}`);
     }
   }
 }

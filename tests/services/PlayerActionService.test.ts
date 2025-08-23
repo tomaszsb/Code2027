@@ -478,7 +478,7 @@ describe('PlayerActionService', () => {
   });
 
   describe('rollDice', () => {
-    it('should successfully roll dice and return result with two numbers between 1-6', async () => {
+    it('should successfully roll dice and return result with single die value (1-6)', async () => {
       // Arrange
       mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
@@ -489,11 +489,10 @@ describe('PlayerActionService', () => {
       expect(result).toBeDefined();
       expect(result.roll1).toBeGreaterThanOrEqual(1);
       expect(result.roll1).toBeLessThanOrEqual(6);
-      expect(result.roll2).toBeGreaterThanOrEqual(1);
-      expect(result.roll2).toBeLessThanOrEqual(6);
-      expect(result.total).toBe(result.roll1 + result.roll2);
-      expect(result.total).toBeGreaterThanOrEqual(2);
-      expect(result.total).toBeLessThanOrEqual(12);
+      expect(result.roll2).toBe(result.roll1); // Same value for interface compatibility
+      expect(result.total).toBe(result.roll1); // Total equals the single die roll
+      expect(result.total).toBeGreaterThanOrEqual(1);
+      expect(result.total).toBeLessThanOrEqual(6);
     });
 
     it('should call StateService to update player with dice roll result', async () => {
@@ -555,16 +554,15 @@ describe('PlayerActionService', () => {
       }
 
       // Assert - verify that we get some variation (not all the same)
-      const uniqueResults = new Set(results.map(r => `${r.roll1}-${r.roll2}`));
+      const uniqueResults = new Set(results.map(r => r.total));
       expect(uniqueResults.size).toBeGreaterThan(1); // Should have some variation
 
       // Verify all results are valid
       results.forEach(result => {
         expect(result.roll1).toBeGreaterThanOrEqual(1);
         expect(result.roll1).toBeLessThanOrEqual(6);
-        expect(result.roll2).toBeGreaterThanOrEqual(1);
-        expect(result.roll2).toBeLessThanOrEqual(6);
-        expect(result.total).toBe(result.roll1 + result.roll2);
+        expect(result.roll2).toBe(result.roll1); // Same value for interface compatibility
+        expect(result.total).toBe(result.roll1); // Total equals the single die roll
       });
     });
 
@@ -683,7 +681,7 @@ describe('PlayerActionService', () => {
       expect(mockMovementService.getValidMoves).toHaveBeenCalledWith('player1');
     });
 
-    it('should call endTurn after successful dice roll', async () => {
+    it('should call processTurnEffects after successful dice roll', async () => {
       // Arrange
       mockStateService.updatePlayer.mockReturnValue(mockGameState);
       mockMovementService.getValidMoves.mockReturnValue(['DEST-1']);
@@ -691,10 +689,12 @@ describe('PlayerActionService', () => {
       mockMovementService.movePlayer.mockReturnValue(mockGameState);
 
       // Act
-      await playerActionService.rollDice('player1');
+      const result = await playerActionService.rollDice('player1');
 
-      // Assert
-      expect(mockTurnService.endTurn).toHaveBeenCalled();
+      // Assert - processTurnEffects should be called with dice roll result
+      expect(mockTurnService.processTurnEffects).toHaveBeenCalledWith('player1', result.total);
+      // endTurn should NOT be called automatically anymore
+      expect(mockTurnService.endTurn).not.toHaveBeenCalled();
     });
 
     it('should not call endTurn if dice roll fails', async () => {
@@ -709,8 +709,28 @@ describe('PlayerActionService', () => {
     });
   });
 
-  describe('turn management integration', () => {
-    it('should call endTurn after successful card play', async () => {
+  describe('explicit turn management', () => {
+    it('should provide endTurn method that calls TurnService', async () => {
+      // Arrange
+      mockTurnService.endTurn.mockResolvedValue({ nextPlayerId: 'player2' });
+
+      // Act
+      await playerActionService.endTurn();
+
+      // Assert
+      expect(mockTurnService.endTurn).toHaveBeenCalled();
+    });
+
+    it('should handle TurnService errors in endTurn', async () => {
+      // Arrange
+      mockTurnService.endTurn.mockRejectedValue(new Error('Turn service error'));
+
+      // Act & Assert
+      await expect(playerActionService.endTurn())
+        .rejects.toThrow('Failed to end turn: Turn service error');
+    });
+
+    it('should not call endTurn automatically after card play', async () => {
       // Arrange
       mockDataService.getCardById.mockReturnValue(mockCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
@@ -720,43 +740,8 @@ describe('PlayerActionService', () => {
       // Act
       await playerActionService.playCard('player1', 'W001');
 
-      // Assert
-      expect(mockTurnService.endTurn).toHaveBeenCalled();
-    });
-
-    it('should not call endTurn if card play fails', async () => {
-      // Arrange
-      mockStateService.getPlayer.mockReturnValue(undefined); // Cause failure
-
-      // Act & Assert
-      await expect(playerActionService.playCard('player1', 'W001')).rejects.toThrow();
-
-      // Assert - endTurn should not be called if card play fails
+      // Assert - endTurn should NOT be called automatically
       expect(mockTurnService.endTurn).not.toHaveBeenCalled();
-    });
-
-    it('should handle endTurn service errors during dice roll', async () => {
-      // Arrange
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
-      mockMovementService.getValidMoves.mockReturnValue([]);
-      mockTurnService.endTurn.mockRejectedValue(new Error('Turn service error'));
-
-      // Act & Assert
-      await expect(playerActionService.rollDice('player1'))
-        .rejects.toThrow('Failed to roll dice: Turn service error');
-    });
-
-    it('should handle endTurn service errors during card play', async () => {
-      // Arrange
-      mockDataService.getCardById.mockReturnValue(mockCard);
-      mockGameRulesService.canPlayCard.mockReturnValue(true);
-      mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
-      mockTurnService.endTurn.mockRejectedValue(new Error('Turn service error'));
-
-      // Act & Assert
-      await expect(playerActionService.playCard('player1', 'W001'))
-        .rejects.toThrow('Failed to play card: Turn service error');
     });
   });
 });

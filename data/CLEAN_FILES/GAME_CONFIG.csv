@@ -1,6 +1,6 @@
 space_name,phase,path_type,is_starting_space,is_ending_space,min_players,max_players,requires_dice_roll
-START-QUICK-PLAY-GUIDE,SETUP,Tutorial,Yes,No,1,6,No
-OWNER-SCOPE-INITIATION,SETUP,Main,No,No,1,6,Yes
+START-QUICK-PLAY-GUIDE,SETUP,Tutorial,No,No,1,6,No
+OWNER-SCOPE-INITIATION,SETUP,Main,Yes,No,1,6,Yes
 OWNER-FUND-INITIATION,SETUP,Main,No,No,1,6,No
 PM-DECISION-CHECK,OWNER,Special,No,No,1,6,No
 LEND-SCOPE-CHECK,FUNDING,Side_Quest,No,No,1,6,Yes

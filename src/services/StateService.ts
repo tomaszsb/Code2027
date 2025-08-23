@@ -74,6 +74,11 @@ export class StateService implements IStateService {
       throw new Error(`Player with name "${name}" already exists`);
     }
 
+    // Ensure data is loaded before creating player with correct starting space
+    if (this.dataService && !this.dataService.isLoaded()) {
+      console.warn('DataService not loaded yet, using fallback starting space. Consider ensuring data is loaded before adding players.');
+    }
+
     const newPlayer: Player = this.createNewPlayer(name);
     
     const newState: GameState = {
@@ -273,6 +278,74 @@ export class StateService implements IStateService {
     return { ...this.currentState };
   }
 
+  // Utility method to fix players with incorrect starting spaces
+  // This can be called after data is loaded to correct any players with wrong starting spaces
+  fixPlayerStartingSpaces(): GameState {
+    if (!this.dataService || !this.dataService.isLoaded()) {
+      console.warn('Cannot fix starting spaces: DataService not loaded');
+      return { ...this.currentState };
+    }
+
+    const correctStartingSpace = this.getStartingSpace();
+    console.log('🔧 Fixing starting spaces. Correct starting space should be:', correctStartingSpace);
+    console.log('🔍 Current players before fix:', this.currentState.players.map(p => ({ name: p.name, currentSpace: p.currentSpace })));
+    
+    const updatedPlayers = this.currentState.players.map(player => {
+      // Only fix players who are still on the old incorrect starting space
+      if (player.currentSpace === 'START-QUICK-PLAY-GUIDE') {
+        console.log(`🔄 Fixing player ${player.name} from ${player.currentSpace} to ${correctStartingSpace}`);
+        return {
+          ...player,
+          currentSpace: correctStartingSpace
+        };
+      }
+      return player;
+    });
+
+    const newState: GameState = {
+      ...this.currentState,
+      players: updatedPlayers
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    
+    console.log('✅ Players after fix:', newState.players.map(p => ({ name: p.name, currentSpace: p.currentSpace })));
+    return { ...newState };
+  }
+
+  // Aggressive method to force reset ALL players to correct starting space
+  // This ignores current space and resets everyone
+  forceResetAllPlayersToCorrectStartingSpace(): GameState {
+    if (!this.dataService || !this.dataService.isLoaded()) {
+      console.warn('Cannot force reset starting spaces: DataService not loaded');
+      return { ...this.currentState };
+    }
+
+    const correctStartingSpace = this.getStartingSpace();
+    console.log('🚨 FORCE RESET: Moving all players to:', correctStartingSpace);
+    
+    const updatedPlayers = this.currentState.players.map(player => {
+      console.log(`🔄 FORCE RESET: ${player.name} from ${player.currentSpace} to ${correctStartingSpace}`);
+      return {
+        ...player,
+        currentSpace: correctStartingSpace,
+        visitType: 'First' as const // Reset visit type too
+      };
+    });
+
+    const newState: GameState = {
+      ...this.currentState,
+      players: updatedPlayers
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    
+    console.log('🎯 FORCE RESET COMPLETE. All players now at:', correctStartingSpace);
+    return { ...newState };
+  }
+
   setAwaitingChoice(playerId: string, options: string[]): GameState {
     const newState: GameState = {
       ...this.currentState,
@@ -433,15 +506,23 @@ export class StateService implements IStateService {
   }
 
   private getStartingSpace(): string {
+    console.log('🎯 getStartingSpace called');
+    console.log('📊 DataService loaded?', this.dataService?.isLoaded());
+    
     if (this.dataService && this.dataService.isLoaded()) {
       const gameConfigs = this.dataService.getGameConfig();
+      console.log('📋 Game configs loaded:', gameConfigs.length);
       const startingSpace = gameConfigs.find(config => config.is_starting_space);
+      console.log('🏁 Found starting space config:', startingSpace);
       if (startingSpace) {
+        console.log('✅ Using CSV starting space:', startingSpace.space_name);
         return startingSpace.space_name;
       }
     }
     
-    return 'START-QUICK-PLAY-GUIDE';
+    // Updated fallback to use the correct starting space
+    console.log('⚠️ Using fallback starting space: OWNER-SCOPE-INITIATION');
+    return 'OWNER-SCOPE-INITIATION';
   }
 
   private getNextAvailableColor(): string {

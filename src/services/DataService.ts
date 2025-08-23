@@ -258,7 +258,7 @@ export class DataService implements IDataService {
     
     return lines.slice(1).map(line => {
       const values = this.parseCsvLine(line);
-      return {
+      const spaceEffect: SpaceEffect = {
         space_name: values[0],
         visit_type: values[1] as VisitType,
         effect_type: values[2] as 'time' | 'cards' | 'money',
@@ -267,6 +267,13 @@ export class DataService implements IDataService {
         condition: values[5],
         description: values[6]
       };
+      
+      // Add trigger_type if it exists and is not empty
+      if (values[7] && values[7].trim()) {
+        spaceEffect.trigger_type = values[7].trim() as 'manual' | 'auto';
+      }
+      
+      return spaceEffect;
     });
   }
 

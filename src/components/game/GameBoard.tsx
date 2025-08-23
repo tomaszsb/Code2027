@@ -20,10 +20,15 @@ export function GameBoard(): JSX.Element {
     return unsubscribe;
   }, [stateService]);
 
-  // Load all spaces on mount
+  // Load all spaces on mount (excluding tutorial spaces)
   useEffect(() => {
     const allSpaces = dataService.getAllSpaces();
-    setSpaces(allSpaces);
+    // Filter out tutorial spaces that shouldn't appear on the game board
+    const gameSpaces = allSpaces.filter(space => {
+      const config = dataService.getGameConfigBySpace(space.name);
+      return config?.path_type !== 'Tutorial';
+    });
+    setSpaces(gameSpaces);
   }, [dataService]);
 
   // Helper function to get players on a specific space

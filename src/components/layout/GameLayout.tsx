@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CardModal } from '../modals/CardModal';
 import { ChoiceModal } from '../modals/ChoiceModal';
 import { EndGameModal } from '../modals/EndGameModal';
+import { NegotiationModal } from '../modals/NegotiationModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { GameBoard } from '../game/GameBoard';
@@ -18,6 +19,7 @@ import { GamePhase } from '../../types/StateTypes';
 export function GameLayout(): JSX.Element {
   const { stateService } = useGameContext();
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
+  const [isNegotiationModalOpen, setIsNegotiationModalOpen] = useState<boolean>(false);
 
   // Subscribe to game state changes to track phase transitions
   useEffect(() => {
@@ -30,6 +32,15 @@ export function GameLayout(): JSX.Element {
     
     return unsubscribe;
   }, [stateService]);
+
+  // Handlers for negotiation modal
+  const handleOpenNegotiationModal = () => {
+    setIsNegotiationModalOpen(true);
+  };
+
+  const handleCloseNegotiationModal = () => {
+    setIsNegotiationModalOpen(false);
+  };
 
   return (
     <div 
@@ -150,7 +161,7 @@ export function GameLayout(): JSX.Element {
           minHeight: '80px'
         }}
       >
-        <TurnControls />
+        <TurnControls onOpenNegotiationModal={handleOpenNegotiationModal} />
       </div>
 
       {/* Conditional rendering based on game phase */}
@@ -174,6 +185,12 @@ export function GameLayout(): JSX.Element {
       
       {/* EndGameModal - always rendered, visibility controlled by state */}
       <EndGameModal />
+      
+      {/* NegotiationModal - always rendered, visibility controlled by state */}
+      <NegotiationModal 
+        isOpen={isNegotiationModalOpen} 
+        onClose={handleCloseNegotiationModal} 
+      />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 space_name,visit_type,effect_type,effect_action,effect_value,condition,description
 OWNER-SCOPE-INITIATION,First,time,add,1,always,1 day for scope review
-OWNER-SCOPE-INITIATION,First,cards,draw_w,3,always,Draw 3 W cards
+OWNER-SCOPE-INITIATION,First,cards,draw_e,3,always,Draw 3 E cards
 OWNER-SCOPE-INITIATION,Subsequent,time,add,1,always,1 day for scope review
-OWNER-SCOPE-INITIATION,Subsequent,cards,draw_w,3,always,Draw 3 W cards
+OWNER-SCOPE-INITIATION,Subsequent,cards,draw_e,3,always,Draw 3 E cards
 OWNER-FUND-INITIATION,First,time,add,1,always,1 day for funding review
 OWNER-FUND-INITIATION,First,cards,draw_b,1,scope_le_4M,Draw 1 B card if scope ≤ $4M
 OWNER-FUND-INITIATION,First,cards,draw_b,1,scope_gt_4M,Draw 1 B card if scope > $4M

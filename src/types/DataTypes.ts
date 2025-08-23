@@ -39,6 +39,7 @@ export interface SpaceEffect {
   effect_value: string | number;
   condition: string;
   description: string;
+  trigger_type?: 'manual' | 'auto';
 }
 
 export interface DiceEffect {

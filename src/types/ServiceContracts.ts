@@ -92,6 +92,10 @@ export interface IStateService {
   endGame(winnerId?: string): GameState;
   resetGame(): GameState;
   
+  // Utility methods
+  fixPlayerStartingSpaces(): GameState;
+  forceResetAllPlayersToCorrectStartingSpace(): GameState;
+  
   // Choice management methods
   setAwaitingChoice(playerId: string, options: string[]): GameState;
   clearAwaitingChoice(): GameState;
@@ -153,6 +157,15 @@ export interface IPlayerActionService {
   // Methods for handling player commands and orchestrating actions
   playCard(playerId: string, cardId: string): Promise<void>;
   rollDice(playerId: string): Promise<{ roll1: number; roll2: number; total: number }>;
+  endTurn(): Promise<void>;
+}
+
+export interface INegotiationService {
+  // Methods for handling player negotiations
+  initiateNegotiation(initiatorId: string, partnerId: string): void;
+  makeOffer(playerId: string, offer: any): void;
+  acceptOffer(playerId: string): void;
+  declineOffer(playerId: string): void;
 }
 
 export interface IMovementService {
@@ -205,4 +218,5 @@ export interface IServiceContainer {
   playerActionService: IPlayerActionService;
   movementService: IMovementService;
   gameRulesService: IGameRulesService;
+  negotiationService: INegotiationService;
 }

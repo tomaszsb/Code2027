@@ -39,13 +39,23 @@ function LoadingScreen(): JSX.Element {
  * AppContent component handles the loading state and renders the game when ready
  */
 function AppContent(): JSX.Element {
-  const { dataService } = useGameContext();
+  const { dataService, stateService } = useGameContext();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await dataService.loadData();
+        
+        // Fix any existing players who might have incorrect starting spaces
+        // This addresses the caching bug where players were created before data loaded
+        console.log('🔧 Attempting to fix player starting spaces after data load...');
+        stateService.fixPlayerStartingSpaces();
+        
+        // If that didn't work, use the aggressive fix
+        console.log('🚨 Using aggressive fix to ensure all players are on correct starting space...');
+        stateService.forceResetAllPlayersToCorrectStartingSpace();
+        
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize application:', error);
@@ -54,7 +64,7 @@ function AppContent(): JSX.Element {
     };
 
     initializeApp();
-  }, [dataService]);
+  }, [dataService, stateService]);
 
   if (isLoading) {
     return <LoadingScreen />;

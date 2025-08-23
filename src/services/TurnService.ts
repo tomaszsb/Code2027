@@ -1,6 +1,6 @@
 import { ITurnService, IDataService, IStateService, IGameRulesService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
-import { DiceEffect, Movement } from '../types/DataTypes';
+import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -133,20 +133,51 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Get dice effects for the player's current space and visit type
+    let currentState = this.stateService.getGameState();
+
+    // First, process space effects (always applied when landing on a space)
+    const spaceEffects = this.dataService.getSpaceEffects(
+      currentPlayer.currentSpace, 
+      currentPlayer.visitType
+    );
+
+    for (const effect of spaceEffects) {
+      currentState = this.applySpaceEffect(playerId, effect, currentState);
+    }
+
+    // Then, process dice effects (specific to dice roll results)
     const diceEffects = this.dataService.getDiceEffects(
       currentPlayer.currentSpace, 
       currentPlayer.visitType
     );
 
-    let currentState = this.stateService.getGameState();
-
-    // Process each dice effect
     for (const effect of diceEffects) {
       currentState = this.applyDiceEffect(playerId, effect, diceRoll, currentState);
     }
 
     return currentState;
+  }
+
+  private applySpaceEffect(
+    playerId: string, 
+    effect: SpaceEffect, 
+    currentState: GameState
+  ): GameState {
+    // Apply effect based on type
+    switch (effect.effect_type) {
+      case 'cards':
+        return this.applySpaceCardEffect(playerId, effect);
+      
+      case 'money':
+        return this.applySpaceMoneyEffect(playerId, effect);
+      
+      case 'time':
+        return this.applySpaceTimeEffect(playerId, effect);
+      
+      default:
+        console.warn(`Unknown space effect type: ${effect.effect_type}`);
+        return currentState;
+    }
   }
 
   private applyDiceEffect(
@@ -280,6 +311,316 @@ export class TurnService implements ITurnService {
     // For now, just log the quality level
     console.log(`Player ${playerId} quality level: ${effect}`);
     return this.stateService.getGameState();
+  }
+
+  private applySpaceCardEffect(playerId: string, effect: SpaceEffect): GameState {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    // Parse the effect action and value
+    const action = effect.effect_action; // e.g., "draw_w", "add", etc.
+    const value = typeof effect.effect_value === 'string' ? 
+      parseInt(effect.effect_value) : effect.effect_value;
+
+    if (action === 'draw_w') {
+      // Draw W cards
+      const newCards = { ...player.cards };
+      const newCardIds = Array.from({ length: value }, (_, i) => 
+        `W_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+      );
+      newCards.W = [...newCards.W, ...newCardIds];
+      
+      console.log(`Player ${player.name} draws ${value} W cards:`, newCardIds);
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'draw_b') {
+      // Draw B cards
+      const newCards = { ...player.cards };
+      const newCardIds = Array.from({ length: value }, (_, i) => 
+        `B_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+      );
+      newCards.B = [...newCards.B, ...newCardIds];
+      
+      console.log(`Player ${player.name} draws ${value} B cards:`, newCardIds);
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'draw_e') {
+      // Draw E cards
+      const newCards = { ...player.cards };
+      const newCardIds = Array.from({ length: value }, (_, i) => 
+        `E_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+      );
+      newCards.E = [...newCards.E, ...newCardIds];
+      
+      console.log(`Player ${player.name} draws ${value} E cards:`, newCardIds);
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'draw_l') {
+      // Draw L cards  
+      const newCards = { ...player.cards };
+      const newCardIds = Array.from({ length: value }, (_, i) => 
+        `L_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+      );
+      newCards.L = [...newCards.L, ...newCardIds];
+      
+      console.log(`Player ${player.name} draws ${value} L cards:`, newCardIds);
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'draw_i') {
+      // Draw I cards
+      const newCards = { ...player.cards };
+      const newCardIds = Array.from({ length: value }, (_, i) => 
+        `I_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+      );
+      newCards.I = [...newCards.I, ...newCardIds];
+      
+      console.log(`Player ${player.name} draws ${value} I cards:`, newCardIds);
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'replace_e') {
+      // Replace E cards - remove old E cards and add new ones
+      const newCards = { ...player.cards };
+      const replaceCount = Math.min(value, newCards.E.length);
+      
+      if (replaceCount > 0) {
+        // Remove old E cards
+        newCards.E = newCards.E.slice(replaceCount);
+        // Add new E cards
+        const newCardIds = Array.from({ length: replaceCount }, (_, i) => 
+          `E_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+        );
+        newCards.E = [...newCards.E, ...newCardIds];
+        
+        console.log(`Player ${player.name} replaces ${replaceCount} E cards:`, newCardIds);
+      } else {
+        console.log(`Player ${player.name} has no E cards to replace`);
+      }
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'replace_l') {
+      // Replace L cards - remove old L cards and add new ones
+      const newCards = { ...player.cards };
+      const replaceCount = Math.min(value, newCards.L.length);
+      
+      if (replaceCount > 0) {
+        // Remove old L cards
+        newCards.L = newCards.L.slice(replaceCount);
+        // Add new L cards
+        const newCardIds = Array.from({ length: replaceCount }, (_, i) => 
+          `L_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
+        );
+        newCards.L = [...newCards.L, ...newCardIds];
+        
+        console.log(`Player ${player.name} replaces ${replaceCount} L cards:`, newCardIds);
+      } else {
+        console.log(`Player ${player.name} has no L cards to replace`);
+      }
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'return_e') {
+      // Return E cards - remove them from hand
+      const newCards = { ...player.cards };
+      const returnCount = Math.min(value, newCards.E.length);
+      
+      if (returnCount > 0) {
+        newCards.E = newCards.E.slice(returnCount);
+        console.log(`Player ${player.name} returns ${returnCount} E cards`);
+      } else {
+        console.log(`Player ${player.name} has no E cards to return`);
+      }
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'return_l') {
+      // Return L cards - remove them from hand
+      const newCards = { ...player.cards };
+      const returnCount = Math.min(value, newCards.L.length);
+      
+      if (returnCount > 0) {
+        newCards.L = newCards.L.slice(returnCount);
+        console.log(`Player ${player.name} returns ${returnCount} L cards`);
+      } else {
+        console.log(`Player ${player.name} has no L cards to return`);
+      }
+      
+      return this.stateService.updatePlayer({
+        id: playerId,
+        cards: newCards
+      });
+    } else if (action === 'transfer') {
+      // Transfer cards to another player
+      const targetPlayer = this.getTargetPlayer(playerId, effect.condition);
+      
+      if (!targetPlayer) {
+        console.log(`Player ${player.name} could not transfer cards - no target player found`);
+        return this.stateService.getGameState();
+      }
+
+      // For now, transfer a random card from player's hand to target
+      // Priority order: W, B, E, L, I (transfer most valuable first)
+      const cardTypes: (keyof typeof player.cards)[] = ['W', 'B', 'E', 'L', 'I'];
+      let transferredCard: string | null = null;
+      let transferredType: string | null = null;
+
+      for (const cardType of cardTypes) {
+        if (player.cards[cardType].length > 0) {
+          transferredCard = player.cards[cardType][0];
+          transferredType = cardType;
+          break;
+        }
+      }
+
+      if (transferredCard && transferredType) {
+        // Remove card from current player
+        const currentPlayerCards = { ...player.cards };
+        currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = 
+          currentPlayerCards[transferredType as keyof typeof currentPlayerCards].slice(1);
+
+        // Add card to target player  
+        const targetPlayerCards = { ...targetPlayer.cards };
+        targetPlayerCards[transferredType as keyof typeof targetPlayerCards] = 
+          [...targetPlayerCards[transferredType as keyof typeof targetPlayerCards], transferredCard];
+
+        // Update both players
+        this.stateService.updatePlayer({
+          id: playerId,
+          cards: currentPlayerCards
+        });
+
+        this.stateService.updatePlayer({
+          id: targetPlayer.id,
+          cards: targetPlayerCards
+        });
+
+        console.log(`Player ${player.name} transfers ${transferredType} card to ${targetPlayer.name}`);
+      } else {
+        console.log(`Player ${player.name} has no cards to transfer`);
+      }
+
+      return this.stateService.getGameState();
+    }
+    
+    return this.stateService.getGameState();
+  }
+
+  private applySpaceMoneyEffect(playerId: string, effect: SpaceEffect): GameState {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const value = typeof effect.effect_value === 'string' ? 
+      parseInt(effect.effect_value) : effect.effect_value;
+    
+    let newMoney = player.money;
+    
+    if (effect.effect_action === 'add') {
+      newMoney += value;
+    } else if (effect.effect_action === 'subtract') {
+      newMoney -= value;
+    } else if (effect.effect_action === 'fee_percent') {
+      // Apply percentage-based fee
+      const feeAmount = Math.floor((player.money * value) / 100);
+      newMoney -= feeAmount;
+      console.log(`Player ${player.name} pays ${value}% fee (${feeAmount}) based on condition: ${effect.condition}`);
+    } else if (effect.effect_action === 'add_per_amount') {
+      // This is typically used with money - add money based on some calculation
+      // For now, implement a basic version - can be enhanced based on condition parsing
+      const additionalAmount = value; // Placeholder logic
+      newMoney += additionalAmount;
+      console.log(`Player ${player.name} gains ${additionalAmount} per amount based on condition: ${effect.condition}`);
+    }
+    
+    newMoney = Math.max(0, newMoney); // Ensure money doesn't go below 0
+
+    console.log(`Player ${player.name} money change: ${effect.effect_action} ${value}, new total: ${newMoney}`);
+
+    return this.stateService.updatePlayer({
+      id: playerId,
+      money: newMoney
+    });
+  }
+
+  private applySpaceTimeEffect(playerId: string, effect: SpaceEffect): GameState {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const value = typeof effect.effect_value === 'string' ? 
+      parseInt(effect.effect_value) : effect.effect_value;
+    
+    let newTime = player.time;
+    
+    if (effect.effect_action === 'add') {
+      newTime += value;
+    } else if (effect.effect_action === 'subtract') {
+      newTime -= value;
+    } else if (effect.effect_action === 'add_per_amount') {
+      // Add time based on some calculation (e.g., per $200K borrowed)
+      // For now, implement basic version - can be enhanced based on condition parsing
+      const additionalTime = value; // Placeholder logic
+      newTime += additionalTime;
+      console.log(`Player ${player.name} gains ${additionalTime} time per amount based on condition: ${effect.condition}`);
+    }
+    
+    newTime = Math.max(0, newTime); // Ensure time doesn't go below 0
+
+    console.log(`Player ${player.name} time change: ${effect.effect_action} ${value}, new total: ${newTime}`);
+
+    return this.stateService.updatePlayer({
+      id: playerId,
+      time: newTime
+    });
+  }
+
+  private getTargetPlayer(currentPlayerId: string, condition: string): Player | null {
+    const gameState = this.stateService.getGameState();
+    const players = gameState.players;
+    const currentPlayerIndex = players.findIndex(p => p.id === currentPlayerId);
+    
+    if (currentPlayerIndex === -1) {
+      return null;
+    }
+
+    if (condition === 'to_right') {
+      // Get player to the right (next in turn order)
+      const targetIndex = (currentPlayerIndex + 1) % players.length;
+      return players[targetIndex];
+    } else if (condition === 'to_left') {
+      // Get player to the left (previous in turn order)  
+      const targetIndex = (currentPlayerIndex - 1 + players.length) % players.length;
+      return players[targetIndex];
+    }
+    
+    // Unknown condition
+    console.warn(`Unknown transfer condition: ${condition}`);
+    return null;
   }
 
   private parseNumericValue(effect: string): number {

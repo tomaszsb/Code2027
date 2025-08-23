@@ -12,39 +12,138 @@ import { Player } from '../../types/StateTypes';
 export function PlayerStatusPanel(): JSX.Element {
   const { stateService } = useGameContext();
 
-  // Create Game Actions component for current player
-  const createGameActions = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <button
-        onClick={() => stateService.showCardModal('W001')}
-        style={{
-          background: 'linear-gradient(45deg, #007bff, #0056b3)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '12px 16px',
+  // Utility function to extract static card ID from dynamic instance ID
+  const extractStaticCardId = (dynamicCardId: string): string => {
+    // Extract the static ID portion (e.g., "W001" from "W001_1234567890_abcdefg")
+    const parts = dynamicCardId.split('_');
+    return parts[0] || dynamicCardId;
+  };
+
+  // Get card type colors for visual enhancement
+  const getCardTypeColor = (cardType: string) => {
+    switch (cardType) {
+      case 'W': return { bg: '#28a745', shadow: 'rgba(40, 167, 69, 0.3)' }; // Green
+      case 'B': return { bg: '#007bff', shadow: 'rgba(0, 123, 255, 0.3)' }; // Blue  
+      case 'E': return { bg: '#dc3545', shadow: 'rgba(220, 53, 69, 0.3)' }; // Red
+      case 'L': return { bg: '#ffc107', shadow: 'rgba(255, 193, 7, 0.3)' }; // Yellow
+      case 'I': return { bg: '#6f42c1', shadow: 'rgba(111, 66, 193, 0.3)' }; // Purple
+      default: return { bg: '#6c757d', shadow: 'rgba(108, 117, 125, 0.3)' }; // Gray
+    }
+  };
+
+  // PlayerHand component for displaying player's cards
+  const PlayerHand = ({ player }: { player: Player }) => {
+    // Organize cards by type for better display
+    const cardsByType = [
+      { type: 'W', cards: player.cards.W },
+      { type: 'B', cards: player.cards.B },
+      { type: 'E', cards: player.cards.E },
+      { type: 'L', cards: player.cards.L },
+      { type: 'I', cards: player.cards.I }
+    ].filter(cardGroup => cardGroup.cards.length > 0);
+
+    if (cardsByType.length === 0) {
+      return (
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '10px',
+          color: '#666',
           fontSize: '14px',
-          fontWeight: 'bold',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          boxShadow: '0 2px 8px rgba(0, 123, 255, 0.3)'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.4)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 123, 255, 0.3)';
-        }}
-      >
-        🃏 Show Test Card
-      </button>
-      <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
-        Test the card modal functionality
+          fontStyle: 'italic',
+          textAlign: 'center'
+        }}>
+          🃏 No cards in hand
+        </div>
+      );
+    }
+
+    const totalCards = cardsByType.reduce((sum, group) => sum + group.cards.length, 0);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ 
+          fontSize: '12px', 
+          fontWeight: 'bold', 
+          color: '#495057', 
+          marginBottom: '4px' 
+        }}>
+          🃏 Cards in Hand ({totalCards})
+        </div>
+        <div style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: '6px', 
+          maxHeight: '120px', 
+          overflowY: 'auto' 
+        }}>
+          {cardsByType.map(({ type, cards }) => 
+            cards.map((dynamicCardId, index) => {
+              const staticCardId = extractStaticCardId(dynamicCardId);
+              const colors = getCardTypeColor(type);
+              
+              return (
+                <button
+                  key={`${dynamicCardId}-${index}`}
+                  onClick={() => stateService.showCardModal(staticCardId)}
+                  style={{
+                    background: `linear-gradient(45deg, ${colors.bg}, ${colors.bg}dd)`,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: `0 2px 4px ${colors.shadow}`,
+                    minWidth: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = `0 3px 6px ${colors.shadow}`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = `0 2px 4px ${colors.shadow}`;
+                  }}
+                >
+                  <span style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    color: colors.bg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontWeight: 'bold'
+                  }}>
+                    {type}
+                  </span>
+                  {type}
+                  {cards.length > 1 && (
+                    <span style={{
+                      marginLeft: '2px',
+                      fontSize: '10px',
+                      opacity: 0.9
+                    }}>
+                      ×{cards.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
@@ -132,7 +231,7 @@ export function PlayerStatusPanel(): JSX.Element {
               key={player.id}
               player={player}
               isCurrentPlayer={player.id === currentPlayerId}
-              actions={player.id === currentPlayerId ? createGameActions() : undefined}
+              actions={player.id === currentPlayerId ? <PlayerHand player={player} /> : undefined}
             />
           ))}
         </div>
