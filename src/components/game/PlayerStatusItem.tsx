@@ -6,6 +6,7 @@ import { FinancialStatusDisplay } from './FinancialStatusDisplay';
 import { CardPortfolioDashboard } from './CardPortfolioDashboard';
 import { TurnControls } from './TurnControls';
 import { useGameContext } from '../../context/GameContext';
+import { FormatUtils } from '../../utils/FormatUtils';
 
 interface PlayerStatusItemProps {
   player: Player;
@@ -292,12 +293,12 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               title={`${showFinancialStatus ? 'Hide' : 'Show'} financial status`}
             >
               <div style={statLabelStyle}>Money {showFinancialStatus ? '▲' : '▼'}</div>
-              <div style={statValueStyle}>💰 ${player.money}</div>
+              <div style={statValueStyle}>💰 {FormatUtils.formatMoney(player.money)}</div>
             </button>
 
             <div style={statItemStyle}>
               <div style={statLabelStyle}>Time</div>
-              <div style={statValueStyle}>⏱️ {player.timeSpent || 0} days</div>
+              <div style={statValueStyle}>⏱️ {FormatUtils.formatTime(player.timeSpent || 0)}</div>
             </div>
 
             {/* Card Portfolio Toggle Button */}

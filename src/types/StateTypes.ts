@@ -111,3 +111,21 @@ export type PlayerCards = {
 };
 
 export { Player, ActiveCard } from './DataTypes';
+
+// Dice result feedback types
+export interface DiceResultEffect {
+  type: 'money' | 'time' | 'cards' | 'movement' | 'choice';
+  description: string;
+  value?: number;
+  cardType?: string;
+  cardCount?: number;
+  moveOptions?: string[];
+}
+
+export interface TurnEffectResult {
+  diceValue: number;
+  spaceName: string;
+  effects: DiceResultEffect[];
+  summary: string;
+  hasChoices: boolean;
+}

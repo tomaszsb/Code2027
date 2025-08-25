@@ -1,5 +1,5 @@
 import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, TurnResult } from '../types/ServiceContracts';
-import { GameState, Player } from '../types/StateTypes';
+import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 
 export class TurnService implements ITurnService {
@@ -1017,6 +1017,185 @@ export class TurnService implements ITurnService {
     } catch (error) {
       console.error(`Error during negotiation for player ${player.name}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Roll dice and process effects with detailed feedback for UI
+   * Returns comprehensive information about the dice roll and its effects
+   */
+  rollDiceWithFeedback(playerId: string): TurnEffectResult {
+    console.log(`🎲 TurnService.rollDiceWithFeedback - Starting for player ${playerId}`);
+    
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const beforeState = this.stateService.getGameState();
+    const beforePlayer = beforeState.players.find(p => p.id === playerId)!;
+
+    // Roll dice
+    const diceRoll = this.rollDice();
+    console.log(`🎲 Rolled: ${diceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
+
+    // Process effects and track changes
+    const effects: DiceResultEffect[] = [];
+    this.processTurnEffectsWithTracking(playerId, diceRoll, effects);
+
+    // Mark dice roll states
+    this.stateService.setPlayerHasRolledDice();
+    this.stateService.setPlayerHasMoved();
+
+    // Generate summary
+    const summary = this.generateEffectSummary(effects, diceRoll);
+    const hasChoices = effects.some(effect => effect.type === 'choice');
+
+    return {
+      diceValue: diceRoll,
+      spaceName: currentPlayer.currentSpace,
+      effects,
+      summary,
+      hasChoices
+    };
+  }
+
+  /**
+   * Process turn effects while tracking changes for feedback
+   */
+  private processTurnEffectsWithTracking(playerId: string, diceRoll: number, effects: DiceResultEffect[]): void {
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) return;
+
+    const beforeMoney = currentPlayer.money;
+    const beforeTime = currentPlayer.timeSpent;
+    const beforeCards = { ...currentPlayer.availableCards };
+
+    // Process effects using the existing method
+    this.processTurnEffects(playerId, diceRoll);
+
+    // Capture changes after processing
+    const afterPlayer = this.stateService.getPlayer(playerId);
+    if (!afterPlayer) return;
+
+    // Track money changes
+    const moneyChange = afterPlayer.money - beforeMoney;
+    if (moneyChange !== 0) {
+      effects.push({
+        type: 'money',
+        description: moneyChange > 0 ? 'Received project funding' : 'Paid project costs',
+        value: moneyChange
+      });
+    }
+
+    // Track time changes
+    const timeChange = afterPlayer.timeSpent - beforeTime;
+    if (timeChange !== 0) {
+      effects.push({
+        type: 'time',
+        description: timeChange > 0 ? 'Project delayed' : 'Gained efficiency',
+        value: timeChange
+      });
+    }
+
+    // Track card changes
+    Object.keys(beforeCards).forEach(cardType => {
+      const typedCardType = cardType as keyof typeof beforeCards;
+      const before = beforeCards[typedCardType].length;
+      const after = afterPlayer.availableCards[typedCardType].length;
+      const cardChange = after - before;
+      
+      if (cardChange > 0) {
+        effects.push({
+          type: 'cards',
+          description: `Drew ${this.getCardTypeName(typedCardType)} cards`,
+          cardType: typedCardType,
+          cardCount: cardChange
+        });
+      } else if (cardChange < 0) {
+        effects.push({
+          type: 'cards',
+          description: `Used ${this.getCardTypeName(typedCardType)} cards`,
+          cardType: typedCardType,
+          cardCount: Math.abs(cardChange)
+        });
+      }
+    });
+
+    // Check for movement choices (this would require additional logic)
+    // For now, we'll detect if the player has movement options
+    const availableMoves = this.dataService.getAllMovements()
+      .filter(m => m.from_space === currentPlayer.currentSpace && m.visit_type === currentPlayer.visitType);
+    
+    if (availableMoves.length > 1) {
+      effects.push({
+        type: 'choice',
+        description: 'Choose your next destination',
+        moveOptions: availableMoves.map(m => m.to_space)
+      });
+    }
+  }
+
+  /**
+   * Generate a human-readable summary of the effects
+   */
+  private generateEffectSummary(effects: DiceResultEffect[], diceValue: number): string {
+    if (effects.length === 0) {
+      return `Rolled ${diceValue} - No special effects this turn.`;
+    }
+
+    const summaryParts: string[] = [];
+    let hasPositive = false;
+    let hasNegative = false;
+
+    effects.forEach(effect => {
+      switch (effect.type) {
+        case 'money':
+          if (effect.value! > 0) {
+            summaryParts.push('gained funding');
+            hasPositive = true;
+          } else {
+            summaryParts.push('paid costs');
+            hasNegative = true;
+          }
+          break;
+        case 'cards':
+          summaryParts.push(`drew ${effect.cardCount} card${effect.cardCount! > 1 ? 's' : ''}`);
+          hasPositive = true;
+          break;
+        case 'time':
+          if (effect.value! > 0) {
+            summaryParts.push('faced delays');
+            hasNegative = true;
+          } else {
+            summaryParts.push('gained efficiency');
+            hasPositive = true;
+          }
+          break;
+        case 'choice':
+          summaryParts.push('must choose next move');
+          break;
+      }
+    });
+
+    const tone = hasPositive && !hasNegative ? 'Great roll!' :
+                hasNegative && !hasPositive ? 'Challenging turn.' :
+                'Mixed results.';
+
+    return `${tone} You ${summaryParts.join(', ')}.`;
+  }
+
+  /**
+   * Get human-readable name for card type
+   */
+  private getCardTypeName(cardType: string): string {
+    switch (cardType) {
+      case 'W': return 'Work';
+      case 'B': return 'Business';
+      case 'E': return 'Equipment';
+      case 'L': return 'Legal';
+      case 'I': return 'Investment';
+      default: return cardType;
     }
   }
 }

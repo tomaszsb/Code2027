@@ -3,6 +3,7 @@
 import React from 'react';
 import { Player } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
+import { FormatUtils } from '../../utils/FormatUtils';
 
 interface FinancialStatusDisplayProps {
   player: Player;
@@ -93,11 +94,11 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
         </div>
         <div style={metricRowStyle}>
           <span style={metricLabelStyle}>Available Money:</span>
-          <span style={metricValueStyle}>${financialStatus.playerMoney}</span>
+          <span style={metricValueStyle}>{FormatUtils.formatMoney(financialStatus.playerMoney)}</span>
         </div>
         <div style={metricRowStyle}>
           <span style={metricLabelStyle}>Total Scope Cost:</span>
-          <span style={metricValueStyle}>${financialStatus.totalScopeCost}</span>
+          <span style={metricValueStyle}>{FormatUtils.formatMoney(financialStatus.totalScopeCost)}</span>
         </div>
         <div style={metricRowStyle}>
           <span style={metricLabelStyle}>
@@ -107,7 +108,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
             ...metricValueStyle,
             color: financialStatus.isDeficit ? '#dc3545' : '#28a745'
           }}>
-            ${Math.abs(financialStatus.surplus)}
+            {FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}
           </span>
         </div>
       </div>

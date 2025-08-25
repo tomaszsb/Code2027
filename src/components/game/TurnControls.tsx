@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../context/GameContext';
+import { DiceResultModal, DiceRollResult } from '../modals/DiceResultModal';
 import { Player } from '../../types/DataTypes';
 import { GamePhase } from '../../types/StateTypes';
 
@@ -19,6 +20,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
   const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState(false);
   const [awaitingChoice, setAwaitingChoice] = useState(false);
   const [actionCounts, setActionCounts] = useState({ required: 0, completed: 0 });
+  const [diceResult, setDiceResult] = useState<DiceRollResult | null>(null);
+  const [showDiceResultModal, setShowDiceResultModal] = useState(false);
 
   // Subscribe to state changes for live updates
   useEffect(() => {
@@ -114,33 +117,38 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       setIsProcessingTurn(true);
       console.log(`Rolling dice for player: ${currentPlayer.name}`);
       
-      // Use rollDiceAndProcessEffects for dice roll + effects only (no movement)
-      const result = turnService.rollDiceAndProcessEffects(currentPlayer.id);
-      setLastRoll(result.diceRoll);
-      console.log(`Dice rolled! ${currentPlayer.name} rolled a ${result.diceRoll}`);
+      // Use rollDiceWithFeedback for dice roll + effects + feedback modal
+      const result = turnService.rollDiceWithFeedback(currentPlayer.id);
+      setLastRoll(result.diceValue);
+      setDiceResult(result);
+      setShowDiceResultModal(true);
       
-      // Get updated player state to check current space and set feedback message
-      const updatedGameState = stateService.getGameState();
-      const updatedPlayer = updatedGameState.players.find(p => p.id === currentPlayer.id);
+      console.log(`Dice rolled! ${currentPlayer.name} rolled a ${result.diceValue}`);
+      console.log('Effects:', result.effects);
       
-      if (updatedPlayer) {
-        if (updatedPlayer.currentSpace === 'OWNER-SCOPE-INITIATION') {
-          setFeedbackMessage(`You rolled a ${result.diceRoll} and will receive that many cards.`);
-        } else {
-          setFeedbackMessage(`You rolled a ${result.diceRoll} and moved to ${updatedPlayer.currentSpace}.`);
-        }
-      }
+      // Set simple feedback message for the UI
+      setFeedbackMessage(`Rolled ${result.diceValue} - ${result.summary}`);
       
-      // Clear the dice roll display and feedback message after 4 seconds
+      // Clear the dice roll display and feedback message after 8 seconds (longer to account for modal)
       setTimeout(() => {
         setLastRoll(null);
         setFeedbackMessage('');
-      }, 4000);
+      }, 8000);
     } catch (error) {
       console.error('Error rolling dice:', error);
     } finally {
       setIsProcessingTurn(false);
     }
+  };
+
+  const handleCloseDiceResultModal = () => {
+    setShowDiceResultModal(false);
+    setDiceResult(null);
+  };
+
+  const handleDiceResultConfirm = () => {
+    handleCloseDiceResultModal();
+    // Additional logic if needed for choices would go here
   };
 
   const handleEndTurn = async () => {
@@ -499,6 +507,14 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           );
         })}
       </div>
+
+      {/* Dice Result Modal */}
+      <DiceResultModal
+        isOpen={showDiceResultModal}
+        result={diceResult}
+        onClose={handleCloseDiceResultModal}
+        onConfirm={diceResult?.hasChoices ? handleDiceResultConfirm : undefined}
+      />
     </div>
   );
 }

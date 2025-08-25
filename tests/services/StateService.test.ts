@@ -10,7 +10,8 @@ describe('StateService', () => {
   let mockDataService: jest.Mocked<DataService>;
 
   const mockGameConfigCsv = `space_name,phase,path_type,is_starting_space,is_ending_space,min_players,max_players,requires_dice_roll
-START-QUICK-PLAY-GUIDE,SETUP,Tutorial,Yes,No,2,6,No
+START-QUICK-PLAY-GUIDE,SETUP,Tutorial,No,No,2,6,No
+OWNER-SCOPE-INITIATION,SETUP,Main,Yes,No,2,6,No
 FINISH,END,Main,No,Yes,2,6,No`;
 
   beforeEach(() => {
@@ -66,11 +67,11 @@ FINISH,END,Main,No,Yes,2,6,No`;
       expect(newState.players).toHaveLength(1);
       expect(newState.players[0].name).toBe('Alice');
       expect(newState.players[0].id).toBeDefined();
-      expect(newState.players[0].currentSpace).toBe('START-QUICK-PLAY-GUIDE');
+      expect(newState.players[0].currentSpace).toBe('OWNER-SCOPE-INITIATION');
       expect(newState.players[0].visitType).toBe('First');
       expect(newState.players[0].money).toBe(0);
-      expect(newState.players[0].time).toBe(0);
-      expect(newState.players[0].cards).toEqual({
+      expect(newState.players[0].timeSpent).toBe(0);
+      expect(newState.players[0].availableCards).toEqual({
         W: [], B: [], E: [], L: [], I: []
       });
     });
@@ -108,7 +109,7 @@ FINISH,END,Main,No,Yes,2,6,No`;
       
       const updatedPlayer = updatedState.players[0];
       expect(updatedPlayer.money).toBe(100);
-      expect(updatedPlayer.time).toBe(5);
+      expect(updatedPlayer.timeSpent).toBe(5);
       expect(updatedPlayer.currentSpace).toBe('NEW-SPACE');
       expect(updatedPlayer.name).toBe('Alice'); // Unchanged
     });
@@ -119,12 +120,12 @@ FINISH,END,Main,No,Yes,2,6,No`;
       
       const updatedState = stateService.updatePlayer({
         id: playerId,
-        cards: { W: ['card1', 'card2'] }
+        availableCards: { W: ['card1', 'card2'] }
       });
       
       const updatedPlayer = updatedState.players[0];
-      expect(updatedPlayer.cards.W).toEqual(['card1', 'card2']);
-      expect(updatedPlayer.cards.B).toEqual([]); // Other card types unchanged
+      expect(updatedPlayer.availableCards.W).toEqual(['card1', 'card2']);
+      expect(updatedPlayer.availableCards.B).toEqual([]); // Other card types unchanged
     });
 
     it('should throw error when updating non-existent player', () => {
@@ -555,7 +556,7 @@ FINISH,END,Main,No,Yes,2,6,No`;
     it('should use fallback starting space when DataService not available', () => {
       const newState = stateServiceWithUnloadedData.addPlayer('Alice');
       
-      expect(newState.players[0].currentSpace).toBe('START-QUICK-PLAY-GUIDE');
+      expect(newState.players[0].currentSpace).toBe('OWNER-SCOPE-INITIATION');
       expect(mockDataServiceNotLoaded.isLoaded).toHaveBeenCalled();
     });
 

@@ -1,0 +1,478 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { SpaceExplorerPanel } from '../../../src/components/game/SpaceExplorerPanel';
+import { DataService } from '../../../src/services/DataService';
+import { StateService } from '../../../src/services/StateService';
+import { MovementService } from '../../../src/services/MovementService';
+import { Space, Player, SpaceContent, SpaceEffect, GameConfig, Movement } from '../../../src/types/DataTypes';
+
+// Mock GameContext
+const mockDataService = {
+  getAllSpaces: jest.fn(),
+  getSpaceContentBySpace: jest.fn(),
+  getSpaceEffectsBySpace: jest.fn(),
+  getDiceEffectsBySpace: jest.fn(),
+  getGameConfigBySpace: jest.fn(),
+  getMovement: jest.fn()
+} as unknown as DataService;
+
+const mockStateService = {
+  subscribe: jest.fn(),
+  getGameState: jest.fn()
+} as unknown as StateService;
+
+const mockMovementService = {
+  getValidMoves: jest.fn()
+} as unknown as MovementService;
+
+jest.mock('../../../src/context/GameContext', () => ({
+  useGameContext: () => ({
+    dataService: mockDataService,
+    stateService: mockStateService,
+    movementService: mockMovementService
+  })
+}));
+
+describe('SpaceExplorerPanel', () => {
+  const mockSpaces: Space[] = [
+    { name: 'START', position: { x: 0, y: 0 } },
+    { name: 'OFFICE-SETUP', position: { x: 1, y: 0 } },
+    { name: 'ARCHITECT-MEETING', position: { x: 2, y: 0 } },
+    { name: 'END', position: { x: 3, y: 0 } }
+  ];
+
+  const mockPlayers: Player[] = [
+    {
+      id: 'player1',
+      name: 'Test Player',
+      color: '#ff0000',
+      type: 'human',
+      isAI: false,
+      money: 100000,
+      timeSpent: 45,
+      currentSpace: 'OFFICE-SETUP',
+      availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
+      position: { x: 0, y: 0 }
+    },
+    {
+      id: 'player2',
+      name: 'Another Player',
+      color: '#00ff00',
+      type: 'human',
+      isAI: false,
+      money: 75000,
+      timeSpent: 30,
+      currentSpace: 'OFFICE-SETUP',
+      availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
+      position: { x: 0, y: 0 }
+    }
+  ];
+
+  const mockGameState = {
+    currentPlayer: mockPlayers[0],
+    players: mockPlayers,
+    gamePhase: 'PLAY' as const
+  };
+
+  const mockSpaceContent: SpaceContent = {
+    space_name: 'OFFICE-SETUP',
+    visit_type: 'First',
+    content_text: 'Set up your project office and begin planning',
+    can_negotiate: true
+  };
+
+  const mockSpaceEffect: SpaceEffect = {
+    space_name: 'OFFICE-SETUP',
+    visit_type: 'First',
+    effect_type: 'money',
+    effect_value: -10000,
+    effect_description: 'Office setup costs'
+  };
+
+  const mockGameConfig: GameConfig = {
+    space_name: 'START',
+    is_starting_space: true,
+    is_ending_space: false,
+    path_type: 'Main'
+  };
+
+  const mockMovement: Movement = {
+    space_name: 'START',
+    visit_type: 'First',
+    movement_type: 'choice',
+    destination_1: 'OFFICE-SETUP',
+    destination_2: '',
+    destination_3: '',
+    destination_4: '',
+    destination_5: ''
+  };
+
+  const mockOnToggle = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
+      callback(mockGameState);
+      return () => {}; // unsubscribe function
+    });
+    (mockStateService.getGameState as jest.Mock).mockReturnValue(mockGameState);
+    (mockDataService.getAllSpaces as jest.Mock).mockReturnValue(mockSpaces);
+    (mockDataService.getSpaceContentBySpace as jest.Mock).mockReturnValue(mockSpaceContent);
+    (mockDataService.getSpaceEffectsBySpace as jest.Mock).mockReturnValue([mockSpaceEffect]);
+    (mockDataService.getDiceEffectsBySpace as jest.Mock).mockReturnValue([]);
+    (mockDataService.getGameConfigBySpace as jest.Mock).mockImplementation((spaceName) => {
+      if (spaceName === 'START') return { ...mockGameConfig, is_starting_space: true };
+      if (spaceName === 'END') return { ...mockGameConfig, space_name: spaceName, is_ending_space: true, is_starting_space: false };
+      return { ...mockGameConfig, space_name: spaceName, is_starting_space: false };
+    });
+    (mockDataService.getMovement as jest.Mock).mockReturnValue(mockMovement);
+  });
+
+  it('should render toggle button', () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={false}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const toggleButton = screen.getByTitle('Toggle Space Explorer');
+    expect(toggleButton).toBeInTheDocument();
+    expect(toggleButton).toHaveTextContent('🗺️');
+  });
+
+  it('should not show panel when not visible', () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={false}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    expect(screen.queryByText('Space Explorer')).not.toBeInTheDocument();
+  });
+
+  it('should show panel when visible', () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    expect(screen.getByText('Space Explorer')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search spaces...')).toBeInTheDocument();
+  });
+
+  it('should call onToggle when toggle button is clicked', () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={false}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const toggleButton = screen.getByTitle('Toggle Space Explorer');
+    fireEvent.click(toggleButton);
+
+    expect(mockOnToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('should call onToggle when close button is clicked', () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const closeButton = screen.getByText('✕');
+    fireEvent.click(closeButton);
+
+    expect(mockOnToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('should display all spaces in the list', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('START')).toBeInTheDocument();
+      expect(screen.getByText('OFFICE-SETUP')).toBeInTheDocument();
+      expect(screen.getByText('ARCHITECT-MEETING')).toBeInTheDocument();
+      expect(screen.getByText('END')).toBeInTheDocument();
+    });
+  });
+
+  it('should show players count on spaces with players', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      // OFFICE-SETUP has 2 players
+      const officeSpace = screen.getByText('OFFICE-SETUP').closest('div');
+      expect(officeSpace).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument(); // Player count badge
+    });
+  });
+
+  it('should filter spaces by search term', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText('Search spaces...');
+    fireEvent.change(searchInput, { target: { value: 'OFFICE' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('OFFICE-SETUP')).toBeInTheDocument();
+      expect(screen.queryByText('START')).not.toBeInTheDocument();
+      expect(screen.queryByText('ARCHITECT-MEETING')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should filter spaces by type', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const startingFilter = screen.getByText('Starting');
+    fireEvent.click(startingFilter);
+
+    await waitFor(() => {
+      expect(screen.getByText('START')).toBeInTheDocument();
+      expect(screen.queryByText('OFFICE-SETUP')).not.toBeInTheDocument();
+      expect(screen.queryByText('ARCHITECT-MEETING')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should show space details when space is selected', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      const officeSpace = screen.getByText('OFFICE-SETUP');
+      fireEvent.click(officeSpace);
+      
+      expect(screen.getByText('OFFICE-SETUP Details')).toBeInTheDocument();
+      expect(screen.getByText('Set up your project office and begin planning')).toBeInTheDocument();
+    });
+  });
+
+  it('should show players on selected space', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      const officeSpace = screen.getByText('OFFICE-SETUP');
+      fireEvent.click(officeSpace);
+      
+      expect(screen.getByText('Players Here:')).toBeInTheDocument();
+      expect(screen.getByText('Test Player')).toBeInTheDocument();
+      expect(screen.getByText('Another Player')).toBeInTheDocument();
+    });
+  });
+
+  it('should show space effects', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      const officeSpace = screen.getByText('OFFICE-SETUP');
+      fireEvent.click(officeSpace);
+      
+      expect(screen.getByText('Space Effects:')).toBeInTheDocument();
+      expect(screen.getByText('money: -10000')).toBeInTheDocument();
+      expect(screen.getByText('Office setup costs')).toBeInTheDocument();
+    });
+  });
+
+  it('should show negotiation availability', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      const officeSpace = screen.getByText('OFFICE-SETUP');
+      fireEvent.click(officeSpace);
+      
+      expect(screen.getByText('💬 Negotiation Available')).toBeInTheDocument();
+    });
+  });
+
+  it('should handle space type icons correctly', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      // Check for starting space icon
+      const startSpace = screen.getByText('START').closest('div');
+      expect(startSpace).toContainHTML('🏁');
+      
+      // Select END space to check ending space icon
+      const endSpace = screen.getByText('END');
+      fireEvent.click(endSpace);
+      expect(screen.getByText('🎯')).toBeInTheDocument(); // In details header
+    });
+  });
+
+  it('should allow navigation between connected spaces', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      // Select OFFICE-SETUP to see its connections
+      const officeSpace = screen.getByText('OFFICE-SETUP');
+      fireEvent.click(officeSpace);
+      
+      // Should show connections (if any are found)
+      // This tests the connection finding logic
+      expect(screen.getByText('OFFICE-SETUP Details')).toBeInTheDocument();
+    });
+  });
+
+  it('should show message when no spaces match filter', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText('Search spaces...');
+    fireEvent.change(searchInput, { target: { value: 'NONEXISTENT' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No spaces found matching your criteria')).toBeInTheDocument();
+    });
+  });
+
+  it('should handle ending space type filter', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    const endingFilter = screen.getByText('Ending');
+    fireEvent.click(endingFilter);
+
+    await waitFor(() => {
+      expect(screen.getByText('END')).toBeInTheDocument();
+      expect(screen.queryByText('START')).not.toBeInTheDocument();
+      expect(screen.queryByText('OFFICE-SETUP')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should show space type labels correctly', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      // Check different space type labels
+      const startItem = screen.getByText('START').closest('div');
+      expect(startItem).toContainHTML('Starting Space');
+      
+      const gameSpaceItem = screen.getByText('OFFICE-SETUP').closest('div');
+      expect(gameSpaceItem).toContainHTML('Game Space');
+    });
+  });
+
+  it('should handle hover effects on space items', async () => {
+    render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      const spaceItem = screen.getByText('START').closest('div')!;
+      
+      fireEvent.mouseEnter(spaceItem);
+      expect(spaceItem).toHaveStyle('background-color: rgb(227, 242, 253)');
+      
+      fireEvent.mouseLeave(spaceItem);
+      expect(spaceItem).toHaveStyle('background-color: rgb(248, 249, 250)');
+    });
+  });
+
+  it('should update when game state changes', async () => {
+    const { rerender } = render(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    // Change player positions
+    const newGameState = {
+      ...mockGameState,
+      players: [
+        { ...mockPlayers[0], currentSpace: 'START' },
+        { ...mockPlayers[1], currentSpace: 'END' }
+      ]
+    };
+
+    (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
+      callback(newGameState);
+      return () => {};
+    });
+
+    rerender(
+      <SpaceExplorerPanel
+        isVisible={true}
+        onToggle={mockOnToggle}
+      />
+    );
+
+    await waitFor(() => {
+      // Should no longer show player count on OFFICE-SETUP
+      const officeSpace = screen.getByText('OFFICE-SETUP').closest('div');
+      expect(officeSpace).not.toContainHTML('2'); // No player count badge
+    });
+  });
+});

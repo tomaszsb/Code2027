@@ -44,11 +44,10 @@ export class StateService implements IStateService {
 
   // State access methods
   getGameState(): GameState {
-    // Optimized: return a shallow copy for most properties, 
-    // deep clone only when necessary (not on every subscription notification)
+    // Return copies to prevent external mutations
     return {
       ...this.currentState,
-      players: this.currentState.players // Return direct reference for performance
+      players: [...this.currentState.players] // Return shallow copy of array
     };
   }
 
@@ -105,6 +104,7 @@ export class StateService implements IStateService {
     const updatedPlayer: Player = {
       ...currentPlayer,
       ...playerData,
+      timeSpent: playerData.time !== undefined ? playerData.time : currentPlayer.timeSpent,
       availableCards: playerData.availableCards ? {
         ...currentPlayer.availableCards,
         ...playerData.availableCards

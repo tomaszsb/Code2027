@@ -11,6 +11,8 @@ import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { GameBoard } from '../game/GameBoard';
 import { ProjectProgress } from '../game/ProjectProgress';
+import { MovementPathVisualization } from '../game/MovementPathVisualization';
+import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase, Player } from '../../types/StateTypes';
 
@@ -26,6 +28,8 @@ export function GameLayout(): JSX.Element {
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
   const [selectedCardId, setSelectedCardId] = useState<string>('');
+  const [isMovementPathVisible, setIsMovementPathVisible] = useState<boolean>(false);
+  const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -108,6 +112,16 @@ export function GameLayout(): JSX.Element {
   const handleCloseCardDetailsModal = () => {
     setIsCardDetailsModalOpen(false);
     setSelectedCardId('');
+  };
+
+  // Handlers for movement path visualization
+  const handleToggleMovementPath = () => {
+    setIsMovementPathVisible(!isMovementPathVisible);
+  };
+
+  // Handlers for space explorer panel
+  const handleToggleSpaceExplorer = () => {
+    setIsSpaceExplorerVisible(!isSpaceExplorerVisible);
   };
 
   return (
@@ -271,6 +285,22 @@ export function GameLayout(): JSX.Element {
         onClose={handleCloseCardDetailsModal}
         cardId={selectedCardId}
       />
+      
+      {/* MovementPathVisualization - only during PLAY phase */}
+      {gamePhase === 'PLAY' && (
+        <MovementPathVisualization 
+          isVisible={isMovementPathVisible}
+          onToggle={handleToggleMovementPath}
+        />
+      )}
+      
+      {/* SpaceExplorerPanel - only during PLAY phase */}
+      {gamePhase === 'PLAY' && (
+        <SpaceExplorerPanel 
+          isVisible={isSpaceExplorerVisible}
+          onToggle={handleToggleSpaceExplorer}
+        />
+      )}
     </div>
   );
 }

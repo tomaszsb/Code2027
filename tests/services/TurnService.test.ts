@@ -1,5 +1,5 @@
 import { TurnService } from '../../src/services/TurnService';
-import { IDataService, IStateService, IGameRulesService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IGameRulesService, ICardService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 
 // Mock implementations
@@ -63,6 +63,19 @@ const mockGameRulesService: jest.Mocked<IGameRulesService> = {
   checkWinCondition: jest.fn(),
 };
 
+const mockCardService: jest.Mocked<ICardService> = {
+  canPlayCard: jest.fn(),
+  isValidCardType: jest.fn(),
+  playerOwnsCard: jest.fn(),
+  playCard: jest.fn(),
+  drawCards: jest.fn(),
+  removeCard: jest.fn(),
+  replaceCard: jest.fn(),
+  transferCard: jest.fn(),
+  endOfTurn: jest.fn(),
+  getCardType: jest.fn(),
+};
+
 describe('TurnService', () => {
   let turnService: TurnService;
   
@@ -114,7 +127,7 @@ describe('TurnService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService);
+    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService, mockCardService);
     
     // Setup default mock implementations
     mockStateService.getGameState.mockReturnValue(mockGameState);
