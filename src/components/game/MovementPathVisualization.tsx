@@ -151,7 +151,7 @@ export function MovementPathVisualization({
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
-    zIndex: 1000,
+    zIndex: 900,
     transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
     transition: 'transform 0.3s ease-in-out',
     overflow: 'hidden',
@@ -188,7 +188,7 @@ export function MovementPathVisualization({
     fontSize: '20px',
     boxShadow: '0 4px 12px rgba(0, 123, 255, 0.3)',
     transition: 'all 0.3s ease-in-out',
-    zIndex: 999
+    zIndex: 899
   };
 
   const nodeStyle = (node: PathNode): React.CSSProperties => ({
@@ -213,7 +213,7 @@ export function MovementPathVisualization({
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
         title="Toggle Movement Paths"
       >
-        🗺️
+        🧭
       </button>
 
       {/* Path Visualization Panel */}

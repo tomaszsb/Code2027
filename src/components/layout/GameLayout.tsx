@@ -30,6 +30,7 @@ export function GameLayout(): JSX.Element {
   const [selectedCardId, setSelectedCardId] = useState<string>('');
   const [isMovementPathVisible, setIsMovementPathVisible] = useState<boolean>(false);
   const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -75,18 +76,24 @@ export function GameLayout(): JSX.Element {
     const unsubscribe = stateService.subscribe((gameState) => {
       setGamePhase(gameState.gamePhase);
       setPlayers(gameState.players);
+      // Track active modal state
+      setActiveModal(gameState.activeModal?.type || null);
     });
     
     // Initialize with current state
     const currentState = stateService.getGameState();
     setGamePhase(currentState.gamePhase);
     setPlayers(currentState.players);
+    setActiveModal(currentState.activeModal?.type || null);
     
     return unsubscribe;
   }, [stateService]);
 
   // Handlers for negotiation modal
   const handleOpenNegotiationModal = () => {
+    // Close any open side panels when modal opens
+    setIsMovementPathVisible(false);
+    setIsSpaceExplorerVisible(false);
     setIsNegotiationModalOpen(true);
   };
 
@@ -96,6 +103,9 @@ export function GameLayout(): JSX.Element {
 
   // Handlers for rules modal
   const handleOpenRulesModal = () => {
+    // Close any open side panels when modal opens
+    setIsMovementPathVisible(false);
+    setIsSpaceExplorerVisible(false);
     setIsRulesModalOpen(true);
   };
 
@@ -105,6 +115,9 @@ export function GameLayout(): JSX.Element {
 
   // Handlers for card details modal
   const handleOpenCardDetailsModal = (cardId: string) => {
+    // Close any open side panels when modal opens
+    setIsMovementPathVisible(false);
+    setIsSpaceExplorerVisible(false);
     setSelectedCardId(cardId);
     setIsCardDetailsModalOpen(true);
   };
@@ -122,6 +135,14 @@ export function GameLayout(): JSX.Element {
   // Handlers for space explorer panel
   const handleToggleSpaceExplorer = () => {
     setIsSpaceExplorerVisible(!isSpaceExplorerVisible);
+  };
+
+  // Helper function to check if any modal is open
+  const isAnyModalOpen = () => {
+    return isRulesModalOpen || 
+           isNegotiationModalOpen || 
+           isCardDetailsModalOpen || 
+           activeModal !== null;
   };
 
   return (
@@ -286,16 +307,16 @@ export function GameLayout(): JSX.Element {
         cardId={selectedCardId}
       />
       
-      {/* MovementPathVisualization - only during PLAY phase */}
-      {gamePhase === 'PLAY' && (
+      {/* MovementPathVisualization - only during PLAY phase and no modals open */}
+      {gamePhase === 'PLAY' && !isAnyModalOpen() && (
         <MovementPathVisualization 
           isVisible={isMovementPathVisible}
           onToggle={handleToggleMovementPath}
         />
       )}
       
-      {/* SpaceExplorerPanel - only during PLAY phase */}
-      {gamePhase === 'PLAY' && (
+      {/* SpaceExplorerPanel - only during PLAY phase and no modals open */}
+      {gamePhase === 'PLAY' && !isAnyModalOpen() && (
         <SpaceExplorerPanel 
           isVisible={isSpaceExplorerVisible}
           onToggle={handleToggleSpaceExplorer}
