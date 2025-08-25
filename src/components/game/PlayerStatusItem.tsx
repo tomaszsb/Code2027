@@ -237,49 +237,49 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             {player.name}
           </div>
           
-          {/* Action Buttons Row */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            marginTop: '8px',
-            width: '100%'
-          }}>
-            {/* View Rules Button */}
-            <button
-              onClick={onOpenRulesModal}
-              style={{
-                padding: '4px 8px',
-                fontSize: '9px',
-                fontWeight: 'bold',
-                color: '#fff',
-                backgroundColor: '#6f42c1',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px',
-                transition: 'all 0.2s ease',
-                minWidth: '70px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#5a359a';
-                e.currentTarget.style.transform = 'scale(1.02)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#6f42c1';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              title="View game rules"
-            >
-              <span>📋</span>
-              <span>Rules</span>
-            </button>
+          {/* Action Buttons Row - only show for current player */}
+          {isCurrentPlayer && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              marginTop: '8px',
+              width: '100%'
+            }}>
+              {/* View Rules Button */}
+              <button
+                onClick={onOpenRulesModal}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  backgroundColor: '#6f42c1',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '70px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#5a359a';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6f42c1';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                title="View game rules"
+              >
+                <span>📋</span>
+                <span>Rules</span>
+              </button>
 
-            {/* Space Explorer Button - only show for current player */}
-            {isCurrentPlayer && (
+              {/* Space Explorer Button */}
               <button
                 onClick={onToggleSpaceExplorer}
                 style={{
@@ -311,10 +311,8 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
                 <span>🔍</span>
                 <span>Explorer</span>
               </button>
-            )}
 
-            {/* Available Paths Button - only show for current player */}
-            {isCurrentPlayer && (
+              {/* Available Paths Button */}
               <button
                 onClick={onToggleMovementPath}
                 style={{
@@ -346,8 +344,8 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
                 <span>🧭</span>
                 <span>Available Paths</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Middle Section: Stats and Space Info */}
