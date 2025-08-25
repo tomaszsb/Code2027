@@ -178,6 +178,10 @@ export function GameLayout(): JSX.Element {
             onOpenNegotiationModal={handleOpenNegotiationModal}
             onOpenRulesModal={handleOpenRulesModal}
             onOpenCardDetailsModal={handleOpenCardDetailsModal}
+            onToggleSpaceExplorer={handleToggleSpaceExplorer}
+            onToggleMovementPath={handleToggleMovementPath}
+            isSpaceExplorerVisible={isSpaceExplorerVisible}
+            isMovementPathVisible={isMovementPathVisible}
           />
         ) : (
           <>

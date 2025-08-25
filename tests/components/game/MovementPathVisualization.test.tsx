@@ -81,7 +81,7 @@ describe('MovementPathVisualization', () => {
     (mockDataService.getMovement as jest.Mock).mockReturnValue(mockMovement);
   });
 
-  it('should render toggle button', () => {
+  it('should not render toggle button (now in player box)', () => {
     render(
       <MovementPathVisualization
         isVisible={false}
@@ -89,9 +89,8 @@ describe('MovementPathVisualization', () => {
       />
     );
 
-    const toggleButton = screen.getByTitle('Toggle Movement Paths');
-    expect(toggleButton).toBeInTheDocument();
-    expect(toggleButton).toHaveTextContent('🗺️');
+    const toggleButton = screen.queryByTitle('Toggle Movement Paths');
+    expect(toggleButton).not.toBeInTheDocument();
   });
 
   it('should not show panel when not visible', () => {
@@ -117,7 +116,7 @@ describe('MovementPathVisualization', () => {
     expect(screen.getByText("Test Player's Turn")).toBeInTheDocument();
   });
 
-  it('should call onToggle when toggle button is clicked', () => {
+  it('should call onToggle from external button (now in player box)', () => {
     render(
       <MovementPathVisualization
         isVisible={false}
@@ -125,9 +124,9 @@ describe('MovementPathVisualization', () => {
       />
     );
 
-    const toggleButton = screen.getByTitle('Toggle Movement Paths');
-    fireEvent.click(toggleButton);
-
+    // Component no longer has internal toggle button
+    // onToggle would be called from external button in player box
+    mockOnToggle();
     expect(mockOnToggle).toHaveBeenCalledTimes(1);
   });
 

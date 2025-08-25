@@ -9,13 +9,17 @@ interface PlayerStatusPanelProps {
   onOpenNegotiationModal: () => void;
   onOpenRulesModal: () => void;
   onOpenCardDetailsModal: (cardId: string) => void;
+  onToggleSpaceExplorer: () => void;
+  onToggleMovementPath: () => void;
+  isSpaceExplorerVisible: boolean;
+  isMovementPathVisible: boolean;
 }
 
 /**
  * PlayerStatusPanel manages and displays the list of all player statuses
  * Subscribes to game state changes and renders PlayerStatusItem for each player
  */
-export function PlayerStatusPanel({ onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal }: PlayerStatusPanelProps): JSX.Element {
+export function PlayerStatusPanel({ onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal, onToggleSpaceExplorer, onToggleMovementPath, isSpaceExplorerVisible, isMovementPathVisible }: PlayerStatusPanelProps): JSX.Element {
   const { stateService } = useGameContext();
 
 
@@ -105,6 +109,10 @@ export function PlayerStatusPanel({ onOpenNegotiationModal, onOpenRulesModal, on
               onOpenNegotiationModal={onOpenNegotiationModal}
               onOpenRulesModal={onOpenRulesModal}
               onOpenCardDetailsModal={onOpenCardDetailsModal}
+              onToggleSpaceExplorer={onToggleSpaceExplorer}
+              onToggleMovementPath={onToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
             />
           ))}
         </div>

@@ -170,23 +170,6 @@ export function SpaceExplorerPanel({
     flexDirection: 'column'
   };
 
-  const toggleButtonStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '20px',
-    left: isVisible ? '440px' : '20px',
-    padding: '12px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50%',
-    width: '50px',
-    height: '50px',
-    cursor: 'pointer',
-    fontSize: '20px',
-    boxShadow: '0 4px 12px rgba(40, 167, 69, 0.3)',
-    transition: 'all 0.3s ease-in-out',
-    zIndex: 899
-  };
 
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px',
@@ -230,17 +213,6 @@ export function SpaceExplorerPanel({
 
   return (
     <>
-      {/* Toggle Button */}
-      <button
-        style={toggleButtonStyle}
-        onClick={onToggle}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        title="Toggle Space Explorer"
-      >
-        🔍
-      </button>
-
       {/* Space Explorer Panel */}
       <div style={containerStyle}>
         <div style={headerStyle}>

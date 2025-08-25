@@ -173,23 +173,6 @@ export function MovementPathVisualization({
     overflowY: 'auto'
   };
 
-  const toggleButtonStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '20px',
-    right: isVisible ? '380px' : '20px',
-    padding: '12px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50%',
-    width: '50px',
-    height: '50px',
-    cursor: 'pointer',
-    fontSize: '20px',
-    boxShadow: '0 4px 12px rgba(0, 123, 255, 0.3)',
-    transition: 'all 0.3s ease-in-out',
-    zIndex: 899
-  };
 
   const nodeStyle = (node: PathNode): React.CSSProperties => ({
     padding: '12px 16px',
@@ -205,17 +188,6 @@ export function MovementPathVisualization({
 
   return (
     <>
-      {/* Toggle Button */}
-      <button
-        style={toggleButtonStyle}
-        onClick={onToggle}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        title="Toggle Movement Paths"
-      >
-        🧭
-      </button>
-
       {/* Path Visualization Panel */}
       <div style={containerStyle}>
         <div style={headerStyle}>

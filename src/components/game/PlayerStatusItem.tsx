@@ -14,13 +14,17 @@ interface PlayerStatusItemProps {
   onOpenNegotiationModal: () => void;
   onOpenRulesModal: () => void;
   onOpenCardDetailsModal: (cardId: string) => void;
+  onToggleSpaceExplorer: () => void;
+  onToggleMovementPath: () => void;
+  isSpaceExplorerVisible: boolean;
+  isMovementPathVisible: boolean;
 }
 
 /**
  * PlayerStatusItem displays the status information for a single player
  * Shows avatar, name, money, and time with visual indicator for current player
  */
-export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal }: PlayerStatusItemProps): JSX.Element {
+export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal, onToggleSpaceExplorer, onToggleMovementPath, isSpaceExplorerVisible, isMovementPathVisible }: PlayerStatusItemProps): JSX.Element {
   const { stateService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
@@ -233,39 +237,117 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             {player.name}
           </div>
           
-          {/* View Rules Button */}
-          <button
-            onClick={onOpenRulesModal}
-            style={{
-              marginTop: '8px',
-              padding: '4px 8px',
-              fontSize: '9px',
-              fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#6f42c1',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '2px',
-              transition: 'all 0.2s ease',
-              minWidth: '70px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#5a359a';
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#6f42c1';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            title="View game rules"
-          >
-            <span>📋</span>
-            <span>Rules</span>
-          </button>
+          {/* Action Buttons Row */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            marginTop: '8px',
+            width: '100%'
+          }}>
+            {/* View Rules Button */}
+            <button
+              onClick={onOpenRulesModal}
+              style={{
+                padding: '4px 8px',
+                fontSize: '9px',
+                fontWeight: 'bold',
+                color: '#fff',
+                backgroundColor: '#6f42c1',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px',
+                transition: 'all 0.2s ease',
+                minWidth: '70px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#5a359a';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#6f42c1';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              title="View game rules"
+            >
+              <span>📋</span>
+              <span>Rules</span>
+            </button>
+
+            {/* Space Explorer Button - only show for current player */}
+            {isCurrentPlayer && (
+              <button
+                onClick={onToggleSpaceExplorer}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  backgroundColor: isSpaceExplorerVisible ? '#28a745' : '#6c757d',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '70px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? '#218838' : '#5a6268';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? '#28a745' : '#6c757d';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                title="Toggle space explorer panel"
+              >
+                <span>🔍</span>
+                <span>Explorer</span>
+              </button>
+            )}
+
+            {/* Available Paths Button - only show for current player */}
+            {isCurrentPlayer && (
+              <button
+                onClick={onToggleMovementPath}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  backgroundColor: isMovementPathVisible ? '#007bff' : '#6c757d',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '70px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? '#0056b3' : '#5a6268';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? '#007bff' : '#6c757d';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                title="Toggle available movement paths"
+              >
+                <span>🧭</span>
+                <span>Available Paths</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Middle Section: Stats and Space Info */}

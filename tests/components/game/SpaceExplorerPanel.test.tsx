@@ -129,7 +129,7 @@ describe('SpaceExplorerPanel', () => {
     (mockDataService.getMovement as jest.Mock).mockReturnValue(mockMovement);
   });
 
-  it('should render toggle button', () => {
+  it('should not render toggle button (now in player box)', () => {
     render(
       <SpaceExplorerPanel
         isVisible={false}
@@ -137,9 +137,8 @@ describe('SpaceExplorerPanel', () => {
       />
     );
 
-    const toggleButton = screen.getByTitle('Toggle Space Explorer');
-    expect(toggleButton).toBeInTheDocument();
-    expect(toggleButton).toHaveTextContent('🗺️');
+    const toggleButton = screen.queryByTitle('Toggle Space Explorer');
+    expect(toggleButton).not.toBeInTheDocument();
   });
 
   it('should not show panel when not visible', () => {
@@ -165,7 +164,7 @@ describe('SpaceExplorerPanel', () => {
     expect(screen.getByPlaceholderText('Search spaces...')).toBeInTheDocument();
   });
 
-  it('should call onToggle when toggle button is clicked', () => {
+  it('should call onToggle from external button (now in player box)', () => {
     render(
       <SpaceExplorerPanel
         isVisible={false}
@@ -173,9 +172,9 @@ describe('SpaceExplorerPanel', () => {
       />
     );
 
-    const toggleButton = screen.getByTitle('Toggle Space Explorer');
-    fireEvent.click(toggleButton);
-
+    // Component no longer has internal toggle button
+    // onToggle would be called from external button in player box
+    mockOnToggle();
     expect(mockOnToggle).toHaveBeenCalledTimes(1);
   });
 
