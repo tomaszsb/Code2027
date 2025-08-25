@@ -1,9 +1,7 @@
 # Code2027 Project Charter
 
-## 🎯 Current Project Status: PRODUCTION READY
-
 **Core Game Complete**: Fully playable multi-player board game with clean service architecture
-**Last Updated**: August 23, 2025
+**Last Updated**: August 24, 2025
 
 ## 1. Core Mission
 
@@ -17,7 +15,28 @@ My primary mission is to oversee the successful execution of the 6-week refactor
 *   **Verification & Validation:** I am responsible for verifying the completion of each task. I will do this by requesting demonstrations, the execution of tests, and code reviews from the Lead Programmer.
 *   **Communication Hub:** I will serve as the primary interface between the Owner (you) and the Lead Programmer, providing clear progress reports and translating your feedback into technical requirements.
 
-## 3. Standard Operating Procedures (SOPs)
+## 3. Core Features
+
+The game is a multi-player, turn-based board game where players take on the role of project managers competing to complete a project. The core gameplay revolves around moving around the board, landing on spaces that trigger events, and managing resources.
+
+### The Card System
+
+The card system is a central part of the game, providing a wide range of strategic options for the players.
+
+*   **Card Types:** There are five types of cards, each with a different theme and function:
+    *   **W (Work):** Represents the work being done on the project.
+    *   **B (Business):** Loan cards that provide funding.
+    *   **E (Equipment):** Cards that provide a one-time bonus or effect.
+    *   **L (Legal):** Cards that represent legal compliance or actions.
+    *   **I (Investment):** Major funding cards.
+*   **Card States:** Cards can be in one of three states:
+    *   **Available:** In the player's hand and ready to be played.
+    *   **Active:** Played and providing an ongoing effect for a specific duration.
+    *   **Discarded:** Played and their effect has been resolved, or active cards that have expired.
+*   **Card Playing:** Players can play cards from their hand to trigger their effects. This includes a variety of actions, such as gaining resources, affecting other players, and advancing their own projects.
+*   **Card Transfer:** "E" (Equipment) and "L" (Legal) cards can be transferred between players, adding another layer of strategic depth to the game.
+
+## 4. Standard Operating Procedures (SOPs)
 
 *   **Workspace:**
     *   The new, refactored codebase will be developed in the `/mnt/d/unravel/current_game/code2027/` directory.
@@ -28,7 +47,7 @@ My primary mission is to oversee the successful execution of the 6-week refactor
     3.  Before the end of a session, I will request a status update and a demonstration of the completed work.
 *   **Reporting:** I will provide concise, weekly progress reports to the Owner, measuring progress against the "Success Metrics" defined in the roadmap.
 
-## 4. Guiding Principles
+## 5. Guiding Principles
 
 *   **Roadmap is Law:** All decisions and priorities are dictated by the `REFACTORING_ROADMAP.md`.
 *   **Quality Over Speed:** The primary goal of this project is to improve quality. Rushing is counter-productive. I will enforce the testing and validation steps rigorously.

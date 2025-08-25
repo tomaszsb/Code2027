@@ -11,15 +11,13 @@ interface PlayerStatusItemProps {
   player: Player;
   isCurrentPlayer: boolean;
   onOpenNegotiationModal: () => void;
-  onOpenRulesModal: () => void;
-  onOpenCardDetailsModal: (cardId: string) => void;
 }
 
 /**
  * PlayerStatusItem displays the status information for a single player
  * Shows avatar, name, money, and time with visual indicator for current player
  */
-export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal }: PlayerStatusItemProps): JSX.Element {
+export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal }: PlayerStatusItemProps): JSX.Element {
   const { stateService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
@@ -88,22 +86,25 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     boxShadow: isCurrentPlayer 
       ? '0 8px 24px rgba(33, 150, 243, 0.4)' 
       : '0 4px 12px rgba(0, 0, 0, 0.12)',
-    // Size to content instead of fixed dimensions
-    height: (showFinancialStatus || showCardPortfolio) ? 'auto' : 'auto',
+    // Enhanced layout with better visibility
+    width: '100%',
+    height: (showFinancialStatus || showCardPortfolio) ? 'auto' : (isCurrentPlayer ? '200px' : '120px'),
     minHeight: isCurrentPlayer ? '200px' : '120px',
     margin: '0 0 12px 0',
-    display: 'inline-flex',
+    display: 'flex',
     flexDirection: (showFinancialStatus || showCardPortfolio) ? 'column' as const : 'row' as const,
     alignItems: (showFinancialStatus || showCardPortfolio) ? 'stretch' : 'stretch',
     overflow: 'visible'
   };
 
-  // Left section styles (Avatar and name) - NO WIDTH CONTROLS
+  // Left section styles (Avatar and name)
   const leftSectionStyle = {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '80px',
+    maxWidth: '80px',
     borderRight: '1px solid rgba(0, 0, 0, 0.1)',
     paddingRight: '8px',
     marginRight: '8px'
@@ -123,13 +124,15 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     lineHeight: '1.1'
   };
 
-  // Middle section styles (Stats and space info) - SIZE TO CONTENT
+  // Middle section styles (Stats and space info)
   const middleSectionStyle = {
-    flex: '0 1 auto',
+    flex: '1 1 0',
     display: 'flex',
     flexDirection: 'column' as const,
     justifyContent: 'space-between',
-    overflow: 'visible'
+    minWidth: 0, // Allow flex shrinking
+    maxWidth: '300px', // Constrain middle section width
+    overflow: 'hidden'
   };
 
   const statsRowStyle = {
@@ -143,6 +146,7 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     border: '1px solid rgba(0, 0, 0, 0.1)',
     borderRadius: '8px',
     padding: '8px 12px',
+    minWidth: '80px',
     textAlign: 'center' as const,
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
   };
@@ -162,16 +166,18 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     color: '#2c3e50'
   };
 
-  // Right section styles (Actions) - NO WIDTH CONTROLS
+  // Right section styles (Actions)
   const rightSectionStyle = {
-    flex: '0 0 auto',
-    borderLeft: isCurrentPlayer ? '2px solid rgba(33, 150, 243, 0.5)' : 'none',
+    flex: '0 0 150px',
+    width: '150px',
+    maxWidth: '150px',
+    borderLeft: isCurrentPlayer ? '2px solid rgba(33, 150, 243, 0.5)' : 'none', // More visible border
     paddingLeft: isCurrentPlayer ? '4px' : '0',
     marginLeft: isCurrentPlayer ? '4px' : '0',
     display: 'flex',
     flexDirection: 'column' as const,
     justifyContent: 'center',
-    overflow: 'visible'
+    overflow: 'hidden'
   };
 
   // Main content container style adjustments when expanded
@@ -180,91 +186,48 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     flexDirection: 'row' as const,
     alignItems: 'stretch',
     flex: 1,
-    minHeight: isCurrentPlayer ? '180px' : '100px'
+    minHeight: isCurrentPlayer ? '180px' : '100px' // Reduced heights
   };
 
 
   return (
     <div style={baseStyle}>
+      {/* Current player indicator */}
+      {isCurrentPlayer && (
+        <div style={{
+          position: 'absolute',
+          top: '-12px',
+          right: '-12px',
+          background: 'linear-gradient(45deg, #4caf50, #66bb6a)',
+          color: 'white',
+          borderRadius: '50%',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 16px rgba(76, 175, 80, 0.6)',
+          zIndex: 10,
+          border: '2px solid white',
+          animation: 'currentPlayerPulse 2s ease-in-out infinite'
+        }}>
+          ▶
+        </div>
+      )}
 
 
       {/* Main Content Container */}
       <div style={mainContentStyle}>
-        {/* Left Section: Current Space, Avatar and Name */}
+        {/* Left Section: Avatar and Name */}
         <div style={leftSectionStyle}>
-          {/* Current Space moved above avatar */}
-          <div style={{
-            padding: '4px 8px',
-            background: isCurrentPlayer ? 'rgba(33, 150, 243, 0.1)' : 'rgba(248, 249, 250, 0.8)',
-            borderRadius: '6px',
-            border: `1px solid ${isCurrentPlayer ? '#2196f3' : '#e0e0e0'}`,
-            transition: 'all 0.4s ease-in-out',
-            animation: isCurrentPlayer ? 'positionUpdate 0.6s ease-out' : undefined,
-            overflow: 'hidden',
-            wordWrap: 'break-word',
-            marginBottom: '8px'
-          }}>
-            <div style={{
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              color: isCurrentPlayer ? '#1976d2' : '#495057',
-              lineHeight: '1.2',
-              wordWrap: 'break-word',
-              hyphens: 'auto',
-              textAlign: 'center'
-            }}>
-              {player.currentSpace}
-            </div>
-            <div style={{
-              fontSize: '0.6rem',
-              color: '#6c757d',
-              marginTop: '1px',
-              textAlign: 'center'
-            }}>
-              ({player.visitType} Visit)
-            </div>
-          </div>
-          
           <div style={avatarStyle}>
             {player.avatar}
           </div>
           <div style={nameStyle}>
             {player.name}
           </div>
-          
-          {/* View Rules Button */}
-          <button
-            onClick={onOpenRulesModal}
-            style={{
-              marginTop: '8px',
-              padding: '4px 8px',
-              fontSize: '9px',
-              fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#6f42c1',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '2px',
-              transition: 'all 0.2s ease',
-              minWidth: '70px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#5a359a';
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#6f42c1';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            title="View game rules"
-          >
-            <span>📋</span>
-            <span>Rules</span>
-          </button>
         </div>
 
         {/* Middle Section: Stats and Space Info */}
@@ -307,7 +270,8 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
                 cursor: 'pointer',
                 border: '1px solid rgba(33, 150, 243, 0.3)',
                 background: showCardPortfolio ? 'rgba(33, 150, 243, 0.1)' : 'rgba(248, 249, 250, 0.8)',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                minWidth: '90px'
               }}
               onClick={() => setShowCardPortfolio(!showCardPortfolio)}
               onMouseEnter={(e) => {
@@ -325,9 +289,49 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             </button>
           </div>
 
+          {/* Bottom section: Current space */}
+          <div style={{
+            padding: '8px 12px',
+            background: isCurrentPlayer ? 'rgba(33, 150, 243, 0.1)' : 'rgba(248, 249, 250, 0.8)',
+            borderRadius: '8px',
+            border: `1px solid ${isCurrentPlayer ? '#2196f3' : '#e0e0e0'}`,
+            transition: 'all 0.4s ease-in-out',
+            animation: isCurrentPlayer ? 'positionUpdate 0.6s ease-out' : undefined,
+            width: '100%',
+            maxWidth: '300px',
+            overflow: 'hidden',
+            wordWrap: 'break-word'
+          }}>
+            <div style={{
+              fontSize: '0.7rem',
+              color: '#6c757d',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              marginBottom: '2px'
+            }}>
+              📍 Current Space
+            </div>
+            <div style={{
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              color: isCurrentPlayer ? '#1976d2' : '#495057',
+              lineHeight: '1.2',
+              wordWrap: 'break-word',
+              hyphens: 'auto'
+            }}>
+              {player.currentSpace}
+            </div>
+            <div style={{
+              fontSize: '0.7rem',
+              color: '#6c757d',
+              marginTop: '1px'
+            }}>
+              ({player.visitType} Visit)
+            </div>
+          </div>
         </div>
 
-        {/* Right Section: Turn Controls */}
+        {/* Right Section: Turn Controls (always show for debugging, but styled for current player) */}
         <div style={rightSectionStyle}>
           {isCurrentPlayer ? (
             <div style={{
@@ -336,9 +340,11 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               borderRadius: '4px',
               padding: '4px',
               boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              width: '150px',
+              maxWidth: '150px',
               minHeight: '120px',
               fontSize: '10px',
-              overflow: 'visible'
+              overflow: 'hidden'
             }}>
               <TurnControls onOpenNegotiationModal={onOpenNegotiationModal} />
             </div>
@@ -350,7 +356,9 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               padding: '6px',
               textAlign: 'center',
               color: '#6c757d',
-              fontSize: '10px'
+              fontSize: '10px',
+              width: 'fit-content',
+              maxWidth: '100px'
             }}>
               Not your turn
             </div>
@@ -376,11 +384,7 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
           transform: 'translateY(0)',
           transition: 'all 0.3s ease-in-out'
         }}>
-          <CardPortfolioDashboard 
-            player={player} 
-            isCurrentPlayer={isCurrentPlayer}
-            onOpenCardDetailsModal={onOpenCardDetailsModal}
-          />
+          <CardPortfolioDashboard player={player} />
         </div>
       )}
     </div>

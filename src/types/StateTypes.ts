@@ -1,4 +1,4 @@
-import { Player } from './DataTypes';
+import { Player, ActiveCard } from './DataTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
@@ -15,10 +15,15 @@ export interface GameState {
   activeModal: ActiveModal | null;
   awaitingChoice: { playerId: string; options: string[] } | null;
   hasPlayerMovedThisTurn: boolean;
+  hasPlayerRolledDice: boolean;
   isGameOver: boolean;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;
+  // Action tracking for turn management
+  requiredActions: number;
+  completedActions: number;
+  availableActionTypes: string[];
 }
 
 export interface PlayerAction {
@@ -54,10 +59,46 @@ export interface PlayerUpdateData {
     L?: string[];
     I?: string[];
   };
+  availableCards?: {
+    W?: string[];
+    B?: string[];
+    E?: string[];
+    L?: string[];
+    I?: string[];
+  };
+  activeCards?: ActiveCard[];
+  discardedCards?: {
+    W?: string[];
+    B?: string[];
+    E?: string[];
+    L?: string[];
+    I?: string[];
+  };
   lastDiceRoll?: {
     roll1: number;
     roll2: number;
     total: number;
+  };
+  spaceEntrySnapshot?: {
+    space: string;
+    visitType: 'First' | 'Subsequent';
+    money: number;
+    timeSpent: number;
+    availableCards: {
+      W: string[];
+      B: string[];
+      E: string[];
+      L: string[];
+      I: string[];
+    };
+    activeCards: ActiveCard[];
+    discardedCards: {
+      W: string[];
+      B: string[];
+      E: string[];
+      L: string[];
+      I: string[];
+    };
   };
 }
 
@@ -69,4 +110,4 @@ export type PlayerCards = {
   I: string[];
 };
 
-export { Player } from './DataTypes';
+export { Player, ActiveCard } from './DataTypes';

@@ -84,7 +84,15 @@ export interface Player {
   timeSpent: number;
   color?: string;
   avatar?: string;
-  cards: {
+  availableCards: {
+    W: string[];
+    B: string[];
+    E: string[];
+    L: string[];
+    I: string[];
+  };
+  activeCards: ActiveCard[];
+  discardedCards: {
     W: string[];
     B: string[];
     E: string[];
@@ -95,6 +103,27 @@ export interface Player {
     roll1: number;
     roll2: number;
     total: number;
+  };
+  spaceEntrySnapshot?: {
+    space: string;
+    visitType: 'First' | 'Subsequent';
+    money: number;
+    timeSpent: number;
+    availableCards: {
+      W: string[];
+      B: string[];
+      E: string[];
+      L: string[];
+      I: string[];
+    };
+    activeCards: ActiveCard[];
+    discardedCards: {
+      W: string[];
+      B: string[];
+      E: string[];
+      L: string[];
+      I: string[];
+    };
   };
 }
 
@@ -113,7 +142,13 @@ export interface Card {
   description: string;
   effects_on_play?: string;
   cost?: number;
+  duration?: number;
   phase_restriction?: string;
+}
+
+export interface ActiveCard {
+  cardId: string;
+  expirationTurn: number;
 }
 
 export type VisitType = 'First' | 'Subsequent';

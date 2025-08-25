@@ -70,7 +70,11 @@ function AppContent(): JSX.Element {
     return <LoadingScreen />;
   }
 
-  return <GameLayout />;
+  return (
+    <>
+      <GameLayout />
+    </>
+  );
 }
 
 /**

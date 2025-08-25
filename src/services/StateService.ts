@@ -56,7 +56,7 @@ export class StateService implements IStateService {
   getGameStateDeepCopy(): GameState {
     return {
       ...this.currentState,
-      players: this.currentState.players.map(player => ({ ...player, cards: { ...player.cards } }))
+      players: this.currentState.players.map(player => ({ ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } }))
     };
   }
 
@@ -105,10 +105,17 @@ export class StateService implements IStateService {
     const updatedPlayer: Player = {
       ...currentPlayer,
       ...playerData,
-      cards: playerData.cards ? {
-        ...currentPlayer.cards,
+      availableCards: playerData.availableCards ? {
+        ...currentPlayer.availableCards,
+        ...playerData.availableCards
+      } : (playerData.cards ? {
+        ...currentPlayer.availableCards,
         ...playerData.cards
-      } : currentPlayer.cards
+      } : currentPlayer.availableCards),
+      discardedCards: playerData.discardedCards ? {
+        ...currentPlayer.discardedCards,
+        ...playerData.discardedCards
+      } : currentPlayer.discardedCards
     };
 
     let newPlayers = [...this.currentState.players];
@@ -157,11 +164,11 @@ export class StateService implements IStateService {
 
   getPlayer(playerId: string): Player | undefined {
     const player = this.currentState.players.find(p => p.id === playerId);
-    return player ? { ...player, cards: { ...player.cards } } : undefined;
+    return player ? { ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } } : undefined;
   }
 
   getAllPlayers(): Player[] {
-    return this.currentState.players.map(player => ({ ...player, cards: { ...player.cards } }));
+    return this.currentState.players.map(player => ({ ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } }));
   }
 
   // Game flow methods
@@ -226,12 +233,16 @@ export class StateService implements IStateService {
     const newState: GameState = {
       ...this.currentState,
       currentPlayerId: nextPlayerId,
-      hasPlayerMovedThisTurn: false
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false
     };
 
     this.currentState = newState;
-    this.notifyListeners();
-    return { ...newState };
+    
+    // Update action counts for the new current player
+    this.updateActionCounts();
+    
+    return { ...this.currentState };
   }
 
   // Game lifecycle methods
@@ -254,8 +265,11 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
-    this.notifyListeners();
-    return { ...newState };
+    
+    // Initialize action counts for the first player
+    this.updateActionCounts();
+    
+    return { ...this.currentState };
   }
 
   endGame(winnerId?: string): GameState {
@@ -378,8 +392,25 @@ export class StateService implements IStateService {
     };
 
     this.currentState = newState;
-    this.notifyListeners();
-    return { ...newState };
+    
+    // Update action counts when player completes actions
+    this.updateActionCounts();
+    
+    return { ...this.currentState };
+  }
+
+  setPlayerHasRolledDice(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      hasPlayerRolledDice: true
+    };
+
+    this.currentState = newState;
+    
+    // Update action counts when player completes dice roll
+    this.updateActionCounts();
+    
+    return { ...this.currentState };
   }
 
   clearPlayerHasMoved(): GameState {
@@ -461,6 +492,178 @@ export class StateService implements IStateService {
     return { ...newState };
   }
 
+  // Action tracking methods
+  updateActionCounts(): void {
+    if (!this.currentState.currentPlayerId) return;
+    
+    const currentPlayer = this.currentState.players.find(p => p.id === this.currentState.currentPlayerId);
+    if (!currentPlayer || !this.dataService.isLoaded()) return;
+    
+    const actionCounts = this.calculateRequiredActions(currentPlayer);
+    
+    this.currentState = {
+      ...this.currentState,
+      requiredActions: actionCounts.required,
+      completedActions: actionCounts.completed,
+      availableActionTypes: actionCounts.availableTypes
+    };
+    
+    this.notifyListeners();
+  }
+  
+  private calculateRequiredActions(player: Player): { required: number, completed: number, availableTypes: string[] } {
+    const availableTypes: string[] = [];
+    let required = 0;
+    let completed = 0;
+    
+    try {
+      // Check if dice roll is required for this space
+      const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
+      if (spaceConfig && spaceConfig.dice === 'true') {
+        availableTypes.push('dice');
+        required++;
+        // Check if dice has been rolled
+        if (this.currentState.hasPlayerRolledDice) {
+          completed++;
+        }
+      }
+      
+      // Check for space effects on this space
+      const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
+      const manualEffects = spaceEffects.filter(effect => effect.trigger_type === 'manual');
+      const automaticEffects = spaceEffects.filter(effect => effect.trigger_type !== 'manual');
+      
+      // Count automatic effects (triggered by dice roll)
+      automaticEffects.forEach(effect => {
+        if (effect.effect_type === 'cards') {
+          availableTypes.push('cards_auto');
+          required++;
+          // Cards are drawn automatically when dice is rolled
+          if (this.currentState.hasPlayerRolledDice) {
+            completed++;
+          }
+        }
+      });
+
+      // Count manual effects (require separate player action)
+      manualEffects.forEach(effect => {
+        if (effect.effect_type === 'cards') {
+          availableTypes.push('cards_manual');
+          required++;
+          // Manual effects are counted as completed when hasPlayerMovedThisTurn is true
+          // This is set by the triggerManualEffect method
+          if (this.currentState.hasPlayerMovedThisTurn) {
+            completed++;
+          }
+        } else if (effect.effect_type === 'money') {
+          availableTypes.push('money_manual');
+          required++;
+          if (this.currentState.hasPlayerMovedThisTurn) {
+            completed++;
+          }
+        } else if (effect.effect_type === 'time') {
+          availableTypes.push('time_manual');
+          required++;
+          if (this.currentState.hasPlayerMovedThisTurn) {
+            completed++;
+          }
+        }
+      });
+      
+      // If no specific actions required, default to 1 (basic movement)
+      if (required === 0) {
+        availableTypes.push('movement');
+        required = 1;
+        if (this.currentState.hasPlayerMovedThisTurn) {
+          completed = 1;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error calculating required actions:', error);
+      // Fallback to basic turn requirements
+      return { required: 1, completed: this.currentState.hasPlayerMovedThisTurn ? 1 : 0, availableTypes: ['movement'] };
+    }
+    
+    return { required, completed, availableTypes };
+  }
+
+  // Player snapshot methods for negotiation
+  createPlayerSnapshot(playerId: string): GameState {
+    const player = this.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const snapshot = {
+      space: player.currentSpace,
+      visitType: player.visitType,
+      money: player.money,
+      timeSpent: player.timeSpent,
+      availableCards: {
+        W: [...player.availableCards.W],
+        B: [...player.availableCards.B],
+        E: [...player.availableCards.E],
+        L: [...player.availableCards.L],
+        I: [...player.availableCards.I],
+      },
+      discardedCards: {
+        W: [...player.discardedCards.W],
+        B: [...player.discardedCards.B],
+        E: [...player.discardedCards.E],
+        L: [...player.discardedCards.L],
+        I: [...player.discardedCards.I],
+      }
+    };
+
+    console.log(`📸 Creating snapshot for player ${player.name} at ${player.currentSpace}`, snapshot);
+
+    return this.updatePlayer({
+      id: playerId,
+      spaceEntrySnapshot: snapshot
+    });
+  }
+
+  restorePlayerSnapshot(playerId: string): GameState {
+    const player = this.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    if (!player.spaceEntrySnapshot) {
+      throw new Error(`No snapshot exists for player ${playerId}`);
+    }
+
+    const snapshot = player.spaceEntrySnapshot;
+    console.log(`🔄 Restoring snapshot for player ${player.name}`, snapshot);
+
+    // Restore player state from snapshot
+    const restoredState = this.updatePlayer({
+      id: playerId,
+      currentSpace: snapshot.space,
+      visitType: snapshot.visitType,
+      money: snapshot.money,
+      timeSpent: snapshot.timeSpent,
+      availableCards: {
+        W: [...snapshot.availableCards.W],
+        B: [...snapshot.availableCards.B],
+        E: [...snapshot.availableCards.E],
+        L: [...snapshot.availableCards.L],
+        I: [...snapshot.availableCards.I],
+      },
+      discardedCards: {
+        W: [...snapshot.discardedCards.W],
+        B: [...snapshot.discardedCards.B],
+        E: [...snapshot.discardedCards.E],
+        L: [...snapshot.discardedCards.L],
+        I: [...snapshot.discardedCards.I],
+      },
+      spaceEntrySnapshot: undefined // Clear snapshot after restoring
+    });
+
+    return restoredState;
+  }
+
   // Private helper methods
   private createInitialState(): GameState {
     const startingSpace = this.getStartingSpace();
@@ -473,7 +676,12 @@ export class StateService implements IStateService {
       activeModal: null,
       awaitingChoice: null,
       hasPlayerMovedThisTurn: false,
-      isGameOver: false
+      hasPlayerRolledDice: false,
+      isGameOver: false,
+      // Initialize action tracking
+      requiredActions: 1,
+      completedActions: 0,
+      availableActionTypes: []
     };
   }
 
@@ -491,7 +699,14 @@ export class StateService implements IStateService {
       timeSpent: 0,
       color: defaultColor,
       avatar: defaultAvatar,
-      cards: {
+      availableCards: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      },
+      discardedCards: {
         W: [],
         B: [],
         E: [],

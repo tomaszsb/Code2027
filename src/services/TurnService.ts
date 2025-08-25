@@ -1,4 +1,4 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 
@@ -6,11 +6,13 @@ export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
   private readonly stateService: IStateService;
   private readonly gameRulesService: IGameRulesService;
+  private readonly cardService: ICardService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
+    this.cardService = cardService;
   }
 
   /**
@@ -124,8 +126,12 @@ export class TurnService implements ITurnService {
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Processing turn effects...`);
       this.processTurnEffects(playerId, diceRoll);
 
-      // Mark that the player has moved this turn (enables End Turn button)
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking player as moved`);
+      // Mark that the player has rolled dice this turn (enables End Turn button)
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking dice as rolled`);
+      this.stateService.setPlayerHasRolledDice();
+
+      // Mark that the player has taken an action (increments action counter)
+      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking player action taken`);
       this.stateService.setPlayerHasMoved();
 
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Dice roll completed successfully`);
@@ -226,6 +232,10 @@ export class TurnService implements ITurnService {
       throw new Error('Current player not found in player list');
     }
 
+    // Process card expirations before ending turn
+    console.log(`🃏 Processing card expirations at end of turn ${gameState.turn}`);
+    this.cardService.endOfTurn();
+
     // Determine next player (wrap around to first player if at end)
     const nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
     const nextPlayer = allPlayers[nextPlayerIndex];
@@ -290,6 +300,12 @@ export class TurnService implements ITurnService {
     console.log(`📋 Found ${spaceEffects.length} space effects:`, spaceEffects);
 
     for (const effect of spaceEffects) {
+      // Skip manual effects - they need to be triggered by player actions
+      if (effect.trigger_type === 'manual') {
+        console.log(`🔧 Skipping manual space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (requires manual trigger)`);
+        continue;
+      }
+      
       console.log(`⚡ Applying space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition})`);
       currentState = this.applySpaceEffect(playerId, effect, currentState);
     }
@@ -383,8 +399,8 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    const cardTypeKey = cardType as keyof typeof player.cards;
-    let newCards = { ...player.cards };
+    const cardTypeKey = cardType as keyof typeof player.availableCards;
+    let newCards = { ...player.availableCards };
 
     if (effect.includes('Draw')) {
       const drawCount = this.parseNumericValue(effect);
@@ -412,7 +428,7 @@ export class TurnService implements ITurnService {
 
     return this.stateService.updatePlayer({
       id: playerId,
-      cards: newCards
+      availableCards: newCards
     });
   }
 
@@ -448,11 +464,11 @@ export class TurnService implements ITurnService {
     }
 
     const timeChange = this.parseNumericValue(effect);
-    const newTime = Math.max(0, player.time + timeChange);
+    const newTime = Math.max(0, player.timeSpent + timeChange);
 
     return this.stateService.updatePlayer({
       id: playerId,
-      time: newTime
+      timeSpent: newTime
     });
   }
 
@@ -476,7 +492,7 @@ export class TurnService implements ITurnService {
 
     if (action === 'draw_w') {
       // Draw W cards
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const newCardIds = this.generateCardIds('W', value);
       newCards.W = [...newCards.W, ...newCardIds];
       
@@ -484,11 +500,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'draw_b') {
       // Draw B cards
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const newCardIds = this.generateCardIds('B', value);
       newCards.B = [...newCards.B, ...newCardIds];
       
@@ -496,11 +512,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'draw_e') {
       // Draw E cards
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const newCardIds = this.generateCardIds('E', value);
       newCards.E = [...newCards.E, ...newCardIds];
       
@@ -508,11 +524,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'draw_l') {
       // Draw L cards  
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const newCardIds = this.generateCardIds('L', value);
       newCards.L = [...newCards.L, ...newCardIds];
       
@@ -520,11 +536,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'draw_i') {
       // Draw I cards
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const newCardIds = this.generateCardIds('I', value);
       newCards.I = [...newCards.I, ...newCardIds];
       
@@ -532,11 +548,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'replace_e') {
       // Replace E cards - remove old E cards and add new ones
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const replaceCount = Math.min(value, newCards.E.length);
       
       if (replaceCount > 0) {
@@ -553,11 +569,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'replace_l') {
       // Replace L cards - remove old L cards and add new ones
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const replaceCount = Math.min(value, newCards.L.length);
       
       if (replaceCount > 0) {
@@ -574,11 +590,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'return_e') {
       // Return E cards - remove them from hand
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const returnCount = Math.min(value, newCards.E.length);
       
       if (returnCount > 0) {
@@ -590,11 +606,11 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'return_l') {
       // Return L cards - remove them from hand
-      const newCards = { ...player.cards };
+      const newCards = { ...player.availableCards };
       const returnCount = Math.min(value, newCards.L.length);
       
       if (returnCount > 0) {
@@ -606,7 +622,7 @@ export class TurnService implements ITurnService {
       
       return this.stateService.updatePlayer({
         id: playerId,
-        cards: newCards
+        availableCards: newCards
       });
     } else if (action === 'transfer') {
       // Transfer cards to another player
@@ -901,5 +917,106 @@ export class TurnService implements ITurnService {
     }
     
     return true;
+  }
+
+  /**
+   * Trigger a manual space effect for the current player
+   */
+  triggerManualEffect(playerId: string, effectType: string): GameState {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    // Get manual effects for current space and visit type
+    const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
+    const manualEffect = spaceEffects.find(effect => 
+      effect.trigger_type === 'manual' && 
+      effect.effect_type === effectType
+    );
+
+    if (!manualEffect) {
+      throw new Error(`No manual ${effectType} effect found for ${player.currentSpace} (${player.visitType})`);
+    }
+
+    console.log(`🔧 Triggering manual ${effectType} effect for player ${player.name} on ${player.currentSpace}`);
+    console.log(`🔧 Effect details: ${manualEffect.effect_action} ${manualEffect.effect_value}`);
+
+    // Apply the effect based on type
+    let newState = this.stateService.getGameState();
+    
+    if (effectType === 'cards') {
+      newState = this.applySpaceCardEffect(playerId, manualEffect);
+    } else if (effectType === 'money') {
+      newState = this.applySpaceMoneyEffect(playerId, manualEffect);
+    } else if (effectType === 'time') {
+      newState = this.applySpaceTimeEffect(playerId, manualEffect);
+    }
+
+    // Mark that player has taken an action
+    this.stateService.setPlayerHasMoved();
+    
+    console.log(`🔧 Manual ${effectType} effect completed for player ${player.name}`);
+    return newState;
+  }
+
+  /**
+   * Perform negotiation for a player - either restore from snapshot or apply time penalty
+   */
+  async performNegotiation(playerId: string): Promise<{ success: boolean; message: string }> {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🤝 Performing negotiation for player ${player.name}`);
+
+    try {
+      if (player.spaceEntrySnapshot) {
+        // Restore player state from snapshot
+        console.log(`🔄 Restoring player ${player.name} from snapshot`);
+        this.stateService.restorePlayerSnapshot(playerId);
+        
+        // End the player's turn after restoration
+        await this.endTurn();
+        
+        return {
+          success: true,
+          message: `Negotiation successful! ${player.name} was restored to their previous state.`
+        };
+      } else {
+        // Apply time penalty - look up time effect for current space
+        console.log(`⏰ Applying time penalty for player ${player.name} on ${player.currentSpace}`);
+        
+        const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
+        const timeEffect = spaceEffects.find(effect => effect.effect_type === 'time');
+        
+        let penaltyTime = 5; // Default penalty
+        if (timeEffect) {
+          penaltyTime = typeof timeEffect.effect_value === 'string' ? 
+            parseInt(timeEffect.effect_value) : timeEffect.effect_value;
+        }
+        
+        // Apply time penalty
+        const currentTime = player.timeSpent || 0;
+        this.stateService.updatePlayer({
+          id: playerId,
+          timeSpent: currentTime + penaltyTime
+        });
+        
+        console.log(`Player ${player.name} received ${penaltyTime} time penalty`);
+        
+        // End the player's turn after penalty
+        await this.endTurn();
+        
+        return {
+          success: false,
+          message: `Negotiation failed. ${player.name} received a ${penaltyTime}-day time penalty.`
+        };
+      }
+    } catch (error) {
+      console.error(`Error during negotiation for player ${player.name}:`, error);
+      throw error;
+    }
   }
 }

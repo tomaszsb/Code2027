@@ -93,6 +93,11 @@ export function CardModal(): JSX.Element | null {
       if (currentPlayer) {
         try {
           cardService.playCard(currentPlayer, cardData.card_id);
+          
+          // Mark card play as an action taken (increment action counter)
+          console.log('🃏 CardModal.handlePlay - Marking card play action taken');
+          stateService.setPlayerHasMoved();
+          
           // Close modal after successful play
           handleClose();
         } catch (error) {

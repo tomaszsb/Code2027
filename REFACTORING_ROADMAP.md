@@ -44,10 +44,10 @@ src/types/ServiceContracts.ts           // All service interface definitions
 ```
 
 **Week 1 Targets:**
-- [ ] GameContext with typed service container
-- [ ] First 50 `window.*` calls replaced with DI
-- [ ] Service interfaces defined
-- [ ] Basic DI pattern working in 3-5 components
+- [x] GameContext with typed service container
+- [x] First 50 `window.*` calls replaced with DI
+- [x] Service interfaces defined
+- [x] Basic DI pattern working in 3-5 components
 
 ### 1.2 Create Services Architecture  
 **Goal:** Extract business logic from God Objects into focused services
@@ -113,12 +113,12 @@ export class CardService {
 - **Migrate:** Business logic → Appropriate services
 
 **Phase 1 Milestone Targets:**
-- [ ] 6 core services implemented with TypeScript
-- [ ] GameStateManager reduced to <5K tokens
-- [ ] GameManager.js deleted
-- [ ] 200+ `window.*` calls eliminated
+- [x] 6 core services implemented with TypeScript
+- [x] GameStateManager reduced to <5K tokens
+- [x] GameManager.js deleted
+- [x] 200+ `window.*` calls eliminated
 - [ ] All services have comprehensive unit tests
-- [ ] 0 regressions in core game functionality
+- [x] 0 regressions in core game functionality
 
 ---
 
@@ -148,10 +148,10 @@ EnhancedPlayerSetup.js (575 lines) →
 ```
 
 **Week 5-6 Targets:**
-- [ ] All components converted to TypeScript
-- [ ] All components <200 lines (hard limit)
-- [ ] All components receive data via props only
-- [ ] No business logic in UI components
+- [x] All components converted to TypeScript
+- [x] All components <200 lines (hard limit)
+- [x] All components receive data via props only
+- [x] No business logic in UI components
 - [ ] Component tests for all new components
 
 ### 2.2 Separation of Concerns Implementation
@@ -171,7 +171,7 @@ export function GameComponent({ data, actions }: ComponentProps): JSX.Element {
   // NO state mutations
   
   return (
-    <div className="game-component">
+    <div class="game-component">
       {data.items.map(item => (
         <ItemComponent 
           key={item.id}
@@ -253,11 +253,11 @@ interface CardService {
 ```
 
 **Week 7 Targets:**
-- [ ] All services typed with strict interfaces
-- [ ] All components typed with prop interfaces  
+- [x] All services typed with strict interfaces
+- [x] All components typed with prop interfaces  
 - [ ] All events typed with payload interfaces
-- [ ] TypeScript strict mode enabled
-- [ ] Build process updated for TypeScript
+- [x] TypeScript strict mode enabled
+- [x] Build process updated for TypeScript
 
 ### 3.2 JSX Conversion (Background Task)
 **Goal:** Replace 940 `React.createElement` calls with JSX
@@ -268,9 +268,9 @@ interface CardService {
 - **Timeline:** Ongoing background task, not blocking
 
 **Week 8 JSX Targets:**
-- [ ] 50% of components converted to JSX
-- [ ] JSX linting rules configured
-- [ ] Build process supports JSX compilation
+- [x] 50% of components converted to JSX
+- [x] JSX linting rules configured
+- [x] Build process supports JSX compilation
 
 ---
 
@@ -353,7 +353,7 @@ tests/
 
 ### Code Quality Targets:
 - **TypeScript coverage:** 0% → 90%+ ✅
-- **Test coverage:** 0% → 80%+ ✅
+- **Test coverage:** 0% → 80%+
 - **Build time:** Current → 50% faster
 - **Bundle size:** Measured reduction via tree-shaking
 - **Developer onboarding:** Days → Hours
@@ -439,10 +439,11 @@ tests/
     *   Integrate with `StateService` to get and set the game state.
     *   Add UI components for save/load slots.
 
-*   **Implement Negotiation Service:**
-    *   Build out the placeholder `NegotiationService` with full functionality.
-    *   Handle player-to-player and space-based negotiation.
-    *   Create `NegotiationModal.tsx` for the UI.
+*   **Card System:**
+    *   **[COMPLETED]** Implement `CardService` to handle all card-related business logic.
+    *   **[COMPLETED]** Create `CardPortfolioDashboard` and `CardDetailsModal` components for a user-friendly UI.
+    *   **[COMPLETED]** Implement advanced card states, including duration-based effects and phase restrictions.
+    *   **[COMPLETED]** Add card transfer functionality.
 
 *   **Implement UI Feedback & Animations:**
     *   Create a `NotificationService` or similar for toast messages.

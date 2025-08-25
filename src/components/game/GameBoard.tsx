@@ -41,8 +41,7 @@ export function GameBoard(): JSX.Element {
       style={{
         width: '100%',
         height: '100%',
-        padding: '20px',
-        overflow: 'auto'
+        padding: '20px'
       }}
     >
       <h2 style={{ color: '#4285f4', marginBottom: '20px', textAlign: 'center' }}>
@@ -52,10 +51,9 @@ export function GameBoard(): JSX.Element {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: '12px',
-          maxWidth: '100%',
-          margin: '0 auto'
+          width: '100%'
         }}
       >
         {spaces.map((space) => {

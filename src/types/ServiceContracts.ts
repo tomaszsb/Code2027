@@ -148,6 +148,12 @@ export interface ICardService {
   removeCard(playerId: string, cardId: string): GameState;
   replaceCard(playerId: string, oldCardId: string, newCardType: CardType): GameState;
   
+  // Turn-based card lifecycle methods
+  endOfTurn(): void;
+  
+  // Card transfer methods
+  transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string): GameState;
+  
   // Card information methods
   getCardType(cardId: string): CardType | null;
   getPlayerCards(playerId: string, cardType?: CardType): string[];
@@ -164,13 +170,6 @@ export interface IPlayerActionService {
   endTurn(): Promise<void>;
 }
 
-export interface INegotiationService {
-  // Methods for handling player negotiations
-  initiateNegotiation(initiatorId: string, partnerId: string): void;
-  makeOffer(playerId: string, offer: any): void;
-  acceptOffer(playerId: string): void;
-  declineOffer(playerId: string): void;
-}
 
 export interface IMovementService {
   // Movement validation methods
@@ -222,5 +221,4 @@ export interface IServiceContainer {
   playerActionService: IPlayerActionService;
   movementService: IMovementService;
   gameRulesService: IGameRulesService;
-  negotiationService: INegotiationService;
 }

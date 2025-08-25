@@ -12,7 +12,6 @@ import { CardService } from '../services/CardService';
 import { PlayerActionService } from '../services/PlayerActionService';
 import { MovementService } from '../services/MovementService';
 import { GameRulesService } from '../services/GameRulesService';
-import { NegotiationService } from '../services/NegotiationService';
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -36,7 +35,6 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const cardService = new CardService(dataService, stateService);
   const movementService = new MovementService(dataService, stateService);
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService);
-  const negotiationService = new NegotiationService(stateService);
   
   const services: IServiceContainer = {
     dataService,
@@ -46,7 +44,6 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
     playerActionService,
     movementService,
     gameRulesService,
-    negotiationService,
   };
 
   return (

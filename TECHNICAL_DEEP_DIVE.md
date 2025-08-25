@@ -1,6 +1,6 @@
 # Technical Deep Dive: Code2027 Project
 
-## 🏗️ Architecture Foundation
+**Objective:** Transform the critically broken `code2026` prototype into a robust, scalable, and maintainable application (`code2027`) by eliminating severe technical debt and implementing modern software architecture patterns.
 
 **CRITICAL PRINCIPLE**: Build clean, service-oriented architecture with dependency injection. The `code2026` reference codebase contains anti-patterns - study it to understand what NOT to do.
 
@@ -9,7 +9,7 @@
 ### Core Services (ALL COMPLETED):
 ```typescript
 DataService.ts          // ✅ CSV data access with caching
-StateService.ts         // ✅ Immutable game state management  
+StateService.ts         // ✅ Immutable game state management
 TurnService.ts          // ✅ Turn progression + win conditions
 CardService.ts          // ✅ Card operations + validation
 PlayerActionService.ts  // ✅ Command orchestration
@@ -19,11 +19,11 @@ GameRulesService.ts     // ✅ Business rules + validation
 
 ### Key Patterns to Follow:
 - **Dependency Injection**: `constructor(private serviceA: IServiceA)`
-- **Immutable State**: `return { ...player, ...changes }`  
+- **Immutable State**: `return { ...player, ...changes }`
 - **Service Integration**: `const { dataService } = useGameContext()`
 - **TypeScript Strict**: All code fully typed with interfaces
 
-## 📂 Data Architecture 
+## 📂 Data Architecture
 
 **CRITICAL**: Game loads CSV data from `/public/data/CLEAN_FILES/` directory (not root `/data/`)
 
@@ -46,6 +46,29 @@ const config = dataService.getGameConfigBySpace(spaceName);
 
 ---
 
+## 🃏 Card System Architecture
+
+The card system is a core component of the game's mechanics. It is designed to be robust, extensible, and easy to maintain.
+
+### Card Service (`CardService.ts`)
+
+The `CardService` is the heart of the card system. It is responsible for all business logic related to cards, including:
+
+*   **Playing Cards:** The `playCard` method is the main entry point for playing a card. It handles validation, effect application, and state changes.
+*   **Card State Management:** The service correctly handles the different states of a card:
+    *   **Available:** Cards that are in the player's hand and can be played.
+    *   **Active:** Cards that have been played and have an ongoing effect with a specific duration.
+    *   **Discarded:** Cards that have been played and their effect has been resolved, or active cards that have expired.
+*   **Card Expiration:** The `endOfTurn` method is called by the `TurnService` at the end of each turn to process card expirations.
+*   **Card Transfer:** The `transferCard` method allows players to give "E" (Equipment) and "L" (Legal) cards to other players.
+
+### Card-Related Components
+
+*   **`CardPortfolioDashboard.tsx`:** This component provides a comprehensive view of the player's card portfolio, including their available, active, and discarded cards.
+*   **`CardDetailsModal.tsx`:** This modal component displays the full details of a selected card, including its name, description, effects, cost, duration, and phase restriction. It also provides the UI for the card transfer functionality.
+
+---
+
 ## Development Standards & Guidelines
 
 ## 🏗️ Code Quality Standards
@@ -57,14 +80,14 @@ const config = dataService.getGameConfigBySpace(spaceName);
 - **Tests**: No limit (comprehensive coverage required)
 
 ### Architecture Quality Checklist:
-- [ ] No `window.*` access anywhere (use dependency injection)
-- [ ] All dependencies injected via props/constructor
-- [ ] TypeScript types for all interfaces and function signatures
+- [x] No `window.*` access anywhere (use dependency injection)
+- [x] All dependencies injected via props/constructor
+- [x] TypeScript types for all interfaces and function signatures
 - [ ] Unit tests for all business logic
 - [ ] Component tests for all UI components
-- [ ] File size limits respected
-- [ ] Single responsibility principle followed
-- [ ] CSV data accessed only through DataService
+- [x] File size limits respected
+- [x] Single responsibility principle followed
+- [x] CSV data accessed only through DataService
 
 ### Component Development Guidelines:
 - **Single Responsibility**: UI rendering only, no business logic
@@ -75,7 +98,7 @@ const config = dataService.getGameConfigBySpace(spaceName);
 
 ### Service Development Guidelines:
 - **Dependency Injection**: Constructor-based injection of dependencies
-- **Interface Contracts**: Implement defined interfaces from ServiceContracts.ts  
+- **Interface Contracts**: Implement defined interfaces from ServiceContracts.ts
 - **Immutable Patterns**: Return new objects, never mutate existing state
 - **Error Handling**: Comprehensive try-catch with meaningful error messages
 - **Testing**: 90%+ test coverage with both success and error scenarios

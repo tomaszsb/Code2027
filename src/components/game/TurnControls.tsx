@@ -8,7 +8,7 @@ interface TurnControlsProps {
 }
 
 export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX.Element {
-  const { stateService, turnService, playerActionService, negotiationService, dataService } = useGameContext();
+  const { stateService, turnService, playerActionService, dataService } = useGameContext();
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
@@ -16,14 +16,23 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
   const [lastRoll, setLastRoll] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState(false);
+  const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState(false);
   const [awaitingChoice, setAwaitingChoice] = useState(false);
+  const [actionCounts, setActionCounts] = useState({ required: 0, completed: 0 });
 
   // Subscribe to state changes for live updates
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
       setGamePhase(gameState.gamePhase);
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
+      setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
       setAwaitingChoice(gameState.awaitingChoice !== null);
+      
+      // Update action counts from game state
+      setActionCounts({
+        required: gameState.requiredActions || 1,
+        completed: gameState.completedActions || 0
+      });
       
       // Set the first player as the human player (for demo purposes)
       if (gameState.players.length > 0 && !humanPlayerId) {
@@ -42,7 +51,14 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
     const gameState = stateService.getGameState();
     setGamePhase(gameState.gamePhase);
     setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
+    setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
     setAwaitingChoice(gameState.awaitingChoice !== null);
+    
+    // Initialize action counts
+    setActionCounts({
+      required: gameState.requiredActions || 1,
+      completed: gameState.completedActions || 0
+    });
     
     // Set the first player as the human player
     if (gameState.players.length > 0 && !humanPlayerId) {
@@ -63,15 +79,21 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       console.log(`AI player ${currentPlayer.name} taking turn...`);
       
       // Add delay to make AI turns feel natural
-      const aiTurnTimer = setTimeout(() => {
+      const aiTurnTimer = setTimeout(async () => {
         try {
           setIsProcessingTurn(true);
           const result = turnService.takeTurn(currentPlayer.id);
           setLastRoll(result.diceRoll);
           console.log(`AI player ${currentPlayer.name} rolled a ${result.diceRoll}`);
           
-          // Clear the dice roll display after 2 seconds for AI players
-          setTimeout(() => {
+          // End the AI player's turn and advance to next player
+          setTimeout(async () => {
+            try {
+              await turnService.endTurn();
+              console.log(`AI player ${currentPlayer.name} turn ended`);
+            } catch (error) {
+              console.error('Error ending AI turn:', error);
+            }
             setLastRoll(null);
           }, 2000);
         } catch (error) {
@@ -138,7 +160,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
     }
   };
 
-  const handleNegotiate = () => {
+  const handleNegotiate = async () => {
     if (!currentPlayer || isProcessingTurn) return;
     
     // Get space content to check if negotiation is allowed on this space
@@ -151,49 +173,133 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
     });
     
     if (spaceContent && spaceContent.can_negotiate === true) {
-      // Space-specific negotiation: Allow player to re-roll or modify outcome
+      // Space-specific negotiation using TurnService method
       console.log(`Negotiation available on ${currentPlayer.currentSpace}`);
-      alert(`Negotiation available! You can negotiate the outcome on ${currentPlayer.currentSpace}. This will allow you to re-roll or modify the space effects.`);
-      // TODO: Implement space-specific negotiation logic
-    } else {
-      // Fallback to player-to-player negotiation if space doesn't support it
-      const gameState = stateService.getGameState();
-      const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
       
-      if (otherPlayers.length > 0) {
-        // Open the negotiation modal via parent component
-        onOpenNegotiationModal();
-      } else {
-        console.log('Negotiation not available on this space and no other players present');
-        alert('Negotiation not available on this space.');
+      try {
+        setIsProcessingTurn(true);
+        const result = await turnService.performNegotiation(currentPlayer.id);
+        
+        // Show result to user
+        alert(result.message);
+        
+        if (result.success) {
+          setFeedbackMessage('Negotiation successful! State restored.');
+        } else {
+          setFeedbackMessage('Negotiation failed. Time penalty applied.');
+        }
+        
+        // Clear feedback after 4 seconds
+        setTimeout(() => {
+          setFeedbackMessage('');
+        }, 4000);
+        
+      } catch (error) {
+        console.error('Error during negotiation:', error);
+        alert(`Negotiation failed: ${error.message}`);
+      } finally {
+        setIsProcessingTurn(false);
       }
+    } else {
+      console.log('Negotiation not available on this space');
+      alert('Negotiation not available on this space.');
+    }
+  };
+
+  const handleManualEffect = async (effectType: string) => {
+    if (!currentPlayer || isProcessingTurn) return;
+
+    try {
+      setIsProcessingTurn(true);
+      console.log(`Triggering manual ${effectType} effect for player: ${currentPlayer.name}`);
+      
+      // Trigger the manual effect
+      turnService.triggerManualEffect(currentPlayer.id, effectType);
+      
+      // Set feedback message
+      if (effectType === 'cards') {
+        const spaceEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
+        const cardEffect = spaceEffects.find(e => e.trigger_type === 'manual' && e.effect_type === 'cards');
+        if (cardEffect) {
+          const cardType = cardEffect.effect_action.replace('draw_', '').toUpperCase();
+          const count = cardEffect.effect_value;
+          setFeedbackMessage(`You picked up ${count} ${cardType} card${count !== 1 ? 's' : ''}!`);
+        }
+      }
+      
+      // Clear feedback message after 4 seconds
+      setTimeout(() => {
+        setFeedbackMessage('');
+      }, 4000);
+      
+    } catch (error) {
+      console.error(`Error triggering manual ${effectType} effect:`, error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsProcessingTurn(false);
     }
   };
 
 
+  // Check for available manual effects
+  const manualEffects = currentPlayer ? 
+    dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType)
+      .filter(effect => effect.trigger_type === 'manual') : [];
+
   const isHumanPlayerTurn = currentPlayer?.id === humanPlayerId;
   const canRollDice = gamePhase === 'PLAY' && isHumanPlayerTurn && 
-                     !isProcessingTurn && !hasPlayerMovedThisTurn && !awaitingChoice;
+                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice;
   const canEndTurn = gamePhase === 'PLAY' && isHumanPlayerTurn && 
-                    !isProcessingTurn && hasPlayerMovedThisTurn && !awaitingChoice;
+                    !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required;
 
   if (gamePhase !== 'PLAY') {
+    const handleStartGame = () => {
+      try {
+        // Add a test player if no players exist
+        const gameState = stateService.getGameState();
+        if (gameState.players.length === 0) {
+          stateService.addPlayer('Test Player');
+        }
+        // Start the game
+        stateService.startGame();
+      } catch (error) {
+        console.error('Error starting game:', error);
+      }
+    };
+
     return (
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px',
+          padding: '10px',
           backgroundColor: '#f8f9fa',
           border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          color: '#6c757d'
+          borderRadius: '4px',
+          color: '#6c757d',
+          fontSize: '8px',
+          gap: '6px'
         }}
       >
-        <div style={{ fontSize: '18px' }}>
-          🎯 Game setup in progress...
+        <div>
+          🎯 Game setup... (Phase: {gamePhase})
         </div>
+        <button
+          onClick={handleStartGame}
+          style={{
+            padding: '4px 8px',
+            fontSize: '8px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer'
+          }}
+        >
+          Start Game
+        </button>
       </div>
     );
   }
@@ -202,76 +308,37 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
     <div
       style={{
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '20px',
+        flexDirection: 'column',
+        gap: '6px',
+        padding: '6px',
         backgroundColor: '#fff',
-        border: '2px solid #007bff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        borderRadius: '6px'
       }}
     >
-      {/* Current Turn Display */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>
-          🎲 Turn Controls
+      {/* Turn Controls Header */}
+      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+          🎮 Turn Controls
         </div>
-        
-        {currentPlayer && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px', color: '#666' }}>
-              Current Turn:
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  backgroundColor: currentPlayer.color || '#007bff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: '16px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {currentPlayer.avatar || currentPlayer.name.charAt(0).toUpperCase()}
-              </div>
-              <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
-                {currentPlayer.name}
-              </span>
-              {!isHumanPlayerTurn && (
-                <span style={{ fontSize: '14px', color: '#ffc107', fontStyle: 'italic' }}>
-                  (AI Player)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Roll Dice Button and Result */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-        {isHumanPlayerTurn && (
-          <div style={{ fontSize: '14px', color: '#28a745', fontWeight: 'bold' }}>
-            Your Turn!
-          </div>
-        )}
+
+      {/* Status Messages */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
         
         {/* Dice Roll Result Display */}
         {lastRoll !== null && (
           <div 
             style={{
-              padding: '8px 16px',
+              padding: '6px 12px',
               backgroundColor: '#fff3cd',
               border: '2px solid #ffc107',
               borderRadius: '8px',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: 'bold',
               color: '#856404',
-              animation: 'fadeIn 0.3s ease-in'
+              animation: 'fadeIn 0.3s ease-in',
+              textAlign: 'center'
             }}
           >
             {isHumanPlayerTurn ? (
@@ -286,111 +353,151 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
         {feedbackMessage && (
           <div 
             style={{
-              padding: '8px 16px',
+              padding: '6px 12px',
               backgroundColor: '#d1ecf1',
               border: '2px solid #17a2b8',
               borderRadius: '8px',
-              fontSize: '14px',
+              fontSize: '11px',
               fontWeight: 'bold',
               color: '#0c5460',
               animation: 'fadeIn 0.3s ease-in',
-              maxWidth: '300px'
+              textAlign: 'center'
             }}
           >
             💡 {feedbackMessage}
           </div>
         )}
+      </div>
         
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <button
+          onClick={handleRollDice}
+          disabled={!canRollDice}
+          style={{
+            padding: '4px 8px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: canRollDice ? '#fff' : '#6c757d',
+            backgroundColor: canRollDice ? '#28a745' : '#e9ecef',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: canRollDice ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '3px',
+            transition: 'all 0.2s ease',
+            transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
+            opacity: isProcessingTurn ? 0.7 : 1,
+          }}
+        >
+          {isProcessingTurn ? (
+            <>
+              <span>🎲</span>
+              <span>Rolling...</span>
+            </>
+          ) : (
+            <>
+              <span>🎲</span>
+              <span>Roll Dice</span>
+            </>
+          )}
+        </button>
+
+        {/* End Turn Button */}
+        {isHumanPlayerTurn && (
           <button
-            onClick={handleRollDice}
-            disabled={!canRollDice}
+            onClick={handleEndTurn}
+            disabled={!canEndTurn}
+            title={canEndTurn ? 'End your turn' : `Complete ${actionCounts.required - actionCounts.completed} more action(s) to end turn`}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
+              padding: '4px 8px',
+              fontSize: '10px',
               fontWeight: 'bold',
-              color: canRollDice ? '#fff' : '#6c757d',
-              backgroundColor: canRollDice ? '#28a745' : '#e9ecef',
+              color: canEndTurn ? '#fff' : '#6c757d',
+              backgroundColor: canEndTurn ? '#28a745' : '#e9ecef',
               border: 'none',
-              borderRadius: '6px',
-              cursor: canRollDice ? 'pointer' : 'not-allowed',
+              borderRadius: '4px',
+              cursor: canEndTurn ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              justifyContent: 'center',
+              gap: '3px',
+              transition: 'all 0.2s ease',
+              transform: !canEndTurn ? 'scale(0.95)' : 'scale(1)',
+              opacity: !canEndTurn ? 0.7 : 1,
+              }}
+          >
+            <span>⏹️</span>
+            <span>End Turn ({actionCounts.completed}/{actionCounts.required})</span>
+          </button>
+        )}
+
+        {/* Negotiate Button */}
+        {isHumanPlayerTurn && (
+          <button
+            onClick={handleNegotiate}
+            disabled={isProcessingTurn}
+            style={{
+              padding: '4px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: !isProcessingTurn ? '#fff' : '#6c757d',
+              backgroundColor: !isProcessingTurn ? '#ffc107' : '#e9ecef',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
               transition: 'all 0.2s ease',
               transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
-              opacity: isProcessingTurn ? 0.7 : 1
-            }}
-          >
-            {isProcessingTurn ? (
-              <>
-                <span>🎲</span>
-                <span>Rolling...</span>
-              </>
-            ) : (
-              <>
-                <span>🎲</span>
-                <span>Roll Dice</span>
-              </>
-            )}
-          </button>
-
-          {/* End Turn Button */}
-          {isHumanPlayerTurn && (
-            <button
-              onClick={handleEndTurn}
-              disabled={!canEndTurn}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: canEndTurn ? '#fff' : '#6c757d',
-                backgroundColor: canEndTurn ? '#dc3545' : '#e9ecef',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: canEndTurn ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-                transform: !canEndTurn ? 'scale(0.95)' : 'scale(1)',
-                opacity: !canEndTurn ? 0.7 : 1
+              opacity: isProcessingTurn ? 0.7 : 1,
               }}
-            >
-              <span>⏹️</span>
-              <span>End Turn 턴 종료</span>
-            </button>
-          )}
+          >
+            <span>🤝</span>
+            <span>Negotiate</span>
+          </button>
+        )}
 
-          {/* Negotiate Button */}
-          {isHumanPlayerTurn && (
+        {/* Manual Space Effect Buttons */}
+        {isHumanPlayerTurn && hasPlayerRolledDice && manualEffects.length > 0 && manualEffects.map((effect, index) => {
+          const isCardEffect = effect.effect_type === 'cards';
+          const cardType = isCardEffect ? effect.effect_action.replace('draw_', '').toUpperCase() : '';
+          const count = effect.effect_value;
+          const buttonText = isCardEffect ? `Pick up ${count} ${cardType} card${count !== 1 ? 's' : ''}` : 
+                            `${effect.effect_type}: ${effect.effect_action} ${count}`;
+          
+          return (
             <button
-              onClick={handleNegotiate}
+              key={index}
+              onClick={() => handleManualEffect(effect.effect_type)}
               disabled={isProcessingTurn}
               style={{
-                padding: '12px 24px',
-                fontSize: '16px',
+                padding: '4px 8px',
+                fontSize: '10px',
                 fontWeight: 'bold',
                 color: !isProcessingTurn ? '#fff' : '#6c757d',
-                backgroundColor: !isProcessingTurn ? '#ffc107' : '#e9ecef',
+                backgroundColor: !isProcessingTurn ? '#17a2b8' : '#e9ecef',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '4px',
                 cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                justifyContent: 'center',
+                gap: '3px',
                 transition: 'all 0.2s ease',
                 transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
-                opacity: isProcessingTurn ? 0.7 : 1
+                opacity: isProcessingTurn ? 0.7 : 1,
               }}
             >
-              <span>🤝</span>
-              <span>Negotiate</span>
+              <span>{isCardEffect ? '🃏' : '⚡'}</span>
+              <span>{buttonText}</span>
             </button>
-          )}
-
-        </div>
+          );
+        })}
       </div>
     </div>
   );
