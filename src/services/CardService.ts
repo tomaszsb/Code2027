@@ -1,14 +1,16 @@
-import { ICardService, IDataService, IStateService } from '../types/ServiceContracts';
+import { ICardService, IDataService, IStateService, IResourceService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
 
 export class CardService implements ICardService {
   private readonly dataService: IDataService;
   private readonly stateService: IStateService;
+  private readonly resourceService: IResourceService;
 
-  constructor(dataService: IDataService, stateService: IStateService) {
+  constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService) {
     this.dataService = dataService;
     this.stateService = stateService;
+    this.resourceService = resourceService;
   }
 
   // Card validation methods
@@ -52,13 +54,22 @@ export class CardService implements ICardService {
   }
 
 
-  drawCards(playerId: string, cardType: CardType, count: number): GameState {
+  /**
+   * Draw cards for a player with source tracking
+   * @param playerId - Player to draw cards for
+   * @param cardType - Type of cards to draw (W, B, E, L, I)
+   * @param count - Number of cards to draw
+   * @param source - Source of the draw (e.g., "card:E029", "space:PM-DECISION-CHECK") 
+   * @param reason - Human-readable reason for the draw
+   * @returns Array of drawn card IDs
+   */
+  drawCards(playerId: string, cardType: CardType, count: number, source?: string, reason?: string): string[] {
     if (!this.isValidCardType(cardType)) {
       throw new Error(`Invalid card type: ${cardType}`);
     }
 
     if (count <= 0) {
-      return this.stateService.getGameState();
+      return [];
     }
 
     const player = this.stateService.getPlayer(playerId);
@@ -66,21 +77,43 @@ export class CardService implements ICardService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Generate new card IDs
-    const newCards = Array.from({ length: count }, (_, i) => 
-      `${cardType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`
-    );
+    // Generate new card IDs that reference actual CSV cards
+    const availableCards = this.dataService.getCardsByType(cardType);
+    if (availableCards.length === 0) {
+      console.warn(`No cards of type ${cardType} found in CSV data`);
+      return [];
+    }
+
+    const newCardIds: string[] = [];
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substr(2, 9);
+
+    for (let i = 0; i < count; i++) {
+      // Randomly select a card from available cards of this type
+      const randomCard = availableCards[Math.floor(Math.random() * availableCards.length)];
+      // Create dynamic ID that starts with the static card ID
+      const dynamicId = `${randomCard.card_id}_${timestamp}_${randomString}_${i}`;
+      newCardIds.push(dynamicId);
+    }
 
     // Update player's available cards
     const updatedAvailableCards = {
       ...player.availableCards,
-      [cardType]: [...(player.availableCards[cardType] || []), ...newCards]
+      [cardType]: [...(player.availableCards[cardType] || []), ...newCardIds]
     };
 
-    return this.stateService.updatePlayer({
+    this.stateService.updatePlayer({
       id: playerId,
       availableCards: updatedAvailableCards
     });
+
+    // Log the card draw with source tracking
+    const sourceInfo = source || 'unknown';
+    const reasonInfo = reason || `Drew ${count} ${cardType} cards`;
+    console.log(`🎴 Card Draw [${playerId}]: ${reasonInfo} (Source: ${sourceInfo})`);
+    console.log(`   Cards: ${newCardIds.join(', ')}`);
+
+    return newCardIds;
   }
 
   removeCard(playerId: string, cardId: string): GameState {
@@ -454,8 +487,8 @@ export class CardService implements ICardService {
 
   // Helper method to check if a card type is transferable
   private isCardTransferable(cardType: CardType): boolean {
-    // E (Equipment) and L (Legal) cards can be transferred
-    // These represent physical equipment and legal permits that can be shared
+    // E (Expeditor) and L (Life Events) cards can be transferred
+    // These represent filing representatives and events that can affect other players
     return cardType === 'E' || cardType === 'L';
   }
 
@@ -624,26 +657,107 @@ export class CardService implements ICardService {
 
     console.log(`Applying effects for card ${cardId}: "${card.effects_on_play}"`);
 
+    // Apply expanded mechanics first (common across all card types)
+    this.applyExpandedMechanics(playerId, card);
+
     // Apply effects based on card type and effects_on_play field
     switch (card.card_type) {
       case 'W': // Work cards - Apply Work effects
         return this.applyWorkCardEffect(playerId, card);
       
-      case 'B': // Business/Budget cards - Apply Loan effects
-        return this.applyBusinessCardEffect(playerId, card);
+      case 'B': // Bank Loan cards - Apply loan funding effects
+        return this.applyBankLoanCardEffect(playerId, card);
       
-      case 'E': // Equipment/Enhancement cards - Parse specific effects
-        return this.applyEquipmentCardEffect(playerId, card);
+      case 'E': // Expeditor cards - Filing representative effects
+        return this.applyExpeditorCardEffect(playerId, card);
       
-      case 'L': // Legal cards - Enable actions and reduce risks
-        return this.applyLegalCardEffect(playerId, card);
+      case 'L': // Life Events cards - Random events and unforeseen circumstances
+        return this.applyLifeEventsCardEffect(playerId, card);
       
-      case 'I': // Investment cards - Various funding effects
-        return this.applyInvestmentCardEffect(playerId, card);
+      case 'I': // Investor Loan cards - High-rate funding effects
+        return this.applyInvestorLoanCardEffect(playerId, card);
       
       default:
         console.warn(`Unknown card type: ${card.card_type}`);
         return this.stateService.getGameState();
+    }
+  }
+
+  // Apply expanded mechanics from code2026
+  private applyExpandedMechanics(playerId: string, card: any): void {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const cardSource = `card:${card.card_id}`;
+
+    // Apply time tick modifier effects using ResourceService
+    if (card.tick_modifier && card.tick_modifier !== '0') {
+      const tickModifier = parseInt(card.tick_modifier);
+      if (!isNaN(tickModifier) && tickModifier !== 0) {
+        if (tickModifier > 0) {
+          this.resourceService.addTime(playerId, tickModifier, cardSource, `${card.card_name}: +${tickModifier} time ticks`);
+        } else {
+          this.resourceService.spendTime(playerId, Math.abs(tickModifier), cardSource, `${card.card_name}: ${tickModifier} time ticks`);
+        }
+      }
+    }
+
+    // Apply direct money effects using ResourceService
+    if (card.money_effect) {
+      const moneyEffect = parseInt(card.money_effect);
+      if (!isNaN(moneyEffect) && moneyEffect !== 0) {
+        if (moneyEffect > 0) {
+          this.resourceService.addMoney(playerId, moneyEffect, cardSource, `${card.card_name}: +$${moneyEffect.toLocaleString()}`);
+        } else {
+          this.resourceService.spendMoney(playerId, Math.abs(moneyEffect), cardSource, `${card.card_name}: -$${Math.abs(moneyEffect).toLocaleString()}`);
+        }
+      }
+    }
+
+    // Apply loan amounts for B cards using ResourceService
+    if (card.card_type === 'B' && card.loan_amount) {
+      const loanAmount = parseInt(card.loan_amount);
+      if (!isNaN(loanAmount) && loanAmount > 0) {
+        this.resourceService.addMoney(
+          playerId, 
+          loanAmount, 
+          cardSource, 
+          `${card.card_name}: Loan of $${loanAmount.toLocaleString()} at ${card.loan_rate}% interest`
+        );
+      }
+    }
+
+    // Apply investment amounts for I cards using ResourceService
+    if (card.card_type === 'I' && card.investment_amount) {
+      const investmentAmount = parseInt(card.investment_amount);
+      if (!isNaN(investmentAmount) && investmentAmount > 0) {
+        this.resourceService.addMoney(
+          playerId, 
+          investmentAmount, 
+          cardSource, 
+          `${card.card_name}: Investment of $${investmentAmount.toLocaleString()}`
+        );
+      }
+    }
+
+    // Handle turn effects (skip next turn)
+    if (card.turn_effect && card.turn_effect.toLowerCase().includes('skip')) {
+      console.log(`Card ${card.card_id}: Turn effect "${card.turn_effect}" - player will skip next turn`);
+      // TODO: Implement turn skipping logic in TurnService
+      // For now, just log the effect
+    }
+
+    // Handle card interaction effects (draw/discard)
+    if (card.draw_cards) {
+      console.log(`Card ${card.card_id}: Draw cards effect "${card.draw_cards}"`);
+      // TODO: Implement unified card drawing logic
+    }
+
+    if (card.discard_cards) {
+      console.log(`Card ${card.card_id}: Discard cards effect "${card.discard_cards}"`);
+      // TODO: Implement unified card discarding logic
     }
   }
 
@@ -680,38 +794,28 @@ export class CardService implements ICardService {
     return this.stateService.getGameState();
   }
 
-  private applyBusinessCardEffect(playerId: string, card: any): GameState {
+  private applyBankLoanCardEffect(playerId: string, card: any): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Business cards are loans - add money based on card name/description
-    let loanAmount = 0;
-    
-    if (card.card_name.toLowerCase().includes('small business')) {
-      loanAmount = 10000;
-    } else if (card.card_name.toLowerCase().includes('startup capital')) {
-      loanAmount = 25000;
-    } else if (card.card_name.toLowerCase().includes('new venture')) {
-      loanAmount = 50000;
-    } else if (card.card_name.toLowerCase().includes('building fund')) {
-      loanAmount = 100000;
-    } else if (card.card_name.toLowerCase().includes('retail space')) {
-      loanAmount = 75000;
-    } else {
-      loanAmount = 20000; // Default loan amount
+    // Bank Loan card effects are now handled in applyExpandedMechanics via loan_amount field
+    // Log loan details if available
+    if (card.loan_amount) {
+      const loanAmount = parseInt(card.loan_amount);
+      if (!isNaN(loanAmount) && loanAmount > 0) {
+        console.log(`Bank Loan approved: ${card.card_name} - $${loanAmount.toLocaleString()}`);
+        if (card.loan_rate) {
+          console.log(`Interest rate: ${card.loan_rate}%`);
+        }
+      }
     }
     
-    console.log(`Business loan approved: $${loanAmount}`);
-    
-    return this.stateService.updatePlayer({
-      id: playerId,
-      money: player.money + loanAmount
-    });
+    return this.stateService.getGameState();
   }
 
-  private applyEquipmentCardEffect(playerId: string, card: any): GameState {
+  private applyExpeditorCardEffect(playerId: string, card: any): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -729,7 +833,7 @@ export class CardService implements ICardService {
           id: playerId,
           money: player.money + moneyGain
         });
-        console.log(`Equipment card provided $${moneyGain}`);
+        console.log(`Expeditor card provided $${moneyGain}`);
       }
     }
     
@@ -742,7 +846,7 @@ export class CardService implements ICardService {
           id: playerId,
           timeSpent: Math.max(0, player.timeSpent - timeGain) // Reduce time spent
         });
-        console.log(`Equipment card saved ${timeGain} time units`);
+        console.log(`Expeditor card saved ${timeGain} time units`);
       }
     }
     
@@ -754,7 +858,7 @@ export class CardService implements ICardService {
       
       try {
         this.drawCards(playerId, randomCardType, 1);
-        console.log(`Equipment card effect: Drew 1 ${randomCardType} card`);
+        console.log(`Expeditor card effect: Drew 1 ${randomCardType} card`);
       } catch (error) {
         console.warn(`Could not draw ${randomCardType} card:`, error);
         // Try a different card type if the first fails
@@ -762,7 +866,7 @@ export class CardService implements ICardService {
           if (fallbackType !== randomCardType) {
             try {
               this.drawCards(playerId, fallbackType, 1);
-              console.log(`Equipment card effect: Drew 1 ${fallbackType} card (fallback)`);
+              console.log(`Expeditor card effect: Drew 1 ${fallbackType} card (fallback)`);
               break;
             } catch (fallbackError) {
               // Continue to next type
@@ -772,23 +876,23 @@ export class CardService implements ICardService {
       }
     }
     
-    console.log(`Equipment effect applied: ${effects}`);
+    console.log(`Expeditor effect applied: ${effects}`);
     return this.stateService.getGameState();
   }
 
-  private applyLegalCardEffect(playerId: string, card: any): GameState {
+  private applyLifeEventsCardEffect(playerId: string, card: any): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Legal cards provide regulatory compliance and enable specific actions
+    // Life Events cards create random events and unforeseen circumstances
     // Parse the effects_on_play field for specific benefits
     const effects = card.effects_on_play || '';
-    console.log(`Legal card played: ${card.card_name}`);
+    console.log(`Life Events card played: ${card.card_name}`);
     
     if (effects.includes('Enables')) {
-      console.log(`✅ Legal compliance acquired: ${effects}`);
+      console.log(`✅ Life event enabled: ${effects}`);
     }
     
     if (effects.includes('reduces') && effects.includes('risk')) {
@@ -803,19 +907,19 @@ export class CardService implements ICardService {
       console.log(`📈 Expansion benefit acquired: ${effects}`);
     }
     
-    // Legal cards provide compliance that can be checked by other game mechanics
-    console.log(`Legal requirement fulfilled: ${card.card_name}`);
+    // Life Events cards provide random circumstances that affect gameplay
+    console.log(`Life event processed: ${card.card_name}`);
     
     return this.stateService.getGameState();
   }
 
-  private applyInvestmentCardEffect(playerId: string, card: any): GameState {
+  private applyInvestorLoanCardEffect(playerId: string, card: any): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Parse investment effects from card name and description
+    // Parse investor loan effects from card name and description
     let moneyGain = 0;
     const cardName = card.card_name.toLowerCase();
     
@@ -829,17 +933,114 @@ export class CardService implements ICardService {
       // Variable based on player's current project value
       moneyGain = Math.floor(player.money * 0.2) + 10000;
     } else {
-      moneyGain = 25000; // Default investment amount
+      moneyGain = 25000; // Default investor loan amount
     }
     
     if (moneyGain > 0) {
-      console.log(`Investment secured: $${moneyGain}`);
-      this.stateService.updatePlayer({
-        id: playerId,
-        money: player.money + moneyGain
-      });
+      this.resourceService.addMoney(
+        playerId, 
+        moneyGain, 
+        `card:${card.card_id}`, 
+        `${card.card_name}: Investment secured $${moneyGain.toLocaleString()}`
+      );
     }
     
     return this.stateService.getGameState();
+  }
+
+  // Discard cards with source tracking
+  discardCards(playerId: string, cardIds: string[], source?: string, reason?: string): boolean {
+    if (!cardIds || cardIds.length === 0) {
+      console.warn(`CardService.discardCards: No cards provided for player ${playerId}`);
+      return false;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.error(`CardService.discardCards: Player ${playerId} not found`);
+      return false;
+    }
+
+    // Validate all cards exist and are owned by player
+    const invalidCards = cardIds.filter(cardId => !this.playerOwnsCard(playerId, cardId));
+    if (invalidCards.length > 0) {
+      console.error(`CardService.discardCards: Player ${playerId} does not own cards: ${invalidCards.join(', ')}`);
+      return false;
+    }
+
+    // Group cards by type for efficient discarding
+    const cardsByType: { [cardType: string]: string[] } = {};
+    
+    for (const cardId of cardIds) {
+      const cardType = this.getCardType(cardId);
+      if (cardType) {
+        if (!cardsByType[cardType]) {
+          cardsByType[cardType] = [];
+        }
+        cardsByType[cardType].push(cardId);
+      }
+    }
+
+    // Copy current player card collections
+    const updatedAvailableCards = { ...player.availableCards };
+    const updatedActiveCards = [...player.activeCards];
+    const updatedDiscardedCards = { ...player.discardedCards };
+
+    // Process each card type
+    for (const [cardType, cards] of Object.entries(cardsByType)) {
+      const typedCardType = cardType as CardType;
+      
+      // Remove from available cards
+      if (updatedAvailableCards[typedCardType]) {
+        updatedAvailableCards[typedCardType] = updatedAvailableCards[typedCardType]!.filter(
+          cardId => !cards.includes(cardId)
+        );
+      }
+
+      // Remove from active cards
+      for (const cardId of cards) {
+        const activeIndex = updatedActiveCards.findIndex(active => active.cardId === cardId);
+        if (activeIndex !== -1) {
+          updatedActiveCards.splice(activeIndex, 1);
+        }
+      }
+
+      // Add to discarded cards
+      if (!updatedDiscardedCards[typedCardType]) {
+        updatedDiscardedCards[typedCardType] = [];
+      }
+      updatedDiscardedCards[typedCardType] = [
+        ...updatedDiscardedCards[typedCardType]!,
+        ...cards
+      ];
+    }
+
+    // Update player state
+    try {
+      this.stateService.updatePlayer({
+        id: playerId,
+        availableCards: updatedAvailableCards,
+        activeCards: updatedActiveCards,
+        discardedCards: updatedDiscardedCards
+      });
+
+      // Log the transaction
+      const cardSummary = Object.entries(cardsByType)
+        .map(([type, cards]) => `${cards.length}x${type}`)
+        .join(', ');
+      
+      const sourceInfo = source || 'manual';
+      const reasonInfo = reason || `Discarded ${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`;
+      
+      console.log(`🗑️ Cards Discarded [${playerId}]: ${cardSummary} (Source: ${sourceInfo})`);
+      console.log(`   Reason: ${reasonInfo}`);
+      console.log(`   Card IDs: ${cardIds.join(', ')}`);
+
+      return true;
+
+    } catch (error) {
+      console.error(`CardService.discardCards: Failed to discard cards for player ${playerId}:`, error);
+      return false;
+    }
   }
 }

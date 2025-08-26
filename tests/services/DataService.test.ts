@@ -35,11 +35,11 @@ OWNER-SCOPE-INITIATION,First,DEST1,DEST2,DEST3,DEST4,DEST5,DEST6`;
   const mockCardsCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction
 W001,Strategic Planning,W,Plan your next moves carefully.,Draw 2 additional cards and gain 1 time unit.,0,Planning
 B001,Budget Allocation,B,Allocate resources efficiently.,Gain $500 and reduce next action cost by 50%.,2,Any
-E001,Equipment Upgrade,E,Upgrade your equipment to improve efficiency.,All work actions gain +1 effectiveness for 3 turns.,1,Development
-L001,Legal Review,L,Conduct comprehensive legal review.,Prevent next 2 negative effects but lose $300.,2,Any
+E001,Expeditor Assistance,E,Filing representative helps speed up application process.,All work actions gain +1 effectiveness for 3 turns.,1,Development
+L001,Weather Delay,L,Unexpected weather event delays project.,Prevent next 2 negative effects but lose $300.,2,Any
 I001,Market Research,I,Conduct detailed market analysis.,Draw 2 cards of any type and gain $300.,2,Planning
 W002,Research Analysis,W,Conduct thorough research.,Gain 2 time units and draw 1 B card.,,Any
-E002,Software License,E,Acquire necessary software licenses.,,3,Development`;
+E002,Filing Representative,E,Professional expeditor for permit applications.,,3,Development`;
 
   beforeEach(() => {
     dataService = new DataService();

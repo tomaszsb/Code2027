@@ -15,11 +15,11 @@ This document tracks all bug fixes implemented in the Code2027 project.
 
 ### 2. Incorrect Card Handling (W-Cards and others)
 
-*   **Description:** Initially, all played cards were moved to `discardedCards`, which was incorrect for cards like "W" (Work) and "L" (Legal) that should remain "in use" to signify ongoing effects or progress.
+*   **Description:** Initially, all played cards were moved to `discardedCards`, which was incorrect for cards like "W" (Work) and "L" (Life Events) that should remain "in use" to signify ongoing effects or progress.
 *   **Fix:**
     *   The `CardService.ts` was updated to implement a new logic for card state transitions:
-        *   **W (Work) and L (Legal) cards:** Moved from `availableCards` to `activeCards` upon playing.
-        *   **B (Business), E (Equipment), and I (Investment) cards:** Moved from `availableCards` to `discardedCards` upon playing.
+        *   **W (Work) and L (Life Events) cards:** Moved from `availableCards` to `activeCards` upon playing.
+        *   **B (Bank Loan), E (Expeditor), and I (Investor Loan) cards:** Moved from `availableCards` to `discardedCards` upon playing.
     *   The `Card` interface was extended with `duration` and `phase_restriction` properties.
     *   A new `ActiveCard` interface and `activeCards` collection were introduced in the `Player` state to track cards with ongoing effects and their expiration turns.
     *   A new `endOfTurn` method was added to `CardService.ts` (called by `TurnService`) to automatically process card expirations, moving expired active cards to `discardedCards`.
@@ -39,6 +39,6 @@ This document tracks all bug fixes implemented in the Code2027 project.
 *   **Description:** The ability to transfer certain cards between players, a feature present in `code2026`, was missing.
 *   **Fix:**
     *   The `CardService.ts` was extended with a `transferCard` method. This method handles validation (player ownership, card transferability, self-transfer prevention) and moves the card from the source player's `availableCards` to the target player's `availableCards`.
-    *   Only "E" (Equipment) and "L" (Legal) cards were identified as transferable, aligning with game design principles.
+    *   Only "E" (Expeditor) and "L" (Life Events) cards were identified as transferable, aligning with game design principles.
     *   The `CardDetailsModal.tsx` was enhanced to include a conditional "Transfer Card" button and a player selection UI (radio buttons) for transferable cards owned by the current player.
 *   **Impact:** The game now supports strategic cooperation and resource sharing between players, adding a new layer of dynamic gameplay.

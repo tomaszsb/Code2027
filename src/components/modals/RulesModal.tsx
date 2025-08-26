@@ -172,10 +172,10 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                   <strong>B Cards (Budget):</strong> Funding and financial resources
                 </div>
                 <div>
-                  <strong>E Cards (Events):</strong> Random events and opportunities
+                  <strong>E Cards (Expeditor):</strong> Filing representatives who can help or hinder application processes
                 </div>
                 <div>
-                  <strong>L Cards (Legal):</strong> Permits, regulations, and legal requirements
+                  <strong>L Cards (Life Events):</strong> Random events like new laws, weather delays, and unforeseen circumstances
                 </div>
                 <div>
                   <strong>I Cards (Issues):</strong> Problems and challenges to overcome

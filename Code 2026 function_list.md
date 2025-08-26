@@ -91,7 +91,7 @@
 *   **`CardActionsSection({ availableCardActions, ... })`**: A React component that displays the card-related actions a player can take on a specific space (e.g., "Draw 1 Work card").
 *   **`useEventListener('showCardActions', ...)`**: An event listener that makes the card action buttons visible to the current player.
 *   **`handleCardAction(cardType, action, condition)`**: The core function that executes a card action, such as drawing or replacing cards, by emitting events to the `GameStateManager`.
-*   **`handleFundingCardDraw()`**: A special handler for the `OWNER-FUND-INITIATION` space that allows the player to draw a funding card (Bank or Investment) based on the project's total scope cost.
+*   **`handleFundingCardDraw()`**: A special handler for the `OWNER-FUND-INITIATION` space that allows the player to draw a funding card (Bank Loan or Investor Loan) based on the project's total scope cost.
 *   **`isDiceBasedAction(cardAction)`**: A utility function to check if a card action is dependent on a dice roll.
 *   **`isDiceBasedManualActionAvailable(cardAction)`**: A utility function to check if a manual card action that requires a dice roll is currently available to the player.
 *   **`shouldShowFundingButton()`**: A utility function that determines whether the special funding card draw button should be visible.

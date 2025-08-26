@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../context/GameContext';
+import { Choice } from '../../types/StateTypes';
 
 export function ChoiceModal(): JSX.Element {
-  const { stateService, movementService } = useGameContext();
-  const [awaitingChoice, setAwaitingChoice] = useState<{ playerId: string; options: string[] } | null>(null);
+  const { stateService, choiceService } = useGameContext();
+  const [awaitingChoice, setAwaitingChoice] = useState<Choice | null>(null);
   const [currentPlayerName, setCurrentPlayerName] = useState<string>('');
 
   // Subscribe to state changes to show/hide modal
@@ -29,12 +30,12 @@ export function ChoiceModal(): JSX.Element {
     return unsubscribe;
   }, [stateService]);
 
-  const handleChoiceClick = (destination: string) => {
+  const handleChoiceClick = (selectedOptionId: string) => {
     if (!awaitingChoice) return;
     
     try {
-      // Use the MovementService to resolve the choice
-      movementService.resolveChoice(destination);
+      // Use the ChoiceService to resolve the choice
+      choiceService.resolveChoice(awaitingChoice.id, selectedOptionId);
     } catch (error) {
       console.error('Error resolving choice:', error);
     }
@@ -84,14 +85,14 @@ export function ChoiceModal(): JSX.Element {
               fontSize: '24px',
               fontWeight: 'bold'
             }}>
-              🛤️ Choose Your Next Path
+              {awaitingChoice.type === 'MOVEMENT' ? '🛤️' : '🎯'} {awaitingChoice.type === 'MOVEMENT' ? 'Choose Your Next Path' : 'Make Your Choice'}
             </h2>
             <p style={{ 
               margin: '0',
               color: '#666',
               fontSize: '16px'
             }}>
-              {currentPlayerName}, select where you want to go next:
+              {currentPlayerName}: {awaitingChoice.prompt}
             </p>
           </div>
 
@@ -99,8 +100,8 @@ export function ChoiceModal(): JSX.Element {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {awaitingChoice.options.map((option, index) => (
               <button
-                key={option}
-                onClick={() => handleChoiceClick(option)}
+                key={option.id}
+                onClick={() => handleChoiceClick(option.id)}
                 style={{
                   padding: '15px 20px',
                   fontSize: '16px',
@@ -124,7 +125,7 @@ export function ChoiceModal(): JSX.Element {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
                 }}
               >
-                {option}
+                {option.label}
               </button>
             ))}
           </div>

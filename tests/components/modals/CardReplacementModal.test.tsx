@@ -220,7 +220,7 @@ describe('CardReplacementModal', () => {
     // Default replacement type should be Work
     expect(screen.getByText('Replace with:')).toBeInTheDocument();
 
-    // Click on Business card type
+    // Click on Bank Loan card type
     const businessButton = screen.getByText(/💼 Business/);
     fireEvent.click(businessButton);
 
@@ -382,7 +382,7 @@ describe('CardReplacementModal', () => {
       />
     );
 
-    expect(screen.getByText('Replace Business Cards')).toBeInTheDocument();
+    expect(screen.getByText('Replace Bank Loan Cards')).toBeInTheDocument();
     expect(screen.getByText('Marketing Campaign')).toBeInTheDocument();
     expect(screen.getByText(/💼/)).toBeInTheDocument(); // Business icon
   });

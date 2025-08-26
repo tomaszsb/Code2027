@@ -345,9 +345,9 @@ describe('PlayerActionService', () => {
       // Arrange - Player tries to play from empty L hand
       const lCard: Card = {
         card_id: 'L001',
-        card_name: 'Legal Card',
+        card_name: 'Life Events Card',
         card_type: 'L',
-        description: 'A legal card.',
+        description: 'A life events card.',
         cost: 0
       };
       
@@ -356,7 +356,7 @@ describe('PlayerActionService', () => {
 
       // Act & Assert
       await expect(playerActionService.playCard('player1', 'L001'))
-        .rejects.toThrow("Failed to play card: Player 'Test Player' does not have card 'Legal Card' in their L hand");
+        .rejects.toThrow("Failed to play card: Player 'Test Player' does not have card 'Life Events Card' in their L hand");
     });
 
     it('should handle cards without effects gracefully', async () => {

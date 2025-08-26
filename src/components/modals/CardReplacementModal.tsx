@@ -69,10 +69,10 @@ export function CardReplacementModal({
   const getCardTypeName = (type: CardType): string => {
     switch (type) {
       case 'W': return 'Work';
-      case 'B': return 'Business';
-      case 'E': return 'Equipment';
-      case 'L': return 'Legal';
-      case 'I': return 'Investment';
+      case 'B': return 'Bank Loan';
+      case 'E': return 'Expeditor';
+      case 'L': return 'Life Events';
+      case 'I': return 'Investor Loan';
       default: return type;
     }
   };

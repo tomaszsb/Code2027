@@ -142,8 +142,29 @@ export interface Card {
   description: string;
   effects_on_play?: string;
   cost?: number;
-  duration?: number;
   phase_restriction?: string;
+  
+  // Expanded card mechanics from code2026
+  duration?: string;
+  duration_count?: string;
+  turn_effect?: string;
+  activation_timing?: string;
+  
+  // Financial mechanics
+  loan_amount?: string;
+  loan_rate?: string;
+  investment_amount?: string;
+  work_cost?: string;
+  
+  // Effect mechanics
+  money_effect?: string;
+  tick_modifier?: string;
+  
+  // Card interaction mechanics
+  draw_cards?: string;
+  discard_cards?: string;
+  target?: string;
+  scope?: string;
 }
 
 export interface ActiveCard {

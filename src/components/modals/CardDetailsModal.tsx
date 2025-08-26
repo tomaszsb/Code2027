@@ -131,10 +131,10 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
   // Card type colors
   const cardTypeColors = {
     W: '#dc3545', // Red for Work cards
-    B: '#007bff', // Blue for Business cards
-    I: '#28a745', // Green for Innovation cards
-    L: '#ffc107', // Yellow for Legal cards
-    E: '#6f42c1'  // Purple for External cards
+    B: '#007bff', // Blue for Bank Loan cards
+    I: '#28a745', // Green for Investor Loan cards
+    L: '#ffc107', // Yellow for Life Events cards
+    E: '#6f42c1'  // Purple for Expeditor cards
   };
 
   const cardTypeColor = cardType ? cardTypeColors[cardType] : '#6c757d';

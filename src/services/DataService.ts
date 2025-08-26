@@ -189,9 +189,9 @@ export class DataService implements IDataService {
   }
 
   private async loadCards(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/CARDS.csv?_=' + Date.now()); // Cache busting
+    const response = await fetch('/data/CLEAN_FILES/CARDS_EXPANDED.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
-      throw new Error(`Failed to fetch CARDS.csv: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch CARDS_EXPANDED.csv: ${response.status} ${response.statusText}`);
     }
     const csvText = await response.text();
     this.cards = this.parseCardsCsv(csvText);
@@ -339,31 +339,37 @@ export class DataService implements IDataService {
   private parseCardsCsv(csvText: string): Card[] {
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) {
-      throw new Error('CARDS.csv must have at least a header row and one data row');
+      throw new Error('CARDS_EXPANDED.csv must have at least a header row and one data row');
     }
     
-    const header = lines[0].split(',');
-    const expectedColumns = ['card_id', 'card_name', 'card_type', 'description', 'effects_on_play', 'cost', 'phase_restriction'];
+    const header = this.parseCsvLine(lines[0]);
+    const expectedColumns = [
+      'card_id', 'card_name', 'card_type', 'description', 'effects_on_play', 'cost', 'phase_restriction',
+      'duration', 'duration_count', 'turn_effect', 'activation_timing',
+      'loan_amount', 'loan_rate', 'investment_amount', 'work_cost',
+      'money_effect', 'tick_modifier',
+      'draw_cards', 'discard_cards', 'target', 'scope'
+    ];
     
     if (header.length !== expectedColumns.length) {
-      throw new Error(`CARDS.csv header must have exactly ${expectedColumns.length} columns. Found: ${header.length}`);
+      throw new Error(`CARDS_EXPANDED.csv header must have exactly ${expectedColumns.length} columns. Found: ${header.length}`);
     }
     
     return lines.slice(1).map((line, index) => {
       const values = this.parseCsvLine(line);
       
       if (values.length !== expectedColumns.length) {
-        throw new Error(`CARDS.csv row ${index + 2} must have exactly ${expectedColumns.length} columns. Found: ${values.length}`);
+        throw new Error(`CARDS_EXPANDED.csv row ${index + 2} must have exactly ${expectedColumns.length} columns. Found: ${values.length}`);
       }
       
       const cardType = values[2] as CardType;
       if (!['W', 'B', 'E', 'L', 'I'].includes(cardType)) {
-        throw new Error(`Invalid card_type '${cardType}' in CARDS.csv row ${index + 2}. Must be one of: W, B, E, L, I`);
+        throw new Error(`Invalid card_type '${cardType}' in CARDS_EXPANDED.csv row ${index + 2}. Must be one of: W, B, E, L, I`);
       }
       
       const cost = values[5] ? parseInt(values[5]) : undefined;
       if (values[5] && (isNaN(cost!) || cost! < 0)) {
-        throw new Error(`Invalid cost '${values[5]}' in CARDS.csv row ${index + 2}. Must be a non-negative number or empty`);
+        throw new Error(`Invalid cost '${values[5]}' in CARDS_EXPANDED.csv row ${index + 2}. Must be a non-negative number or empty`);
       }
       
       return {
@@ -373,7 +379,29 @@ export class DataService implements IDataService {
         description: values[3],
         effects_on_play: values[4] || undefined,
         cost: cost,
-        phase_restriction: values[6] || undefined
+        phase_restriction: values[6] || undefined,
+        
+        // Expanded mechanics
+        duration: values[7] || undefined,
+        duration_count: values[8] || undefined,
+        turn_effect: values[9] || undefined,
+        activation_timing: values[10] || undefined,
+        
+        // Financial mechanics
+        loan_amount: values[11] || undefined,
+        loan_rate: values[12] || undefined,
+        investment_amount: values[13] || undefined,
+        work_cost: values[14] || undefined,
+        
+        // Effect mechanics
+        money_effect: values[15] || undefined,
+        tick_modifier: values[16] || undefined,
+        
+        // Card interaction mechanics
+        draw_cards: values[17] || undefined,
+        discard_cards: values[18] || undefined,
+        target: values[19] || undefined,
+        scope: values[20] || undefined
       };
     });
   }

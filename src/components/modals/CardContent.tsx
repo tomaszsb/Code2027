@@ -95,8 +95,8 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
     const colors = {
       'W': { bg: '#e3f2fd', border: '#2196f3', text: '#1976d2' }, // Blue for Work
       'B': { bg: '#e8f5e8', border: '#4caf50', text: '#388e3c' }, // Green for Budget
-      'E': { bg: '#fff3e0', border: '#ff9800', text: '#f57c00' }, // Orange for Equipment
-      'L': { bg: '#fce4ec', border: '#e91e63', text: '#c2185b' }, // Pink for Legal
+      'E': { bg: '#fff3e0', border: '#ff9800', text: '#f57c00' }, // Orange for Expeditor
+      'L': { bg: '#fce4ec', border: '#e91e63', text: '#c2185b' }, // Pink for Life Events
       'I': { bg: '#f3e5f5', border: '#9c27b0', text: '#7b1fa2' }  // Purple for Innovation
     };
     return colors[cardType as keyof typeof colors] || { 

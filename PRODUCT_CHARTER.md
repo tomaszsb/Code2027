@@ -25,16 +25,16 @@ The card system is a central part of the game, providing a wide range of strateg
 
 *   **Card Types:** There are five types of cards, each with a different theme and function:
     *   **W (Work):** Represents the work being done on the project.
-    *   **B (Business):** Loan cards that provide funding.
-    *   **E (Equipment):** Cards that provide a one-time bonus or effect.
-    *   **L (Legal):** Cards that represent legal compliance or actions.
-    *   **I (Investment):** Major funding cards.
+    *   **B (Bank Loan):** Low-interest loan cards from banks for project funding.
+    *   **E (Expeditor):** Filing representatives who can help or hinder application processes.
+    *   **L (Life Events):** Random events like new laws, weather delays, and unforeseen circumstances.
+    *   **I (Investor Loan):** High-rate loan cards from investors for large project funding.
 *   **Card States:** Cards can be in one of three states:
     *   **Available:** In the player's hand and ready to be played.
     *   **Active:** Played and providing an ongoing effect for a specific duration.
     *   **Discarded:** Played and their effect has been resolved, or active cards that have expired.
 *   **Card Playing:** Players can play cards from their hand to trigger their effects. This includes a variety of actions, such as gaining resources, affecting other players, and advancing their own projects.
-*   **Card Transfer:** "E" (Equipment) and "L" (Legal) cards can be transferred between players, adding another layer of strategic depth to the game.
+*   **Card Transfer:** "E" (Expeditor) and "L" (Life Events) cards can be transferred between players, adding another layer of strategic depth to the game.
 
 ## 4. Standard Operating Procedures (SOPs)
 

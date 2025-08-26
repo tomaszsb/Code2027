@@ -15,7 +15,7 @@ describe('DiceResultModal', () => {
       },
       {
         type: 'cards',
-        description: 'Draw business cards',
+        description: 'Draw bank loan cards',
         cardType: 'B',
         cardCount: 2
       }
@@ -93,7 +93,7 @@ describe('DiceResultModal', () => {
     );
 
     expect(screen.getByText('+2 B cards')).toBeInTheDocument();
-    expect(screen.getByText('Draw business cards')).toBeInTheDocument();
+    expect(screen.getByText('Draw bank loan cards')).toBeInTheDocument();
   });
 
   it('should display summary when provided', () => {

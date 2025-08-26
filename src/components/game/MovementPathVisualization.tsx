@@ -32,8 +32,10 @@ export function MovementPathVisualization({
   // Subscribe to state changes
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
-      const player = gameState.currentPlayer;
-      setCurrentPlayer(player);
+      const player = gameState.currentPlayerId 
+        ? gameState.players.find(p => p.id === gameState.currentPlayerId) 
+        : null;
+      setCurrentPlayer(player || null);
       
       if (player && isVisible) {
         calculatePathNodes(player);
@@ -42,8 +44,10 @@ export function MovementPathVisualization({
     
     // Initialize with current state
     const gameState = stateService.getGameState();
-    const player = gameState.currentPlayer;
-    setCurrentPlayer(player);
+    const player = gameState.currentPlayerId 
+      ? gameState.players.find(p => p.id === gameState.currentPlayerId) 
+      : null;
+    setCurrentPlayer(player || null);
     
     if (player && isVisible) {
       calculatePathNodes(player);

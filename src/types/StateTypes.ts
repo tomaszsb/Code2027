@@ -2,6 +2,14 @@ import { Player, ActiveCard } from './DataTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
+export interface Choice {
+  id: string;
+  playerId: string;
+  type: 'MOVEMENT' | 'PLAYER_TARGET' | 'GENERAL';
+  prompt: string;
+  options: Array<{ id: string; label: string; }>;
+}
+
 export interface ActiveModal {
   type: 'CARD';
   cardId: string;
@@ -13,7 +21,7 @@ export interface GameState {
   gamePhase: GamePhase;
   turn: number;
   activeModal: ActiveModal | null;
-  awaitingChoice: { playerId: string; options: string[] } | null;
+  awaitingChoice: Choice | null;
   hasPlayerMovedThisTurn: boolean;
   hasPlayerRolledDice: boolean;
   isGameOver: boolean;

@@ -51,7 +51,10 @@ export function SpaceExplorerPanel({
     setAllSpaces(spaces);
     
     // Select current player's space by default if available
-    const currentPlayer = stateService.getGameState().currentPlayer;
+    const gameState = stateService.getGameState();
+    const currentPlayer = gameState.currentPlayerId 
+      ? gameState.players.find(p => p.id === gameState.currentPlayerId) 
+      : null;
     if (currentPlayer && !selectedSpace) {
       setSelectedSpace(currentPlayer.currentSpace);
     }
@@ -70,9 +73,9 @@ export function SpaceExplorerPanel({
     const space = allSpaces.find(s => s.name === spaceName);
     if (!space) return;
 
-    const content = dataService.getSpaceContentBySpace(spaceName);
-    const effects = dataService.getSpaceEffectsBySpace(spaceName);
-    const diceEffects = dataService.getDiceEffectsBySpace(spaceName);
+    const content = dataService.getSpaceContent(spaceName, 'First');
+    const effects = dataService.getSpaceEffects(spaceName, 'First');
+    const diceEffects = dataService.getDiceEffects(spaceName, 'First');
     const playersOnSpace = players.filter(p => p.currentSpace === spaceName);
 
     // Get connections from movement data
@@ -156,20 +159,27 @@ export function SpaceExplorerPanel({
     position: 'fixed',
     top: '20px',
     left: '20px',
-    width: '400px',
-    maxHeight: '80vh',
+    width: selectedSpace ? '800px' : '400px',
+    maxHeight: '85vh',
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
     zIndex: 900,
     transform: isVisible ? 'translateX(0)' : 'translateX(-100%)',
-    transition: 'transform 0.3s ease-in-out',
+    transition: 'all 0.3s ease-in-out',
     overflow: 'hidden',
     border: '2px solid #e1e5e9',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'row'
   };
 
+
+  const leftPanelStyle: React.CSSProperties = {
+    width: '400px',
+    display: 'flex',
+    flexDirection: 'column',
+    borderRight: selectedSpace ? '2px solid #e1e5e9' : 'none'
+  };
 
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px',
@@ -203,322 +213,527 @@ export function SpaceExplorerPanel({
     fontSize: '14px'
   });
 
-  const detailsStyle: React.CSSProperties = {
-    maxHeight: '40vh',
-    overflowY: 'auto',
-    padding: '16px 20px',
-    borderTop: '2px solid #e1e5e9',
+  const rightPanelStyle: React.CSSProperties = {
+    width: '400px',
+    display: selectedSpace ? 'flex' : 'none',
+    flexDirection: 'column',
     backgroundColor: '#fafafa'
+  };
+
+  const detailsHeaderStyle: React.CSSProperties = {
+    padding: '16px 20px',
+    backgroundColor: '#e3f2fd',
+    borderBottom: '2px solid #2196f3',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  };
+
+  const detailsContentStyle: React.CSSProperties = {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '16px 20px'
   };
 
   return (
     <>
       {/* Space Explorer Panel */}
       <div style={containerStyle}>
-        <div style={headerStyle}>
-          <h3 style={{ 
-            margin: 0, 
-            fontSize: '18px', 
-            fontWeight: 'bold',
-            color: '#2c3e50'
-          }}>
-            Space Explorer
-          </h3>
-          <button
-            onClick={onToggle}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
-              cursor: 'pointer',
-              color: '#6c757d'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Search and Filter */}
-        <div style={searchStyle}>
-          <input
-            type="text"
-            placeholder="Search spaces..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '2px solid #dee2e6',
-              borderRadius: '6px',
-              fontSize: '14px',
-              marginBottom: '8px'
-            }}
-          />
-          
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['all', 'starting', 'ending', 'tutorial'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                style={{
-                  padding: '4px 8px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  backgroundColor: filterType === type ? '#28a745' : '#e9ecef',
-                  color: filterType === type ? 'white' : '#6c757d'
-                }}
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Space List */}
-        <div style={spaceListStyle}>
-          {getFilteredSpaces().map(space => (
-            <div
-              key={space.name}
-              style={spaceItemStyle(space.name)}
-              onClick={() => setSelectedSpace(space.name)}
-              onMouseEnter={(e) => {
-                if (selectedSpace !== space.name) {
-                  e.currentTarget.style.backgroundColor = '#e3f2fd';
-                  e.currentTarget.style.borderColor = '#2196f3';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (selectedSpace !== space.name) {
-                  e.currentTarget.style.backgroundColor = '#f8f9fa';
-                  e.currentTarget.style.borderColor = '#dee2e6';
-                }
+        {/* Left Panel - Space List */}
+        <div style={leftPanelStyle}>
+          <div style={headerStyle}>
+            <h3 style={{ 
+              margin: 0, 
+              fontSize: '18px', 
+              fontWeight: 'bold',
+              color: '#2c3e50'
+            }}>
+              Space Explorer
+            </h3>
+            <button
+              onClick={onToggle}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                cursor: 'pointer',
+                color: '#6c757d'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>
-                  {getSpaceTypeIcon(space.name)}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>
-                    {space.name}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6c757d' }}>
-                    {getSpaceTypeLabel(space.name)}
-                  </div>
-                </div>
-                {players.filter(p => p.currentSpace === space.name).length > 0 && (
-                  <span style={{ 
-                    backgroundColor: '#28a745', 
-                    color: 'white', 
-                    borderRadius: '10px',
-                    padding: '2px 6px',
+              ✕
+            </button>
+          </div>
+
+          {/* Search and Filter */}
+          <div style={searchStyle}>
+            <input
+              type="text"
+              placeholder="Search spaces..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '2px solid #dee2e6',
+                borderRadius: '6px',
+                fontSize: '14px',
+                marginBottom: '8px'
+              }}
+            />
+            
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {(['all', 'starting', 'ending', 'tutorial'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  style={{
+                    padding: '4px 8px',
+                    border: 'none',
+                    borderRadius: '4px',
                     fontSize: '12px',
-                    fontWeight: 'bold'
-                  }}>
-                    {players.filter(p => p.currentSpace === space.name).length}
+                    cursor: 'pointer',
+                    backgroundColor: filterType === type ? '#28a745' : '#e9ecef',
+                    color: filterType === type ? 'white' : '#6c757d'
+                  }}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Space List */}
+          <div style={spaceListStyle}>
+            {getFilteredSpaces().map(space => (
+              <div
+                key={space.name}
+                style={spaceItemStyle(space.name)}
+                onClick={() => setSelectedSpace(space.name)}
+                onMouseEnter={(e) => {
+                  if (selectedSpace !== space.name) {
+                    e.currentTarget.style.backgroundColor = '#e3f2fd';
+                    e.currentTarget.style.borderColor = '#2196f3';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedSpace !== space.name) {
+                    e.currentTarget.style.backgroundColor = '#f8f9fa';
+                    e.currentTarget.style.borderColor = '#dee2e6';
+                  }
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>
+                    {getSpaceTypeIcon(space.name)}
                   </span>
-                )}
-              </div>
-            </div>
-          ))}
-          
-          {getFilteredSpaces().length === 0 && (
-            <div style={{
-              textAlign: 'center',
-              color: '#6c757d',
-              padding: '20px',
-              fontStyle: 'italic'
-            }}>
-              No spaces found matching your criteria
-            </div>
-          )}
-        </div>
-
-        {/* Space Details */}
-        {spaceDetails && (
-          <div style={detailsStyle}>
-            <h4 style={{ 
-              margin: 0, 
-              marginBottom: '12px',
-              color: '#2c3e50',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}>
-              {spaceDetails.space.name} Details
-            </h4>
-
-            {/* Space Type and Basic Info */}
-            <div style={{
-              padding: '8px 12px',
-              backgroundColor: '#e3f2fd',
-              borderRadius: '6px',
-              marginBottom: '12px',
-              border: '2px solid #2196f3'
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                marginBottom: '4px' 
-              }}>
-                <span style={{ fontSize: '18px' }}>
-                  {getSpaceTypeIcon(spaceDetails.space.name)}
-                </span>
-                <span style={{ fontWeight: 'bold', color: '#1976d2' }}>
-                  {getSpaceTypeLabel(spaceDetails.space.name)}
-                </span>
-              </div>
-            </div>
-
-            {/* Players on Space */}
-            {spaceDetails.playersOnSpace.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                <h5 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 'bold',
-                  color: '#2c3e50',
-                  margin: '0 0 8px 0'
-                }}>
-                  Players Here:
-                </h5>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {spaceDetails.playersOnSpace.map(player => (
-                    <div
-                      key={player.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '4px 8px',
-                        backgroundColor: player.color || '#007bff',
-                        color: 'white',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <span>{player.avatar || player.name.charAt(0).toUpperCase()}</span>
-                      <span>{player.name}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+                      {space.name}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Space Content */}
-            {spaceDetails.content && (
-              <div style={{ marginBottom: '12px' }}>
-                <h5 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 'bold',
-                  color: '#2c3e50',
-                  margin: '0 0 8px 0'
-                }}>
-                  Space Content:
-                </h5>
-                <div style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#fff3cd',
-                  borderRadius: '6px',
-                  border: '1px solid #ffeaa7',
-                  fontSize: '13px',
-                  lineHeight: '1.4'
-                }}>
-                  {spaceDetails.content.content_text || 'No content description available'}
-                  
-                  {spaceDetails.content.can_negotiate && (
-                    <div style={{
-                      marginTop: '8px',
-                      color: '#28a745',
-                      fontWeight: 'bold',
-                      fontSize: '12px'
-                    }}>
-                      💬 Negotiation Available
+                    <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                      {getSpaceTypeLabel(space.name)}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Space Effects */}
-            {spaceDetails.effects.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                <h5 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 'bold',
-                  color: '#2c3e50',
-                  margin: '0 0 8px 0'
-                }}>
-                  Space Effects:
-                </h5>
-                {spaceDetails.effects.map((effect, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      padding: '6px 10px',
-                      backgroundColor: '#f8d7da',
-                      borderRadius: '4px',
-                      border: '1px solid #f5c6cb',
-                      marginBottom: '4px',
-                      fontSize: '12px'
-                    }}
-                  >
-                    <div style={{ fontWeight: 'bold', color: '#721c24' }}>
-                      {effect.effect_type}: {effect.effect_value}
-                    </div>
-                    {effect.effect_description && (
-                      <div style={{ color: '#721c24', marginTop: '2px' }}>
-                        {effect.effect_description}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Connections */}
-            {spaceDetails.connections.length > 0 && (
-              <div>
-                <h5 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 'bold',
-                  color: '#2c3e50',
-                  margin: '0 0 8px 0'
-                }}>
-                  Connected From:
-                </h5>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {spaceDetails.connections.slice(0, 5).map(connection => (
-                    <button
-                      key={connection}
-                      onClick={() => setSelectedSpace(connection)}
-                      style={{
-                        padding: '2px 6px',
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '10px',
-                        fontSize: '11px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {connection}
-                    </button>
-                  ))}
-                  {spaceDetails.connections.length > 5 && (
+                  {players.filter(p => p.currentSpace === space.name).length > 0 && (
                     <span style={{ 
-                      fontSize: '11px', 
-                      color: '#6c757d',
-                      padding: '2px 6px'
+                      backgroundColor: '#28a745', 
+                      color: 'white', 
+                      borderRadius: '10px',
+                      padding: '2px 6px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
                     }}>
-                      +{spaceDetails.connections.length - 5} more
+                      {players.filter(p => p.currentSpace === space.name).length}
                     </span>
                   )}
                 </div>
               </div>
+            ))}
+            
+            {getFilteredSpaces().length === 0 && (
+              <div style={{
+                textAlign: 'center',
+                color: '#6c757d',
+                padding: '20px',
+                fontStyle: 'italic'
+              }}>
+                No spaces found matching your criteria
+              </div>
             )}
+          </div>
+        </div>
+
+        {/* Right Panel - Space Details */}
+        {spaceDetails && (
+          <div style={rightPanelStyle}>
+            <div style={detailsHeaderStyle}>
+              <h4 style={{ 
+                margin: 0,
+                color: '#1976d2',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}>
+                {spaceDetails.space.name}
+              </h4>
+              <button
+                onClick={() => setSelectedSpace(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: '#1976d2'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={detailsContentStyle}>
+              {/* Space Type and Configuration */}
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#e3f2fd',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                border: '2px solid #2196f3'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  marginBottom: '8px' 
+                }}>
+                  <span style={{ fontSize: '20px' }}>
+                    {getSpaceTypeIcon(spaceDetails.space.name)}
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#1976d2', fontSize: '16px' }}>
+                    {getSpaceTypeLabel(spaceDetails.space.name)}
+                  </span>
+                </div>
+                
+                {/* Game Configuration Data */}
+                {(() => {
+                  const config = dataService.getGameConfigBySpace(spaceDetails.space.name);
+                  if (config) {
+                    return (
+                      <div style={{ fontSize: '13px', color: '#1976d2' }}>
+                        {config.game_phase && <div><strong>Game Phase:</strong> {config.game_phase}</div>}
+                        {config.path_type && <div><strong>Path Type:</strong> {config.path_type}</div>}
+                        {config.space_order !== undefined && <div><strong>Space Order:</strong> {config.space_order}</div>}
+                        {config.tutorial_step && <div><strong>Tutorial Step:</strong> {config.tutorial_step}</div>}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              {/* Players on Space */}
+              {spaceDetails.playersOnSpace.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h5 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: '0 0 8px 0'
+                  }}>
+                    👥 Players Currently Here ({spaceDetails.playersOnSpace.length}):
+                  </h5>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {spaceDetails.playersOnSpace.map(player => (
+                      <div
+                        key={player.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 12px',
+                          backgroundColor: player.color || '#007bff',
+                          color: 'white',
+                          borderRadius: '12px',
+                          fontSize: '13px',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        <span>{player.avatar || player.name.charAt(0).toUpperCase()}</span>
+                        <div>
+                          <div>{player.name}</div>
+                          <div style={{ fontSize: '11px', opacity: 0.8 }}>
+                            💰${FormatUtils.formatMoney(player.money)} | ⏱️{player.timeSpent}h
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Space Content */}
+              {spaceDetails.content && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h5 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: '0 0 8px 0'
+                  }}>
+                    📄 Space Content & Story:
+                  </h5>
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '8px',
+                    border: '2px solid #ffc107',
+                    fontSize: '13px',
+                    lineHeight: '1.5'
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#856404' }}>
+                      Story Text:
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      {spaceDetails.content.content_text || 'No story content available'}
+                    </div>
+                    
+                    {/* Additional Content Properties */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                      {spaceDetails.content.can_negotiate && (
+                        <div style={{ color: '#28a745', fontWeight: 'bold' }}>
+                          💬 Negotiation: Available
+                        </div>
+                      )}
+                      {spaceDetails.content.requires_choice && (
+                        <div style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                          🎯 Choice Required
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Movement Options */}
+              {(() => {
+                const movement = dataService.getMovement(spaceDetails.space.name, 'First');
+                if (movement) {
+                  const destinations = [
+                    movement.destination_1,
+                    movement.destination_2,
+                    movement.destination_3,
+                    movement.destination_4,
+                    movement.destination_5
+                  ].filter(dest => dest && dest.trim());
+                  
+                  if (destinations.length > 0) {
+                    return (
+                      <div style={{ marginBottom: '16px' }}>
+                        <h5 style={{ 
+                          fontSize: '14px', 
+                          fontWeight: 'bold',
+                          color: '#2c3e50',
+                          margin: '0 0 8px 0'
+                        }}>
+                          🧭 Movement Options ({movement.movement_type}):
+                        </h5>
+                        <div style={{
+                          padding: '12px',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '8px',
+                          border: '2px solid #dee2e6'
+                        }}>
+                          <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold' }}>
+                            Movement Type: {movement.movement_type} 
+                            {movement.movement_type === 'dice' && ' 🎲'}
+                            {movement.movement_type === 'choice' && ' 🎯'}
+                            {movement.movement_type === 'fixed' && ' ➡️'}
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {destinations.map((dest, index) => (
+                              <button
+                                key={index}
+                                onClick={() => setSelectedSpace(dest)}
+                                style={{
+                                  padding: '6px 10px',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '12px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  fontWeight: 'bold'
+                                }}
+                                title={`Click to view ${dest}`}
+                              >
+                                {dest}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                }
+                return null;
+              })()}
+
+              {/* Space Effects */}
+              {spaceDetails.effects.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h5 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: '0 0 8px 0'
+                  }}>
+                    ⚡ Space Effects ({spaceDetails.effects.length}):
+                  </h5>
+                  {spaceDetails.effects.map((effect, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: '10px 12px',
+                        backgroundColor: '#fff3cd',
+                        borderRadius: '8px',
+                        border: '2px solid #ffc107',
+                        marginBottom: '8px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '4px' }}>
+                        {effect.effect_type}: {effect.effect_action} {effect.effect_value}
+                        {effect.trigger_type && ` (${effect.trigger_type})`}
+                      </div>
+                      {effect.effect_description && (
+                        <div style={{ color: '#856404' }}>
+                          {effect.effect_description}
+                        </div>
+                      )}
+                      {effect.condition && (
+                        <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                          <strong>Condition:</strong> {effect.condition}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Dice Effects */}
+              {spaceDetails.diceEffects.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h5 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: '0 0 8px 0'
+                  }}>
+                    🎲 Dice Roll Effects ({spaceDetails.diceEffects.length}):
+                  </h5>
+                  {spaceDetails.diceEffects.map((effect, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: '10px 12px',
+                        backgroundColor: '#e8f4fd',
+                        borderRadius: '8px',
+                        border: '2px solid #007bff',
+                        marginBottom: '8px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold', color: '#0056b3', marginBottom: '4px' }}>
+                        Roll {effect.roll_1}{effect.roll_2 && `, ${effect.roll_2}`}: 
+                        {effect.effect_type} {effect.effect_action} {effect.effect_value}
+                      </div>
+                      {effect.effect_description && (
+                        <div style={{ color: '#0056b3' }}>
+                          {effect.effect_description}
+                        </div>
+                      )}
+                      {effect.condition && (
+                        <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                          <strong>Condition:</strong> {effect.condition}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Connected Spaces */}
+              {spaceDetails.connections.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h5 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: '0 0 8px 0'
+                  }}>
+                    🔗 Incoming Connections ({spaceDetails.connections.length}):
+                  </h5>
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '2px solid #dee2e6'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '8px' }}>
+                      Spaces that can move to this location:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {spaceDetails.connections.map(connection => (
+                        <button
+                          key={connection}
+                          onClick={() => setSelectedSpace(connection)}
+                          style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                          title={`Click to view ${connection}`}
+                        >
+                          {connection}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Raw CSV Data Section */}
+              <div style={{ marginBottom: '16px' }}>
+                <h5 style={{ 
+                  fontSize: '14px', 
+                  fontWeight: 'bold',
+                  color: '#2c3e50',
+                  margin: '0 0 8px 0'
+                }}>
+                  📊 Technical Details:
+                </h5>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#f1f3f4',
+                  borderRadius: '8px',
+                  border: '2px solid #9aa0a6',
+                  fontSize: '12px',
+                  fontFamily: 'monospace'
+                }}>
+                  <div><strong>Space ID:</strong> {spaceDetails.space.name}</div>
+                  <div><strong>Effects Count:</strong> {spaceDetails.effects.length} space + {spaceDetails.diceEffects.length} dice</div>
+                  <div><strong>Movement Destinations:</strong> {(() => {
+                    const movement = dataService.getMovement(spaceDetails.space.name, 'First');
+                    return movement ? [movement.destination_1, movement.destination_2, movement.destination_3, movement.destination_4, movement.destination_5].filter(d => d).length : 0;
+                  })()}</div>
+                  <div><strong>Negotiation:</strong> {spaceDetails.content?.can_negotiate ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

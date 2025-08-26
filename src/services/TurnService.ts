@@ -1,4 +1,4 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 
@@ -7,12 +7,14 @@ export class TurnService implements ITurnService {
   private readonly stateService: IStateService;
   private readonly gameRulesService: IGameRulesService;
   private readonly cardService: ICardService;
+  private readonly resourceService: IResourceService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
     this.cardService = cardService;
+    this.resourceService = resourceService;
   }
 
   /**
@@ -421,36 +423,62 @@ export class TurnService implements ITurnService {
     }
 
     const cardTypeKey = cardType as keyof typeof player.availableCards;
-    let newCards = { ...player.availableCards };
 
     if (effect.includes('Draw')) {
       const drawCount = this.parseNumericValue(effect);
       if (drawCount > 0) {
-        // Generate proper card IDs based on actual CSV card data
-        const newCardIds = this.generateCardIds(cardType, drawCount);
-        console.log(`Player ${player.name} draws ${drawCount} ${cardType} cards:`, newCardIds);
-        newCards[cardTypeKey] = [...newCards[cardTypeKey], ...newCardIds];
+        // Use unified CardService.drawCards with source tracking
+        const drawnCardIds = this.cardService.drawCards(
+          playerId, 
+          cardType as any, 
+          drawCount, 
+          'turn_effect', 
+          `Draw ${drawCount} ${cardType} card${drawCount > 1 ? 's' : ''} from space effect`
+        );
+        console.log(`Player ${player.name} draws ${drawCount} ${cardType} cards:`, drawnCardIds);
       }
-    } else if (effect.includes('Remove')) {
+    } else if (effect.includes('Remove') || effect.includes('Discard')) {
       const removeCount = this.parseNumericValue(effect);
       if (removeCount > 0) {
-        newCards[cardTypeKey] = newCards[cardTypeKey].slice(removeCount);
+        const currentCards = player.availableCards[cardTypeKey] || [];
+        const cardsToRemove = currentCards.slice(0, removeCount);
+        if (cardsToRemove.length > 0) {
+          // Use unified CardService.discardCards with source tracking
+          this.cardService.discardCards(
+            playerId,
+            cardsToRemove,
+            'turn_effect',
+            `Remove ${removeCount} ${cardType} card${removeCount > 1 ? 's' : ''} from space effect`
+          );
+        }
       }
     } else if (effect.includes('Replace')) {
       const replaceCount = this.parseNumericValue(effect);
-      if (replaceCount > 0 && newCards[cardTypeKey].length > 0) {
-        // Remove old cards and add new ones
-        newCards[cardTypeKey] = newCards[cardTypeKey].slice(replaceCount);
-        const newCardIds = this.generateCardIds(cardType, replaceCount);
-        console.log(`Player ${player.name} replaces ${replaceCount} ${cardType} cards:`, newCardIds);
-        newCards[cardTypeKey] = [...newCards[cardTypeKey], ...newCardIds];
+      const currentCards = player.availableCards[cardTypeKey] || [];
+      if (replaceCount > 0 && currentCards.length > 0) {
+        // Remove old cards using discardCards
+        const cardsToRemove = currentCards.slice(0, replaceCount);
+        this.cardService.discardCards(
+          playerId,
+          cardsToRemove,
+          'turn_effect',
+          `Replace ${replaceCount} ${cardType} cards - removing old cards`
+        );
+        
+        // Add new cards using drawCards
+        const drawnCardIds = this.cardService.drawCards(
+          playerId,
+          cardType as any,
+          replaceCount,
+          'turn_effect',
+          `Replace ${replaceCount} ${cardType} cards - adding new cards`
+        );
+        console.log(`Player ${player.name} replaces ${replaceCount} ${cardType} cards:`, drawnCardIds);
       }
     }
 
-    return this.stateService.updatePlayer({
-      id: playerId,
-      availableCards: newCards
-    });
+    // Return current state since CardService methods handle state updates
+    return this.stateService.getGameState();
   }
 
   private applyMoneyEffect(playerId: string, effect: string): GameState {
@@ -470,12 +498,15 @@ export class TurnService implements ITurnService {
       moneyChange = this.parseNumericValue(effect);
     }
 
-    const newMoney = Math.max(0, player.money + moneyChange);
+    // Use unified ResourceService for money changes
+    if (moneyChange > 0) {
+      this.resourceService.addMoney(playerId, moneyChange, 'turn_effect', `Space effect: +$${moneyChange.toLocaleString()}`);
+    } else if (moneyChange < 0) {
+      this.resourceService.spendMoney(playerId, Math.abs(moneyChange), 'turn_effect', `Space effect: -$${Math.abs(moneyChange).toLocaleString()}`);
+    }
 
-    return this.stateService.updatePlayer({
-      id: playerId,
-      money: newMoney
-    });
+    // Return current state since ResourceService handles state updates
+    return this.stateService.getGameState();
   }
 
   private applyTimeEffect(playerId: string, effect: string): GameState {
@@ -485,12 +516,16 @@ export class TurnService implements ITurnService {
     }
 
     const timeChange = this.parseNumericValue(effect);
-    const newTime = Math.max(0, player.timeSpent + timeChange);
 
-    return this.stateService.updatePlayer({
-      id: playerId,
-      timeSpent: newTime
-    });
+    // Use unified ResourceService for time changes
+    if (timeChange > 0) {
+      this.resourceService.addTime(playerId, timeChange, 'turn_effect', `Space effect: +${timeChange} time`);
+    } else if (timeChange < 0) {
+      this.resourceService.spendTime(playerId, Math.abs(timeChange), 'turn_effect', `Space effect: -${Math.abs(timeChange)} time`);
+    }
+
+    // Return current state since ResourceService handles state updates
+    return this.stateService.getGameState();
   }
 
   private applyQualityEffect(playerId: string, effect: string): GameState {
@@ -1295,8 +1330,8 @@ export class TurnService implements ITurnService {
     switch (cardType) {
       case 'W': return 'Work';
       case 'B': return 'Business';
-      case 'E': return 'Equipment';
-      case 'L': return 'Legal';
+      case 'E': return 'Expeditor';
+      case 'L': return 'Life Events';
       case 'I': return 'Investment';
       default: return cardType;
     }

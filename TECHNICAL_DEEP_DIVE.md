@@ -60,7 +60,7 @@ The `CardService` is the heart of the card system. It is responsible for all bus
     *   **Active:** Cards that have been played and have an ongoing effect with a specific duration.
     *   **Discarded:** Cards that have been played and their effect has been resolved, or active cards that have expired.
 *   **Card Expiration:** The `endOfTurn` method is called by the `TurnService` at the end of each turn to process card expirations.
-*   **Card Transfer:** The `transferCard` method allows players to give "E" (Equipment) and "L" (Legal) cards to other players.
+*   **Card Transfer:** The `transferCard` method allows players to give "E" (Expeditor) and "L" (Life Events) cards to other players.
 
 ### Card-Related Components
 

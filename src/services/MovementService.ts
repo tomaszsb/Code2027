@@ -1,6 +1,6 @@
 // src/services/MovementService.ts
 
-import { IMovementService, IDataService, IStateService } from '../types/ServiceContracts';
+import { IMovementService, IDataService, IStateService, IChoiceService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { Movement, VisitType } from '../types/DataTypes';
 
@@ -11,7 +11,8 @@ import { Movement, VisitType } from '../types/DataTypes';
 export class MovementService implements IMovementService {
   constructor(
     private dataService: IDataService,
-    private stateService: IStateService
+    private stateService: IStateService,
+    private choiceService: IChoiceService
   ) {}
 
   /**
@@ -156,29 +157,50 @@ export class MovementService implements IMovementService {
   }
 
   /**
-   * Resolves a player choice by moving them to the chosen destination
-   * @param destination - The chosen destination space name
-   * @returns Updated game state after the move and turn advancement
-   * @throws Error if no choice is awaiting or destination is invalid
+   * Handles movement choices by presenting options and awaiting player selection
+   * @param playerId - The ID of the player making the choice
+   * @returns Promise that resolves with the updated game state after movement
    */
-  resolveChoice(destination: string): GameState {
-    const gameState = this.stateService.getGameState();
+  async handleMovementChoice(playerId: string): Promise<GameState> {
+    const validMoves = this.getValidMoves(playerId);
     
-    if (!gameState.awaitingChoice) {
-      throw new Error('No choice is currently awaiting resolution');
+    if (validMoves.length === 0) {
+      throw new Error(`No valid moves available for player ${playerId}`);
+    }
+    
+    if (validMoves.length === 1) {
+      // Only one option - move automatically without presenting a choice
+      console.log(`🚶 Auto-moving player ${playerId} to ${validMoves[0]} (only option)`);
+      return this.movePlayer(playerId, validMoves[0]);
     }
 
-    const { playerId, options } = gameState.awaitingChoice;
-    
-    if (!options.includes(destination)) {
-      throw new Error(`Invalid choice: ${destination} is not among the available options`);
+    // Multiple options - present choice to player
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
     }
 
-    this.movePlayer(playerId, destination);
-    this.stateService.clearAwaitingChoice();
+    const options = validMoves.map(destination => ({
+      id: destination,
+      label: destination
+    }));
+
+    const prompt = `Choose your destination from ${player.currentSpace}:`;
     
-    // Don't advance turn - player's turn continues after resolving choice
-    return this.stateService.getGameState();
+    console.log(`🎯 Presenting movement choice to ${player.name}: ${validMoves.length} options`);
+    
+    // Use ChoiceService to handle the choice
+    const selectedDestination = await this.choiceService.createChoice(
+      playerId,
+      'MOVEMENT',
+      prompt,
+      options
+    );
+
+    console.log(`✅ Player ${player.name} chose to move to: ${selectedDestination}`);
+    
+    // Move the player to the selected destination
+    return this.movePlayer(playerId, selectedDestination);
   }
 
   /**

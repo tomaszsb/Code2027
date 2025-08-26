@@ -12,6 +12,9 @@ import { CardService } from '../services/CardService';
 import { PlayerActionService } from '../services/PlayerActionService';
 import { MovementService } from '../services/MovementService';
 import { GameRulesService } from '../services/GameRulesService';
+import { ResourceService } from '../services/ResourceService';
+import { ChoiceService } from '../services/ChoiceService';
+import { EffectEngineService } from '../services/EffectEngineService';
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -30,10 +33,13 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   // Instantiate services - Phase 1 & 2: Core services implemented
   const dataService = new DataService();
   const stateService = new StateService(dataService);
+  const resourceService = new ResourceService(stateService);
+  const choiceService = new ChoiceService(stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
-  const cardService = new CardService(dataService, stateService);
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService);
-  const movementService = new MovementService(dataService, stateService);
+  const cardService = new CardService(dataService, stateService, resourceService);
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
+  const movementService = new MovementService(dataService, stateService, choiceService);
+  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService);
   
   const services: IServiceContainer = {
@@ -44,6 +50,9 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
     playerActionService,
     movementService,
     gameRulesService,
+    resourceService,
+    choiceService,
+    effectEngineService,
   };
 
   return (

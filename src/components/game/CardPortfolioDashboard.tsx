@@ -121,10 +121,10 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
 
   const cardTypeColors = {
     W: '#dc3545', // Red for Work cards
-    B: '#007bff', // Blue for Business cards
-    I: '#28a745', // Green for Innovation cards
-    L: '#ffc107', // Yellow for Legal cards
-    E: '#6f42c1'  // Purple for External cards
+    B: '#007bff', // Blue for Bank Loan cards
+    I: '#28a745', // Green for Investor Loan cards
+    L: '#ffc107', // Yellow for Life Events cards
+    E: '#6f42c1'  // Purple for Expeditor cards
   };
 
   return (
@@ -165,12 +165,27 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           }}>
             Available Cards
           </div>
+          
+          {/* Info about W, B, I cards */}
+          {((player.availableCards?.W?.length || 0) > 0 || (player.availableCards?.B?.length || 0) > 0 || (player.availableCards?.I?.length || 0) > 0) && (
+            <div style={{
+              fontSize: '0.7rem',
+              color: '#6c757d',
+              backgroundColor: '#f8f9fa',
+              padding: '6px 8px',
+              borderRadius: '4px',
+              marginBottom: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              💡 Work scope (W), Bank loans (B), and Investor loans (I) are shown in Financial Status section
+            </div>
+          )}
           <div style={{
             display: 'flex',
             flexDirection: 'column' as const,
             gap: '6px'
           }}>
-            {Object.entries(player.availableCards || {}).map(([cardType, cardIds]) => 
+            {Object.entries(player.availableCards || {}).filter(([cardType]) => !['W', 'B', 'I'].includes(cardType)).map(([cardType, cardIds]) => 
               cardIds && cardIds.length > 0 ? (
                 <div key={`available-${cardType}`} style={{ marginBottom: '8px' }}>
                   <div style={{
@@ -408,7 +423,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           marginTop: '8px'
         }}>
           Available + Active: {
-            Object.values(cardPortfolio.available).reduce((sum, count) => sum + count, 0) +
+            Object.entries(cardPortfolio.available).filter(([cardType]) => !['W', 'B', 'I'].includes(cardType)).reduce((sum, [, count]) => sum + count, 0) +
             cardPortfolio.active
           } cards
         </div>

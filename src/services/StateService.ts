@@ -5,7 +5,8 @@ import {
   GamePhase, 
   PlayerUpdateData,
   PlayerCards,
-  ActiveModal
+  ActiveModal,
+  Choice
 } from '../types/StateTypes';
 
 export class StateService implements IStateService {
@@ -363,29 +364,30 @@ export class StateService implements IStateService {
     return { ...newState };
   }
 
-  setAwaitingChoice(playerId: string, options: string[]): GameState {
-    const newState: GameState = {
+  setAwaitingChoice(choice: Choice): GameState {
+    console.log(`🎯 Setting awaiting choice for player ${choice.playerId}: ${choice.type} - "${choice.prompt}"`);
+    
+    this.currentState = {
       ...this.currentState,
-      awaitingChoice: {
-        playerId: playerId,
-        options: options
-      }
+      awaitingChoice: choice
     };
 
-    this.currentState = newState;
     this.notifyListeners();
-    return { ...newState };
+    return this.currentState;
   }
 
   clearAwaitingChoice(): GameState {
-    const newState: GameState = {
+    if (this.currentState.awaitingChoice) {
+      console.log(`🎯 Clearing awaiting choice: ${this.currentState.awaitingChoice.id}`);
+    }
+    
+    this.currentState = {
       ...this.currentState,
       awaitingChoice: null
     };
 
-    this.currentState = newState;
     this.notifyListeners();
-    return { ...newState };
+    return this.currentState;
   }
 
   setPlayerHasMoved(): GameState {

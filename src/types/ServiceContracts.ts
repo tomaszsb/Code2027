@@ -22,10 +22,56 @@ import {
   Player, 
   GamePhase, 
   PlayerUpdateData,
-  StateUpdateResult 
+  StateUpdateResult,
+  Choice 
 } from './StateTypes';
 
+import { Effect, EffectContext, EffectResult, BatchEffectResult } from './EffectTypes';
+
 import { CardType } from './DataTypes';
+
+// Resource Management Interfaces
+export interface ResourceChange {
+  money?: number;
+  timeSpent?: number;
+  source: string;
+  reason?: string;
+}
+
+export interface ResourceTransaction {
+  id: string;
+  playerId: string;
+  timestamp: number;
+  changes: ResourceChange;
+  balanceBefore: { money: number; timeSpent: number };
+  balanceAfter: { money: number; timeSpent: number };
+  successful: boolean;
+}
+
+export interface ResourceValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+// Resource Service Interface
+export interface IResourceService {
+  // Money operations
+  addMoney(playerId: string, amount: number, source: string, reason?: string): boolean;
+  spendMoney(playerId: string, amount: number, source: string, reason?: string): boolean;
+  canAfford(playerId: string, amount: number): boolean;
+  
+  // Time operations  
+  addTime(playerId: string, amount: number, source: string, reason?: string): void;
+  spendTime(playerId: string, amount: number, source: string, reason?: string): void;
+  
+  // Combined operations
+  updateResources(playerId: string, changes: ResourceChange): boolean;
+  getResourceHistory(playerId: string): ResourceTransaction[];
+  
+  // Validation
+  validateResourceChange(playerId: string, changes: ResourceChange): ResourceValidation;
+}
 
 // Phase 1 Services
 export interface IDataService {
@@ -97,7 +143,7 @@ export interface IStateService {
   forceResetAllPlayersToCorrectStartingSpace(): GameState;
   
   // Choice management methods
-  setAwaitingChoice(playerId: string, options: string[]): GameState;
+  setAwaitingChoice(choice: Choice): GameState;
   clearAwaitingChoice(): GameState;
   
   // Turn state management methods
@@ -142,17 +188,18 @@ export interface ICardService {
   isValidCardType(cardType: string): boolean;
   playerOwnsCard(playerId: string, cardId: string): boolean;
   
-  // Card management methods
+  // Card management methods with source tracking
   playCard(playerId: string, cardId: string): GameState;
-  drawCards(playerId: string, cardType: CardType, count: number): GameState;
+  drawCards(playerId: string, cardType: CardType, count: number, source?: string, reason?: string): string[];
+  discardCards(playerId: string, cardIds: string[], source?: string, reason?: string): boolean;
   removeCard(playerId: string, cardId: string): GameState;
   replaceCard(playerId: string, oldCardId: string, newCardType: CardType): GameState;
   
   // Turn-based card lifecycle methods
   endOfTurn(): void;
   
-  // Card transfer methods
-  transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string): GameState;
+  // Card transfer methods with source tracking
+  transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string, source?: string, reason?: string): GameState;
   
   // Card information methods
   getCardType(cardId: string): CardType | null;
@@ -181,8 +228,8 @@ export interface IMovementService {
   // Dice-based movement methods
   getDiceDestination(spaceName: string, visitType: VisitType, diceRoll: number): string | null;
   
-  // Choice resolution methods
-  resolveChoice(destination: string): GameState;
+  // Choice-based movement methods
+  handleMovementChoice(playerId: string): Promise<GameState>;
 }
 
 export interface IGameRulesService {
@@ -208,6 +255,25 @@ export interface IGameRulesService {
   canPlayerTakeAction(playerId: string): boolean;
 }
 
+export interface IChoiceService {
+  // Choice creation and resolution methods
+  createChoice(playerId: string, type: Choice['type'], prompt: string, options: Choice['options']): Promise<string>;
+  resolveChoice(choiceId: string, selection: string): boolean;
+  
+  // Choice query methods
+  getActiveChoice(): Choice | null;
+  hasActiveChoice(): boolean;
+}
+
+export interface IEffectEngineService {
+  // Core processing methods
+  processEffects(effects: Effect[], context: EffectContext): Promise<BatchEffectResult>;
+  processEffect(effect: Effect, context: EffectContext): Promise<EffectResult>;
+  
+  // Validation methods
+  validateEffect(effect: Effect, context: EffectContext): boolean;
+  validateEffects(effects: Effect[], context: EffectContext): boolean;
+}
 
 /**
  * Represents the complete container of all game services.
@@ -221,4 +287,7 @@ export interface IServiceContainer {
   playerActionService: IPlayerActionService;
   movementService: IMovementService;
   gameRulesService: IGameRulesService;
+  resourceService: IResourceService;
+  choiceService: IChoiceService;
+  effectEngineService: IEffectEngineService;
 }
