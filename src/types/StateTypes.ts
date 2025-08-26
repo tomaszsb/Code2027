@@ -1,4 +1,5 @@
 import { Player, ActiveCard } from './DataTypes';
+import { Effect } from './EffectTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
@@ -8,6 +9,30 @@ export interface Choice {
   type: 'MOVEMENT' | 'PLAYER_TARGET' | 'GENERAL';
   prompt: string;
   options: Array<{ id: string; label: string; }>;
+}
+
+export interface NegotiationState {
+  negotiationId: string;
+  initiatorId: string;
+  status: 'pending' | 'in_progress' | 'resolved' | 'cancelled';
+  context: any;
+  offers: Array<{
+    playerId: string;
+    offerData: any;
+    timestamp: Date;
+  }>;
+  createdAt: Date;
+  lastUpdatedAt: Date;
+  participantIds?: string[];
+  expiresAt?: Date;
+}
+
+export interface NegotiationResult {
+  success: boolean;
+  message: string;
+  negotiationId?: string;
+  effects: Effect[];
+  data?: any;
 }
 
 export interface ActiveModal {
@@ -33,6 +58,10 @@ export interface GameState {
   completedActions: number;
   availableActionTypes: string[];
   hasCompletedManualActions: boolean;
+  // Turn control for skip turn effects
+  turnModifiers: { [playerId: string]: { skipTurns: number } };
+  // Negotiation state
+  activeNegotiation: NegotiationState | null;
 }
 
 export interface PlayerAction {

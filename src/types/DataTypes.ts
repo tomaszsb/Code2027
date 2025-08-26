@@ -7,6 +7,7 @@ export interface GameConfig {
   min_players: number;
   max_players: number;
   requires_dice_roll: boolean;
+  action?: string;  // Dynamic action keywords like 'GOTO_JAIL', 'PAY_TAX', 'AUCTION'
 }
 
 export interface Movement {
@@ -165,6 +166,9 @@ export interface Card {
   discard_cards?: string;
   target?: string;
   scope?: string;
+  
+  // Turn control mechanics
+  turn_skip?: string;
 }
 
 export interface ActiveCard {

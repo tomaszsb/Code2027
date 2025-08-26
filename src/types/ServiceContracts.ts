@@ -23,7 +23,9 @@ import {
   GamePhase, 
   PlayerUpdateData,
   StateUpdateResult,
-  Choice 
+  Choice,
+  NegotiationState,
+  NegotiationResult
 } from './StateTypes';
 
 import { Effect, EffectContext, EffectResult, BatchEffectResult } from './EffectTypes';
@@ -166,12 +168,12 @@ export interface TurnResult {
 
 export interface ITurnService {
   // Turn management methods
-  takeTurn(playerId: string): TurnResult;
+  takeTurn(playerId: string): Promise<TurnResult>;
   endTurn(): Promise<{ nextPlayerId: string }>;
   rollDice(): number;
   
   // Separate dice and movement methods
-  rollDiceAndProcessEffects(playerId: string): { diceRoll: number };
+  rollDiceAndProcessEffects(playerId: string): Promise<{ diceRoll: number }>;
   endTurnWithMovement(): Promise<{ nextPlayerId: string }>;
   
   // Turn validation methods  
@@ -179,7 +181,10 @@ export interface ITurnService {
   getCurrentPlayerTurn(): string | null;
   
   // Turn effects processing
-  processTurnEffects(playerId: string, diceRoll: number): GameState;
+  processTurnEffects(playerId: string, diceRoll: number): Promise<GameState>;
+  
+  // Turn control methods
+  setTurnModifier(playerId: string, action: 'SKIP_TURN'): boolean;
 }
 
 export interface ICardService {
@@ -197,6 +202,7 @@ export interface ICardService {
   
   // Turn-based card lifecycle methods
   endOfTurn(): void;
+  activateCard(playerId: string, cardId: string, duration: number): void;
   
   // Card transfer methods with source tracking
   transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string, source?: string, reason?: string): GameState;
@@ -275,6 +281,16 @@ export interface IEffectEngineService {
   validateEffects(effects: Effect[], context: EffectContext): boolean;
 }
 
+export interface INegotiationService {
+  // Core negotiation methods
+  startNegotiation(playerId: string, context: any): Promise<NegotiationResult>;
+  makeOffer(playerId: string, offer: any): Promise<NegotiationResult>;
+  
+  // Negotiation state methods
+  getActiveNegotiation(): NegotiationState | null;
+  hasActiveNegotiation(): boolean;
+}
+
 /**
  * Represents the complete container of all game services.
  * This will be provided via context to the rest of the application.
@@ -290,4 +306,5 @@ export interface IServiceContainer {
   resourceService: IResourceService;
   choiceService: IChoiceService;
   effectEngineService: IEffectEngineService;
+  negotiationService: INegotiationService;
 }

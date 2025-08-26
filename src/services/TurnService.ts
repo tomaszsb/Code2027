@@ -1,6 +1,8 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
+import { EffectFactory } from '../utils/EffectFactory';
+import { EffectContext } from '../types/EffectTypes';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -8,13 +10,22 @@ export class TurnService implements ITurnService {
   private readonly gameRulesService: IGameRulesService;
   private readonly cardService: ICardService;
   private readonly resourceService: IResourceService;
+  private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
     this.cardService = cardService;
     this.resourceService = resourceService;
+    this.effectEngineService = effectEngineService;
+  }
+
+  /**
+   * Set the EffectEngineService after construction to handle circular dependencies
+   */
+  public setEffectEngineService(effectEngineService: IEffectEngineService): void {
+    this.effectEngineService = effectEngineService;
   }
 
   /**
@@ -43,7 +54,7 @@ export class TurnService implements ITurnService {
     return cardIds;
   }
 
-  takeTurn(playerId: string): TurnResult {
+  async takeTurn(playerId: string): Promise<TurnResult> {
     console.log(`🎮 TurnService.takeTurn - Starting turn for player ${playerId}`);
     
     try {
@@ -74,7 +85,7 @@ export class TurnService implements ITurnService {
 
       // Process turn effects based on dice roll
       console.log(`🎮 TurnService.takeTurn - Processing turn effects...`);
-      this.processTurnEffects(playerId, diceRoll);
+      await this.processTurnEffects(playerId, diceRoll);
 
       // Handle movement based on current space
       console.log(`🎮 TurnService.takeTurn - Handling movement...`);
@@ -99,7 +110,7 @@ export class TurnService implements ITurnService {
    * Roll dice and process effects only (no movement)
    * This is for the "Roll Dice" button
    */
-  rollDiceAndProcessEffects(playerId: string): { diceRoll: number } {
+  async rollDiceAndProcessEffects(playerId: string): Promise<{ diceRoll: number }> {
     console.log(`🎲 TurnService.rollDiceAndProcessEffects - Starting for player ${playerId}`);
     
     try {
@@ -128,7 +139,7 @@ export class TurnService implements ITurnService {
 
       // Process turn effects based on dice roll (but NO movement)
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Processing turn effects...`);
-      this.processTurnEffects(playerId, diceRoll);
+      await this.processTurnEffects(playerId, diceRoll);
 
       // Mark that the player has rolled dice this turn (enables End Turn button)
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking dice as rolled`);
@@ -241,8 +252,30 @@ export class TurnService implements ITurnService {
     this.cardService.endOfTurn();
 
     // Determine next player (wrap around to first player if at end)
-    const nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
-    const nextPlayer = allPlayers[nextPlayerIndex];
+    let nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
+    let nextPlayer = allPlayers[nextPlayerIndex];
+
+    // Check if the next player has turn modifiers (turn skips)
+    const turnModifiers = gameState.turnModifiers[nextPlayer.id];
+    if (turnModifiers && turnModifiers.skipTurns > 0) {
+      console.log(`🔄 Player ${nextPlayer.name} has ${turnModifiers.skipTurns} turn(s) to skip - skipping their turn`);
+      
+      // Decrement skip count
+      turnModifiers.skipTurns -= 1;
+      
+      // If no more skips remaining, clean up
+      if (turnModifiers.skipTurns <= 0) {
+        delete gameState.turnModifiers[nextPlayer.id];
+        console.log(`✅ Player ${nextPlayer.name} skip turns cleared`);
+      }
+      
+      // Recursively call nextPlayer to skip to the following player
+      // But first update current player to the skipped player so the recursion works correctly
+      this.stateService.setCurrentPlayer(nextPlayer.id);
+      console.log(`⏭️ Skipping to next player after ${nextPlayer.name}`);
+      
+      return this.nextPlayer();
+    }
 
     // Update the current player in the game state
     this.stateService.setCurrentPlayer(nextPlayer.id);
@@ -295,58 +328,91 @@ export class TurnService implements ITurnService {
     return gameState.currentPlayerId;
   }
 
-  processTurnEffects(playerId: string, diceRoll: number): GameState {
+  async processTurnEffects(playerId: string, diceRoll: number): Promise<GameState> {
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    let currentState = this.stateService.getGameState();
-
     console.log(`🎯 Processing turn effects for ${currentPlayer.name} on ${currentPlayer.currentSpace} (${currentPlayer.visitType} visit)`);
 
-    // First, process space effects (always applied when landing on a space)
-    const spaceEffects = this.dataService.getSpaceEffects(
-      currentPlayer.currentSpace, 
-      currentPlayer.visitType
-    );
-
-    console.log(`📋 Found ${spaceEffects.length} space effects:`, spaceEffects);
-
-    for (const effect of spaceEffects) {
-      // Skip manual effects - they need to be triggered by player actions
-      if (effect.trigger_type === 'manual') {
-        console.log(`🔧 Skipping manual space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (requires manual trigger)`);
-        continue;
+    try {
+      // Get space effect data from DataService
+      const spaceEffectsData = this.dataService.getSpaceEffects(
+        currentPlayer.currentSpace, 
+        currentPlayer.visitType
+      );
+      
+      // Get dice effect data from DataService  
+      const diceEffectsData = this.dataService.getDiceEffects(
+        currentPlayer.currentSpace, 
+        currentPlayer.visitType
+      );
+      
+      // Get space configuration for action processing
+      const spaceConfig = this.dataService.getGameConfigBySpace(currentPlayer.currentSpace);
+      
+      // Generate all effects from space entry using EffectFactory
+      const spaceEffects = EffectFactory.createEffectsFromSpaceEntry(
+        spaceEffectsData,
+        playerId,
+        currentPlayer.currentSpace,
+        currentPlayer.visitType,
+        spaceConfig || undefined
+      );
+      
+      // Generate all effects from dice roll using EffectFactory
+      const diceEffects = EffectFactory.createEffectsFromDiceRoll(
+        diceEffectsData,
+        playerId,
+        currentPlayer.currentSpace,
+        diceRoll
+      );
+      
+      // Combine all effects for unified processing
+      const allEffects = [...spaceEffects, ...diceEffects];
+      
+      console.log(`🏭 Generated ${spaceEffects.length} space effects + ${diceEffects.length} dice effects = ${allEffects.length} total effects`);
+      
+      if (allEffects.length > 0) {
+        if (!this.effectEngineService) {
+          console.error(`❌ EffectEngineService not available - cannot process ${allEffects.length} effects`);
+          throw new Error('EffectEngineService not initialized - effects cannot be processed');
+        }
+        
+        // Create effect processing context
+        const effectContext: EffectContext = {
+          source: 'turn_effects:space_entry',
+          playerId: playerId,
+          triggerEvent: 'SPACE_ENTRY',
+          metadata: {
+            spaceName: currentPlayer.currentSpace,
+            visitType: currentPlayer.visitType,
+            diceRoll: diceRoll,
+            playerName: currentPlayer.name
+          }
+        };
+        
+        // Process all effects through the unified Effect Engine
+        console.log(`🔧 Processing ${allEffects.length} space/dice effects through Effect Engine...`);
+        const processingResult = await this.effectEngineService.processEffects(allEffects, effectContext);
+        
+        if (!processingResult.success) {
+          console.error(`❌ Failed to process some space/dice effects: ${processingResult.errors.join(', ')}`);
+          // Log errors but don't throw - some effects may have succeeded
+        } else {
+          console.log(`✅ All space/dice effects processed successfully: ${processingResult.successfulEffects}/${processingResult.totalEffects} effects completed`);
+        }
+      } else {
+        console.log(`ℹ️ No space or dice effects to process for ${currentPlayer.currentSpace}`);
       }
       
-      // Evaluate condition before applying effect
-      const conditionMet = this.evaluateEffectCondition(playerId, effect.condition, diceRoll);
-      if (!conditionMet) {
-        console.log(`⏭️ Skipping space effect due to unmet condition: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition} = false)`);
-        continue;
-      }
+      return this.stateService.getGameState();
       
-      console.log(`⚡ Applying space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition} = true)`);
-      currentState = this.applySpaceEffect(playerId, effect, currentState);
+    } catch (error) {
+      console.error(`❌ Error processing turn effects:`, error);
+      throw new Error(`Failed to process turn effects: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    // Then, process dice effects (specific to dice roll results)
-    const diceEffects = this.dataService.getDiceEffects(
-      currentPlayer.currentSpace, 
-      currentPlayer.visitType
-    );
-
-    console.log(`🎲 Found ${diceEffects.length} dice effects:`, diceEffects);
-
-    for (const effect of diceEffects) {
-      // Dice effects use roll_1, roll_2, etc. properties, not conditions
-      // The applyDiceEffect method will check if there's a value for the current dice roll
-      console.log(`🎲 Processing dice effect for roll ${diceRoll}: ${effect.effect_type} ${effect.card_type || ''}`);
-      currentState = this.applyDiceEffect(playerId, effect, diceRoll, currentState);
-    }
-
-    return currentState;
   }
 
   private applySpaceEffect(
@@ -1162,7 +1228,7 @@ export class TurnService implements ITurnService {
    * Roll dice and process effects with detailed feedback for UI
    * Returns comprehensive information about the dice roll and its effects
    */
-  rollDiceWithFeedback(playerId: string): TurnEffectResult {
+  async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
     console.log(`🎲 TurnService.rollDiceWithFeedback - Starting for player ${playerId}`);
     
     const currentPlayer = this.stateService.getPlayer(playerId);
@@ -1179,7 +1245,7 @@ export class TurnService implements ITurnService {
 
     // Process effects and track changes
     const effects: DiceResultEffect[] = [];
-    this.processTurnEffectsWithTracking(playerId, diceRoll, effects);
+    await this.processTurnEffectsWithTracking(playerId, diceRoll, effects);
 
     // Mark dice roll states
     this.stateService.setPlayerHasRolledDice();
@@ -1201,7 +1267,7 @@ export class TurnService implements ITurnService {
   /**
    * Process turn effects while tracking changes for feedback
    */
-  private processTurnEffectsWithTracking(playerId: string, diceRoll: number, effects: DiceResultEffect[]): void {
+  private async processTurnEffectsWithTracking(playerId: string, diceRoll: number, effects: DiceResultEffect[]): Promise<void> {
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) return;
 
@@ -1210,7 +1276,7 @@ export class TurnService implements ITurnService {
     const beforeCards = { ...currentPlayer.availableCards };
 
     // Process effects using the existing method
-    this.processTurnEffects(playerId, diceRoll);
+    await this.processTurnEffects(playerId, diceRoll);
 
     // Capture changes after processing
     const afterPlayer = this.stateService.getPlayer(playerId);
@@ -1448,5 +1514,53 @@ export class TurnService implements ITurnService {
 
     console.log(`🏗️ Player ${player.name} total project scope: $${totalScope.toLocaleString()} (from ${workCards.length} work cards)`);
     return totalScope;
+  }
+
+  /**
+   * Set turn modifier for a player (e.g., skip their next turn)
+   * 
+   * @param playerId - The ID of the player to apply the modifier to
+   * @param action - The turn control action to apply ('SKIP_TURN')
+   * @returns true if the modifier was successfully applied, false otherwise
+   */
+  public setTurnModifier(playerId: string, action: 'SKIP_TURN'): boolean {
+    try {
+      console.log(`🔄 TurnService.setTurnModifier - Applying ${action} to player ${playerId}`);
+      
+      // Get current game state
+      const gameState = this.stateService.getGameState();
+      
+      // Validate player exists
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        console.error(`❌ Cannot apply turn modifier: Player ${playerId} not found`);
+        return false;
+      }
+      
+      // Apply the turn modifier based on action type
+      switch (action) {
+        case 'SKIP_TURN':
+          // Initialize player's turn modifiers if they don't exist
+          if (!gameState.turnModifiers[playerId]) {
+            gameState.turnModifiers[playerId] = { skipTurns: 0 };
+          }
+          
+          // Increment skip turns count
+          gameState.turnModifiers[playerId].skipTurns += 1;
+          
+          console.log(`✅ Player ${player.name} will skip their next ${gameState.turnModifiers[playerId].skipTurns} turn(s)`);
+          
+          // Note: The gameState object is a reference, so our changes are already applied
+          // The StateService will notify listeners of the change
+          return true;
+          
+        default:
+          console.error(`❌ Unknown turn control action: ${action}`);
+          return false;
+      }
+    } catch (error) {
+      console.error(`❌ Error applying turn modifier:`, error);
+      return false;
+    }
   }
 }

@@ -5,7 +5,8 @@ import {
   ICardService, 
   IChoiceService, 
   IStateService, 
-  IMovementService 
+  IMovementService,
+  ITurnService
 } from '../types/ServiceContracts';
 import { 
   Effect, 
@@ -19,7 +20,8 @@ import {
   isLogEffect,
   isPlayerMovementEffect,
   isTurnControlEffect,
-  isCardActivationEffect
+  isCardActivationEffect,
+  isEffectGroupTargetedEffect
 } from '../types/EffectTypes';
 
 /**
@@ -52,19 +54,22 @@ export class EffectEngineService implements IEffectEngineService {
   private choiceService: IChoiceService;
   private stateService: IStateService;
   private movementService: IMovementService;
+  private turnService: ITurnService;
 
   constructor(
     resourceService: IResourceService,
     cardService: ICardService,
     choiceService: IChoiceService,
     stateService: IStateService,
-    movementService: IMovementService
+    movementService: IMovementService,
+    turnService: ITurnService
   ) {
     this.resourceService = resourceService;
     this.cardService = cardService;
     this.choiceService = choiceService;
     this.stateService = stateService;
     this.movementService = movementService;
+    this.turnService = turnService;
   }
 
   /**
@@ -163,50 +168,144 @@ export class EffectEngineService implements IEffectEngineService {
         case 'RESOURCE_CHANGE':
           if (isResourceChangeEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would change ${payload.resource} for player ${payload.playerId} by ${payload.amount}`);
-            console.log(`    Source: ${payload.source || context.source}`);
-            console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement: 
-            // if (payload.amount > 0) {
-            //   await this.resourceService.addMoney/addTime(payload.playerId, payload.amount, payload.source, payload.reason);
-            // } else {
-            //   await this.resourceService.spendMoney/spendTime(payload.playerId, Math.abs(payload.amount), payload.source, payload.reason);
-            // }
+            const source = payload.source || context.source;
+            const reason = payload.reason || 'Effect processing';
+            
+            console.log(`🔧 EFFECT_ENGINE: Processing ${payload.resource} change for player ${payload.playerId} by ${payload.amount}`);
+            
+            let success = false;
+            
+            if (payload.resource === 'MONEY') {
+              if (payload.amount > 0) {
+                success = this.resourceService.addMoney(payload.playerId, payload.amount, source, reason);
+              } else if (payload.amount < 0) {
+                success = this.resourceService.spendMoney(payload.playerId, Math.abs(payload.amount), source, reason);
+              } else {
+                success = true; // No change needed for 0 amount
+              }
+            } else if (payload.resource === 'TIME') {
+              if (payload.amount > 0) {
+                this.resourceService.addTime(payload.playerId, payload.amount, source, reason);
+                success = true;
+              } else if (payload.amount < 0) {
+                this.resourceService.spendTime(payload.playerId, Math.abs(payload.amount), source, reason);
+                success = true;
+              } else {
+                success = true; // No change needed for 0 amount
+              }
+            }
+            
+            if (!success) {
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to process ${payload.resource} change of ${payload.amount} for player ${payload.playerId}`
+              };
+            }
           }
           break;
 
         case 'CARD_DRAW':
           if (isCardDrawEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would draw ${payload.count} ${payload.cardType} card(s) for player ${payload.playerId}`);
-            console.log(`    Source: ${payload.source || context.source}`);
-            console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement:
-            // const drawnCards = this.cardService.drawCards(payload.playerId, payload.cardType, payload.count, payload.source, payload.reason);
+            const source = payload.source || context.source;
+            const reason = payload.reason || 'Effect processing';
+            
+            console.log(`🔧 EFFECT_ENGINE: Drawing ${payload.count} ${payload.cardType} card(s) for player ${payload.playerId}`);
+            
+            try {
+              const drawnCards = this.cardService.drawCards(payload.playerId, payload.cardType, payload.count, source, reason);
+              console.log(`    ✅ Drew ${drawnCards.length} card(s): ${drawnCards.join(', ')}`);
+              
+              // Store drawn cards in result for potential use by other effects
+              return {
+                success: true,
+                effectType: effect.effectType,
+                resultingEffects: [{
+                  effectType: 'LOG',
+                  payload: {
+                    message: `Drew ${drawnCards.length} ${payload.cardType} card(s): ${drawnCards.join(', ')}`,
+                    level: 'INFO',
+                    source
+                  }
+                }]
+              };
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown card draw error';
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to draw ${payload.count} ${payload.cardType} cards for player ${payload.playerId}: ${errorMessage}`
+              };
+            }
           }
           break;
 
         case 'CARD_DISCARD':
           if (isCardDiscardEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would discard ${payload.cardIds.length} card(s) for player ${payload.playerId}`);
+            const source = payload.source || context.source;
+            const reason = payload.reason || 'Effect processing';
+            
+            console.log(`🔧 EFFECT_ENGINE: Discarding ${payload.cardIds.length} card(s) for player ${payload.playerId}`);
             console.log(`    Card IDs: ${payload.cardIds.join(', ')}`);
-            console.log(`    Source: ${payload.source || context.source}`);
-            console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement:
-            // const success = this.cardService.discardCards(payload.playerId, payload.cardIds, payload.source, payload.reason);
+            
+            try {
+              const success = this.cardService.discardCards(payload.playerId, payload.cardIds, source, reason);
+              
+              if (!success) {
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: `Failed to discard cards for player ${payload.playerId}: Card discard operation failed`
+                };
+              }
+              
+              console.log(`    ✅ Successfully discarded ${payload.cardIds.length} card(s)`);
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown card discard error';
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to discard cards for player ${payload.playerId}: ${errorMessage}`
+              };
+            }
           }
           break;
 
         case 'CHOICE':
           if (isChoiceEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would present ${payload.type} choice to player ${payload.playerId}`);
+            
+            console.log(`🔧 EFFECT_ENGINE: Presenting ${payload.type} choice to player ${payload.playerId}`);
             console.log(`    Prompt: "${payload.prompt}"`);
             console.log(`    Options: ${payload.options.map(opt => `${opt.id}:${opt.label}`).join(', ')}`);
-            // TODO: In next task, implement:
-            // const selection = await this.choiceService.createChoice(payload.playerId, payload.type, payload.prompt, payload.options);
-            // This will likely return a new effect or set of effects based on the choice
+            
+            try {
+              const selection = await this.choiceService.createChoice(payload.playerId, payload.type, payload.prompt, payload.options);
+              console.log(`    ✅ Player selected: ${selection}`);
+              
+              // Return success with the selection - calling code can handle the choice result
+              return {
+                success: true,
+                effectType: effect.effectType,
+                resultingEffects: [{
+                  effectType: 'LOG',
+                  payload: {
+                    message: `Player ${payload.playerId} selected "${selection}" for ${payload.type} choice`,
+                    level: 'INFO',
+                    source: context.source
+                  }
+                }]
+              };
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown choice error';
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to present choice to player ${payload.playerId}: ${errorMessage}`
+              };
+            }
           }
           break;
 
@@ -231,31 +330,100 @@ export class EffectEngineService implements IEffectEngineService {
         case 'PLAYER_MOVEMENT':
           if (isPlayerMovementEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would move player ${payload.playerId} to ${payload.destinationSpace}`);
-            console.log(`    Source: ${payload.source || context.source}`);
-            console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement:
-            // this.movementService.movePlayer(payload.playerId, payload.destinationSpace);
+            const source = payload.source || context.source;
+            const reason = payload.reason || 'Effect processing';
+            
+            console.log(`🔧 EFFECT_ENGINE: Moving player ${payload.playerId} to ${payload.destinationSpace}`);
+            
+            try {
+              const updatedState = this.movementService.movePlayer(payload.playerId, payload.destinationSpace);
+              console.log(`    ✅ Successfully moved player to ${payload.destinationSpace}`);
+              
+              // Log the movement
+              return {
+                success: true,
+                effectType: effect.effectType,
+                resultingEffects: [{
+                  effectType: 'LOG',
+                  payload: {
+                    message: `Player ${payload.playerId} moved to ${payload.destinationSpace} (${reason})`,
+                    level: 'INFO',
+                    source
+                  }
+                }]
+              };
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown movement error';
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to move player ${payload.playerId} to ${payload.destinationSpace}: ${errorMessage}`
+              };
+            }
           }
           break;
 
         case 'TURN_CONTROL':
           if (isTurnControlEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would execute turn control action: ${payload.action} for player ${payload.playerId}`);
+            console.log(`🔄 EFFECT_ENGINE: Executing turn control action: ${payload.action} for player ${payload.playerId}`);
             console.log(`    Source: ${payload.source || context.source}`);
             console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement turn control logic
+            
+            let success = false;
+            try {
+              // Execute turn control action through TurnService
+              success = this.turnService.setTurnModifier(payload.playerId, payload.action);
+              
+              if (success) {
+                console.log(`✅ Turn control applied: ${payload.action} for player ${payload.playerId}`);
+              } else {
+                console.error(`❌ Failed to apply turn control: ${payload.action} for player ${payload.playerId}`);
+              }
+            } catch (error) {
+              console.error(`❌ Error applying turn control:`, error);
+              success = false;
+            }
           }
           break;
 
         case 'CARD_ACTIVATION':
           if (isCardActivationEffect(effect)) {
             const { payload } = effect;
-            console.log(`EFFECT_ENGINE: Would activate card ${payload.cardId} for player ${payload.playerId} for ${payload.duration} turns`);
+            console.log(`🎴 EFFECT_ENGINE: Activating card ${payload.cardId} for player ${payload.playerId} for ${payload.duration} turns`);
             console.log(`    Source: ${payload.source || context.source}`);
             console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
-            // TODO: In next task, implement card activation
+            
+            let success = false;
+            
+            try {
+              // Activate card through CardService
+              this.cardService.activateCard(payload.playerId, payload.cardId, payload.duration);
+              success = true;
+              
+              console.log(`✅ Card ${payload.cardId} activated successfully for ${payload.duration} turns`);
+            } catch (error) {
+              console.error(`❌ Error activating card ${payload.cardId}:`, error);
+              success = false;
+            }
+          }
+          break;
+
+        case 'EFFECT_GROUP_TARGETED':
+          if (isEffectGroupTargetedEffect(effect)) {
+            const { payload } = effect;
+            console.log(`🎯 EFFECT_ENGINE: Processing targeted effect - ${payload.targetType}`);
+            console.log(`    Source: ${payload.source || context.source}`);
+            console.log(`    Prompt: ${payload.prompt}`);
+            
+            let success = false;
+            
+            try {
+              success = await this.processTargetedEffect(payload, context);
+            } catch (error) {
+              console.error(`❌ Error processing targeted effect:`, error);
+              success = false;
+            }
           }
           break;
 
@@ -370,5 +538,131 @@ export class EffectEngineService implements IEffectEngineService {
       summary[effect.effectType] = (summary[effect.effectType] || 0) + 1;
     });
     return summary;
+  }
+
+  /**
+   * Process a targeted effect by handling player selection and applying effects
+   */
+  private async processTargetedEffect(
+    payload: Extract<Effect, { effectType: 'EFFECT_GROUP_TARGETED' }>['payload'], 
+    context: EffectContext
+  ): Promise<boolean> {
+    console.log(`🎯 EFFECT_ENGINE: Processing targeted effect with targetType: ${payload.targetType}`);
+    
+    // Get all players from StateService
+    const allPlayers = this.stateService.getAllPlayers();
+    const currentPlayerId = context.playerId || payload.templateEffect.effectType === 'RESOURCE_CHANGE' ? 
+      (payload.templateEffect as any).payload?.playerId : null;
+    
+    if (!currentPlayerId) {
+      console.error('Cannot determine current player for targeted effect');
+      return false;
+    }
+    
+    // Filter players based on target type
+    let targetPlayers: string[] = [];
+    
+    switch (payload.targetType) {
+      case 'OTHER_PLAYER_CHOICE':
+        // Filter out the current player, then let user choose one
+        const otherPlayers = allPlayers.filter(player => player.id !== currentPlayerId);
+        
+        if (otherPlayers.length === 0) {
+          console.log('No other players available for targeting');
+          return true; // Not an error, just no valid targets
+        }
+        
+        // Create player choice
+        const choice = {
+          id: `target_player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          playerId: currentPlayerId,
+          type: 'PLAYER_TARGET' as const,
+          prompt: payload.prompt,
+          options: otherPlayers.map(player => ({
+            id: player.id,
+            label: player.name || `Player ${player.id}`
+          }))
+        };
+        
+        console.log(`🎯 Creating player choice for targeting: ${choice.options.length} options`);
+        
+        // Use ChoiceService to present the choice and await result
+        const chosenTargetId = await this.choiceService.createChoice(
+          currentPlayerId,
+          'PLAYER_TARGET',
+          payload.prompt,
+          choice.options
+        );
+        
+        if (!chosenTargetId) {
+          console.error('No target selected for targeted effect');
+          return false;
+        }
+        
+        targetPlayers = [chosenTargetId];
+        console.log(`✅ Player chosen for targeting: ${chosenTargetId}`);
+        break;
+        
+      case 'ALL_OTHER_PLAYERS':
+        targetPlayers = allPlayers
+          .filter(player => player.id !== currentPlayerId)
+          .map(player => player.id);
+        console.log(`🎯 Targeting all other players: ${targetPlayers.length} players`);
+        break;
+        
+      case 'ALL_PLAYERS':
+        targetPlayers = allPlayers.map(player => player.id);
+        console.log(`🎯 Targeting all players: ${targetPlayers.length} players`);
+        break;
+        
+      default:
+        console.error(`Unknown target type: ${payload.targetType}`);
+        return false;
+    }
+    
+    if (targetPlayers.length === 0) {
+      console.log('No valid targets found for targeted effect');
+      return true; // Not an error, just no targets
+    }
+    
+    // Create targeted effects for each target player
+    const targetedEffects: Effect[] = [];
+    
+    for (const targetPlayerId of targetPlayers) {
+      // Clone the template effect and update the playerId
+      const targetedEffect = this.cloneEffectWithNewPlayerId(payload.templateEffect, targetPlayerId);
+      targetedEffects.push(targetedEffect);
+    }
+    
+    console.log(`🎯 Generated ${targetedEffects.length} targeted effects`);
+    
+    // Process all targeted effects using batch processing
+    const batchResult = await this.processEffects(targetedEffects, {
+      ...context,
+      source: `${context.source}:targeted`,
+      triggerEvent: 'CARD_PLAY' // Targeted effects are typically from card play
+    });
+    
+    console.log(`🎯 Targeted effects batch result: ${batchResult.successfulEffects}/${batchResult.totalEffects} successful`);
+    
+    return batchResult.success;
+  }
+
+  /**
+   * Clone an effect and replace the playerId with a new target
+   */
+  private cloneEffectWithNewPlayerId(templateEffect: Effect, newPlayerId: string): Effect {
+    // Deep clone the effect object
+    const clonedEffect = JSON.parse(JSON.stringify(templateEffect)) as Effect;
+    
+    // Update playerId in the payload if it exists
+    if ('payload' in clonedEffect && typeof clonedEffect.payload === 'object' && clonedEffect.payload !== null) {
+      const payload = clonedEffect.payload as any;
+      if ('playerId' in payload) {
+        payload.playerId = newPlayerId;
+      }
+    }
+    
+    return clonedEffect;
   }
 }

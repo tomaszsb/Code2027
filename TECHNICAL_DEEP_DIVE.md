@@ -105,6 +105,83 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 
 ---
 
+## 🚀 The Unified Effect Engine
+
+The **Unified Effect Engine** is the crown achievement of the code2027 refactor. It represents a complete paradigm shift from the fragmented, ad-hoc game logic of code2026 to a centralized, standardized system for handling all game events.
+
+### Core Concept
+
+All game events in code2027 - whether triggered by cards, spaces, dice rolls, or player actions - are translated into standardized `Effect` objects. This creates a single, unified pipeline for processing all game logic, eliminating code duplication and ensuring consistent behavior across all game mechanics.
+
+```typescript
+// Data Flow: Event Source -> EffectFactory -> Effect[] -> EffectEngineService -> State Change
+
+Card Play Event     →  EffectFactory  →  [ResourceChangeEffect, CardDrawEffect]  →  EffectEngineService  →  Player State Update
+Space Entry Event   →  EffectFactory  →  [MovementChoiceEffect, TimeEffect]     →  EffectEngineService  →  Game State Update  
+Dice Roll Event     →  EffectFactory  →  [TurnControlEffect]                    →  EffectEngineService  →  Turn State Update
+```
+
+### The Three Key Components
+
+#### 1. **EffectFactory** (`src/utils/EffectFactory.ts`)
+**Role**: Converts raw game data into standardized Effect objects, decoupling the engine from data sources.
+
+```typescript
+// Transforms CSV data into executable effects
+EffectFactory.createEffectsFromSpaceEffects(spaceEffects, context)
+EffectFactory.createEffectsFromCardData(cardData, playerId)
+EffectFactory.createEffectsFromDiceEffects(diceEffects, context)
+```
+
+The EffectFactory eliminates the need for the engine to understand CSV structures, card formats, or data schemas. It acts as a translation layer, ensuring that all game data - regardless of source - becomes a consistent array of Effect objects.
+
+#### 2. **Effect Types** (Discriminated Union Pattern)
+**Role**: Standardized data structures representing all possible game actions.
+
+The system defines **8 core Effect types** using TypeScript's discriminated union pattern:
+
+```typescript
+type Effect = 
+  | ResourceChangeEffect     // Money, time, reputation changes
+  | CardDrawEffect          // Drawing cards from decks
+  | CardDiscardEffect       // Discarding cards from hand
+  | CardActivationEffect    // Activating cards with duration
+  | MovementChoiceEffect    // Player movement decisions
+  | TurnControlEffect       // Turn skipping, extra turns
+  | EffectGroupTargeted     // Multi-player targeting effects
+  | ConditionalEffect       // Conditional logic (scope, dice conditions)
+```
+
+Each effect type carries all necessary data for execution, creating a self-contained instruction set that the engine can process uniformly.
+
+#### 3. **EffectEngineService** (`src/services/EffectEngineService.ts`)
+**Role**: Central processor that executes Effect arrays by calling appropriate low-level services.
+
+```typescript
+// Single entry point for all game logic
+await effectEngineService.executeEffects(effects, context);
+
+// Internally routes to specialized services:
+// ResourceChangeEffect  → ResourceService.adjustResource()
+// CardDrawEffect        → CardService.drawCards()  
+// MovementChoiceEffect  → MovementService + ChoiceService
+// TurnControlEffect     → TurnService.setTurnModifier()
+```
+
+The EffectEngineService acts as an orchestration layer, taking arrays of Effect objects and systematically executing them through the appropriate domain services (ResourceService, CardService, etc.).
+
+### Benefits Achieved
+
+1. **Centralized Logic**: All game mechanics flow through a single, testable pipeline
+2. **Data Independence**: Game logic is completely decoupled from CSV structures
+3. **Consistent Behavior**: All events follow the same execution patterns
+4. **Easy Extension**: New effect types can be added without changing existing code
+5. **Comprehensive Testing**: Single engine can be tested against all game scenarios
+
+This architecture transformation eliminated the Service Locator anti-patterns, God Objects, and event spaghetti that plagued code2026, replacing them with a clean, predictable, and maintainable system.
+
+---
+
 ### Architectural Patterns Established 🏗️
 
 The recent work has successfully established key architectural patterns that resolve the critical gaps identified in the audit:

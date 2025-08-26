@@ -1,4 +1,6 @@
-import { IPlayerActionService, IDataService, IStateService, IGameRulesService, IMovementService, ITurnService } from '../types/ServiceContracts';
+import { IPlayerActionService, IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../types/ServiceContracts';
+import { EffectFactory } from '../utils/EffectFactory';
+import { EffectContext } from '../types/EffectTypes';
 
 /**
  * PlayerActionService handles player actions and orchestrates interactions between multiple services.
@@ -10,7 +12,8 @@ export class PlayerActionService implements IPlayerActionService {
     private stateService: IStateService,
     private gameRulesService: IGameRulesService,
     private movementService: IMovementService,
-    private turnService: ITurnService
+    private turnService: ITurnService,
+    private effectEngineService: IEffectEngineService
   ) {}
 
   /**
@@ -22,6 +25,8 @@ export class PlayerActionService implements IPlayerActionService {
    */
   public async playCard(playerId: string, cardId: string): Promise<void> {
     try {
+      console.log(`🎮 PLAYER_ACTION: Player ${playerId} attempting to play card ${cardId}`);
+
       // 1. Get current game state and player
       const gameState = this.stateService.getGameState();
       const player = this.stateService.getPlayer(playerId);
@@ -37,6 +42,8 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Card with ID '${cardId}' not found`);
       }
 
+      console.log(`🎴 Card being played: ${card.card_name} (${card.card_id})`);
+
       // 3. Validate the action using GameRulesService
       const canPlayCard = this.gameRulesService.canPlayCard(playerId, cardId);
       
@@ -44,7 +51,7 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Player '${player.name}' cannot play card '${card.card_name}'. Validation failed.`);
       }
 
-      // 4. Validate player can afford the card cost
+      // 4. Validate player can afford the card cost (Effect Engine will handle the deduction)
       if (card.cost !== undefined && card.cost > 0) {
         const canAfford = this.gameRulesService.canPlayerAfford(playerId, card.cost);
         
@@ -53,32 +60,58 @@ export class PlayerActionService implements IPlayerActionService {
         }
       }
 
-      // 5. Update player state - remove card from hand and deduct cost
-      const updatedCards = { ...player.cards };
-      const cardType = card.card_type;
-      const cardIndex = updatedCards[cardType].indexOf(cardId);
+      // 5. Generate effects from the card using EffectFactory
+      const effects = EffectFactory.createEffectsFromCard(card, playerId);
+      console.log(`🏭 Generated ${effects.length} effects from card ${card.card_name}`);
+
+      // 6. Create effect processing context
+      const effectContext: EffectContext = {
+        source: `player_action:card_play`,
+        playerId: playerId,
+        triggerEvent: 'CARD_PLAY',
+        metadata: {
+          cardId: cardId,
+          cardName: card.card_name,
+          cardType: card.card_type,
+          playerName: player.name
+        }
+      };
+
+      // 7. Process all effects through the Effect Engine
+      console.log(`🔧 Processing card effects through Effect Engine...`);
+      const processingResult = await this.effectEngineService.processEffects(effects, effectContext);
       
-      if (cardIndex === -1) {
-        throw new Error(`Player '${player.name}' does not have card '${card.card_name}' in their ${cardType} hand`);
+      if (!processingResult.success) {
+        throw new Error(`Failed to process card effects: ${processingResult.errors.join(', ')}`);
       }
 
-      // Remove the card from the player's hand
-      updatedCards[cardType] = updatedCards[cardType].filter(id => id !== cardId);
+      console.log(`✅ Card effects processed successfully: ${processingResult.successfulEffects}/${processingResult.totalEffects} effects completed`);
 
-      // Calculate new money after cost deduction
-      const newMoney = player.money - (card.cost || 0);
+      // 8. The Effect Engine has now handled all card effects including:
+      //    - Card cost deduction (via RESOURCE_CHANGE effects from EffectFactory)
+      //    - Money/time changes (via card-specific effects)
+      //    - Drawing additional cards (via CARD_DRAW effects)
+      //    - Loan amounts (via expanded card mechanics)
+      //    - Any other card-specific effects
 
-      // Update the player state
-      this.stateService.updatePlayer({
-        id: playerId,
-        money: newMoney,
-        cards: updatedCards
-      });
+      // TODO: We still need to handle card removal from hand
+      // This should probably be done after successful effect processing
+      // For now, let's remove the card manually since the EffectFactory doesn't include this
+      const updatedCards = { ...player.availableCards };
+      const cardType = card.card_type;
+      
+      if (updatedCards[cardType] && updatedCards[cardType].includes(cardId)) {
+        updatedCards[cardType] = updatedCards[cardType].filter(id => id !== cardId);
+        
+        this.stateService.updatePlayer({
+          id: playerId,
+          availableCards: updatedCards
+        });
+        
+        console.log(`🗂️ Removed card ${cardId} from player's ${cardType} collection`);
+      }
 
-      // 6. Card effects will be processed by a dedicated effect system in future phases
-      // For now, the card play is complete after state update
-
-      // 7. Card play is complete - turn ending is now handled separately
+      console.log(`🎉 Card play complete for ${card.card_name}`);
 
     } catch (error) {
       // Re-throw with additional context

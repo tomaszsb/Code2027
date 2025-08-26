@@ -230,13 +230,13 @@ export class GameRulesService implements IGameRulesService {
       return false;
     }
 
-    // Check all card types
+    // Check all available card types
     const allCards = [
-      ...player.cards.W,
-      ...player.cards.B,
-      ...player.cards.E,
-      ...player.cards.L,
-      ...player.cards.I
+      ...(player.availableCards?.W || []),
+      ...(player.availableCards?.B || []),
+      ...(player.availableCards?.E || []),
+      ...(player.availableCards?.L || []),
+      ...(player.availableCards?.I || [])
     ];
 
     return allCards.includes(cardId);

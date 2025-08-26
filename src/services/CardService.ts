@@ -405,8 +405,8 @@ export class CardService implements ICardService {
     }
   }
 
-  // Card activation helper method
-  private activateCard(playerId: string, cardId: string, duration: number): void {
+  // Public method to activate a card with duration-based effects
+  public activateCard(playerId: string, cardId: string, duration: number): void {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -534,6 +534,7 @@ export class CardService implements ICardService {
 
     return false;
   }
+
 
   // Public method called at end of each turn to handle card expirations
   endOfTurn(): void {

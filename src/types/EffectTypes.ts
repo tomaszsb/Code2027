@@ -82,6 +82,15 @@ export type Effect =
         source?: string;
         reason?: string;
       };
+    }
+  | {
+      effectType: 'EFFECT_GROUP_TARGETED';
+      payload: {
+        targetType: 'OTHER_PLAYER_CHOICE' | 'ALL_OTHER_PLAYERS' | 'ALL_PLAYERS';
+        templateEffect: Effect;
+        prompt: string;
+        source?: string;
+      };
     };
 
 /**
@@ -159,4 +168,8 @@ export function isTurnControlEffect(effect: Effect): effect is Extract<Effect, {
 
 export function isCardActivationEffect(effect: Effect): effect is Extract<Effect, { effectType: 'CARD_ACTIVATION' }> {
   return effect.effectType === 'CARD_ACTIVATION';
+}
+
+export function isEffectGroupTargetedEffect(effect: Effect): effect is Extract<Effect, { effectType: 'EFFECT_GROUP_TARGETED' }> {
+  return effect.effectType === 'EFFECT_GROUP_TARGETED';
 }

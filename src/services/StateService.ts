@@ -105,7 +105,7 @@ export class StateService implements IStateService {
     const updatedPlayer: Player = {
       ...currentPlayer,
       ...playerData,
-      timeSpent: playerData.time !== undefined ? playerData.time : currentPlayer.timeSpent,
+      timeSpent: playerData.timeSpent !== undefined ? playerData.timeSpent : currentPlayer.timeSpent,
       availableCards: playerData.availableCards ? {
         ...currentPlayer.availableCards,
         ...playerData.availableCards
@@ -727,7 +727,9 @@ export class StateService implements IStateService {
       requiredActions: 1,
       completedActions: 0,
       availableActionTypes: [],
-      hasCompletedManualActions: false
+      hasCompletedManualActions: false,
+      // Initialize turn modifiers
+      turnModifiers: {}
     };
   }
 

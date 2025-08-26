@@ -15,6 +15,7 @@ import { GameRulesService } from '../services/GameRulesService';
 import { ResourceService } from '../services/ResourceService';
 import { ChoiceService } from '../services/ChoiceService';
 import { EffectEngineService } from '../services/EffectEngineService';
+import { NegotiationService } from '../services/NegotiationService';
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -37,10 +38,19 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const choiceService = new ChoiceService(stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
   const cardService = new CardService(dataService, stateService, resourceService);
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
   const movementService = new MovementService(dataService, stateService, choiceService);
-  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
-  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService);
+  
+  // Create TurnService first (without EffectEngineService initially)
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
+  
+  // Create EffectEngineService with TurnService dependency
+  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService);
+  
+  // Set EffectEngineService on TurnService to complete the circular dependency
+  turnService.setEffectEngineService(effectEngineService);
+  
+  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+  const negotiationService = new NegotiationService(stateService, effectEngineService);
   
   const services: IServiceContainer = {
     dataService,
@@ -53,6 +63,7 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
     resourceService,
     choiceService,
     effectEngineService,
+    negotiationService,
   };
 
   return (
