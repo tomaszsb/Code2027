@@ -42,6 +42,13 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
   const getDiceIcon = (value: number): string => {
     const diceIcons = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+    
+    // Safety check for invalid dice values
+    if (value < 1 || value > 6) {
+      console.warn(`Invalid dice value for icon: ${value}`);
+      return '🎲';
+    }
+    
     return diceIcons[value - 1] || '🎲';
   };
 
@@ -208,25 +215,55 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
         >
           {/* Header */}
           <div style={headerStyle}>
-            <div style={{
-              fontSize: '48px',
-              marginBottom: '8px',
-              animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-            }}>
-              {getDiceIcon(result.diceValue)}
-            </div>
-            <h2 
-              id="dice-result-title"
-              style={{ 
-                fontSize: '24px',
-                fontWeight: 'bold',
-                color: '#2c3e50',
-                margin: 0,
-                marginBottom: '8px'
-              }}
-            >
-              Dice Roll: {result.diceValue}
-            </h2>
+            {/* Dice Display - only show for actual dice rolls */}
+            {result.diceValue > 0 && (
+              <>
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '8px',
+                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+                }}>
+                  {getDiceIcon(result.diceValue)}
+                </div>
+                <h2 
+                  id="dice-result-title"
+                  style={{ 
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: 0,
+                    marginBottom: '8px'
+                  }}
+                >
+                  Dice Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
+                </h2>
+              </>
+            )}
+            
+            {/* Manual Action Display - for non-dice actions */}
+            {result.diceValue === 0 && (
+              <>
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '8px',
+                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+                }}>
+                  ⚡
+                </div>
+                <h2 
+                  id="action-result-title"
+                  style={{ 
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#2c3e50',
+                    margin: 0,
+                    marginBottom: '8px'
+                  }}
+                >
+                  Manual Action Result
+                </h2>
+              </>
+            )}
             <p style={{ 
               color: '#6c757d',
               margin: 0,

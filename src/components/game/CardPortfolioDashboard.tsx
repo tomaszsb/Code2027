@@ -398,44 +398,6 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           </div>
         </div>
 
-        {/* Discarded Cards */}
-        <div style={{ marginBottom: '8px' }}>
-          <div style={{
-            fontSize: '0.75rem',
-            fontWeight: 'bold' as const,
-            color: '#495057',
-            marginBottom: '6px',
-            textTransform: 'uppercase' as const
-          }}>
-            Discarded Cards
-          </div>
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap' as const,
-            gap: '4px',
-            alignItems: 'center'
-          }}>
-            {Object.entries(cardPortfolio.discarded).map(([cardType, count]) => (
-              <div
-                key={`discarded-${cardType}`}
-                style={{
-                  ...cardTypeStyle,
-                  backgroundColor: cardTypeColors[cardType as keyof typeof cardTypeColors],
-                  cursor: count > 0 ? 'pointer' : 'default',
-                  opacity: count > 0 ? 0.7 : 0.2,
-                  textDecoration: count > 0 ? 'line-through' : 'none'
-                }}
-                onClick={() => {
-                  if (count > 0) {
-                    console.log(`Showing discarded ${cardType} cards for player ${player.name}`);
-                  }
-                }}
-              >
-                {cardType}: {count}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Total Summary */}
         <div style={{
@@ -445,10 +407,9 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           paddingTop: '8px',
           marginTop: '8px'
         }}>
-          Total: {
+          Available + Active: {
             Object.values(cardPortfolio.available).reduce((sum, count) => sum + count, 0) +
-            cardPortfolio.active +
-            Object.values(cardPortfolio.discarded).reduce((sum, count) => sum + count, 0)
+            cardPortfolio.active
           } cards
         </div>
       </div>

@@ -52,8 +52,10 @@ export class TurnService implements ITurnService {
 
       // Check if player has already moved this turn
       const gameState = this.stateService.getGameState();
+      console.log(`🎮 TurnService.takeTurn - State check: hasPlayerMovedThisTurn=${gameState.hasPlayerMovedThisTurn}, currentPlayerId=${gameState.currentPlayerId}`);
       if (gameState.hasPlayerMovedThisTurn) {
-        throw new Error(`Player ${playerId} has already moved this turn`);
+        console.warn(`🎮 TurnService.takeTurn - Player ${playerId} has already moved, clearing flag and continuing (AI turn recovery)`);
+        this.stateService.clearPlayerHasMoved();
       }
 
       // Get current player data
@@ -243,15 +245,25 @@ export class TurnService implements ITurnService {
     // Update the current player in the game state
     this.stateService.setCurrentPlayer(nextPlayer.id);
 
-    // Advance turn counter and clear player moved flag
+    // Advance turn counter and reset turn flags
     this.stateService.advanceTurn();
     this.stateService.clearPlayerHasMoved();
+    this.stateService.clearPlayerHasRolledDice();
+    this.stateService.clearPlayerCompletedManualActions();
 
     return { nextPlayerId: nextPlayer.id };
   }
 
   rollDice(): number {
-    return Math.floor(Math.random() * 6) + 1;
+    const roll = Math.floor(Math.random() * 6) + 1;
+    
+    // Safety check - dice should never be 0 or greater than 6
+    if (roll < 1 || roll > 6) {
+      console.error(`Invalid dice roll generated: ${roll}. Rolling again.`);
+      return Math.floor(Math.random() * 6) + 1;
+    }
+    
+    return roll;
   }
 
   canPlayerTakeTurn(playerId: string): boolean {
@@ -306,7 +318,14 @@ export class TurnService implements ITurnService {
         continue;
       }
       
-      console.log(`⚡ Applying space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition})`);
+      // Evaluate condition before applying effect
+      const conditionMet = this.evaluateEffectCondition(playerId, effect.condition, diceRoll);
+      if (!conditionMet) {
+        console.log(`⏭️ Skipping space effect due to unmet condition: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition} = false)`);
+        continue;
+      }
+      
+      console.log(`⚡ Applying space effect: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (condition: ${effect.condition} = true)`);
       currentState = this.applySpaceEffect(playerId, effect, currentState);
     }
 
@@ -319,7 +338,9 @@ export class TurnService implements ITurnService {
     console.log(`🎲 Found ${diceEffects.length} dice effects:`, diceEffects);
 
     for (const effect of diceEffects) {
-      console.log(`🎲 Applying dice effect for roll ${diceRoll}:`, effect);
+      // Dice effects use roll_1, roll_2, etc. properties, not conditions
+      // The applyDiceEffect method will check if there's a value for the current dice roll
+      console.log(`🎲 Processing dice effect for roll ${diceRoll}: ${effect.effect_type} ${effect.card_type || ''}`);
       currentState = this.applyDiceEffect(playerId, effect, diceRoll, currentState);
     }
 
@@ -903,6 +924,9 @@ export class TurnService implements ITurnService {
       currentSpace: destinationSpace,
       visitType: newVisitType
     });
+
+    // Update action counts for the new space
+    this.stateService.updateActionCounts();
   }
 
   private hasPlayerVisitedSpace(player: Player, spaceName: string): boolean {
@@ -939,6 +963,12 @@ export class TurnService implements ITurnService {
       throw new Error(`No manual ${effectType} effect found for ${player.currentSpace} (${player.visitType})`);
     }
 
+    // Evaluate condition before applying manual effect
+    const conditionMet = this.evaluateEffectCondition(playerId, manualEffect.condition);
+    if (!conditionMet) {
+      throw new Error(`Manual ${effectType} effect condition not met: ${manualEffect.condition}`);
+    }
+
     console.log(`🔧 Triggering manual ${effectType} effect for player ${player.name} on ${player.currentSpace}`);
     console.log(`🔧 Effect details: ${manualEffect.effect_action} ${manualEffect.effect_value}`);
 
@@ -953,11 +983,84 @@ export class TurnService implements ITurnService {
       newState = this.applySpaceTimeEffect(playerId, manualEffect);
     }
 
-    // Mark that player has taken an action
-    this.stateService.setPlayerHasMoved();
+    // Mark that player has completed a manual action
+    this.stateService.setPlayerCompletedManualAction();
     
     console.log(`🔧 Manual ${effectType} effect completed for player ${player.name}`);
-    return newState;
+    return this.stateService.getGameState();
+  }
+
+  /**
+   * Trigger manual effect with modal feedback - similar to rollDiceWithFeedback
+   */
+  triggerManualEffectWithFeedback(playerId: string, effectType: string): TurnEffectResult {
+    console.log(`🔧 TurnService.triggerManualEffectWithFeedback - Starting for player ${playerId}, effect: ${effectType}`);
+    
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const beforeState = this.stateService.getGameState();
+    const beforePlayer = beforeState.players.find(p => p.id === playerId)!;
+
+    // Trigger the manual effect
+    this.triggerManualEffect(playerId, effectType);
+
+    const afterState = this.stateService.getGameState();
+    const afterPlayer = afterState.players.find(p => p.id === playerId)!;
+
+    // Get the effect details for feedback
+    const spaceEffects = this.dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
+    const manualEffect = spaceEffects.find(effect => 
+      effect.trigger_type === 'manual' && effect.effect_type === effectType
+    );
+
+    if (!manualEffect) {
+      throw new Error(`No manual ${effectType} effect found for ${currentPlayer.currentSpace}`);
+    }
+
+    // Create effect description for modal
+    const effects: DiceResultEffect[] = [];
+    
+    if (effectType === 'cards') {
+      const cardType = manualEffect.effect_action.replace('draw_', '').toUpperCase();
+      const count = manualEffect.effect_value;
+      effects.push({
+        type: 'cards',
+        description: `You picked up ${count} ${cardType} cards!`,
+        cardType: cardType,
+        cardCount: count
+      });
+    } else if (effectType === 'money') {
+      const action = manualEffect.effect_action; // 'add' or 'subtract'
+      const amount = manualEffect.effect_value;
+      const moneyChange = afterPlayer.money - beforePlayer.money;
+      effects.push({
+        type: 'money',
+        description: `Money ${action === 'add' ? 'gained' : 'spent'}: $${Math.abs(moneyChange)}`,
+        value: moneyChange
+      });
+    } else if (effectType === 'time') {
+      const action = manualEffect.effect_action; // 'add' or 'subtract'
+      const amount = manualEffect.effect_value;
+      const timeChange = afterPlayer.timeSpent - beforePlayer.timeSpent;
+      effects.push({
+        type: 'time',
+        description: `Time ${action === 'add' ? 'spent' : 'saved'}: ${Math.abs(timeChange)} hours`,
+        value: timeChange
+      });
+    }
+
+    const summary = effects.map(e => e.description).join(', ');
+
+    return {
+      diceValue: 0, // No dice roll for manual effects
+      spaceName: currentPlayer.currentSpace,
+      effects,
+      summary,
+      hasChoices: false
+    };
   }
 
   /**
@@ -1197,5 +1300,118 @@ export class TurnService implements ITurnService {
       case 'I': return 'Investment';
       default: return cardType;
     }
+  }
+
+  /**
+   * Evaluate whether an effect condition is met
+   */
+  private evaluateEffectCondition(playerId: string, condition: string | undefined, diceRoll?: number): boolean {
+    // If no condition is specified, assume it should always apply
+    if (!condition || condition.trim() === '') {
+      return true;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.warn(`Player ${playerId} not found for condition evaluation`);
+      return false;
+    }
+
+    const conditionLower = condition.toLowerCase().trim();
+
+    try {
+      // Always apply conditions
+      if (conditionLower === 'always') {
+        return true;
+      }
+
+      // Dice roll conditions (used in SPACE_EFFECTS.csv)
+      if (conditionLower.startsWith('dice_roll_') && diceRoll !== undefined) {
+        const requiredRoll = parseInt(conditionLower.replace('dice_roll_', ''));
+        return diceRoll === requiredRoll;
+      }
+
+      // Project scope conditions
+      if (conditionLower === 'scope_le_4m') {
+        const projectScope = this.calculateProjectScope(player);
+        return projectScope <= 4000000; // $4M
+      }
+      
+      if (conditionLower === 'scope_gt_4m') {
+        const projectScope = this.calculateProjectScope(player);
+        return projectScope > 4000000; // $4M
+      }
+
+      // Loan amount conditions
+      if (conditionLower.startsWith('loan_')) {
+        const playerMoney = player.money || 0;
+        
+        if (conditionLower === 'loan_up_to_1_4m') {
+          return playerMoney <= 1400000; // $1.4M
+        }
+        if (conditionLower === 'loan_1_5m_to_2_75m') {
+          return playerMoney >= 1500000 && playerMoney <= 2750000; // $1.5M to $2.75M
+        }
+        if (conditionLower === 'loan_above_2_75m') {
+          return playerMoney > 2750000; // Above $2.75M
+        }
+      }
+
+      // Percentage-based conditions (often used in dice effects)
+      if (conditionLower.includes('%')) {
+        // These are typically values, not conditions - return true for now
+        return true;
+      }
+
+      // Direction conditions (for movement or targeting)
+      if (conditionLower === 'to_left' || conditionLower === 'to_right') {
+        // These would need game board context to evaluate properly
+        // For now, return true (placeholder implementation)
+        return true;
+      }
+
+      // High/low conditions
+      if (conditionLower === 'high') {
+        return diceRoll !== undefined && diceRoll >= 4; // 4, 5, 6 are "high"
+      }
+      
+      if (conditionLower === 'low') {
+        return diceRoll !== undefined && diceRoll <= 3; // 1, 2, 3 are "low"
+      }
+
+      // Amount-based conditions
+      if (conditionLower.includes('per_') || conditionLower.includes('of_borrowed_amount')) {
+        // These are typically calculation modifiers, not boolean conditions
+        return true;
+      }
+
+      // Fallback for unknown conditions
+      console.warn(`Unknown effect condition: "${condition}" - defaulting to true`);
+      return true;
+
+    } catch (error) {
+      console.error(`Error evaluating condition "${condition}":`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Calculate total project scope from player's work cards
+   */
+  private calculateProjectScope(player: Player): number {
+    let totalScope = 0;
+
+    // Sum up all work cards (W cards represent project scope)
+    const workCards = player.availableCards?.W || [];
+    for (const cardId of workCards) {
+      const cardData = this.dataService.getCardById(cardId);
+      if (cardData && cardData.card_cost && cardData.card_cost > 0) {
+        // Work cards use card_cost to represent project scope value
+        totalScope += cardData.card_cost;
+      }
+    }
+
+    console.log(`🏗️ Player ${player.name} total project scope: $${totalScope.toLocaleString()} (from ${workCards.length} work cards)`);
+    return totalScope;
   }
 }

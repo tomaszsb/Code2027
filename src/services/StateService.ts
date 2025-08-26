@@ -178,6 +178,9 @@ export class StateService implements IStateService {
       throw new Error(`Player with ID "${playerId}" not found`);
     }
 
+    const player = this.currentState.players.find(p => p.id === playerId);
+    console.log(`🎯 StateService.setCurrentPlayer - Setting current player to ${player?.name} (${playerId})`);
+
     const newState: GameState = {
       ...this.currentState,
       currentPlayerId: playerId
@@ -399,6 +402,21 @@ export class StateService implements IStateService {
     return { ...this.currentState };
   }
 
+  setPlayerCompletedManualAction(): GameState {
+    console.log(`🎯 Setting hasCompletedManualActions to true for current player`);
+    const newState: GameState = {
+      ...this.currentState,
+      hasCompletedManualActions: true
+    };
+
+    this.currentState = newState;
+    
+    // Update action counts when player completes manual actions
+    this.updateActionCounts();
+    
+    return { ...this.currentState };
+  }
+
   setPlayerHasRolledDice(): GameState {
     const newState: GameState = {
       ...this.currentState,
@@ -414,9 +432,32 @@ export class StateService implements IStateService {
   }
 
   clearPlayerHasMoved(): GameState {
+    console.log(`🎯 StateService.clearPlayerHasMoved - Clearing hasPlayerMovedThisTurn flag`);
     const newState: GameState = {
       ...this.currentState,
       hasPlayerMovedThisTurn: false
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  clearPlayerCompletedManualActions(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      hasCompletedManualActions: false
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...newState };
+  }
+
+  clearPlayerHasRolledDice(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      hasPlayerRolledDice: false
     };
 
     this.currentState = newState;
@@ -500,6 +541,8 @@ export class StateService implements IStateService {
     if (!currentPlayer || !this.dataService.isLoaded()) return;
     
     const actionCounts = this.calculateRequiredActions(currentPlayer);
+    console.log(`🎯 Action Counts for ${currentPlayer.name}: Required=${actionCounts.required}, Completed=${actionCounts.completed}, Types=[${actionCounts.availableTypes.join(', ')}]`);
+    console.log(`🎯 State: hasPlayerMovedThisTurn=${this.currentState.hasPlayerMovedThisTurn}, hasCompletedManualActions=${this.currentState.hasCompletedManualActions}`);
     
     this.currentState = {
       ...this.currentState,
@@ -533,16 +576,15 @@ export class StateService implements IStateService {
       const manualEffects = spaceEffects.filter(effect => effect.trigger_type === 'manual');
       const automaticEffects = spaceEffects.filter(effect => effect.trigger_type !== 'manual');
       
-      // Count automatic effects (triggered by dice roll)
-      automaticEffects.forEach(effect => {
-        if (effect.effect_type === 'cards') {
-          availableTypes.push('cards_auto');
-          required++;
-          // Cards are drawn automatically when dice is rolled
-          if (this.currentState.hasPlayerRolledDice) {
-            completed++;
-          }
-        }
+      console.log(`🔍 Found ${spaceEffects.length} space effects for ${player.currentSpace}: Manual=${manualEffects.length}, Automatic=${automaticEffects.length} (automatic effects don't count as separate actions)`);
+      spaceEffects.forEach((effect, i) => {
+        console.log(`  Effect ${i}: type=${effect.effect_type}, trigger=${effect.trigger_type}, action=${effect.effect_action}`);
+      });
+      
+      // Log automatic effects for debugging, but don't count them as separate actions
+      // Automatic effects are triggered by the dice roll and don't require separate player actions
+      automaticEffects.forEach((effect, index) => {
+        console.log(`  📝 Automatic effect ${index}: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (triggered by dice roll)`);
       });
 
       // Count manual effects (require separate player action)
@@ -550,34 +592,35 @@ export class StateService implements IStateService {
         if (effect.effect_type === 'cards') {
           availableTypes.push('cards_manual');
           required++;
-          // Manual effects are counted as completed when hasPlayerMovedThisTurn is true
-          // This is set by the triggerManualEffect method
-          if (this.currentState.hasPlayerMovedThisTurn) {
+          // Manual effects are counted as completed when hasCompletedManualActions is true
+          if (this.currentState.hasCompletedManualActions) {
             completed++;
           }
         } else if (effect.effect_type === 'money') {
           availableTypes.push('money_manual');
           required++;
-          if (this.currentState.hasPlayerMovedThisTurn) {
+          if (this.currentState.hasCompletedManualActions) {
             completed++;
           }
         } else if (effect.effect_type === 'time') {
           availableTypes.push('time_manual');
           required++;
-          if (this.currentState.hasPlayerMovedThisTurn) {
+          if (this.currentState.hasCompletedManualActions) {
             completed++;
           }
         }
       });
       
-      // If no specific actions required, default to 1 (basic movement)
-      if (required === 0) {
-        availableTypes.push('movement');
-        required = 1;
-        if (this.currentState.hasPlayerMovedThisTurn) {
-          completed = 1;
+      // Always require dice roll as a basic action (if not already counted from space config)
+      if (!availableTypes.includes('dice')) {
+        availableTypes.push('dice_roll');
+        required++;
+        if (this.currentState.hasPlayerRolledDice) {
+          completed++;
         }
       }
+      
+      // Note: We always have at least the dice roll action, so required should never be 0
       
     } catch (error) {
       console.error('Error calculating required actions:', error);
@@ -681,7 +724,8 @@ export class StateService implements IStateService {
       // Initialize action tracking
       requiredActions: 1,
       completedActions: 0,
-      availableActionTypes: []
+      availableActionTypes: [],
+      hasCompletedManualActions: false
     };
   }
 
@@ -706,6 +750,7 @@ export class StateService implements IStateService {
         L: [],
         I: []
       },
+      activeCards: [],
       discardedCards: {
         W: [],
         B: [],

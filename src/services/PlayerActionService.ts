@@ -107,6 +107,12 @@ export class PlayerActionService implements IPlayerActionService {
       // 2. Generate single die roll (1-6) - matching CSV data expectations
       const diceRoll = Math.floor(Math.random() * 6) + 1;
       
+      // Safety check - dice should never be 0 or greater than 6
+      if (diceRoll < 1 || diceRoll > 6) {
+        console.error(`Invalid dice roll generated in PlayerActionService: ${diceRoll}`);
+        throw new Error(`Invalid dice roll: ${diceRoll}. Please try rolling again.`);
+      }
+      
       // Maintain interface compatibility by setting both roll1 and roll2 to the same value
       const diceResult = { roll1: diceRoll, roll2: diceRoll, total: diceRoll };
 

@@ -208,6 +208,19 @@ export function ProjectProgress({ players }: ProjectProgressProps): JSX.Element 
             Current Turn: {currentPlayer.name}
           </div>
         )}
+        {currentPlayer && (
+          <div style={{
+            background: '#fff3cd',
+            color: '#856404',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            fontSize: '0.8rem',
+            fontWeight: 'bold',
+            textAlign: 'center'
+          }}>
+            📍 {currentPlayer.currentSpace} ({currentPlayer.visitType} Visit)
+          </div>
+        )}
       </div>
 
       {/* Individual Player Progress */}

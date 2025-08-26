@@ -7,6 +7,7 @@ import { CardPortfolioDashboard } from './CardPortfolioDashboard';
 import { TurnControls } from './TurnControls';
 import { useGameContext } from '../../context/GameContext';
 import { FormatUtils } from '../../utils/FormatUtils';
+import { DiscardedCardsModal } from '../modals/DiscardedCardsModal';
 
 interface PlayerStatusItemProps {
   player: Player;
@@ -25,9 +26,10 @@ interface PlayerStatusItemProps {
  * Shows avatar, name, money, and time with visual indicator for current player
  */
 export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal, onToggleSpaceExplorer, onToggleMovementPath, isSpaceExplorerVisible, isMovementPathVisible }: PlayerStatusItemProps): JSX.Element {
-  const { stateService } = useGameContext();
+  const { stateService, dataService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
+  const [showDiscardedCards, setShowDiscardedCards] = useState(false);
   // Add CSS animation styles to document head if not already present
   React.useEffect(() => {
     const styleId = 'player-status-animations';
@@ -176,7 +178,9 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
     display: 'flex',
     flexDirection: 'column' as const,
     justifyContent: 'center',
-    overflow: 'visible'
+    alignItems: 'center',
+    overflow: 'visible',
+    minHeight: '100%'
   };
 
   // Main content container style adjustments when expanded
@@ -195,41 +199,8 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
 
       {/* Main Content Container */}
       <div style={mainContentStyle}>
-        {/* Left Section: Current Space, Avatar and Name */}
+        {/* Left Section: Avatar and Name */}
         <div style={leftSectionStyle}>
-          {/* Current Space moved above avatar */}
-          <div style={{
-            padding: '4px 8px',
-            background: isCurrentPlayer ? 'rgba(33, 150, 243, 0.1)' : 'rgba(248, 249, 250, 0.8)',
-            borderRadius: '6px',
-            border: `1px solid ${isCurrentPlayer ? '#2196f3' : '#e0e0e0'}`,
-            transition: 'all 0.4s ease-in-out',
-            animation: isCurrentPlayer ? 'positionUpdate 0.6s ease-out' : undefined,
-            overflow: 'hidden',
-            wordWrap: 'break-word',
-            marginBottom: '8px'
-          }}>
-            <div style={{
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              color: isCurrentPlayer ? '#1976d2' : '#495057',
-              lineHeight: '1.2',
-              wordWrap: 'break-word',
-              hyphens: 'auto',
-              textAlign: 'center'
-            }}>
-              {player.currentSpace}
-            </div>
-            <div style={{
-              fontSize: '0.6rem',
-              color: '#6c757d',
-              marginTop: '1px',
-              textAlign: 'center'
-            }}>
-              ({player.visitType} Visit)
-            </div>
-          </div>
-          
           <div style={avatarStyle}>
             {player.avatar}
           </div>
@@ -344,6 +315,39 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
                 <span>🧭</span>
                 <span>Available Paths</span>
               </button>
+
+              {/* Discarded Cards Button */}
+              <button
+                onClick={() => setShowDiscardedCards(true)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  backgroundColor: '#ffc107',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '70px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e0a800';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffc107';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                title="View discarded cards"
+              >
+                <span>🗂️</span>
+                <span>Discarded</span>
+              </button>
             </div>
           )}
         </div>
@@ -425,13 +429,18 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             </div>
           ) : (
             <div style={{
-              background: '#f8f9fa',
-              border: '1px solid #e9ecef',
+              background: '#ffebee',
+              border: '1px solid #ffcdd2',
               borderRadius: '6px',
               padding: '6px',
               textAlign: 'center',
-              color: '#6c757d',
-              fontSize: '10px'
+              color: '#c62828',
+              fontSize: '10px',
+              minHeight: '120px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold'
             }}>
               Not your turn
             </div>
@@ -464,6 +473,14 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
           />
         </div>
       )}
+
+      {/* Discarded Cards Modal */}
+      <DiscardedCardsModal
+        player={player}
+        isVisible={showDiscardedCards}
+        onClose={() => setShowDiscardedCards(false)}
+        onOpenCardDetailsModal={onOpenCardDetailsModal}
+      />
     </div>
   );
 }

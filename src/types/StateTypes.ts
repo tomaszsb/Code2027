@@ -24,6 +24,7 @@ export interface GameState {
   requiredActions: number;
   completedActions: number;
   availableActionTypes: string[];
+  hasCompletedManualActions: boolean;
 }
 
 export interface PlayerAction {

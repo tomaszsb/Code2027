@@ -3,7 +3,7 @@
 ## 🎯 Current Project Status: PRODUCTION READY
 
 **Core Game Complete**: Fully playable multi-player board game with clean service architecture
-**Last Updated**: August 23, 2025 - All Critical Bugs Fixed
+**Last Updated**: August 26, 2025 - Effect Condition System & Action Counting Fixed
 
 ## 🏗️ Architecture Foundation
 
@@ -42,6 +42,15 @@ GameRulesService.ts     // ✅ Business rules + validation
 - **✅ Card Replacement Modal**: Interactive card selection and replacement interface
 - **✅ Movement Path Visualization**: Real-time movement options and path display
 - **✅ Space Explorer Panel**: Comprehensive space browser with search and filtering
+
+## 🧠 Effect Condition System (NEW - August 26, 2025)
+
+- **✅ Data-Driven Condition Evaluation**: All effect conditions evaluated from CSV data
+- **✅ Project Scope Conditions**: `scope_le_4M`, `scope_gt_4M` based on player's work cards
+- **✅ Dice Roll Conditions**: `dice_roll_1` through `dice_roll_6` for specific roll requirements  
+- **✅ Loan Amount Conditions**: `loan_up_to_1_4m`, `loan_1_5m_to_2_75m`, `loan_above_2_75m`
+- **✅ Universal Conditions**: `always`, `high`, `low` and other data-driven conditions
+- **✅ Proper Action Counting**: Automatic effects don't count as separate actions
 
 ## 📂 Data Architecture 
 
@@ -355,3 +364,70 @@ tests/components/
 - **Accessibility**: Keyboard navigation and screen reader support
 
 **Development Status**: All three UI enhancements are production-ready and fully integrated into the game.
+
+---
+
+## 🛠️ Critical Fixes - August 26, 2025 ✅
+
+### **Effect Condition Evaluation System**
+**Status**: Complete implementation of data-driven effect condition evaluation
+
+#### **Problem Solved**
+- **Issue**: All CSV effect conditions (scope_le_4M, dice_roll_X, etc.) were logged but never evaluated
+- **Impact**: Effects like "Draw B card if scope ≤ $4M" always applied regardless of actual scope
+- **Root Cause**: Missing condition evaluation logic in effect processing
+
+#### **Solution Implemented**
+**File**: `src/services/TurnService.ts`
+
+1. **Added `evaluateEffectCondition()` method**:
+   ```typescript
+   private evaluateEffectCondition(playerId: string, condition: string | undefined, diceRoll?: number): boolean
+   ```
+
+2. **Comprehensive condition support**:
+   - `scope_le_4M` / `scope_gt_4M` - Project scope evaluation
+   - `dice_roll_1` through `dice_roll_6` - Dice-specific conditions
+   - `always` - Universal application
+   - Loan amount, direction, and percentage conditions
+
+3. **Project scope calculation**:
+   ```typescript
+   private calculateProjectScope(player: Player): number
+   ```
+
+4. **Integration points**:
+   - Space effects: Condition checked before applying
+   - Dice effects: Proper handling of roll_X structure
+   - Manual effects: Condition validation before trigger
+
+### **Action Counting Logic Fix**
+**Status**: Fixed phantom action counting issue
+
+#### **Problem Solved**
+- **Issue**: Players saw "4/4 actions completed" but only had 1-2 actual actions available
+- **Impact**: Confusing UI showing phantom actions with no buttons
+- **Root Cause**: Automatic effects counted as separate required actions
+
+#### **Solution Implemented**
+**File**: `src/services/StateService.ts`
+
+1. **Removed automatic effects from required action count**:
+   - Time, money, card effects with `trigger_type !== 'manual'` are now triggered by dice roll
+   - Only manual effects and dice roll count as required actions
+
+2. **Proper action calculation**:
+   - PM-DECISION-CHECK: 2 actions (dice + manual replace)
+   - OWNER-FUND-INITIATION: 1 action (dice only)
+   - OWNER-SCOPE-INITIATION: 2 actions (dice + manual draw)
+
+#### **Technical Details**
+- **Before**: `Required=4, Types=[time_auto, cards_auto, cards_auto, dice_roll]`
+- **After**: `Required=2, Types=[cards_manual, dice_roll]`
+
+#### **Files Modified**
+- `src/services/TurnService.ts` - Condition evaluation system
+- `src/services/StateService.ts` - Action counting fixes
+- `src/components/game/TurnControls.tsx` - Enhanced debugging
+
+**Result**: Game now properly evaluates all CSV conditions and shows accurate action counts.
