@@ -91,6 +91,12 @@ export type Effect =
         prompt: string;
         source?: string;
       };
+    }
+  | {
+      effectType: 'RECALCULATE_SCOPE';
+      payload: {
+        playerId: string;
+      };
     };
 
 /**
@@ -172,4 +178,8 @@ export function isCardActivationEffect(effect: Effect): effect is Extract<Effect
 
 export function isEffectGroupTargetedEffect(effect: Effect): effect is Extract<Effect, { effectType: 'EFFECT_GROUP_TARGETED' }> {
   return effect.effectType === 'EFFECT_GROUP_TARGETED';
+}
+
+export function isRecalculateScopeEffect(effect: Effect): effect is Extract<Effect, { effectType: 'RECALCULATE_SCOPE' }> {
+  return effect.effectType === 'RECALCULATE_SCOPE';
 }

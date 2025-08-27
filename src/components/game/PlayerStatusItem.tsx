@@ -385,6 +385,11 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               <div style={statValueStyle}>⏱️ {FormatUtils.formatTime(player.timeSpent || 0)}</div>
             </div>
 
+            <div style={statItemStyle}>
+              <div style={statLabelStyle}>Project Scope</div>
+              <div style={statValueStyle}>🏗️ {FormatUtils.formatMoney(player.projectScope || 0)}</div>
+            </div>
+
             {/* Card Portfolio Toggle Button */}
             <button
               style={{

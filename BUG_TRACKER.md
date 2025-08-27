@@ -8,7 +8,7 @@ This document tracks known bugs and issues for the `code2027` project.
 
 *   **ID:** `BUG-001`
 *   **Severity:** `Low`
-*   **Status:** `Open`
+*   **Status:** `Resolved`
 *   **Description:** When a targeted effect has only one possible valid target (e.g., a 2-player game and a card targets 'other_player'), the system still presents a choice to the user rather than auto-resolving.
 *   **Steps to Reproduce:**
     1. Start a 2-player game.

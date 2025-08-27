@@ -22,6 +22,12 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
     return null;
   }
 
+  // Defensive checks to prevent crashes
+  if (!result.effects || !Array.isArray(result.effects)) {
+    console.error('DiceResultModal: result.effects is not a valid array', result);
+    return null;
+  }
+
   const handleConfirm = () => {
     if (onConfirm) {
       onConfirm();

@@ -83,6 +83,7 @@ export interface Player {
   visitType: 'First' | 'Subsequent';
   money: number;
   timeSpent: number;
+  projectScope: number;
   color?: string;
   avatar?: string;
   availableCards: {

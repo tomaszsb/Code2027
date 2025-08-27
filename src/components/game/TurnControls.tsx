@@ -122,7 +122,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       console.log(`Rolling dice for player: ${currentPlayer.name}`);
       
       // Use rollDiceWithFeedback for dice roll + effects + feedback modal
-      const result = turnService.rollDiceWithFeedback(currentPlayer.id);
+      const result = await turnService.rollDiceWithFeedback(currentPlayer.id);
       setLastRoll(result.diceValue);
       setDiceResult(result);
       setShowDiceResultModal(true);
@@ -219,7 +219,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       console.log(`Triggering manual ${effectType} effect for player: ${currentPlayer.name}`);
       
       // Use triggerManualEffectWithFeedback for modal support
-      const result = turnService.triggerManualEffectWithFeedback(currentPlayer.id, effectType);
+      const result = await turnService.triggerManualEffectWithFeedback(currentPlayer.id, effectType);
       console.log(`Manual ${effectType} effect completed! Effects:`, result.effects);
       
       // Set modal result and show modal

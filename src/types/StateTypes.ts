@@ -90,6 +90,7 @@ export interface PlayerUpdateData {
   visitType?: 'First' | 'Subsequent';
   money?: number;
   time?: number;
+  projectScope?: number;
   cards?: {
     W?: string[];
     B?: string[];

@@ -315,4 +315,41 @@ export class GameRulesService implements IGameRulesService {
       return false;
     }
   }
+
+  /**
+   * Calculates the total project scope for a player based on their Work (W) cards
+   * @param playerId - The ID of the player
+   * @returns The total cost/value of all W cards owned by the player
+   */
+  calculateProjectScope(playerId: string): number {
+    try {
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        console.error(`Player ${playerId} not found when calculating project scope`);
+        return 0;
+      }
+
+      let totalScope = 0;
+
+      // Get all W cards for this player
+      const workCards = player.availableCards?.W || [];
+
+      // Calculate total scope by summing up card costs
+      for (const cardId of workCards) {
+        const cardData = this.dataService.getCard(cardId);
+        if (cardData) {
+          // Use work_cost if available, otherwise fall back to cost
+          const cardCost = cardData.work_cost || cardData.cost || 0;
+          totalScope += cardCost;
+        } else {
+          console.warn(`Card data not found for W card: ${cardId}`);
+        }
+      }
+
+      return totalScope;
+    } catch (error) {
+      console.error(`Error calculating project scope for player ${playerId}:`, error);
+      return 0;
+    }
+  }
 }

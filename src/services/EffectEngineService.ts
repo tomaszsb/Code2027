@@ -6,7 +6,8 @@ import {
   IChoiceService, 
   IStateService, 
   IMovementService,
-  ITurnService
+  ITurnService,
+  IGameRulesService
 } from '../types/ServiceContracts';
 import { 
   Effect, 
@@ -55,6 +56,7 @@ export class EffectEngineService implements IEffectEngineService {
   private stateService: IStateService;
   private movementService: IMovementService;
   private turnService: ITurnService;
+  private gameRulesService: IGameRulesService;
 
   constructor(
     resourceService: IResourceService,
@@ -62,7 +64,8 @@ export class EffectEngineService implements IEffectEngineService {
     choiceService: IChoiceService,
     stateService: IStateService,
     movementService: IMovementService,
-    turnService: ITurnService
+    turnService: ITurnService,
+    gameRulesService: IGameRulesService
   ) {
     this.resourceService = resourceService;
     this.cardService = cardService;
@@ -70,6 +73,7 @@ export class EffectEngineService implements IEffectEngineService {
     this.stateService = stateService;
     this.movementService = movementService;
     this.turnService = turnService;
+    this.gameRulesService = gameRulesService;
   }
 
   /**
@@ -427,6 +431,23 @@ export class EffectEngineService implements IEffectEngineService {
           }
           break;
 
+        case 'RECALCULATE_SCOPE':
+          console.log(`📊 EFFECT_ENGINE: Recalculating project scope for player ${effect.payload.playerId}`);
+          
+          let success = false;
+          try {
+            const newProjectScope = this.gameRulesService.calculateProjectScope(effect.payload.playerId);
+            this.stateService.updatePlayer({
+              id: effect.payload.playerId,
+              projectScope: newProjectScope
+            });
+            console.log(`📊 Project Scope Updated [${effect.payload.playerId}]: $${newProjectScope.toLocaleString()}`);
+            success = true;
+          } catch (error) {
+            console.error(`❌ Failed to recalculate scope for player ${effect.payload.playerId}:`, error);
+          }
+          break;
+
         default:
           // TypeScript exhaustiveness check - this should never be reached
           const _exhaustiveCheck: never = effect;
@@ -551,11 +572,14 @@ export class EffectEngineService implements IEffectEngineService {
     
     // Get all players from StateService
     const allPlayers = this.stateService.getAllPlayers();
-    const currentPlayerId = context.playerId || payload.templateEffect.effectType === 'RESOURCE_CHANGE' ? 
-      (payload.templateEffect as any).payload?.playerId : null;
+    const currentPlayerId = context.playerId || 
+      (payload.templateEffect.effectType === 'RESOURCE_CHANGE' ? 
+        (payload.templateEffect as any).payload?.playerId : null);
     
     if (!currentPlayerId) {
       console.error('Cannot determine current player for targeted effect');
+      console.error(`Context playerId: ${context.playerId}`);
+      console.error(`Template effect type: ${payload.templateEffect.effectType}`);
       return false;
     }
     
@@ -572,7 +596,16 @@ export class EffectEngineService implements IEffectEngineService {
           return true; // Not an error, just no valid targets
         }
         
-        // Create player choice
+        // BUG-001 FIX: If only one valid target, apply effect automatically
+        if (otherPlayers.length === 1) {
+          const singleTarget = otherPlayers[0];
+          targetPlayers = [singleTarget.id];
+          console.log(`🎯 Single target detected - applying effect automatically to: ${singleTarget.name || singleTarget.id}`);
+          console.log(`✅ Automatic targeting resolved without ChoiceService`);
+          break;
+        }
+        
+        // Multiple targets: present choice to player
         const choice = {
           id: `target_player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           playerId: currentPlayerId,

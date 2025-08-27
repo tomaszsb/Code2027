@@ -745,6 +745,7 @@ export class StateService implements IStateService {
       visitType: 'First',
       money: 0, // Players start with no money, get funding from owner and loans later
       timeSpent: 0,
+      projectScope: 0, // Players start with no project scope, calculated from W cards
       color: defaultColor,
       avatar: defaultAvatar,
       availableCards: {

@@ -138,7 +138,7 @@ The EffectFactory eliminates the need for the engine to understand CSV structure
 #### 2. **Effect Types** (Discriminated Union Pattern)
 **Role**: Standardized data structures representing all possible game actions.
 
-The system defines **8 core Effect types** using TypeScript's discriminated union pattern:
+The system defines **9 core Effect types** using TypeScript's discriminated union pattern:
 
 ```typescript
 type Effect = 
@@ -150,6 +150,7 @@ type Effect =
   | TurnControlEffect       // Turn skipping, extra turns
   | EffectGroupTargeted     // Multi-player targeting effects
   | ConditionalEffect       // Conditional logic (scope, dice conditions)
+  | RecalculateScopeEffect  // Project scope recalculation for W cards
 ```
 
 Each effect type carries all necessary data for execution, creating a self-contained instruction set that the engine can process uniformly.
@@ -162,10 +163,11 @@ Each effect type carries all necessary data for execution, creating a self-conta
 await effectEngineService.executeEffects(effects, context);
 
 // Internally routes to specialized services:
-// ResourceChangeEffect  → ResourceService.adjustResource()
-// CardDrawEffect        → CardService.drawCards()  
-// MovementChoiceEffect  → MovementService + ChoiceService
-// TurnControlEffect     → TurnService.setTurnModifier()
+// ResourceChangeEffect    → ResourceService.adjustResource()
+// CardDrawEffect          → CardService.drawCards()  
+// MovementChoiceEffect    → MovementService + ChoiceService
+// TurnControlEffect       → TurnService.setTurnModifier()
+// RecalculateScopeEffect  → GameRulesService.calculateProjectScope()
 ```
 
 The EffectEngineService acts as an orchestration layer, taking arrays of Effect objects and systematically executing them through the appropriate domain services (ResourceService, CardService, etc.).
@@ -179,6 +181,86 @@ The EffectEngineService acts as an orchestration layer, taking arrays of Effect 
 5. **Comprehensive Testing**: Single engine can be tested against all game scenarios
 
 This architecture transformation eliminated the Service Locator anti-patterns, God Objects, and event spaghetti that plagued code2026, replacing them with a clean, predictable, and maintainable system.
+
+---
+
+## 🏛️ State Management Philosophy
+
+### The Redux Alternative Decision
+
+The original `REFACTORING_ROADMAP.md` considered adopting a formal state management library like Redux, which is a common choice for complex React applications requiring centralized state management. However, after careful architectural analysis, we implemented a **custom StateService** instead.
+
+### Rationale Behind the Custom StateService
+
+#### **1. Simplicity & Control**
+Our custom StateService gives us complete control over state management logic without the boilerplate and complexity that accompanies large libraries like Redux. We avoided:
+- Action creators, reducers, and middleware setup
+- Complex debugging tools and DevTools integration overhead  
+- Learning curve for team members unfamiliar with Redux patterns
+- Rigid architectural constraints that may not fit our specific use case
+
+```typescript
+// Our Simple Approach
+stateService.updatePlayer({ id: 'player1', money: 500 });
+
+// vs Redux Approach
+dispatch(updatePlayerMoney('player1', 500));
+// + action creator + reducer + type definitions
+```
+
+#### **2. Performance Optimization**
+For our specific board game use case, a simple, observable-based service delivers superior performance:
+- **Direct Updates**: No action dispatching overhead or reducer processing chains
+- **Targeted Subscriptions**: Components subscribe only to relevant state changes  
+- **Minimal Re-renders**: Precise control over when and how components update
+- **Memory Efficiency**: No action history, time travel, or debugging overhead in production
+
+#### **3. Dependency-Free Architecture**
+Keeping our core state logic free from third-party library dependencies provides several advantages:
+- **Future-Proof**: No risk of Redux version conflicts, breaking changes, or library abandonment
+- **Bundle Size**: Reduced application bundle size without Redux, React-Redux, and related dependencies
+- **Testing Simplicity**: Pure TypeScript service logic is easier to unit test than Redux integration
+- **Portability**: StateService could be adapted to other frameworks beyond React if needed
+
+#### **4. Sufficiency for Our Use Case**
+Our StateService, combined with React Context API (`useGameContext`), provides comprehensive functionality:
+
+```typescript
+// Complete State Management Features Achieved:
+✅ Centralized state management through StateService
+✅ Immutable state updates with proper type safety  
+✅ Component subscriptions via React Context
+✅ Real-time UI updates across all components
+✅ State validation and business rule enforcement
+✅ Easy debugging with straightforward service calls
+```
+
+### Implementation Benefits Realized
+
+The custom StateService approach has proven its value throughout development:
+
+1. **Rapid Development**: No learning curve or Redux setup overhead
+2. **Clear Debugging**: Direct service calls are easy to trace and debug
+3. **Type Safety**: Full TypeScript integration without Redux type complexity
+4. **Performance**: Minimal overhead with targeted updates
+5. **Maintainability**: Simple, readable code that team members can quickly understand
+
+### Context API Integration
+
+The StateService integrates seamlessly with React's Context API through our `useGameContext()` hook:
+
+```typescript
+// Clean Service Access Pattern
+const { stateService, cardService, turnService } = useGameContext();
+
+// Direct service calls with full TypeScript support
+const player = stateService.getPlayer(playerId);
+const result = cardService.playCard(playerId, cardId);
+```
+
+This hybrid approach combines the benefits of centralized state management with the simplicity of direct service calls, proving that complex applications don't always require complex state management libraries.
+
+**Conclusion**: The custom StateService decision demonstrates that **architectural choices should be driven by actual requirements rather than popular trends**. For code2027's board game mechanics, our lightweight, purpose-built solution delivers superior performance, maintainability, and developer experience compared to a heavyweight library like Redux.
 
 ---
 

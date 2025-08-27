@@ -95,6 +95,16 @@ export class EffectFactory {
             reason: `${cardName}: Draw ${draw.count} ${draw.cardType} card${draw.count > 1 ? 's' : ''}`
           }
         });
+
+        // Add scope recalculation if W cards are drawn
+        if (draw.cardType === 'W') {
+          effects.push({
+            effectType: 'RECALCULATE_SCOPE',
+            payload: {
+              playerId
+            }
+          });
+        }
       });
     }
 
@@ -449,6 +459,16 @@ export class EffectFactory {
                 reason: `${spaceEffect.description || 'Space effect'}: Draw ${cardEffect.count} ${cardEffect.cardType} card${cardEffect.count > 1 ? 's' : ''}`
               }
             });
+
+            // Add scope recalculation if W cards are drawn
+            if (cardEffect.cardType === 'W') {
+              effects.push({
+                effectType: 'RECALCULATE_SCOPE',
+                payload: {
+                  playerId
+                }
+              });
+            }
           }
         }
         break;
@@ -492,6 +512,16 @@ export class EffectFactory {
                 reason: `Dice effect: Draw ${draw.count} ${diceEffect.card_type} card${draw.count > 1 ? 's' : ''} (rolled ${diceRoll})`
               }
             });
+
+            // Add scope recalculation if W cards are drawn
+            if (diceEffect.card_type === 'W') {
+              effects.push({
+                effectType: 'RECALCULATE_SCOPE',
+                payload: {
+                  playerId
+                }
+              });
+            }
           });
         }
         break;

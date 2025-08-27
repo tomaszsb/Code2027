@@ -494,3 +494,88 @@ The E2E testing phase successfully demonstrated:
 - **Effect Processing**: Complex effect chains execute reliably
 
 **Development Status**: E2E testing phase complete with 95% success rate, confirming system production readiness.
+
+---
+
+## 🏗️ Project Scope System & Effect Architecture Enhancement - August 27, 2025 ✅
+
+### **Total Project Scope Implementation**
+**Status**: Complete implementation of automatic Work card value tracking system
+
+#### **System Overview**
+Created comprehensive Project Scope tracking that automatically calculates and displays the total cost of a player's Work (W) cards in real-time. The system integrates seamlessly with the existing Effect Engine architecture.
+
+#### **Key Implementation Details**
+
+**1. Enhanced Player State** ✅
+- **Files**: `src/types/DataTypes.ts`, `src/types/StateTypes.ts`
+- **Added**: `projectScope: number` property to Player interface
+- **Integration**: Automatic initialization to 0 for new players
+
+**2. Scope Calculation Service** ✅
+- **File**: `src/services/GameRulesService.ts` 
+- **Method**: `calculateProjectScope(playerId: string): number`
+- **Logic**: Iterates through W cards, sums `work_cost` or `cost` properties
+- **Features**: Error handling, card validation, comprehensive logging
+
+**3. UI Integration** ✅
+- **File**: `src/components/game/PlayerStatusItem.tsx`
+- **Display**: `🏗️ ${FormatUtils.formatMoney(player.projectScope || 0)}`
+- **Position**: Integrated between Time and Card Portfolio sections
+- **Updates**: Real-time updates through state management
+
+### **RECALCULATE_SCOPE Effect Architecture** 
+**Status**: Critical bug fix implementing dedicated effect type for consistent scope updates
+
+#### **Problem Solved**
+Project Scope was not updating correctly due to processing order issues in the effect system. Direct scope calculation in CardService bypassed the unified effect processing, causing inconsistencies.
+
+#### **Solution Architecture**
+
+**1. New Effect Type** ✅
+- **File**: `src/types/EffectTypes.ts`
+- **Added**: `RECALCULATE_SCOPE` effect with `{ playerId: string }` payload
+- **Added**: `isRecalculateScopeEffect()` type guard function
+
+**2. EffectFactory Enhancement** ✅
+- **File**: `src/utils/EffectFactory.ts`
+- **Enhancement**: Automatically generates `RECALCULATE_SCOPE` effects alongside `CARD_DRAW` effects for W cards
+- **Coverage**: Card effects, space effects, dice effects
+- **Logic**: Any W card acquisition triggers scope recalculation
+
+**3. CardService Refactoring** ✅
+- **File**: `src/services/CardService.ts`
+- **Removed**: Direct scope calculation logic from `drawCards()` and `discardCards()`
+- **Removed**: GameRulesService dependency injection
+- **Focus**: Service now purely handles card operations
+
+**4. EffectEngineService Integration** ✅
+- **File**: `src/services/EffectEngineService.ts`
+- **Added**: GameRulesService injection and `RECALCULATE_SCOPE` case processing
+- **Logic**: Unified effect processing ensures proper sequencing and persistence
+
+#### **Technical Data Flow**
+```
+W Card Event → EffectFactory → [CARD_DRAW, RECALCULATE_SCOPE] → EffectEngineService
+                                      ↓                               ↓
+                                 CardService                   GameRulesService
+                                      ↓                               ↓
+                                StateService ← ← ← ← ← ← ← ← StateService
+                                      ↓
+                                 UI Updates
+```
+
+#### **Key Benefits Achieved**
+1. **Unified Processing**: All scope updates flow through Effect Engine
+2. **Consistent Sequencing**: Proper effect ordering ensures data integrity
+3. **Source Independence**: Works for W cards from any game source
+4. **Effect Persistence**: Scope updates properly integrated with other effects
+5. **Architecture Compliance**: Maintains clean separation of concerns
+
+#### **Polish and Harden Phase Success**
+- **BUG-001 Fixed**: Single target auto-resolution implemented ✅
+- **Project Scope System**: Complete implementation with effect architecture ✅
+- **Dice Roll Bug**: Critical async/await fix resolved crashes ✅
+- **State Management**: Custom StateService documented and justified ✅
+
+**Development Status**: Polish and Harden phase delivering production stability with enhanced features and architectural improvements.
