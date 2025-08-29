@@ -156,9 +156,16 @@ export interface IStateService {
   showCardModal(cardId: string): GameState;
   dismissModal(): GameState;
   
+  // Snapshot management methods
+  savePlayerSnapshot(playerId: string): GameState;
+  restorePlayerSnapshot(playerId: string): GameState;
+  
   // Validation methods
   validatePlayerAction(playerId: string, action: string): boolean;
   canStartGame(): boolean;
+  
+  // Action logging methods
+  logToActionHistory(actionData: Omit<import('./StateTypes').ActionLogEntry, 'id' | 'timestamp'>): GameState;
 }
 
 export interface TurnResult {

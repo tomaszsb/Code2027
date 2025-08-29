@@ -13,6 +13,7 @@ import { GameBoard } from '../game/GameBoard';
 import { ProjectProgress } from '../game/ProjectProgress';
 import { MovementPathVisualization } from '../game/MovementPathVisualization';
 import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
+import { GameLog } from '../game/GameLog';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase, Player } from '../../types/StateTypes';
 
@@ -24,6 +25,7 @@ export function GameLayout(): JSX.Element {
   const { stateService } = useGameContext();
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isNegotiationModalOpen, setIsNegotiationModalOpen] = useState<boolean>(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
@@ -76,6 +78,7 @@ export function GameLayout(): JSX.Element {
     const unsubscribe = stateService.subscribe((gameState) => {
       setGamePhase(gameState.gamePhase);
       setPlayers(gameState.players);
+      setCurrentPlayerId(gameState.currentPlayerId);
       // Track active modal state
       setActiveModal(gameState.activeModal?.type || null);
     });
@@ -84,6 +87,7 @@ export function GameLayout(): JSX.Element {
     const currentState = stateService.getGameState();
     setGamePhase(currentState.gamePhase);
     setPlayers(currentState.players);
+    setCurrentPlayerId(currentState.currentPlayerId);
     setActiveModal(currentState.activeModal?.type || null);
     
     return unsubscribe;
@@ -259,14 +263,7 @@ export function GameLayout(): JSX.Element {
           minHeight: '80px'
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '10px', opacity: 0.5 }}>
-            📋
-          </div>
-          <div style={{ fontSize: '1rem' }}>
-            Additional UI elements will be placed here
-          </div>
-        </div>
+        <GameLog />
       </div>
 
 

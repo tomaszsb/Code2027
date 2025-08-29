@@ -1,6 +1,6 @@
 // src/components/game/FinancialStatusDisplay.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Player } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
 import { FormatUtils } from '../../utils/FormatUtils';
@@ -19,17 +19,20 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
   // Calculate financial status
   const calculateFinancialStatus = () => {
     const wCards = player.availableCards?.W || [];
-    let totalScopeCost = 0;
-
-    // Get cost data for each W card
-    wCards.forEach(cardId => {
-      const card = dataService.getCardById(cardId);
-      if (card && card.cost) {
-        totalScopeCost += card.cost;
-      }
-    });
+    
+    // Use the calculated project scope from the player state, or fallback to manual calculation
+    const totalScopeCost = player.projectScope || 0;
 
     const surplus = player.money - totalScopeCost;
+    
+    // Debug logging
+    console.log(`💰 Financial Status Debug for ${player.name}:`, {
+      playerMoney: player.money,
+      totalScopeCost,
+      surplus,
+      isDeficit: surplus < 0,
+      wCards: wCards.length
+    });
     
     return {
       playerMoney: player.money,
@@ -89,57 +92,120 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
   const bCards = player.availableCards?.B || [];
   const iCards = player.availableCards?.I || [];
 
+  // Group W cards by work type
+  const groupedWCards = wCards.reduce((groups, cardId) => {
+    const baseCardId = cardId.split('_')[0];
+    const card = dataService.getCardById(baseCardId);
+    if (!card) return groups;
+    
+    const workType = card.work_type_restriction || 'General Construction';
+    if (!groups[workType]) {
+      groups[workType] = [];
+    }
+    groups[workType].push({ cardId, card });
+    return groups;
+  }, {} as Record<string, Array<{ cardId: string; card: any }>>);
+
+  // State for expanded work types
+  const [expandedWorkTypes, setExpandedWorkTypes] = useState<Set<string>>(new Set());
+
+  const toggleWorkType = (workType: string) => {
+    const newExpanded = new Set(expandedWorkTypes);
+    if (newExpanded.has(workType)) {
+      newExpanded.delete(workType);
+    } else {
+      newExpanded.add(workType);
+    }
+    setExpandedWorkTypes(newExpanded);
+  };
 
   return (
     <div style={containerStyle}>
       {/* Project Scope Section */}
-      {wCards.length > 0 && (
+      {Object.keys(groupedWCards).length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
             🏗️ Project Scope
           </div>
-          {wCards.map((cardId, index) => {
-            const card = dataService.getCardById(cardId);
-            if (!card) return null;
+          {Object.entries(groupedWCards).map(([workType, cards]) => {
+            const totalCost = cards.reduce((sum, { card }) => sum + (card.cost || 0), 0);
+            const isExpanded = expandedWorkTypes.has(workType);
             
             return (
-              <div key={cardId} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px',
-                marginBottom: '6px',
-                backgroundColor: '#fff3cd',
-                borderRadius: '6px',
-                border: '2px solid #ffc107'
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    color: '#856404',
-                    marginBottom: '2px'
-                  }}>
-                    {card.card_name}
-                  </div>
-                  {card.card_description && (
+              <div key={workType} style={{ marginBottom: '8px' }}>
+                {/* Work Type Header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '6px',
+                    border: '2px solid #ffc107',
+                    cursor: 'pointer',
+                    marginBottom: isExpanded ? '4px' : '0'
+                  }}
+                  onClick={() => toggleWorkType(workType)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      fontWeight: 'bold',
+                      color: '#856404',
+                      marginBottom: '2px'
+                    }}>
+                      📋 {workType} ({cards.length} project{cards.length > 1 ? 's' : ''})
+                    </div>
                     <div style={{
                       fontSize: '0.75rem',
-                      color: '#6c757d',
-                      lineHeight: '1.2'
+                      color: '#6c757d'
                     }}>
-                      {card.card_description}
+                      {isExpanded ? 'Click to collapse' : 'Click to expand details'}
                     </div>
-                  )}
+                  </div>
+                  <div style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    color: '#856404',
+                    marginLeft: '12px'
+                  }}>
+                    {FormatUtils.formatMoney(totalCost)}
+                  </div>
                 </div>
-                <div style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  color: '#856404',
-                  marginLeft: '12px'
-                }}>
-                  {FormatUtils.formatCardCost(card.cost)}
-                </div>
+                
+                {/* Expanded Details */}
+                {isExpanded && cards.map(({ cardId, card }) => (
+                  <div key={cardId} style={{
+                    padding: '6px 12px',
+                    marginLeft: '16px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px',
+                    border: '1px solid #dee2e6',
+                    marginBottom: '2px'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{
+                        fontSize: '0.8rem',
+                        color: '#495057',
+                        flex: 1
+                      }}>
+                        {card.card_name}
+                      </div>
+                      <div style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        color: '#856404'
+                      }}>
+                        {FormatUtils.formatCardCost(card.cost)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             );
           })}

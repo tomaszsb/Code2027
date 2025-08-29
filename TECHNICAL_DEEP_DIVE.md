@@ -67,6 +67,12 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 *   **`CardPortfolioDashboard.tsx`:** This component provides a comprehensive view of the player's card portfolio, including their available, active, and discarded cards.
 *   **`CardDetailsModal.tsx`:** This modal component displays the full details of a selected card, including its name, description, effects, cost, duration, and phase restriction. It also provides the UI for the card transfer functionality.
 
+### Game Log & Action Feedback System
+
+*   **`GameLog.tsx`:** A persistent scrollable component at the bottom of the game layout that displays all player actions in real-time. Features player-specific color coding, timestamps, and comprehensive action formatting with icons.
+*   **`actionLogFormatting.ts`:** Shared utility for consistent action description formatting across components, providing icon-based categorization (🎲 dice, 🎴 cards, ⚡ effects, 📍 movement).
+*   **Action Feedback Architecture:** The game uses a dual-feedback system with immediate button transformation showing completion messages and permanent logging to the global action history for comprehensive game tracking.
+
 ---
 
 ## Development Standards & Guidelines

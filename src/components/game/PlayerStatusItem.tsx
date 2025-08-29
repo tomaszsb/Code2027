@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Player } from '../../types/StateTypes';
 import { FinancialStatusDisplay } from './FinancialStatusDisplay';
 import { CardPortfolioDashboard } from './CardPortfolioDashboard';
-import { TurnControls } from './TurnControls';
+import { TurnControlsWithActions } from './TurnControlsWithActions';
 import { useGameContext } from '../../context/GameContext';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiscardedCardsModal } from '../modals/DiscardedCardsModal';
@@ -30,6 +30,22 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
   const [showDiscardedCards, setShowDiscardedCards] = useState(false);
+
+  // Calculate financial status for display
+  const calculateFinancialStatus = () => {
+    const wCards = player.availableCards?.W || [];
+    const totalScopeCost = player.projectScope || 0;
+    const surplus = player.money - totalScopeCost;
+    
+    return {
+      playerMoney: player.money,
+      totalScopeCost,
+      surplus,
+      isDeficit: surplus < 0
+    };
+  };
+
+  const financialStatus = calculateFinancialStatus();
   // Add CSS animation styles to document head if not already present
   React.useEffect(() => {
     const styleId = 'player-status-animations';
@@ -361,23 +377,43 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               style={{
                 ...statItemStyle,
                 cursor: 'pointer',
-                border: '1px solid rgba(40, 167, 69, 0.3)',
-                background: showFinancialStatus ? 'rgba(40, 167, 69, 0.1)' : 'rgba(248, 249, 250, 0.8)',
+                border: `1px solid ${financialStatus.isDeficit ? 'rgba(220, 53, 69, 0.3)' : 'rgba(40, 167, 69, 0.3)'}`,
+                background: showFinancialStatus 
+                  ? (financialStatus.isDeficit ? 'rgba(220, 53, 69, 0.1)' : 'rgba(40, 167, 69, 0.1)') 
+                  : 'rgba(248, 249, 250, 0.8)',
                 transition: 'all 0.2s ease'
               }}
               onClick={() => setShowFinancialStatus(!showFinancialStatus)}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(40, 167, 69, 0.2)';
+                e.currentTarget.style.background = financialStatus.isDeficit ? 'rgba(220, 53, 69, 0.2)' : 'rgba(40, 167, 69, 0.2)';
                 e.currentTarget.style.transform = 'scale(1.02)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = showFinancialStatus ? 'rgba(40, 167, 69, 0.1)' : 'rgba(248, 249, 250, 0.8)';
+                e.currentTarget.style.background = showFinancialStatus 
+                  ? (financialStatus.isDeficit ? 'rgba(220, 53, 69, 0.1)' : 'rgba(40, 167, 69, 0.1)') 
+                  : 'rgba(248, 249, 250, 0.8)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
-              title={`${showFinancialStatus ? 'Hide' : 'Show'} financial status`}
+              title={`${showFinancialStatus ? 'Hide' : 'Show'} financial status - ${financialStatus.isDeficit ? 'Funding Shortage' : 'Fully Funded'}: ${FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}`}
             >
-              <div style={statLabelStyle}>Money {showFinancialStatus ? '▲' : '▼'}</div>
-              <div style={statValueStyle}>💰 {FormatUtils.formatMoney(player.money)}</div>
+              <div style={statLabelStyle}>
+                Money {showFinancialStatus ? '▲' : '▼'} 
+                {financialStatus.isDeficit ? ' ⚠️' : ' ✅'}
+              </div>
+              <div style={{
+                ...statValueStyle,
+                color: financialStatus.isDeficit ? '#dc3545' : '#28a745'
+              }}>
+                💰 {FormatUtils.formatMoney(player.money)}
+              </div>
+              <div style={{
+                fontSize: '0.7rem',
+                color: financialStatus.isDeficit ? '#dc3545' : '#28a745',
+                fontWeight: 'bold',
+                marginTop: '2px'
+              }}>
+                {financialStatus.isDeficit ? 'Shortage' : 'Surplus'}: {FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}
+              </div>
             </button>
 
             <div style={statItemStyle}>
@@ -430,7 +466,11 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               fontSize: '10px',
               overflow: 'visible'
             }}>
-              <TurnControls onOpenNegotiationModal={onOpenNegotiationModal} />
+              <TurnControlsWithActions 
+                onOpenNegotiationModal={onOpenNegotiationModal}
+                playerId={player.id}
+                playerName={player.name}
+              />
             </div>
           ) : (
             <div style={{
@@ -478,6 +518,7 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
           />
         </div>
       )}
+
 
       {/* Discarded Cards Modal */}
       <DiscardedCardsModal

@@ -152,7 +152,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
   };
 
   const getPlayerCardsByType = (player: Player, cardType: CardType): string[] => {
-    return player.cards[cardType] || [];
+    return player.availableCards[cardType] || [];
   };
 
   const getCardName = (cardId: string): string => {

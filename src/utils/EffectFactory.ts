@@ -496,22 +496,25 @@ export class EffectFactory {
     }
 
     console.log(`   Dice effect for roll ${diceRoll}: ${diceEffect.effect_type} = "${rollEffect}"`);
-
     switch (diceEffect.effect_type) {
       case 'cards':
         if (diceEffect.card_type) {
-          const cardDrawEffect = this.parseCardDrawEffect(rollEffect);
-          cardDrawEffect.forEach(draw => {
-            effects.push({
-              effectType: 'CARD_DRAW',
+          // For dice effects, rollEffect is like "Draw 3" and card_type is separate
+          // Extract the number from rollEffect and use the card_type from the dice effect
+          const countMatch = rollEffect.match(/(\d+)/);
+          if (countMatch) {
+            const count = parseInt(countMatch[1]);
+            const cardDrawEffectPayload = {
+              effectType: 'CARD_DRAW' as const,
               payload: {
                 playerId,
                 cardType: diceEffect.card_type as CardType,
-                count: draw.count,
+                count: count,
                 source,
-                reason: `Dice effect: Draw ${draw.count} ${diceEffect.card_type} card${draw.count > 1 ? 's' : ''} (rolled ${diceRoll})`
+                reason: `Dice effect: Draw ${count} ${diceEffect.card_type} card${count > 1 ? 's' : ''} (rolled ${diceRoll})`
               }
-            });
+            };
+            effects.push(cardDrawEffectPayload);
 
             // Add scope recalculation if W cards are drawn
             if (diceEffect.card_type === 'W') {
@@ -522,7 +525,11 @@ export class EffectFactory {
                 }
               });
             }
-          });
+          } else {
+            console.warn(`   ⚠️ Could not parse dice effect count from: "${rollEffect}"`);
+          }
+        } else {
+          console.warn(`   ⚠️ Dice effect missing card_type:`, diceEffect);
         }
         break;
 

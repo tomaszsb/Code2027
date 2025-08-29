@@ -415,6 +415,77 @@ export class TurnService implements ITurnService {
     }
   }
 
+  /**
+   * Process ONLY dice effects (not space effects) for a dice roll
+   */
+  async processDiceRollEffects(playerId: string, diceRoll: number): Promise<GameState> {
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🎲 Processing dice roll effects for ${currentPlayer.name} on ${currentPlayer.currentSpace} (rolled ${diceRoll})`);
+
+    try {
+      // Get ONLY dice effect data from DataService  
+      const diceEffectsData = this.dataService.getDiceEffects(
+        currentPlayer.currentSpace, 
+        currentPlayer.visitType
+      );
+      
+      if (diceEffectsData.length === 0) {
+        console.log(`ℹ️ No dice effects to process for ${currentPlayer.currentSpace}`);
+        return this.stateService.getGameState();
+      }
+      
+      // Generate ONLY effects from dice roll using EffectFactory
+      const diceEffects = EffectFactory.createEffectsFromDiceRoll(
+        diceEffectsData,
+        playerId,
+        currentPlayer.currentSpace,
+        diceRoll
+      );
+      
+      console.log(`🎲 Generated ${diceEffects.length} dice effects from roll ${diceRoll}`);
+      
+      if (diceEffects.length > 0) {
+        if (!this.effectEngineService) {
+          console.error(`❌ EffectEngineService not available - cannot process ${diceEffects.length} dice effects`);
+          throw new Error('EffectEngineService not initialized - dice effects cannot be processed');
+        }
+        
+        // Create effect processing context for dice effects only
+        const effectContext: EffectContext = {
+          source: 'dice_roll',
+          playerId: playerId,
+          triggerEvent: 'DICE_ROLL',
+          metadata: {
+            spaceName: currentPlayer.currentSpace,
+            visitType: currentPlayer.visitType,
+            diceRoll: diceRoll,
+            playerName: currentPlayer.name
+          }
+        };
+        
+        // Process ONLY dice effects through the Effect Engine
+        console.log(`🔧 Processing ${diceEffects.length} dice effects through Effect Engine...`);
+        const processingResult = await this.effectEngineService.processEffects(diceEffects, effectContext);
+        
+        if (!processingResult.success) {
+          console.error(`❌ Failed to process some dice effects: ${processingResult.errors.join(', ')}`);
+          // Log errors but don't throw - some effects may have succeeded
+        } else {
+          console.log(`✅ All dice effects processed successfully: ${processingResult.successfulEffects}/${processingResult.totalEffects} effects completed`);
+        }
+      }
+
+      return this.stateService.getGameState();
+    } catch (error) {
+      console.error(`❌ Error processing dice effects for ${currentPlayer.name}:`, error);
+      throw error;
+    }
+  }
+
   private applySpaceEffect(
     playerId: string, 
     effect: SpaceEffect, 
@@ -613,139 +684,135 @@ export class TurnService implements ITurnService {
       parseInt(effect.effect_value) : effect.effect_value;
 
     if (action === 'draw_w') {
-      // Draw W cards
-      const newCards = { ...player.availableCards };
-      const newCardIds = this.generateCardIds('W', value);
-      newCards.W = [...newCards.W, ...newCardIds];
-      
-      console.log(`Player ${player.name} draws ${value} W cards:`, newCardIds);
-      
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      // Use CardService for W card draws (includes action logging)
+      this.cardService.drawCards(
+        playerId, 
+        'W', 
+        value, 
+        'manual_effect', 
+        `Manual action: Draw ${value} W card${value !== 1 ? 's' : ''}`
+      );
+      return this.stateService.getGameState();
     } else if (action === 'draw_b') {
-      // Draw B cards
-      const newCards = { ...player.availableCards };
-      const newCardIds = this.generateCardIds('B', value);
-      newCards.B = [...newCards.B, ...newCardIds];
-      
-      console.log(`Player ${player.name} draws ${value} B cards:`, newCardIds);
-      
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      // Use CardService for B card draws (includes action logging)
+      this.cardService.drawCards(
+        playerId, 
+        'B', 
+        value, 
+        'manual_effect', 
+        `Manual action: Draw ${value} B card${value !== 1 ? 's' : ''}`
+      );
+      return this.stateService.getGameState();
     } else if (action === 'draw_e') {
-      // Draw E cards
-      const newCards = { ...player.availableCards };
-      const newCardIds = this.generateCardIds('E', value);
-      newCards.E = [...newCards.E, ...newCardIds];
-      
-      console.log(`Player ${player.name} draws ${value} E cards:`, newCardIds);
-      
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      // Use CardService for E card draws (includes action logging)
+      this.cardService.drawCards(
+        playerId, 
+        'E', 
+        value, 
+        'manual_effect', 
+        `Manual action: Draw ${value} E card${value !== 1 ? 's' : ''}`
+      );
+      return this.stateService.getGameState();
     } else if (action === 'draw_l') {
-      // Draw L cards  
-      const newCards = { ...player.availableCards };
-      const newCardIds = this.generateCardIds('L', value);
-      newCards.L = [...newCards.L, ...newCardIds];
-      
-      console.log(`Player ${player.name} draws ${value} L cards:`, newCardIds);
-      
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      // Use CardService for L card draws (includes action logging)
+      this.cardService.drawCards(
+        playerId, 
+        'L', 
+        value, 
+        'manual_effect', 
+        `Manual action: Draw ${value} L card${value !== 1 ? 's' : ''}`
+      );
+      return this.stateService.getGameState();
     } else if (action === 'draw_i') {
-      // Draw I cards
-      const newCards = { ...player.availableCards };
-      const newCardIds = this.generateCardIds('I', value);
-      newCards.I = [...newCards.I, ...newCardIds];
-      
-      console.log(`Player ${player.name} draws ${value} I cards:`, newCardIds);
-      
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      // Use CardService for I card draws (includes action logging)
+      this.cardService.drawCards(
+        playerId, 
+        'I', 
+        value, 
+        'manual_effect', 
+        `Manual action: Draw ${value} I card${value !== 1 ? 's' : ''}`
+      );
+      return this.stateService.getGameState();
     } else if (action === 'replace_e') {
-      // Replace E cards - remove old E cards and add new ones
-      const newCards = { ...player.availableCards };
-      const replaceCount = Math.min(value, newCards.E.length);
+      // Replace E cards using CardService (includes action logging)
+      const replaceCount = Math.min(value, player.availableCards.E?.length || 0);
       
       if (replaceCount > 0) {
-        // Remove old E cards
-        newCards.E = newCards.E.slice(replaceCount);
-        // Add new E cards
-        const newCardIds = this.generateCardIds('E', replaceCount);
-        newCards.E = [...newCards.E, ...newCardIds];
-        
-        console.log(`Player ${player.name} replaces ${replaceCount} E cards:`, newCardIds);
+        // Use CardService for replacement (discard old + draw new)
+        this.cardService.discardCards(
+          playerId,
+          player.availableCards.E.slice(0, replaceCount),
+          'manual_effect',
+          `Manual action: Replace ${replaceCount} E cards - removing old cards`
+        );
+        this.cardService.drawCards(
+          playerId, 
+          'E', 
+          replaceCount, 
+          'manual_effect', 
+          `Manual action: Replace ${replaceCount} E cards - adding new cards`
+        );
       } else {
         console.log(`Player ${player.name} has no E cards to replace`);
       }
       
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      return this.stateService.getGameState();
     } else if (action === 'replace_l') {
-      // Replace L cards - remove old L cards and add new ones
-      const newCards = { ...player.availableCards };
-      const replaceCount = Math.min(value, newCards.L.length);
+      // Replace L cards using CardService (includes action logging)
+      const replaceCount = Math.min(value, player.availableCards.L?.length || 0);
       
       if (replaceCount > 0) {
-        // Remove old L cards
-        newCards.L = newCards.L.slice(replaceCount);
-        // Add new L cards
-        const newCardIds = this.generateCardIds('L', replaceCount);
-        newCards.L = [...newCards.L, ...newCardIds];
-        
-        console.log(`Player ${player.name} replaces ${replaceCount} L cards:`, newCardIds);
+        // Use CardService for replacement (discard old + draw new)
+        this.cardService.discardCards(
+          playerId,
+          player.availableCards.L.slice(0, replaceCount),
+          'manual_effect',
+          `Manual action: Replace ${replaceCount} L cards - removing old cards`
+        );
+        this.cardService.drawCards(
+          playerId, 
+          'L', 
+          replaceCount, 
+          'manual_effect', 
+          `Manual action: Replace ${replaceCount} L cards - adding new cards`
+        );
       } else {
         console.log(`Player ${player.name} has no L cards to replace`);
       }
       
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      return this.stateService.getGameState();
     } else if (action === 'return_e') {
-      // Return E cards - remove them from hand
-      const newCards = { ...player.availableCards };
-      const returnCount = Math.min(value, newCards.E.length);
+      // Return E cards using CardService (includes action logging)
+      const returnCount = Math.min(value, player.availableCards.E?.length || 0);
       
       if (returnCount > 0) {
-        newCards.E = newCards.E.slice(returnCount);
-        console.log(`Player ${player.name} returns ${returnCount} E cards`);
+        this.cardService.discardCards(
+          playerId,
+          player.availableCards.E.slice(0, returnCount),
+          'manual_effect',
+          `Manual action: Return ${returnCount} E cards`
+        );
       } else {
         console.log(`Player ${player.name} has no E cards to return`);
       }
       
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      return this.stateService.getGameState();
     } else if (action === 'return_l') {
-      // Return L cards - remove them from hand
-      const newCards = { ...player.availableCards };
-      const returnCount = Math.min(value, newCards.L.length);
+      // Return L cards using CardService (includes action logging)
+      const returnCount = Math.min(value, player.availableCards.L?.length || 0);
       
       if (returnCount > 0) {
-        newCards.L = newCards.L.slice(returnCount);
-        console.log(`Player ${player.name} returns ${returnCount} L cards`);
+        this.cardService.discardCards(
+          playerId,
+          player.availableCards.L.slice(0, returnCount),
+          'manual_effect',
+          `Manual action: Return ${returnCount} L cards`
+        );
       } else {
         console.log(`Player ${player.name} has no L cards to return`);
       }
       
-      return this.stateService.updatePlayer({
-        id: playerId,
-        availableCards: newCards
-      });
+      return this.stateService.getGameState();
     } else if (action === 'transfer') {
       // Transfer cards to another player
       const targetPlayer = this.getTargetPlayer(playerId, effect.condition);
@@ -757,13 +824,13 @@ export class TurnService implements ITurnService {
 
       // For now, transfer a random card from player's hand to target
       // Priority order: W, B, E, L, I (transfer most valuable first)
-      const cardTypes: (keyof typeof player.cards)[] = ['W', 'B', 'E', 'L', 'I'];
+      const cardTypes: (keyof typeof player.availableCards)[] = ['W', 'B', 'E', 'L', 'I'];
       let transferredCard: string | null = null;
       let transferredType: string | null = null;
 
       for (const cardType of cardTypes) {
-        if (player.cards[cardType].length > 0) {
-          transferredCard = player.cards[cardType][0];
+        if (player.availableCards[cardType].length > 0) {
+          transferredCard = player.availableCards[cardType][0];
           transferredType = cardType;
           break;
         }
@@ -771,7 +838,7 @@ export class TurnService implements ITurnService {
 
       if (transferredCard && transferredType) {
         // Remove card from current player
-        const currentPlayerCards = { ...player.cards };
+        const currentPlayerCards = { ...player.availableCards };
         currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = 
           currentPlayerCards[transferredType as keyof typeof currentPlayerCards].slice(1);
 
@@ -999,6 +1066,21 @@ export class TurnService implements ITurnService {
 
     if (!destination) {
       throw new Error(`No destination for dice roll ${diceRoll} on space ${movement.space_name}`);
+    }
+
+    // Log the dice result with destination
+    if (typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
+      (window as any)[`addActionToLog_${playerId}`]({
+        type: 'dice_roll',
+        playerId: playerId,
+        playerName: this.stateService.getPlayer(playerId)?.name || 'Unknown',
+        description: `Rolled ${diceRoll} → Selected: ${destination}`,
+        details: {
+          diceValue: diceRoll,
+          diceResult: destination,
+          space: movement.space_name
+        }
+      });
     }
 
     // Move player to destination
@@ -1242,6 +1324,8 @@ export class TurnService implements ITurnService {
     // Roll dice
     const diceRoll = this.rollDice();
     console.log(`🎲 Rolled: ${diceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
+    
+    // Note: Dice roll logging now handled by TurnControlsWithActions to create unified entries
 
     // Process effects and track changes
     const effects: DiceResultEffect[] = [];
@@ -1275,8 +1359,8 @@ export class TurnService implements ITurnService {
     const beforeTime = currentPlayer.timeSpent;
     const beforeCards = { ...currentPlayer.availableCards };
 
-    // Process effects using the existing method
-    await this.processTurnEffects(playerId, diceRoll);
+    // Process effects using the dice-only method (not space effects)
+    await this.processDiceRollEffects(playerId, diceRoll);
 
     // Capture changes after processing
     const afterPlayer = this.stateService.getPlayer(playerId);

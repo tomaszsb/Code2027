@@ -282,11 +282,11 @@ export class GameRulesService implements IGameRulesService {
     }
 
     if (cardType) {
-      return player.cards[cardType].length;
+      return player.availableCards[cardType].length;
     }
 
     // Return total card count across all types
-    return Object.values(player.cards).reduce((total, cards) => total + cards.length, 0);
+    return Object.values(player.availableCards).reduce((total, cards) => total + cards.length, 0);
   }
 
   /**
@@ -336,13 +336,16 @@ export class GameRulesService implements IGameRulesService {
 
       // Calculate total scope by summing up card costs
       for (const cardId of workCards) {
-        const cardData = this.dataService.getCard(cardId);
+        // Extract base card ID from generated ID (e.g., W111_1756274803252_sezfko0rc_0 -> W111)
+        const baseCardId = cardId.split('_')[0];
+        const cardData = this.dataService.getCardById(baseCardId);
         if (cardData) {
-          // Use work_cost if available, otherwise fall back to cost
-          const cardCost = cardData.work_cost || cardData.cost || 0;
+          // Use cost field from CSV
+          const cardCost = cardData.cost || 0;
           totalScope += cardCost;
+          console.log(`   ✅ Card ${baseCardId}: ${cardData.card_name} = $${cardCost.toLocaleString()}`);
         } else {
-          console.warn(`Card data not found for W card: ${cardId}`);
+          console.warn(`Card data not found for base card ID: ${baseCardId} (from ${cardId})`);
         }
       }
 

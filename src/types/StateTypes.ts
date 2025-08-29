@@ -3,6 +3,27 @@ import { Effect } from './EffectTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
+export interface ActionLogEntry {
+  id: string;
+  type: 'space_entry' | 'space_effect' | 'time_effect' | 'dice_roll' | 'card_draw' | 'resource_change' | 'manual_action';
+  timestamp: Date;
+  playerId: string;
+  playerName: string;
+  description: string;
+  details?: {
+    diceValue?: number;
+    diceResult?: string;
+    cards?: string[];
+    cardType?: string;
+    cardCount?: number;
+    money?: number;
+    time?: number;
+    space?: string;
+    effectType?: string;
+    effects?: any[];
+  };
+}
+
 export interface Choice {
   id: string;
   playerId: string;
@@ -62,6 +83,8 @@ export interface GameState {
   turnModifiers: { [playerId: string]: { skipTurns: number } };
   // Negotiation state
   activeNegotiation: NegotiationState | null;
+  // Global action log
+  globalActionLog: ActionLogEntry[];
 }
 
 export interface PlayerAction {

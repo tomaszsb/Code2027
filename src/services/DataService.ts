@@ -348,7 +348,7 @@ export class DataService implements IDataService {
       'duration', 'duration_count', 'turn_effect', 'activation_timing',
       'loan_amount', 'loan_rate', 'investment_amount', 'work_cost',
       'money_effect', 'tick_modifier',
-      'draw_cards', 'discard_cards', 'target', 'scope'
+      'draw_cards', 'discard_cards', 'target', 'scope', 'work_type_restriction'
     ];
     
     if (header.length !== expectedColumns.length) {
@@ -380,6 +380,7 @@ export class DataService implements IDataService {
         effects_on_play: values[4] || undefined,
         cost: cost,
         phase_restriction: values[6] || undefined,
+        work_type_restriction: values[21] || undefined,  // Work type from code2026
         
         // Expanded mechanics
         duration: values[7] || undefined,

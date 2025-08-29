@@ -145,6 +145,7 @@ export interface Card {
   effects_on_play?: string;
   cost?: number;
   phase_restriction?: string;
+  work_type_restriction?: string;  // Work type (Plumbing, Electrical, Mechanical Systems, etc.)
   
   // Expanded card mechanics from code2026
   duration?: string;

@@ -113,6 +113,21 @@ export class CardService implements ICardService {
     console.log(`🎴 Card Draw [${playerId}]: ${reasonInfo} (Source: ${sourceInfo})`);
     console.log(`   Cards: ${newCardIds.join(', ')}`);
 
+    // Log to action log if available
+    if (typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
+      (window as any)[`addActionToLog_${playerId}`]({
+        type: 'card_draw',
+        playerId: playerId,
+        playerName: player.name,
+        description: `Drew ${count} ${cardType} card${count > 1 ? 's' : ''}`,
+        details: {
+          cardType: cardType,
+          cardCount: count,
+          cards: newCardIds
+        }
+      });
+    }
+
     return newCardIds;
   }
 

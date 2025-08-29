@@ -1,9 +1,57 @@
 # Claude Charter: Code2027 Project Guide
 
-## 🎯 Current Project Status: PRODUCTION READY
+## 🚀 **QUICK START - READ THIS FIRST** 
 
-**Core Game Complete**: Fully playable multi-player board game with clean service architecture
-**Last Updated**: August 26, 2025 - Effect Condition System & Action Counting Fixed
+### **Current Project Status: PRODUCTION READY** 
+- **Last Updated**: August 29, 2025 - Action Feedback System & Persistent Logging Implementation
+- **Phase**: Production Ready with Enhanced UI/UX  
+- **Application**: `npm run dev` (usually port 3007)
+- **Architecture**: Clean service-oriented with dependency injection - all anti-patterns eliminated
+
+### **What Just Happened (Latest Session):**
+- **Replaced modal popups** with persistent GameLog at bottom of screen
+- **Fixed critical bug**: Dice completion messages now persist when manual actions are performed  
+- **Enhanced UX**: Dual-feedback system (button transformation + permanent log history)
+- **Result**: Improved game flow, better action visibility, zero information loss
+
+### **Essential Files to Know:**
+- **`src/components/game/GameLog.tsx`** - New persistent log component
+- **`src/utils/actionLogFormatting.ts`** - Shared formatting utility  
+- **`src/components/game/TurnControlsWithActions.tsx`** - Updated action handling
+- **`src/services/StateService.ts`** - Global logging system and effect fixes
+
+### **Ready For**: New tasks, bug fixes, or feature enhancements based on user needs
+
+### **Architecture Quick Reference:**
+- **Services**: DataService, StateService, TurnService, CardService, PlayerActionService, MovementService, GameRulesService
+- **Key Pattern**: `const { dataService } = useGameContext()` - Always use dependency injection
+- **Data Access**: Always through DataService from `/public/data/CLEAN_FILES/` 
+- **State Management**: Immutable updates via StateService, real-time UI updates
+- **Component Limit**: <200 lines, UI rendering only, no business logic
+
+---
+
+## 📋 **SESSION CONTINUITY CHECKLIST**
+
+**For Claude when starting a new session - Complete in 4 minutes:**
+
+### **Essential Reading:**
+1. **CLAUDE.md Quick Start Section** ↑ (1 min) - Current status and recent work
+2. **DEVELOPMENT.md Recent Enhancement** (1-2 min) - High-level development phase 
+3. **Application State Check** (1 min) - Run `npm run dev` to verify functionality
+
+### **If Deeper Context Needed:**
+- **TECHNICAL_DEEP_DIVE.md** - "Game Log & Action Feedback System" section
+- **Recent Implementation Files** listed in Quick Start section above
+- **Historical Work Log** ↓ - Comprehensive session history since August 2025
+- **Archive Documentation** - `/docs/archive/` for complete project evolution
+
+### **Key Context Summary:**
+- **What Just Happened**: Complete UI/UX overhaul replacing modal system with persistent logging
+- **Current State**: Production-ready application with enhanced user experience
+- **Next Session Focus**: Ready for new tasks based on user needs
+
+---
 
 ## 🏗️ Architecture Foundation
 
@@ -77,7 +125,7 @@ const config = dataService.getGameConfigBySpace(spaceName);
 
 ```bash
 cd /mnt/d/unravel/current_game/code2027
-npm run dev           # Start development server (usually port 3001)
+npm run dev           # Start development server (usually port 3007)
 npm run build         # Build for production  
 npm run test          # Run test suite
 ```
@@ -579,3 +627,175 @@ W Card Event → EffectFactory → [CARD_DRAW, RECALCULATE_SCOPE] → EffectEngi
 - **State Management**: Custom StateService documented and justified ✅
 
 **Development Status**: Polish and Harden phase delivering production stability with enhanced features and architectural improvements.
+
+---
+
+## 🎯 Action Feedback System & Persistent Logging - August 29, 2025 ✅
+
+### **Major UI/UX Overhaul: Modal Replacement with Persistent Game Log**
+**Date**: August 29, 2025  
+**Scope**: Complete replacement of modal-based action feedback with persistent logging system
+
+#### **Problem Statement**
+User reported that the "Roll Dice" button was displaying incorrect contextual text, showing time-related effects when it should show card-related effects for dice outcomes. Investigation revealed deeper architectural issues with the action feedback system.
+
+#### **Root Cause Analysis** ✅
+1. **Effect Categorization Confusion**: StateService was incorrectly logging automatic space effects as "triggered by dice roll"
+2. **Mixed Effect Processing**: TurnService was combining space effects with dice effects in `processTurnEffects`
+3. **Modal State Conflicts**: Manual actions were overwriting dice roll logs due to shared modal state
+4. **UI Context Loss**: Button transformation behavior was lost during modal removal
+
+#### **Comprehensive Solution Implementation**
+
+**1. Effect Separation & Logging Fixes** ✅
+- **File**: `src/services/StateService.ts`
+  - Fixed logging text from "triggered by dice roll" to "triggered by space entry" for automatic effects
+  - Added `globalActionLog: ActionLogEntry[]` to GameState for centralized logging
+  - Implemented `logToActionHistory()` method for unified action logging
+
+- **File**: `src/services/TurnService.ts`  
+  - Created separate `processDiceRollEffects()` method to handle only dice effects
+  - Fixed player property references from `player.cards` to correct properties
+  - Separated dice effect processing from automatic space effect processing
+
+**2. Persistent Game Log Implementation** ✅
+- **File**: `src/components/game/GameLog.tsx` (NEW)
+  - Created scrollable, persistent game log component
+  - Real-time subscription to global action log with instant updates
+  - Player-specific color coding and timestamps
+  - Comprehensive action formatting with icons and descriptions
+
+- **File**: `src/utils/actionLogFormatting.ts` (NEW)
+  - Shared formatting utility for consistent action descriptions
+  - Icon-based categorization (🎲 dice, 🎴 cards, ⚡ effects, 📍 movement)
+  - Extracted from component logic for reusability
+
+**3. Modal System Replacement** ✅  
+- **File**: `src/components/game/TurnControlsWithActions.tsx`
+  - **REMOVED**: All modal dependencies and handlers (`showDiceResultModal`, `showManualActionModal`)
+  - **REMOVED**: Modal confirmation workflows (`handleDiceResultConfirm`, `handleManualActionConfirm`)
+  - **REPLACED**: Direct logging to global action history with immediate UI feedback
+  - **PRESERVED**: Button transformation behavior with local completion messages
+
+**4. Button Transformation Restoration** ✅
+- **Issue**: Modal removal broke key feature where buttons transform into completion messages
+- **Solution**: Dual-state system with global logging + local completion messages
+- **Implementation**: 
+  ```typescript
+  const [completedActions, setCompletedActions] = useState<{
+    diceRoll?: string;
+    manualActions: { [effectType: string]: string };
+  }>({ manualActions: {} });
+  ```
+- **Behavior**: Buttons show specific completion messages while also logging to global history
+
+**5. Critical Bug Fix: Completion Message Loss** ✅
+- **Problem**: Dice completion messages were being lost when manual actions were performed
+- **Root Cause**: Aggressive state reset during component initialization (`null` → `playerId` transition)
+- **Fix**: Modified turn change detection to only reset on actual player-to-player transitions
+- **Code Change**:
+  ```typescript
+  // Only reset if it's actually a different player (not null → player transition)
+  if (lastTurnPlayerId !== null && gameState.currentPlayerId !== lastTurnPlayerId) {
+    setCompletedActions({ manualActions: {} });
+  }
+  ```
+
+#### **Technical Architecture Improvements**
+
+**Data Flow Enhancement**:
+```
+User Action → TurnService/PlayerActionService → StateService.logToActionHistory()
+                                                       ↓
+Global Action Log ← ← ← ← ← ← StateService.subscribe() → GameLog Component
+       ↓                                                       ↓
+Local Completion State ← ← ← ← ← ← ← ← ← ← ← ← ← TurnControls Component
+       ↓
+Button Transformation
+```
+
+**Key Benefits Achieved**:
+1. **Persistent History**: All actions permanently logged and searchable
+2. **Real-time Updates**: Global log updates instantly across all UI components  
+3. **Dual Feedback**: Immediate button feedback + persistent log history
+4. **Clean Architecture**: Removed modal complexity while maintaining UX
+5. **Consistent Formatting**: Unified action descriptions with proper categorization
+6. **No Data Loss**: Button completion messages persist correctly across action sequences
+
+#### **Files Modified**
+- `src/services/StateService.ts` - Global logging system and effect categorization fixes
+- `src/services/TurnService.ts` - Effect separation and dice roll processing
+- `src/components/game/TurnControlsWithActions.tsx` - Modal removal and completion state management
+- `src/components/game/GameLog.tsx` - New persistent log component
+- `src/utils/actionLogFormatting.ts` - New shared formatting utility
+- `src/components/layout/GameLayout.tsx` - GameLog integration
+- `src/types/StateTypes.ts` - ActionLogEntry interface and globalActionLog property
+
+#### **User Experience Impact**
+- **Before**: Modal popups interrupted game flow, actions lost on dismissal
+- **After**: Seamless persistent logging with button transformation feedback
+- **Result**: Improved game flow, better action visibility, no lost information
+
+**Development Status**: Action feedback system completely overhauled with production-ready persistent logging and restored button transformation behavior.
+
+---
+
+## 📚 **HISTORICAL WORK LOG** (Detailed Session History)
+
+*Complete technical implementation history for reference - not needed for startup*
+
+### **Recent Critical Sessions:**
+
+#### **🎯 August 29, 2025: Action Feedback System & Persistent Logging** ✅
+- **Scope**: Complete replacement of modal-based action feedback with persistent logging system
+- **Key Achievement**: Dual-feedback system (button transformation + permanent log history)
+- **Files**: GameLog.tsx, actionLogFormatting.ts, TurnControlsWithActions.tsx
+- **Result**: Improved game flow, better action visibility, zero information loss
+
+#### **🏗️ August 27, 2025: Project Scope System & Effect Architecture** ✅  
+- **Scope**: Complete implementation of automatic Work card value tracking system
+- **Key Achievement**: RECALCULATE_SCOPE effect architecture with unified processing
+- **Files**: GameRulesService.ts, EffectFactory.ts, PlayerStatusItem.tsx
+- **Result**: Real-time project scope calculation integrated with Effect Engine
+
+#### **🛠️ August 26, 2025: Critical Fixes - Effect Condition System** ✅
+- **Scope**: Data-driven effect condition evaluation implementation  
+- **Key Achievement**: All CSV effect conditions now properly evaluated
+- **Files**: TurnService.ts evaluateEffectCondition() method
+- **Result**: Effects like "Draw B card if scope ≤ $4M" work correctly
+
+#### **🧪 August 26, 2025: E2E Testing & System Validation** ✅
+- **Scope**: Comprehensive 4-test E2E suite creation and execution
+- **Key Achievement**: 95% success rate confirming system production readiness
+- **Files**: E2E-01 through E2E-04 test suites, NodeDataService
+- **Result**: Critical system bugs identified and fixed, robust error handling validated
+
+#### **🎨 August 25, 2025: Enhanced UI Features Implementation** ✅
+- **Scope**: Three comprehensive UI enhancement features with full testing
+- **Key Achievement**: Card Replacement Modal, Movement Path Visualization, Space Explorer Panel
+- **Files**: CardReplacementModal.tsx, MovementPathVisualization.tsx, SpaceExplorerPanel.tsx  
+- **Result**: Enhanced game flow with intuitive UI for card management, strategic planning, and board exploration
+
+#### **📊 August 25, 2025: Testing Implementation - Service Coverage** ✅
+- **Scope**: Major testing improvements achieving service test coverage targets
+- **Key Achievement**: Overall services coverage 45% → 56.47%, CardService 20% → 70%
+- **Files**: CardService.test.ts complete rewrite, StateService.test.ts fixes
+- **Result**: Solid testing foundation supporting future development
+
+#### **🐛 August 23, 2025: Complete Bug Fix Session** ✅
+- **Scope**: 5 critical bugs successfully resolved
+- **Key Achievements**: CardModal data display, player money/time updates, dice button logic, turn progression, negotiation behavior
+- **Files**: CardService.ts, StateService.ts, TurnControls.tsx, PlayerStatusPanel.tsx
+- **Result**: Game now has proper turn progression, card functionality, and UI state management
+
+#### **🔄 December 2024: Multi-Action Turn System & W Card Data Fixes** ✅
+- **Scope**: Fixed 5 critical bugs impacting game functionality and user experience
+- **Key Achievement**: Separated dice rolling from movement, corrected W card data
+- **Files**: TurnService.rollDiceAndProcessEffects(), endTurnWithMovement()
+- **Result**: Core game complete and production-ready with critical bugs resolved
+
+### **For Complete Technical Details:**
+- **Archived Documentation**: `/docs/archive/` contains comprehensive implementation logs
+- **TASK_HISTORY.md**: Complete task completion history through August 25
+- **BUG_FIXES_LOG.md**: Detailed bug fix tracking and technical solutions  
+- **PROJECT_HISTORY.md**: Full project evolution and architectural decisions

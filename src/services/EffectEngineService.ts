@@ -191,6 +191,20 @@ export class EffectEngineService implements IEffectEngineService {
               if (payload.amount > 0) {
                 this.resourceService.addTime(payload.playerId, payload.amount, source, reason);
                 success = true;
+                
+                // Log to action log if available
+                const player = this.stateService.getPlayer(payload.playerId);
+                if (player && typeof (window as any).addActionToLog === 'function') {
+                  (window as any).addActionToLog({
+                    type: 'resource_change',
+                    playerId: payload.playerId,
+                    playerName: player.name,
+                    description: `Added ${payload.amount} day${payload.amount !== 1 ? 's' : ''} of time`,
+                    details: {
+                      time: payload.amount
+                    }
+                  });
+                }
               } else if (payload.amount < 0) {
                 this.resourceService.spendTime(payload.playerId, Math.abs(payload.amount), source, reason);
                 success = true;
@@ -220,6 +234,20 @@ export class EffectEngineService implements IEffectEngineService {
             try {
               const drawnCards = this.cardService.drawCards(payload.playerId, payload.cardType, payload.count, source, reason);
               console.log(`    ✅ Drew ${drawnCards.length} card(s): ${drawnCards.join(', ')}`);
+              
+              // Log to action log if available
+              const player = this.stateService.getPlayer(payload.playerId);
+              if (player && typeof (window as any).addActionToLog === 'function') {
+                (window as any).addActionToLog({
+                  type: 'card_draw',
+                  playerId: payload.playerId,
+                  playerName: player.name,
+                  description: `Drew ${payload.count} ${payload.cardType} card${payload.count > 1 ? 's' : ''}`,
+                  details: {
+                    cards: drawnCards
+                  }
+                });
+              }
               
               // Store drawn cards in result for potential use by other effects
               return {
@@ -442,6 +470,21 @@ export class EffectEngineService implements IEffectEngineService {
               projectScope: newProjectScope
             });
             console.log(`📊 Project Scope Updated [${effect.payload.playerId}]: $${newProjectScope.toLocaleString()}`);
+            
+            // Log to action log if available
+            const player = this.stateService.getPlayer(effect.payload.playerId);
+            if (player && typeof (window as any).addActionToLog === 'function' && newProjectScope > 0) {
+              (window as any).addActionToLog({
+                type: 'resource_change',
+                playerId: effect.payload.playerId,
+                playerName: player.name,
+                description: `Project Scope updated to $${newProjectScope.toLocaleString()}`,
+                details: {
+                  money: newProjectScope
+                }
+              });
+            }
+            
             success = true;
           } catch (error) {
             console.error(`❌ Failed to recalculate scope for player ${effect.payload.playerId}:`, error);

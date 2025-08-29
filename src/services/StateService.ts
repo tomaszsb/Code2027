@@ -6,7 +6,8 @@ import {
   PlayerUpdateData,
   PlayerCards,
   ActiveModal,
-  Choice
+  Choice,
+  ActionLogEntry
 } from '../types/StateTypes';
 
 export class StateService implements IStateService {
@@ -584,9 +585,9 @@ export class StateService implements IStateService {
       });
       
       // Log automatic effects for debugging, but don't count them as separate actions
-      // Automatic effects are triggered by the dice roll and don't require separate player actions
+      // Automatic effects are triggered by space entry and don't require separate player actions
       automaticEffects.forEach((effect, index) => {
-        console.log(`  📝 Automatic effect ${index}: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (triggered by dice roll)`);
+        console.log(`  📝 Automatic effect ${index}: ${effect.effect_type} ${effect.effect_action} ${effect.effect_value} (triggered by space entry)`);
       });
 
       // Count manual effects (require separate player action)
@@ -729,7 +730,11 @@ export class StateService implements IStateService {
       availableActionTypes: [],
       hasCompletedManualActions: false,
       // Initialize turn modifiers
-      turnModifiers: {}
+      turnModifiers: {},
+      // Initialize negotiation state
+      activeNegotiation: null,
+      // Initialize global action log
+      globalActionLog: []
     };
   }
 
@@ -848,5 +853,27 @@ export class StateService implements IStateService {
     }
 
     return result;
+  }
+
+  // Action logging methods
+  logToActionHistory(actionData: Omit<ActionLogEntry, 'id' | 'timestamp'>): GameState {
+    const newEntry: ActionLogEntry = {
+      ...actionData,
+      id: this.generateActionId(),
+      timestamp: new Date()
+    };
+
+    const newState: GameState = {
+      ...this.currentState,
+      globalActionLog: [...this.currentState.globalActionLog, newEntry]
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...this.currentState };
+  }
+
+  private generateActionId(): string {
+    return `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
