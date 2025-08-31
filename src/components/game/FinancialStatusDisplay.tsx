@@ -274,7 +274,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     lineHeight: '1.2',
                     marginBottom: '4px'
                   }}>
-                    {card.card_description}
+                    {card.description}
                   </div>
                   <div style={{
                     fontSize: '0.7rem',
@@ -340,7 +340,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
               return 0;
             };
             
-            const loanAmount = extractLoanAmount(card.card_description || '');
+            const loanAmount = extractLoanAmount(card.description || '');
             
             return (
               <div key={cardId} style={{
@@ -368,7 +368,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     lineHeight: '1.2',
                     marginBottom: '4px'
                   }}>
-                    {card.card_description}
+                    {card.description}
                   </div>
                   <div style={{
                     fontSize: '0.7rem',

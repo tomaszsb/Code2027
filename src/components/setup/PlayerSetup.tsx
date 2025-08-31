@@ -106,7 +106,7 @@ export function PlayerSetup({
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
-    const nextAvatar = validation.getNextAvatar(player.avatar);
+    const nextAvatar = validation.getNextAvatar(player.avatar, playerId);
     handleUpdatePlayer(playerId, 'avatar', nextAvatar);
   };
 
@@ -162,10 +162,12 @@ export function PlayerSetup({
       height: '100%',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
       padding: '2rem',
-      zIndex: 1000
+      paddingTop: 'max(2rem, env(safe-area-inset-top))',
+      zIndex: 1000,
+      overflow: 'auto'
     }}>
       <div style={{
         background: 'white',
@@ -173,7 +175,9 @@ export function PlayerSetup({
         padding: '3rem',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2)',
         maxWidth: '800px',
-        width: '100%'
+        width: '100%',
+        margin: '2rem 0',
+        minHeight: 'fit-content'
       }}>
         {/* Header */}
         <div style={{

@@ -61,21 +61,36 @@ describe('GameRulesService', () => {
       currentSpace: 'START-SPACE',
       visitType: 'First',
       money: 1000,
-      time: 100,
-      cards: {
+      timeSpent: 100,
+      projectScope: 0,
+      availableCards: {
         W: ['W_001', 'W_002'],
         B: ['B_001'],
         E: [],
         L: ['L_001'],
         I: []
-      }
+      },
+      activeCards: [],
+      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
     };
 
     mockGameState = {
       players: [mockPlayer],
       currentPlayerId: 'player1',
       gamePhase: 'PLAY',
-      turn: 1
+      turn: 1,
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      isGameOver: false,
+      requiredActions: 0,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      turnModifiers: {},
+      activeNegotiation: null,
+      globalActionLog: []
     };
   });
 
@@ -300,8 +315,8 @@ describe('GameRulesService', () => {
     it('should return false when player has max cards of type', () => {
       const playerWithMaxCards = {
         ...mockPlayer,
-        cards: {
-          ...mockPlayer.cards,
+        availableCards: {
+          ...mockPlayer.availableCards,
           W: new Array(10).fill('W_').map((prefix, i) => `${prefix}${i.toString().padStart(3, '0')}`)
         }
       };

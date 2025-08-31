@@ -23,10 +23,10 @@ import {
   GamePhase, 
   PlayerUpdateData,
   StateUpdateResult,
-  Choice,
   NegotiationState,
   NegotiationResult
 } from './StateTypes';
+import { Choice } from './CommonTypes';
 
 import { Effect, EffectContext, EffectResult, BatchEffectResult } from './EffectTypes';
 
@@ -80,6 +80,7 @@ export interface IDataService {
   // Configuration methods
   getGameConfig(): GameConfig[];
   getGameConfigBySpace(spaceName: string): GameConfig | undefined;
+  getPhaseOrder(): string[];
   
   // Space methods
   getAllSpaces(): Space[];
@@ -119,7 +120,11 @@ export interface IDataService {
 export interface IStateService {
   // State access methods
   getGameState(): GameState;
+  getGameStateDeepCopy(): GameState;
   isStateLoaded(): boolean;
+  
+  // Subscription methods
+  subscribe(callback: (state: GameState) => void): () => void;
   
   // Player management methods
   addPlayer(name: string): GameState;
@@ -151,13 +156,18 @@ export interface IStateService {
   // Turn state management methods
   setPlayerHasMoved(): GameState;
   clearPlayerHasMoved(): GameState;
+  setPlayerCompletedManualAction(): GameState;
+  setPlayerHasRolledDice(): GameState;
+  clearPlayerCompletedManualActions(): GameState;
+  clearPlayerHasRolledDice(): GameState;
+  updateActionCounts(): void;
   
   // Modal management methods
   showCardModal(cardId: string): GameState;
   dismissModal(): GameState;
   
   // Snapshot management methods
-  savePlayerSnapshot(playerId: string): GameState;
+  createPlayerSnapshot(playerId: string): GameState;
   restorePlayerSnapshot(playerId: string): GameState;
   
   // Validation methods
@@ -192,6 +202,11 @@ export interface ITurnService {
   
   // Turn control methods
   setTurnModifier(playerId: string, action: 'SKIP_TURN'): boolean;
+  
+  // Feedback methods for UI components
+  rollDiceWithFeedback(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
+  triggerManualEffectWithFeedback(playerId: string, effectType: string): import('./StateTypes').TurnEffectResult;
+  performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
 }
 
 export interface ICardService {
@@ -266,6 +281,9 @@ export interface IGameRulesService {
   checkWinCondition(playerId: string): Promise<boolean>;
   
   canPlayerTakeAction(playerId: string): boolean;
+  
+  // Project scope calculation methods
+  calculateProjectScope(playerId: string): number;
 }
 
 export interface IChoiceService {
@@ -290,7 +308,7 @@ export interface IEffectEngineService {
 
 export interface INegotiationService {
   // Core negotiation methods
-  startNegotiation(playerId: string, context: any): Promise<NegotiationResult>;
+  initiateNegotiation(playerId: string, context: any): Promise<NegotiationResult>;
   makeOffer(playerId: string, offer: any): Promise<NegotiationResult>;
   
   // Negotiation state methods

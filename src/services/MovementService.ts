@@ -74,24 +74,19 @@ export class MovementService implements IMovementService {
    * @private
    */
   private extractDestinationsFromMovement(movement: Movement): string[] {
-    const destinations: string[] = [];
-    
-    // Check all destination fields and collect non-empty values
-    if (movement.destination_1) destinations.push(movement.destination_1);
-    if (movement.destination_2) destinations.push(movement.destination_2);
-    if (movement.destination_3) destinations.push(movement.destination_3);
-    if (movement.destination_4) destinations.push(movement.destination_4);
-    if (movement.destination_5) destinations.push(movement.destination_5);
-
     // For 'none' movement type, return empty array (terminal space)
     if (movement.movement_type === 'none') {
       return [];
     }
 
-    // For 'dice' movement type, we need to get dice outcomes
-    if (movement.movement_type === 'dice') {
-      return this.getDiceDestinations(movement.space_name, movement.visit_type);
-    }
+    const destinations: string[] = [];
+    
+    // Collect all non-empty values from destination_1 through destination_5
+    if (movement.destination_1) destinations.push(movement.destination_1);
+    if (movement.destination_2) destinations.push(movement.destination_2);
+    if (movement.destination_3) destinations.push(movement.destination_3);
+    if (movement.destination_4) destinations.push(movement.destination_4);
+    if (movement.destination_5) destinations.push(movement.destination_5);
 
     return destinations;
   }

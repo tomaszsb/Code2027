@@ -19,13 +19,62 @@ interface PlayerStatusItemProps {
   onToggleMovementPath: () => void;
   isSpaceExplorerVisible: boolean;
   isMovementPathVisible: boolean;
+  // TurnControlsWithActions props (passed from GameLayout via PlayerStatusPanel)
+  currentPlayer: Player | null;
+  gamePhase: import('../../types/StateTypes').GamePhase;
+  isProcessingTurn: boolean;
+  hasPlayerMovedThisTurn: boolean;
+  hasPlayerRolledDice: boolean;
+  hasCompletedManualActions: boolean;
+  awaitingChoice: boolean;
+  actionCounts: { required: number; completed: number };
+  completedActions: {
+    diceRoll?: string;
+    manualActions: { [effectType: string]: string };
+  };
+  feedbackMessage: string;
+  onRollDice: () => Promise<void>;
+  onEndTurn: () => Promise<void>;
+  onManualEffect: (effectType: string) => Promise<void>;
+  onNegotiate: () => Promise<void>;
+  onStartGame: () => void;
+  playerId: string;
+  playerName: string;
 }
 
 /**
  * PlayerStatusItem displays the status information for a single player
  * Shows avatar, name, money, and time with visual indicator for current player
  */
-export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationModal, onOpenRulesModal, onOpenCardDetailsModal, onToggleSpaceExplorer, onToggleMovementPath, isSpaceExplorerVisible, isMovementPathVisible }: PlayerStatusItemProps): JSX.Element {
+export function PlayerStatusItem({ 
+  player, 
+  isCurrentPlayer, 
+  onOpenNegotiationModal, 
+  onOpenRulesModal, 
+  onOpenCardDetailsModal, 
+  onToggleSpaceExplorer, 
+  onToggleMovementPath, 
+  isSpaceExplorerVisible, 
+  isMovementPathVisible,
+  // TurnControlsWithActions props
+  currentPlayer,
+  gamePhase,
+  isProcessingTurn,
+  hasPlayerMovedThisTurn,
+  hasPlayerRolledDice,
+  hasCompletedManualActions,
+  awaitingChoice,
+  actionCounts,
+  completedActions,
+  feedbackMessage,
+  onRollDice,
+  onEndTurn,
+  onManualEffect,
+  onNegotiate,
+  onStartGame,
+  playerId,
+  playerName
+}: PlayerStatusItemProps): JSX.Element {
   const { stateService, dataService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
@@ -394,17 +443,17 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
                   : 'rgba(248, 249, 250, 0.8)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
-              title={`${showFinancialStatus ? 'Hide' : 'Show'} financial status - ${financialStatus.isDeficit ? 'Funding Shortage' : 'Fully Funded'}: ${FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}`}
+              title={`${showFinancialStatus ? 'Hide' : 'Show'} consolidated financial report - ${financialStatus.isDeficit ? 'Funding Shortage' : 'Fully Funded'}: ${FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}`}
             >
               <div style={statLabelStyle}>
-                Money {showFinancialStatus ? '▲' : '▼'} 
+                Finances {showFinancialStatus ? '▲' : '▼'} 
                 {financialStatus.isDeficit ? ' ⚠️' : ' ✅'}
               </div>
               <div style={{
                 ...statValueStyle,
                 color: financialStatus.isDeficit ? '#dc3545' : '#28a745'
               }}>
-                💰 {FormatUtils.formatMoney(player.money)}
+                📊 {FormatUtils.formatMoney(player.money)}
               </div>
               <div style={{
                 fontSize: '0.7rem',
@@ -419,11 +468,6 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             <div style={statItemStyle}>
               <div style={statLabelStyle}>Time</div>
               <div style={statValueStyle}>⏱️ {FormatUtils.formatTime(player.timeSpent || 0)}</div>
-            </div>
-
-            <div style={statItemStyle}>
-              <div style={statLabelStyle}>Project Scope</div>
-              <div style={statValueStyle}>🏗️ {FormatUtils.formatMoney(player.projectScope || 0)}</div>
             </div>
 
             {/* Card Portfolio Toggle Button */}
@@ -451,6 +495,50 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
             </button>
           </div>
 
+          {/* Location Story Section */}
+          {(() => {
+            const spaceContent = dataService.getSpaceContent(player.currentSpace, 'First');
+            const storyText = spaceContent?.content_text || 'No story available for this space.';
+            
+            return (
+              <div style={{
+                background: 'linear-gradient(135deg, #fff8e1, #f3e5ab)',
+                border: '2px solid #ffc107',
+                borderRadius: '8px',
+                padding: '12px',
+                marginTop: '8px',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+              }}>
+                <div style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  color: '#795548',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  📍 Location Story
+                </div>
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: '#5d4037',
+                  lineHeight: '1.4',
+                  fontStyle: storyText === 'No story available for this space.' ? 'italic' : 'normal'
+                }}>
+                  {storyText}
+                </div>
+                <div style={{
+                  fontSize: '0.7rem',
+                  color: '#8d6e63',
+                  marginTop: '6px',
+                  fontStyle: 'italic'
+                }}>
+                  Current location: {player.currentSpace}
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
 
         {/* Right Section: Turn Controls */}
@@ -467,9 +555,26 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
               overflow: 'visible'
             }}>
               <TurnControlsWithActions 
+                // Legacy props
                 onOpenNegotiationModal={onOpenNegotiationModal}
                 playerId={player.id}
                 playerName={player.name}
+                // All the new props from GameLayout
+                currentPlayer={currentPlayer}
+                gamePhase={gamePhase}
+                isProcessingTurn={isProcessingTurn}
+                hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
+                hasPlayerRolledDice={hasPlayerRolledDice}
+                hasCompletedManualActions={hasCompletedManualActions}
+                awaitingChoice={awaitingChoice}
+                actionCounts={actionCounts}
+                completedActions={completedActions}
+                feedbackMessage={feedbackMessage}
+                onRollDice={onRollDice}
+                onEndTurn={onEndTurn}
+                onManualEffect={onManualEffect}
+                onNegotiate={onNegotiate}
+                onStartGame={onStartGame}
               />
             </div>
           ) : (

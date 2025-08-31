@@ -6,9 +6,9 @@ import {
   PlayerUpdateData,
   PlayerCards,
   ActiveModal,
-  Choice,
   ActionLogEntry
 } from '../types/StateTypes';
+import { Choice } from '../types/CommonTypes';
 
 export class StateService implements IStateService {
   private currentState: GameState;

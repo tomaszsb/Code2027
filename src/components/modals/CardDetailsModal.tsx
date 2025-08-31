@@ -1,34 +1,26 @@
 // src/components/modals/CardDetailsModal.tsx
 
-import React, { useState, useEffect } from 'react';
-import { useGameContext } from '../../context/GameContext';
+import React, { useState } from 'react';
 import { Card } from '../../types/DataTypes';
+import { Player } from '../../types/StateTypes';
+import { ICardService } from '../../types/ServiceContracts';
 
 interface CardDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cardId: string;
+  card: Card | null;
+  currentPlayer: Player | null;
+  otherPlayers: Player[];
+  cardService: ICardService;
 }
 
 /**
  * CardDetailsModal displays comprehensive information about a specific card
  * including name, description, effects, cost, and other properties.
  */
-export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalProps): JSX.Element | null {
-  const { dataService, cardService, stateService } = useGameContext();
-  const [cardData, setCardData] = useState<Card | null>(null);
+export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPlayers, cardService }: CardDetailsModalProps): JSX.Element | null {
   const [showTransferUI, setShowTransferUI] = useState(false);
   const [selectedTargetPlayer, setSelectedTargetPlayer] = useState<string>('');
-
-  // Fetch card data when modal opens or cardId changes
-  useEffect(() => {
-    if (isOpen && cardId) {
-      if (dataService.isLoaded()) {
-        const card = dataService.getCardById(cardId);
-        setCardData(card || null);
-      }
-    }
-  }, [isOpen, cardId, dataService]);
 
   // Handle escape key to close modal
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -44,10 +36,6 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
     }
   };
 
-  // Get current game state for player information
-  const gameState = stateService.getGameState();
-  const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
-  const otherPlayers = gameState.players.filter(p => p.id !== gameState.currentPlayerId);
 
   // Check if card is transferable
   const isCardTransferable = (cardType: string): boolean => {
@@ -56,20 +44,20 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
 
   // Check if current player owns this card in available cards
   const canTransferCard = (): boolean => {
-    if (!currentPlayer || !cardData) return false;
-    const cardType = cardService.getCardType(cardId);
+    if (!currentPlayer || !card) return false;
+    const cardType = cardService.getCardType(card.card_id);
     if (!cardType || !isCardTransferable(cardType)) return false;
     
     const availableCards = currentPlayer.availableCards[cardType] || [];
-    return availableCards.includes(cardId);
+    return availableCards.includes(card.card_id);
   };
 
   // Handle transfer card
   const handleTransferCard = async () => {
-    if (!currentPlayer || !selectedTargetPlayer) return;
+    if (!currentPlayer || !selectedTargetPlayer || !card) return;
     
     try {
-      cardService.transferCard(currentPlayer.id, selectedTargetPlayer, cardId);
+      cardService.transferCard(currentPlayer.id, selectedTargetPlayer, card.card_id);
       
       // Close modal and transfer UI on success
       setShowTransferUI(false);
@@ -87,7 +75,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
   }
 
   // Show loading state if card data is not available
-  if (!cardData) {
+  if (!card) {
     return (
       <div
         style={{
@@ -126,7 +114,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
   }
 
   // Get card type for color coding
-  const cardType = cardService.getCardType(cardId);
+  const cardType = cardService.getCardType(card.card_id);
   
   // Card type colors
   const cardTypeColors = {
@@ -209,7 +197,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
                 color: '#6c757d',
                 fontFamily: 'monospace'
               }}>
-                {cardData.card_id}
+                {card.card_id}
               </span>
             </div>
             
@@ -220,7 +208,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
               color: '#212529',
               lineHeight: '1.3'
             }}>
-              {cardData.card_name}
+              {card.card_name}
             </h2>
           </div>
 
@@ -276,12 +264,12 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
               lineHeight: '1.5',
               margin: 0
             }}>
-              {cardData.description || 'No description available.'}
+              {card.description || 'No description available.'}
             </p>
           </div>
 
           {/* Card Effects */}
-          {cardData.effects_on_play && (
+          {card.effects_on_play && (
             <div style={{ marginBottom: '24px' }}>
               <h3 style={{
                 fontSize: '1rem',
@@ -302,7 +290,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
                 color: '#495057',
                 fontStyle: 'italic'
               }}>
-                {cardData.effects_on_play}
+                {card.effects_on_play}
               </div>
             </div>
           )}
@@ -314,7 +302,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
             gap: '16px'
           }}>
             {/* Cost */}
-            {cardData.cost !== undefined && (
+            {card.cost !== undefined && (
               <div>
                 <h4 style={{
                   fontSize: '0.85rem',
@@ -329,15 +317,15 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
                 <div style={{
                   fontSize: '1.1rem',
                   fontWeight: 'bold',
-                  color: cardData.cost === 0 ? '#28a745' : '#dc3545'
+                  color: card.cost === 0 ? '#28a745' : '#dc3545'
                 }}>
-                  ${cardData.cost}
+                  ${card.cost}
                 </div>
               </div>
             )}
 
             {/* Duration */}
-            {cardData.duration !== undefined && (
+            {card.duration !== undefined && (
               <div>
                 <h4 style={{
                   fontSize: '0.85rem',
@@ -354,13 +342,13 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
                   fontWeight: 'bold',
                   color: '#495057'
                 }}>
-                  {cardData.duration} turn{cardData.duration !== 1 ? 's' : ''}
+                  {card.duration} turn{card.duration !== 1 ? 's' : ''}
                 </div>
               </div>
             )}
 
             {/* Phase Restriction */}
-            {cardData.phase_restriction && cardData.phase_restriction !== 'Any' && (
+            {card.phase_restriction && card.phase_restriction !== 'Any' && (
               <div>
                 <h4 style={{
                   fontSize: '0.85rem',
@@ -381,7 +369,7 @@ export function CardDetailsModal({ isOpen, onClose, cardId }: CardDetailsModalPr
                   borderRadius: '4px',
                   display: 'inline-block'
                 }}>
-                  {cardData.phase_restriction}
+                  {card.phase_restriction}
                 </div>
               </div>
             )}

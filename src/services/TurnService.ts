@@ -1,4 +1,4 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, TurnResult } from '../types/ServiceContracts';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
@@ -10,14 +10,16 @@ export class TurnService implements ITurnService {
   private readonly gameRulesService: IGameRulesService;
   private readonly cardService: ICardService;
   private readonly resourceService: IResourceService;
+  private readonly movementService: IMovementService;
   private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, effectEngineService?: IEffectEngineService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
     this.cardService = cardService;
     this.resourceService = resourceService;
+    this.movementService = movementService;
     this.effectEngineService = effectEngineService;
   }
 
@@ -185,9 +187,8 @@ export class TurnService implements ITurnService {
 
       console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
 
-      // Handle movement based on current space
-      // Note: We don't need dice roll here for fixed movement, but we'll pass 0 as placeholder
-      this.handleMovement(gameState.currentPlayerId, 0);
+      // Handle movement using MovementService
+      await this.movementService.handleMovementChoice(currentPlayer.id);
 
       // Check for win condition before ending turn
       const hasWon = await this.gameRulesService.checkWinCondition(gameState.currentPlayerId);
@@ -839,23 +840,31 @@ export class TurnService implements ITurnService {
       if (transferredCard && transferredType) {
         // Remove card from current player
         const currentPlayerCards = { ...player.availableCards };
+        // Ensure current player's card array exists before modifying
+        if (!currentPlayerCards[transferredType as keyof typeof currentPlayerCards]) {
+          currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = [];
+        }
         currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = 
           currentPlayerCards[transferredType as keyof typeof currentPlayerCards].slice(1);
 
-        // Add card to target player  
-        const targetPlayerCards = { ...targetPlayer.cards };
+        // Add card to target player with defensive initialization
+        const targetPlayerCards = { ...targetPlayer.availableCards };
+        // Ensure target player's card array exists before modifying
+        if (!targetPlayerCards[transferredType as keyof typeof targetPlayerCards]) {
+          targetPlayerCards[transferredType as keyof typeof targetPlayerCards] = [];
+        }
         targetPlayerCards[transferredType as keyof typeof targetPlayerCards] = 
           [...targetPlayerCards[transferredType as keyof typeof targetPlayerCards], transferredCard];
 
         // Update both players
         this.stateService.updatePlayer({
           id: playerId,
-          cards: currentPlayerCards
+          availableCards: currentPlayerCards
         });
 
         this.stateService.updatePlayer({
           id: targetPlayer.id,
-          cards: targetPlayerCards
+          availableCards: targetPlayerCards
         });
 
         console.log(`Player ${player.name} transfers ${transferredType} card to ${targetPlayer.name}`);
@@ -979,152 +988,6 @@ export class TurnService implements ITurnService {
     return 0;
   }
 
-  private handleMovement(playerId: string, diceRoll: number): GameState {
-    const currentPlayer = this.stateService.getPlayer(playerId);
-    if (!currentPlayer) {
-      throw new Error(`Player ${playerId} not found`);
-    }
-
-    console.log(`🚶 Movement Debug: Player ${currentPlayer.name} on ${currentPlayer.currentSpace} (${currentPlayer.visitType} visit)`);
-
-    // Get movement data for current space
-    const movement = this.dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
-    console.log('🚶 Movement data found:', movement);
-    
-    if (!movement) {
-      // No movement data - player stays in current space
-      console.log('🚶 No movement data found - staying in place');
-      return this.stateService.getGameState();
-    }
-
-    // Handle movement based on type
-    switch (movement.movement_type) {
-      case 'choice':
-        // Player must choose destination - set awaitingChoice state
-        return this.setAwaitingChoice(playerId, movement);
-      
-      case 'fixed':
-        // Move to fixed destination
-        return this.moveToFixedDestination(playerId, movement);
-      
-      case 'dice':
-        // Move based on dice roll
-        return this.moveToDiceDestination(playerId, movement, diceRoll);
-      
-      case 'none':
-        // Terminal space - stay in place
-        return this.stateService.getGameState();
-      
-      default:
-        console.warn(`Unknown movement type: ${movement.movement_type}`);
-        return this.stateService.getGameState();
-    }
-  }
-
-  private setAwaitingChoice(playerId: string, movement: Movement): GameState {
-    // Extract destination options
-    const options: string[] = [];
-    if (movement.destination_1) options.push(movement.destination_1);
-    if (movement.destination_2) options.push(movement.destination_2);
-    if (movement.destination_3) options.push(movement.destination_3);
-    if (movement.destination_4) options.push(movement.destination_4);
-    if (movement.destination_5) options.push(movement.destination_5);
-
-    // Update game state with choice waiting
-    return this.stateService.setAwaitingChoice(playerId, options);
-  }
-
-  private moveToFixedDestination(playerId: string, movement: Movement): GameState {
-    const destination = movement.destination_1;
-    if (!destination) {
-      throw new Error('Fixed movement requires a destination');
-    }
-
-    // Move player to destination
-    this.movePlayerToSpace(playerId, destination);
-    
-    // Return current game state
-    return this.stateService.getGameState();
-  }
-
-  private moveToDiceDestination(playerId: string, movement: Movement, diceRoll: number): GameState {
-    const diceOutcome = this.dataService.getDiceOutcome(movement.space_name, movement.visit_type);
-    if (!diceOutcome) {
-      throw new Error(`No dice outcome data for space ${movement.space_name}`);
-    }
-
-    // Get destination based on dice roll
-    let destination: string | undefined;
-    switch (diceRoll) {
-      case 1: destination = diceOutcome.roll_1; break;
-      case 2: destination = diceOutcome.roll_2; break;
-      case 3: destination = diceOutcome.roll_3; break;
-      case 4: destination = diceOutcome.roll_4; break;
-      case 5: destination = diceOutcome.roll_5; break;
-      case 6: destination = diceOutcome.roll_6; break;
-    }
-
-    if (!destination) {
-      throw new Error(`No destination for dice roll ${diceRoll} on space ${movement.space_name}`);
-    }
-
-    // Log the dice result with destination
-    if (typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
-      (window as any)[`addActionToLog_${playerId}`]({
-        type: 'dice_roll',
-        playerId: playerId,
-        playerName: this.stateService.getPlayer(playerId)?.name || 'Unknown',
-        description: `Rolled ${diceRoll} → Selected: ${destination}`,
-        details: {
-          diceValue: diceRoll,
-          diceResult: destination,
-          space: movement.space_name
-        }
-      });
-    }
-
-    // Move player to destination
-    this.movePlayerToSpace(playerId, destination);
-    
-    // Return current game state
-    return this.stateService.getGameState();
-  }
-
-  private movePlayerToSpace(playerId: string, destinationSpace: string): void {
-    const player = this.stateService.getPlayer(playerId);
-    if (!player) {
-      throw new Error(`Player ${playerId} not found`);
-    }
-
-    // Determine visit type for destination space
-    const newVisitType = this.hasPlayerVisitedSpace(player, destinationSpace) 
-      ? 'Subsequent' 
-      : 'First';
-
-    // Update player's position
-    this.stateService.updatePlayer({
-      id: playerId,
-      currentSpace: destinationSpace,
-      visitType: newVisitType
-    });
-
-    // Update action counts for the new space
-    this.stateService.updateActionCounts();
-  }
-
-  private hasPlayerVisitedSpace(player: Player, spaceName: string): boolean {
-    // Simple heuristic: if player is at starting space, destination is first visit
-    const allSpaces = this.dataService.getAllSpaces();
-    const startingSpaces = allSpaces
-      .filter(space => space.config.is_starting_space)
-      .map(space => space.name);
-    
-    if (startingSpaces.includes(player.currentSpace) && player.currentSpace !== spaceName) {
-      return false;
-    }
-    
-    return true;
-  }
 
   /**
    * Trigger a manual space effect for the current player

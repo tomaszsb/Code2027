@@ -1,5 +1,6 @@
 import { Player, ActiveCard } from './DataTypes';
 import { Effect } from './EffectTypes';
+import { Choice } from './CommonTypes';
 
 export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
@@ -24,13 +25,6 @@ export interface ActionLogEntry {
   };
 }
 
-export interface Choice {
-  id: string;
-  playerId: string;
-  type: 'MOVEMENT' | 'PLAYER_TARGET' | 'GENERAL';
-  prompt: string;
-  options: Array<{ id: string; label: string; }>;
-}
 
 export interface NegotiationState {
   negotiationId: string;
@@ -112,7 +106,7 @@ export interface PlayerUpdateData {
   currentSpace?: string;
   visitType?: 'First' | 'Subsequent';
   money?: number;
-  time?: number;
+  timeSpent?: number;
   projectScope?: number;
   cards?: {
     W?: string[];

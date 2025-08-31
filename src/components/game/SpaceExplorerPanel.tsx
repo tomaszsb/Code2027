@@ -376,7 +376,7 @@ export function SpaceExplorerPanel({
                 {spaceDetails.space.name}
               </h4>
               <button
-                onClick={() => setSelectedSpace(null)}
+                onClick={onToggle}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -604,9 +604,9 @@ export function SpaceExplorerPanel({
                         {effect.effect_type}: {effect.effect_action} {effect.effect_value}
                         {effect.trigger_type && ` (${effect.trigger_type})`}
                       </div>
-                      {effect.effect_description && (
+                      {effect.description && (
                         <div style={{ color: '#856404' }}>
-                          {effect.effect_description}
+                          {effect.description}
                         </div>
                       )}
                       {effect.condition && (
@@ -646,9 +646,9 @@ export function SpaceExplorerPanel({
                         Roll {effect.roll_1}{effect.roll_2 && `, ${effect.roll_2}`}: 
                         {effect.effect_type} {effect.effect_action} {effect.effect_value}
                       </div>
-                      {effect.effect_description && (
+                      {effect.description && (
                         <div style={{ color: '#0056b3' }}>
-                          {effect.effect_description}
+                          {effect.description}
                         </div>
                       )}
                       {effect.condition && (

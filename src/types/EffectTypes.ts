@@ -1,7 +1,7 @@
 // src/types/EffectTypes.ts
 
 import { CardType } from './DataTypes';
-import { Choice } from './StateTypes';
+import { Choice } from './CommonTypes';
 
 /**
  * Generic Effect System Type Definitions

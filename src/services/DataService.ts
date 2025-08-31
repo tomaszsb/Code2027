@@ -69,6 +69,16 @@ export class DataService implements IDataService {
     return this.gameConfigs.find(config => config.space_name === spaceName);
   }
 
+  getPhaseOrder(): string[] {
+    const phases: string[] = [];
+    for (const config of this.gameConfigs) {
+      if (config.phase && !phases.includes(config.phase)) {
+        phases.push(config.phase);
+      }
+    }
+    return phases;
+  }
+
   // Space methods
   getAllSpaces(): Space[] {
     return [...this.spaces];

@@ -32,8 +32,8 @@ export class NegotiationService {
    * @param context - Context data about the negotiation (what's at stake, rules, etc.)
    * @returns Promise resolving to the negotiation result
    */
-  public async startNegotiation(playerId: string, context: any): Promise<NegotiationResult> {
-    console.log(`🤝 NegotiationService.startNegotiation - Player ${playerId} starting negotiation`);
+  public async initiateNegotiation(playerId: string, context: any): Promise<NegotiationResult> {
+    console.log(`🤝 NegotiationService.initiateNegotiation - Player ${playerId} starting negotiation`);
     console.log(`   Context:`, context);
     
     try {

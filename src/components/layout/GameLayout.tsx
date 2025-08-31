@@ -16,23 +16,37 @@ import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { GameLog } from '../game/GameLog';
 import { useGameContext } from '../../context/GameContext';
 import { GamePhase, Player } from '../../types/StateTypes';
+import { Card } from '../../types/DataTypes';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
  * This provides the main grid-based layout for the game application.
  */
 export function GameLayout(): JSX.Element {
-  const { stateService } = useGameContext();
+  const { stateService, dataService, cardService, turnService } = useGameContext();
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isNegotiationModalOpen, setIsNegotiationModalOpen] = useState<boolean>(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
-  const [selectedCardId, setSelectedCardId] = useState<string>('');
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isMovementPathVisible, setIsMovementPathVisible] = useState<boolean>(false);
   const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  
+  // State tracking for TurnControlsWithActions component
+  const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
+  const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState<boolean>(false);
+  const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState<boolean>(false);
+  const [hasCompletedManualActions, setHasCompletedManualActions] = useState<boolean>(false);
+  const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
+  const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
+  const [completedActions, setCompletedActions] = useState<{
+    diceRoll?: string;
+    manualActions: { [effectType: string]: string };
+  }>({ manualActions: {} });
+  const [feedbackMessage, setFeedbackMessage] = useState<string>('');
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -73,7 +87,7 @@ export function GameLayout(): JSX.Element {
     }
   }, []);
 
-  // Subscribe to game state changes to track phase transitions
+  // Subscribe to game state changes to track phase transitions and turn controls state
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
       setGamePhase(gameState.gamePhase);
@@ -81,6 +95,18 @@ export function GameLayout(): JSX.Element {
       setCurrentPlayerId(gameState.currentPlayerId);
       // Track active modal state
       setActiveModal(gameState.activeModal?.type || null);
+      
+      // Track turn control state for TurnControlsWithActions
+      setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
+      setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
+      setHasCompletedManualActions(gameState.hasCompletedManualActions || false);
+      setAwaitingChoice(gameState.awaitingChoice !== null);
+      
+      // Update action counts from game state
+      setActionCounts({
+        required: gameState.requiredActions || 1,
+        completed: gameState.completedActions || 0
+      });
     });
     
     // Initialize with current state
@@ -89,6 +115,16 @@ export function GameLayout(): JSX.Element {
     setPlayers(currentState.players);
     setCurrentPlayerId(currentState.currentPlayerId);
     setActiveModal(currentState.activeModal?.type || null);
+    
+    // Initialize turn control state
+    setHasPlayerMovedThisTurn(currentState.hasPlayerMovedThisTurn || false);
+    setHasPlayerRolledDice(currentState.hasPlayerRolledDice || false);
+    setHasCompletedManualActions(currentState.hasCompletedManualActions || false);
+    setAwaitingChoice(currentState.awaitingChoice !== null);
+    setActionCounts({
+      required: currentState.requiredActions || 1,
+      completed: currentState.completedActions || 0
+    });
     
     return unsubscribe;
   }, [stateService]);
@@ -122,13 +158,16 @@ export function GameLayout(): JSX.Element {
     // Close any open side panels when modal opens
     setIsMovementPathVisible(false);
     setIsSpaceExplorerVisible(false);
-    setSelectedCardId(cardId);
+    
+    // Fetch card data before opening modal
+    const card = dataService.getCardById(cardId);
+    setSelectedCard(card || null);
     setIsCardDetailsModalOpen(true);
   };
 
   const handleCloseCardDetailsModal = () => {
     setIsCardDetailsModalOpen(false);
-    setSelectedCardId('');
+    setSelectedCard(null);
   };
 
   // Handlers for movement path visualization
@@ -139,6 +178,152 @@ export function GameLayout(): JSX.Element {
   // Handlers for space explorer panel
   const handleToggleSpaceExplorer = () => {
     setIsSpaceExplorerVisible(!isSpaceExplorerVisible);
+  };
+
+  // Action handlers for TurnControlsWithActions component
+  const handleRollDice = async () => {
+    if (!currentPlayerId) return;
+    setIsProcessingTurn(true);
+    try {
+      const result = await turnService.rollDiceWithFeedback(currentPlayerId);
+      // Create completion message for immediate UI feedback
+      let unifiedDescription = `Rolled ${result.diceValue}`;
+      const outcomes: string[] = [];
+      
+      result.effects?.forEach(effect => {
+        switch (effect.type) {
+          case 'cards':
+            outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
+            break;
+          case 'money':
+            if (effect.value !== undefined) {
+              const moneyOutcome = effect.value > 0 
+                ? `Gained $${Math.abs(effect.value)}`
+                : `Spent $${Math.abs(effect.value)}`;
+              outcomes.push(moneyOutcome);
+            }
+            break;
+          case 'time':
+            if (effect.value !== undefined) {
+              const timeOutcome = effect.value > 0 
+                ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
+                : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
+              outcomes.push(timeOutcome);
+            }
+            break;
+        }
+      });
+      
+      if (outcomes.length > 0) {
+        unifiedDescription += ` → ${outcomes.join(', ')}`;
+      }
+      
+      // Store completion message for immediate UI feedback
+      setCompletedActions(prev => ({
+        ...prev,
+        diceRoll: unifiedDescription
+      }));
+    } catch (error) {
+      console.error("Error rolling dice:", error);
+    } finally {
+      setIsProcessingTurn(false);
+    }
+  };
+
+  const handleEndTurn = async () => {
+    if (!currentPlayerId) return;
+    setIsProcessingTurn(true);
+    try {
+      await turnService.endTurnWithMovement();
+      // Reset completed actions for next turn
+      setCompletedActions({ manualActions: {} });
+    } catch (error) {
+      console.error("Error ending turn:", error);
+    } finally {
+      setIsProcessingTurn(false);
+    }
+  };
+
+  const handleManualEffect = async (effectType: string) => {
+    if (!currentPlayerId) return;
+    setIsProcessingTurn(true);
+    try {
+      const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
+      // Create completion message for immediate UI feedback
+      const outcomes: string[] = [];
+      
+      result.effects?.forEach(effect => {
+        switch (effect.type) {
+          case 'cards':
+            outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
+            break;
+          case 'money':
+            if (effect.value !== undefined) {
+              const moneyOutcome = effect.value > 0 
+                ? `Gained $${Math.abs(effect.value)}`
+                : `Spent $${Math.abs(effect.value)}`;
+              outcomes.push(moneyOutcome);
+            }
+            break;
+          case 'time':
+            if (effect.value !== undefined) {
+              const timeOutcome = effect.value > 0 
+                ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
+                : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
+              outcomes.push(timeOutcome);
+            }
+            break;
+        }
+      });
+      
+      const actionDescription = `Manual Action: ${outcomes.join(', ') || 'Action completed'}`;
+      
+      // Store completion message for immediate UI feedback
+      setCompletedActions(prev => ({
+        ...prev,
+        manualActions: {
+          ...prev.manualActions,
+          [effectType]: actionDescription
+        }
+      }));
+    } catch (error) {
+      console.error("Error triggering manual effect:", error);
+    } finally {
+      setIsProcessingTurn(false);
+    }
+  };
+
+  const handleNegotiate = async () => {
+    if (!currentPlayerId) return;
+    setIsProcessingTurn(true);
+    try {
+      const result = await turnService.performNegotiation(currentPlayerId);
+      setFeedbackMessage(result.message);
+      // Clear feedback after 4 seconds
+      setTimeout(() => {
+        setFeedbackMessage('');
+      }, 4000);
+    } catch (error) {
+      console.error("Error during negotiation:", error);
+      setFeedbackMessage(`Negotiation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => {
+        setFeedbackMessage('');
+      }, 4000);
+    } finally {
+      setIsProcessingTurn(false);
+    }
+  };
+
+  const handleStartGame = () => {
+    try {
+      const gameState = stateService.getGameState();
+      if (gameState.players.length === 0) {
+        stateService.addPlayer('Test Player');
+      }
+      stateService.startGame();
+    } catch (error) {
+      console.error('Error starting game:', error);
+    }
   };
 
   // Helper function to check if any modal is open
@@ -162,7 +347,11 @@ export function GameLayout(): JSX.Element {
           gridColumn: '1 / -1',
           gridRow: '1'
         }}>
-          <ProjectProgress players={players} />
+          <ProjectProgress 
+            players={players} 
+            currentPlayerId={currentPlayerId}
+            dataService={dataService}
+          />
         </div>
       )}
       {/* Left Panel - Player Status */}
@@ -186,6 +375,28 @@ export function GameLayout(): JSX.Element {
             onToggleMovementPath={handleToggleMovementPath}
             isSpaceExplorerVisible={isSpaceExplorerVisible}
             isMovementPathVisible={isMovementPathVisible}
+            // Player data
+            players={players}
+            currentPlayerId={currentPlayerId}
+            // TurnControlsWithActions props
+            currentPlayer={players.find(p => p.id === currentPlayerId) || null}
+            gamePhase={gamePhase}
+            isProcessingTurn={isProcessingTurn}
+            hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
+            hasPlayerRolledDice={hasPlayerRolledDice}
+            hasCompletedManualActions={hasCompletedManualActions}
+            awaitingChoice={awaitingChoice}
+            actionCounts={actionCounts}
+            completedActions={completedActions}
+            feedbackMessage={feedbackMessage}
+            onRollDice={handleRollDice}
+            onEndTurn={handleEndTurn}
+            onManualEffect={handleManualEffect}
+            onNegotiate={handleNegotiate}
+            onStartGame={handleStartGame}
+            // Legacy props for compatibility
+            playerId={currentPlayerId || ''}
+            playerName={players.find(p => p.id === currentPlayerId)?.name || ''}
           />
         ) : (
           <>
@@ -305,7 +516,10 @@ export function GameLayout(): JSX.Element {
       <CardDetailsModal 
         isOpen={isCardDetailsModalOpen}
         onClose={handleCloseCardDetailsModal}
-        cardId={selectedCardId}
+        card={selectedCard}
+        currentPlayer={players.find(p => p.id === currentPlayerId) || null}
+        otherPlayers={players.filter(p => p.id !== currentPlayerId)}
+        cardService={cardService}
       />
       
       {/* MovementPathVisualization - only during PLAY phase and no modals open */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../context/GameContext';
-import { Choice } from '../../types/StateTypes';
+import { Choice } from '../../types/CommonTypes';
 
 export function ChoiceModal(): JSX.Element {
   const { stateService, choiceService } = useGameContext();

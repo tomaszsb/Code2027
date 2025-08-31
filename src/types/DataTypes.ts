@@ -8,6 +8,9 @@ export interface GameConfig {
   max_players: number;
   requires_dice_roll: boolean;
   action?: string;  // Dynamic action keywords like 'GOTO_JAIL', 'PAY_TAX', 'AUCTION'
+  game_phase?: string;
+  space_order?: number;
+  tutorial_step?: number;
 }
 
 export interface Movement {
@@ -54,6 +57,10 @@ export interface DiceEffect {
   roll_4?: string;
   roll_5?: string;
   roll_6?: string;
+  effect_action?: string;
+  effect_value?: string | number;
+  condition?: string;
+  description?: string;
 }
 
 export interface SpaceContent {
@@ -64,6 +71,8 @@ export interface SpaceContent {
   action_description: string;
   outcome_description: string;
   can_negotiate: boolean;
+  content_text?: string;
+  requires_choice?: boolean;
 }
 
 export interface Space {

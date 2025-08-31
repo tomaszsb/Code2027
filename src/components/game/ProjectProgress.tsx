@@ -2,24 +2,26 @@
 
 import React from 'react';
 import { Player } from '../../types/StateTypes';
-import { useGameContext } from '../../context/GameContext';
+import { IDataService } from '../../types/ServiceContracts';
 
 interface ProjectProgressProps {
   players: Player[];
+  currentPlayerId: string | null;
+  dataService: IDataService;
 }
 
 /**
  * ProjectProgress component displays global project progress for all players.
  * Shows current phase, overall progress, and player positions in the project lifecycle.
  */
-export function ProjectProgress({ players }: ProjectProgressProps): JSX.Element {
-  const { dataService, stateService } = useGameContext();
-  const gameState = stateService.getGameState();
-  const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
+export function ProjectProgress({ players, currentPlayerId, dataService }: ProjectProgressProps): JSX.Element {
+  const currentPlayer = players.find(p => p.id === currentPlayerId);
+  
+  // Get dynamic phase order from data service
+  const phases = dataService.getPhaseOrder();
 
   // Calculate project progress for a single player
   const calculatePlayerProgress = (player: Player) => {
-    const phases = ['INITIATION', 'PLANNING', 'DESIGN', 'BUILD', 'TEST', 'DEPLOY'];
     const spaceConfig = dataService.getGameConfigBySpace(player.currentSpace);
     
     if (!spaceConfig) {
@@ -44,21 +46,20 @@ export function ProjectProgress({ players }: ProjectProgressProps): JSX.Element 
 
   // Calculate overall project progress
   const calculateOverallProgress = () => {
-    if (players.length === 0) return { averageProgress: 0, leadingPhase: 'INITIATION' };
+    const firstPhase = phases.length > 0 ? phases[0] : 'UNKNOWN';
+    if (players.length === 0) return { averageProgress: 0, leadingPhase: firstPhase };
 
     const playerProgresses = players.map(player => calculatePlayerProgress(player));
     const averageProgress = playerProgresses.reduce((sum, p) => sum + p.progress, 0) / players.length;
     
     // Find the most advanced phase
     const maxPhaseIndex = Math.max(...playerProgresses.map(p => p.phaseIndex));
-    const phases = ['INITIATION', 'PLANNING', 'DESIGN', 'BUILD', 'TEST', 'DEPLOY'];
-    const leadingPhase = maxPhaseIndex >= 0 ? phases[maxPhaseIndex] : 'INITIATION';
+    const leadingPhase = maxPhaseIndex >= 0 ? phases[maxPhaseIndex] : firstPhase;
 
     return { averageProgress, leadingPhase };
   };
 
   const overallProgress = calculateOverallProgress();
-  const phases = ['INITIATION', 'PLANNING', 'DESIGN', 'BUILD', 'TEST', 'DEPLOY'];
 
   const containerStyle = {
     background: 'linear-gradient(135deg, #f8f9fa, #e3f2fd)',

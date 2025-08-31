@@ -318,7 +318,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                         {partner.name}
                       </div>
                       <div style={{ fontSize: '14px', color: '#666' }}>
-                        💰 ${partner.money} | ⏰ {partner.time} minutes
+                        💰 ${partner.money} | ⏰ {partner.timeSpent} minutes
                       </div>
                     </div>
                   </div>
@@ -614,7 +614,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                     💰 Money: ${currentPlayer.money}
                   </div>
                   <div style={{ color: '#666' }}>
-                    ⏰ Time: {currentPlayer.time} minutes
+                    ⏰ Time: {currentPlayer.timeSpent} minutes
                   </div>
                   {(['W', 'B', 'E', 'L', 'I'] as CardType[]).map(cardType => {
                     const cardCount = getPlayerCardsByType(currentPlayer, cardType).length;

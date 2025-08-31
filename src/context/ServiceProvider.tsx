@@ -41,7 +41,7 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const movementService = new MovementService(dataService, stateService, choiceService);
   
   // Create TurnService first (without EffectEngineService initially)
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService);
   
   // Create EffectEngineService with TurnService dependency
   const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService);

@@ -84,6 +84,7 @@ export class EffectEngineService implements IEffectEngineService {
    * @returns Promise resolving to batch processing results
    */
   async processEffects(effects: Effect[], context: EffectContext): Promise<BatchEffectResult> {
+    console.log(`🚨 DEBUG: EffectEngineService.processEffects() ENTRY - ${effects.length} effects from source: ${context.source}`);
     console.log(`🔧 EFFECT_ENGINE: Processing ${effects.length} effects from source: ${context.source}`);
     
     if (context.playerId) {
@@ -156,6 +157,8 @@ export class EffectEngineService implements IEffectEngineService {
    */
   async processEffect(effect: Effect, context: EffectContext): Promise<EffectResult> {
     console.log(`    🎯 Processing ${effect.effectType} effect`);
+    
+    let success = false; // Declare success variable at method scope
 
     try {
       // Validate effect before processing
@@ -176,8 +179,6 @@ export class EffectEngineService implements IEffectEngineService {
             const reason = payload.reason || 'Effect processing';
             
             console.log(`🔧 EFFECT_ENGINE: Processing ${payload.resource} change for player ${payload.playerId} by ${payload.amount}`);
-            
-            let success = false;
             
             if (payload.resource === 'MONEY') {
               if (payload.amount > 0) {
@@ -356,6 +357,7 @@ export class EffectEngineService implements IEffectEngineService {
                 console.error(`❌ ${logMessage}`);
                 break;
             }
+            success = true; // Log effects always succeed
           }
           break;
 
@@ -402,7 +404,6 @@ export class EffectEngineService implements IEffectEngineService {
             console.log(`    Source: ${payload.source || context.source}`);
             console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
             
-            let success = false;
             try {
               // Execute turn control action through TurnService
               success = this.turnService.setTurnModifier(payload.playerId, payload.action);
@@ -426,7 +427,6 @@ export class EffectEngineService implements IEffectEngineService {
             console.log(`    Source: ${payload.source || context.source}`);
             console.log(`    Reason: ${payload.reason || 'Effect processing'}`);
             
-            let success = false;
             
             try {
               // Activate card through CardService
@@ -448,7 +448,6 @@ export class EffectEngineService implements IEffectEngineService {
             console.log(`    Source: ${payload.source || context.source}`);
             console.log(`    Prompt: ${payload.prompt}`);
             
-            let success = false;
             
             try {
               success = await this.processTargetedEffect(payload, context);
@@ -462,7 +461,6 @@ export class EffectEngineService implements IEffectEngineService {
         case 'RECALCULATE_SCOPE':
           console.log(`📊 EFFECT_ENGINE: Recalculating project scope for player ${effect.payload.playerId}`);
           
-          let success = false;
           try {
             const newProjectScope = this.gameRulesService.calculateProjectScope(effect.payload.playerId);
             this.stateService.updatePlayer({
@@ -502,7 +500,7 @@ export class EffectEngineService implements IEffectEngineService {
       }
 
       return {
-        success: true,
+        success,
         effectType: effect.effectType
       };
 

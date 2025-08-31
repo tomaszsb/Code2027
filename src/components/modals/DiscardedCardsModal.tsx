@@ -187,15 +187,15 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
                           }}>
                             {cardDisplayName}
                           </div>
-                          {cardData?.card_description && (
+                          {cardData?.description && (
                             <div style={{
                               color: '#6c757d',
                               fontSize: '0.75rem',
                               lineHeight: '1.2'
                             }}>
-                              {cardData.card_description.length > 80 
-                                ? cardData.card_description.substring(0, 80) + '...' 
-                                : cardData.card_description}
+                              {cardData.description.length > 80 
+                                ? cardData.description.substring(0, 80) + '...' 
+                                : cardData.description}
                             </div>
                           )}
                         </div>

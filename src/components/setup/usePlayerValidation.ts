@@ -192,12 +192,27 @@ export function usePlayerValidation(
   };
 
   /**
-   * Get the next avatar in sequence for cycling
+   * Get the next available avatar in sequence for cycling
+   * Only returns avatars that are not already in use by other players
    */
-  const getNextAvatar = (currentAvatar: string): string => {
+  const getNextAvatar = (currentAvatar: string, currentPlayerId: string): string => {
     const currentIndex = AVAILABLE_AVATARS.indexOf(currentAvatar);
-    const nextIndex = (currentIndex + 1) % AVAILABLE_AVATARS.length;
-    return AVAILABLE_AVATARS[nextIndex];
+    const usedAvatars = players
+      .filter(p => p.id !== currentPlayerId)  // Exclude current player
+      .map(p => p.avatar);
+    
+    // Start from the next avatar and loop through until we find an available one
+    for (let i = 1; i <= AVAILABLE_AVATARS.length; i++) {
+      const nextIndex = (currentIndex + i) % AVAILABLE_AVATARS.length;
+      const nextAvatar = AVAILABLE_AVATARS[nextIndex];
+      
+      if (!usedAvatars.includes(nextAvatar)) {
+        return nextAvatar;
+      }
+    }
+    
+    // Fallback: return current avatar if all others are taken
+    return currentAvatar;
   };
 
   /**

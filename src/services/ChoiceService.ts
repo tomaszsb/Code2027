@@ -1,5 +1,5 @@
 import { IChoiceService, IStateService } from '../types/ServiceContracts';
-import { Choice } from '../types/StateTypes';
+import { Choice } from '../types/CommonTypes';
 
 /**
  * Unified Choice Service
