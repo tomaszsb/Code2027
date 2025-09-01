@@ -3,22 +3,24 @@
 ## 🚀 **QUICK START - READ THIS FIRST** 
 
 ### **Current Project Status: PRODUCTION READY** 
-- **Last Updated**: September 1, 2025 - E2E Test Implementation & Core Logic Refinement
-- **Phase**: Production Ready with Enhanced Testing Coverage & Robust Core Logic  
+- **Last Updated**: September 1, 2025 - Critical Negotiation Bug Fix & Window Compatibility
+- **Phase**: Production Ready with Comprehensive Bug Fixes & Enhanced Cross-Environment Support
 - **Application**: `npm run dev` (usually port 3007)
 - **Architecture**: Clean service-oriented with dependency injection - all anti-patterns eliminated
 
 ### **What Just Happened (Latest Session):**
-- **E2E Test Foundation**: Implemented comprehensive E2E tests for game flow and negotiation features
-- **Core Logic Bug Fixes**: Fixed StateService action counter and added TurnService enforcement guard
-- **Test Suite Enhancement**: All E2E tests passing, component tests refined for robustness
-- **Result**: Solid testing foundation established, core game logic integrity reinforced, no regressions detected
+- **Critical Negotiation Bug Fixed**: Implemented complete negotiation lifecycle with proper card state cleanup
+- **Window Compatibility**: Added Node.js environment checks for universal service compatibility
+- **E2E Test Architecture**: Fixed E2E-02 test with proper service method delegation
+- **Service Integration**: Enhanced NegotiationService with full offer/cancel/complete functionality
+- **Result**: All critical bugs resolved, E2E tests passing, services work in all environments
 
 ### **Essential Files to Know:**
-- **`src/components/game/GameLog.tsx`** - New persistent log component
-- **`src/utils/actionLogFormatting.ts`** - Shared formatting utility  
-- **`src/components/game/TurnControlsWithActions.tsx`** - Updated action handling
-- **`src/services/StateService.ts`** - Global logging system and effect fixes
+- **`src/services/NegotiationService.ts`** - Complete negotiation implementation with card state management
+- **`src/services/TurnService.ts`** - Updated performNegotiation() method, proper delegation pattern
+- **`src/services/StateService.ts`** - Added updateNegotiationState() method
+- **`tests/E2E-02_ComplexCard.test.ts`** - Fixed with proper manual action handling
+- **`tests/E2E-03_ComplexSpace.test.ts`** - Comprehensive negotiation test scenarios
 
 ### **Ready For**: New tasks, bug fixes, or feature enhancements based on user needs
 
