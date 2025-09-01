@@ -70,13 +70,14 @@ export class NegotiationService {
         lastUpdatedAt: new Date()
       };
       
-      // TODO: Update game state with active negotiation
-      // For now, just log the negotiation creation
+      // Update game state with active negotiation
+      this.stateService.updateNegotiationState(negotiationState);
+      
       console.log(`✅ Negotiation created: ${negotiationId}`);
       console.log(`   Status: ${negotiationState.status}`);
       console.log(`   Initiator: ${player.name || playerId}`);
       
-      // Return placeholder result - will be enhanced in future iterations
+      // Return complete result with negotiation tracking
       return {
         success: true,
         message: `Negotiation ${negotiationId} started successfully`,
@@ -108,10 +109,10 @@ export class NegotiationService {
    * Make an offer in an active negotiation
    * 
    * @param playerId - The ID of the player making the offer
-   * @param offer - The offer details (terms, conditions, etc.)
+   * @param offer - The offer details including cards to offer
    * @returns Promise resolving to the negotiation result
    */
-  public async makeOffer(playerId: string, offer: any): Promise<NegotiationResult> {
+  public async makeOffer(playerId: string, offer: { cards?: string[] }): Promise<NegotiationResult> {
     console.log(`🤝 NegotiationService.makeOffer - Player ${playerId} making offer`);
     console.log(`   Offer:`, offer);
     
@@ -145,21 +146,60 @@ export class NegotiationService {
         };
       }
       
+      // If offering cards, validate and move them to negotiation state
+      if (offer.cards && offer.cards.length > 0) {
+        // Validate player owns these cards
+        for (const cardId of offer.cards) {
+          const hasCard = this.playerHasCard(player, cardId);
+          if (!hasCard) {
+            return {
+              success: false,
+              message: `Player does not own card ${cardId}`,
+              effects: []
+            };
+          }
+        }
+        
+        // Remove cards from player's hand and add to negotiation offer
+        const updatedPlayer = this.removeCardsFromPlayer(player, offer.cards);
+        this.stateService.updatePlayer(updatedPlayer);
+        
+        // Create player snapshot for potential rollback
+        const playerSnapshot = {
+          id: playerId,
+          availableCards: { ...player.availableCards },
+          negotiationOffer: offer.cards
+        };
+        
+        // Update negotiation with card offer
+        const updatedNegotiation = {
+          ...negotiation,
+          status: 'in_progress' as const,
+          offers: [...negotiation.offers, {
+            playerId: playerId,
+            offerData: { cards: offer.cards },
+            timestamp: new Date()
+          }],
+          playerSnapshots: [...(negotiation.playerSnapshots || []), playerSnapshot],
+          lastUpdatedAt: new Date()
+        };
+        
+        this.stateService.updateNegotiationState(updatedNegotiation);
+      }
+      
       console.log(`✅ Offer accepted for negotiation: ${negotiation.negotiationId}`);
       console.log(`   Player: ${player.name || playerId}`);
-      console.log(`   Negotiation status: ${negotiation.status}`);
+      console.log(`   Cards offered: ${offer.cards?.join(', ') || 'none'}`);
       
-      // Return placeholder result - will be enhanced in future iterations
       return {
         success: true,
         message: `Offer made successfully in negotiation ${negotiation.negotiationId}`,
         negotiationId: negotiation.negotiationId,
         effects: [
-          // Placeholder LOG effect to track offer
           {
             effectType: 'LOG',
             payload: {
-              message: `Offer made by ${player.name || playerId} in negotiation ${negotiation.negotiationId}`,
+              message: `${player.name || playerId} offered ${offer.cards?.length || 0} cards in negotiation`,
               level: 'INFO',
               source: `negotiation:${negotiation.negotiationId}`
             }
@@ -172,6 +212,125 @@ export class NegotiationService {
       return {
         success: false,
         message: `Failed to make offer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        effects: []
+      };
+    }
+  }
+
+  /**
+   * Cancel an active negotiation and restore player states
+   * 
+   * @param negotiationId - The ID of the negotiation to cancel
+   * @returns Promise resolving to the negotiation result
+   */
+  public async cancelNegotiation(negotiationId: string): Promise<NegotiationResult> {
+    console.log(`🤝 NegotiationService.cancelNegotiation - Cancelling negotiation ${negotiationId}`);
+    
+    try {
+      const gameState = this.stateService.getGameState();
+      const negotiation = gameState.activeNegotiation;
+      
+      if (!negotiation || negotiation.negotiationId !== negotiationId) {
+        return {
+          success: false,
+          message: `No active negotiation with ID ${negotiationId}`,
+          effects: []
+        };
+      }
+      
+      // Restore player states from snapshots
+      if (negotiation.playerSnapshots) {
+        for (const snapshot of negotiation.playerSnapshots) {
+          const player = this.stateService.getPlayer(snapshot.id);
+          if (player && snapshot.negotiationOffer) {
+            // Restore cards from negotiation offer back to player's hand
+            const restoredPlayer = this.addCardsToPlayer(player, snapshot.negotiationOffer);
+            this.stateService.updatePlayer(restoredPlayer);
+            console.log(`   Restored ${snapshot.negotiationOffer.length} cards to player ${snapshot.id}`);
+          }
+        }
+      }
+      
+      // Clear active negotiation
+      this.stateService.updateNegotiationState(null);
+      
+      console.log(`✅ Negotiation ${negotiationId} cancelled and player states restored`);
+      
+      return {
+        success: true,
+        message: `Negotiation ${negotiationId} cancelled successfully`,
+        negotiationId: negotiationId,
+        effects: [
+          {
+            effectType: 'LOG',
+            payload: {
+              message: `Negotiation ${negotiationId} was cancelled and player cards restored`,
+              level: 'INFO',
+              source: `negotiation:${negotiationId}`
+            }
+          }
+        ]
+      };
+      
+    } catch (error) {
+      console.error(`❌ Error cancelling negotiation:`, error);
+      return {
+        success: false,
+        message: `Failed to cancel negotiation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        effects: []
+      };
+    }
+  }
+
+  /**
+   * Complete a negotiation with agreed terms
+   * 
+   * @param negotiationId - The ID of the negotiation to complete
+   * @param agreement - The agreed terms of the negotiation
+   * @returns Promise resolving to the negotiation result
+   */
+  public async completeNegotiation(negotiationId: string, agreement: any): Promise<NegotiationResult> {
+    console.log(`🤝 NegotiationService.completeNegotiation - Completing negotiation ${negotiationId}`);
+    
+    try {
+      const gameState = this.stateService.getGameState();
+      const negotiation = gameState.activeNegotiation;
+      
+      if (!negotiation || negotiation.negotiationId !== negotiationId) {
+        return {
+          success: false,
+          message: `No active negotiation with ID ${negotiationId}`,
+          effects: []
+        };
+      }
+      
+      // Execute agreed terms (cards remain transferred as per agreement)
+      // Clear active negotiation
+      this.stateService.updateNegotiationState(null);
+      
+      console.log(`✅ Negotiation ${negotiationId} completed successfully`);
+      
+      return {
+        success: true,
+        message: `Negotiation ${negotiationId} completed successfully`,
+        negotiationId: negotiationId,
+        effects: [
+          {
+            effectType: 'LOG',
+            payload: {
+              message: `Negotiation ${negotiationId} completed with agreement`,
+              level: 'INFO',
+              source: `negotiation:${negotiationId}`
+            }
+          }
+        ]
+      };
+      
+    } catch (error) {
+      console.error(`❌ Error completing negotiation:`, error);
+      return {
+        success: false,
+        message: `Failed to complete negotiation: ${error instanceof Error ? error.message : 'Unknown error'}`,
         effects: []
       };
     }
@@ -194,5 +353,78 @@ export class NegotiationService {
    */
   public hasActiveNegotiation(): boolean {
     return this.getActiveNegotiation() !== null;
+  }
+
+  /**
+   * Check if a player has a specific card
+   * 
+   * @private
+   * @param player - The player to check
+   * @param cardId - The card ID to look for
+   * @returns True if player has the card
+   */
+  private playerHasCard(player: any, cardId: string): boolean {
+    const cards = player.availableCards || {};
+    for (const cardType of Object.keys(cards)) {
+      if (cards[cardType]?.includes(cardId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Remove cards from a player's hand
+   * 
+   * @private
+   * @param player - The player to remove cards from
+   * @param cardIds - The card IDs to remove
+   * @returns Updated player data
+   */
+  private removeCardsFromPlayer(player: any, cardIds: string[]): any {
+    const updatedCards = { ...player.availableCards };
+    
+    for (const cardId of cardIds) {
+      for (const cardType of Object.keys(updatedCards)) {
+        if (updatedCards[cardType]?.includes(cardId)) {
+          updatedCards[cardType] = updatedCards[cardType].filter((id: string) => id !== cardId);
+          break;
+        }
+      }
+    }
+    
+    return {
+      id: player.id,
+      availableCards: updatedCards
+    };
+  }
+
+  /**
+   * Add cards back to a player's hand
+   * 
+   * @private
+   * @param player - The player to add cards to
+   * @param cardIds - The card IDs to add back
+   * @returns Updated player data
+   */
+  private addCardsToPlayer(player: any, cardIds: string[]): any {
+    const updatedCards = { ...player.availableCards };
+    
+    // We need to determine card type for each card to add it back properly
+    // For now, we'll iterate through types and add to the first matching type
+    for (const cardId of cardIds) {
+      // Extract card type from card ID (assuming format like W001, B002, etc.)
+      const cardType = cardId.charAt(0);
+      if (updatedCards[cardType]) {
+        if (!updatedCards[cardType].includes(cardId)) {
+          updatedCards[cardType].push(cardId);
+        }
+      }
+    }
+    
+    return {
+      id: player.id,
+      availableCards: updatedCards
+    };
   }
 }

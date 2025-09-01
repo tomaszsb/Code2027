@@ -84,17 +84,20 @@ async function runComplexCardTest(): Promise<void> {
     const cardService = new CardService(dataService, stateService, resourceService);
     const movementService = new MovementService(dataService, stateService, choiceService);
     
-    // Create TurnService first (without EffectEngineService initially)
-    const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
+    // Create temporary services for circular dependency resolution
+    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
+    const negotiationService = new NegotiationService(stateService, tempEffectEngine);
+    
+    // Create TurnService with NegotiationService dependency
+    const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
     
     // Create EffectEngineService with TurnService dependency
-    const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService);
+    const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService);
     
     // Set EffectEngineService on TurnService to complete the circular dependency
     turnService.setEffectEngineService(effectEngineService);
     
     const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
-    const negotiationService = new NegotiationService(stateService, effectEngineService);
     
     console.log('✅ All services instantiated successfully');
     
@@ -258,6 +261,16 @@ async function runComplexCardTest(): Promise<void> {
       const diceResult = await turnService.rollDiceAndProcessEffects(currentPlayerId!);
       console.log(`   🎲 Rolled: ${diceResult.diceRoll}`);
       
+      // Check if manual actions are required and complete them
+      const currentGameState = stateService.getGameState();
+      if (currentGameState.requiredActions > currentGameState.completedActions) {
+        console.log(`   🎴 Completing manual card draw action...`);
+        // Use the proper high-level method to trigger manual effect
+        // This will draw the E card AND update the completedActions counter
+        turnService.triggerManualEffect(currentPlayerId!, 'cards');
+        console.log(`   ✅ Manual action completed`);
+      }
+      
       // End turn
       await turnService.endTurnWithMovement();
       
@@ -324,6 +337,13 @@ async function runComplexCardTest(): Promise<void> {
     process.exit(1);
   }
 }
+
+// Jest test wrapper
+describe('E2E-02: Complex Card Test', () => {
+  it('should handle complex card lifecycle with multi-player targeting and duration', async () => {
+    await runComplexCardTest();
+  });
+});
 
 // Execute the test
 if (require.main === module) {

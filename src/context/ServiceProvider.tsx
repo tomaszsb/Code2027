@@ -40,17 +40,20 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const cardService = new CardService(dataService, stateService, resourceService);
   const movementService = new MovementService(dataService, stateService, choiceService);
   
-  // Create TurnService first (without EffectEngineService initially)
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService);
+  // Create temporary services for circular dependency resolution
+  const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
+  const negotiationService = new NegotiationService(stateService, tempEffectEngine);
   
-  // Create EffectEngineService with TurnService dependency
+  // Create TurnService with NegotiationService dependency
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+  
+  // Create final EffectEngineService with TurnService dependency
   const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService);
   
-  // Set EffectEngineService on TurnService to complete the circular dependency
+  // Set final EffectEngineService on TurnService to complete the circular dependency
   turnService.setEffectEngineService(effectEngineService);
   
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
-  const negotiationService = new NegotiationService(stateService, effectEngineService);
   
   const services: IServiceContainer = {
     dataService,

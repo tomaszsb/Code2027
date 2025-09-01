@@ -195,7 +195,7 @@ export class EffectEngineService implements IEffectEngineService {
                 
                 // Log to action log if available
                 const player = this.stateService.getPlayer(payload.playerId);
-                if (player && typeof (window as any).addActionToLog === 'function') {
+                if (player && typeof window !== 'undefined' && typeof (window as any).addActionToLog === 'function') {
                   (window as any).addActionToLog({
                     type: 'resource_change',
                     playerId: payload.playerId,
@@ -238,7 +238,7 @@ export class EffectEngineService implements IEffectEngineService {
               
               // Log to action log if available
               const player = this.stateService.getPlayer(payload.playerId);
-              if (player && typeof (window as any).addActionToLog === 'function') {
+              if (player && typeof window !== 'undefined' && typeof (window as any).addActionToLog === 'function') {
                 (window as any).addActionToLog({
                   type: 'card_draw',
                   playerId: payload.playerId,
@@ -476,7 +476,7 @@ export class EffectEngineService implements IEffectEngineService {
             
             // Log to action log if available
             const player = this.stateService.getPlayer(effect.payload.playerId);
-            if (player && typeof (window as any).addActionToLog === 'function' && newProjectScope > 0) {
+            if (player && typeof window !== 'undefined' && typeof (window as any).addActionToLog === 'function' && newProjectScope > 0) {
               (window as any).addActionToLog({
                 type: 'resource_change',
                 playerId: effect.payload.playerId,

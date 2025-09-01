@@ -145,6 +145,9 @@ export interface IStateService {
   endGame(winnerId?: string): GameState;
   resetGame(): GameState;
   
+  // Negotiation management methods
+  updateNegotiationState(negotiationState: any): GameState;
+
   // Utility methods
   fixPlayerStartingSpaces(): GameState;
   forceResetAllPlayersToCorrectStartingSpace(): GameState;

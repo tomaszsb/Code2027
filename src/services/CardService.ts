@@ -114,7 +114,7 @@ export class CardService implements ICardService {
     console.log(`   Cards: ${newCardIds.join(', ')}`);
 
     // Log to action log if available
-    if (typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
+    if (typeof window !== 'undefined' && typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
       (window as any)[`addActionToLog_${playerId}`]({
         type: 'card_draw',
         playerId: playerId,

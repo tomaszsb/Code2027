@@ -849,6 +849,18 @@ export class StateService implements IStateService {
     return result;
   }
 
+  // Negotiation state management
+  updateNegotiationState(negotiationState: any): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      activeNegotiation: negotiationState
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...this.currentState };
+  }
+
   // Action logging methods
   logToActionHistory(actionData: Omit<ActionLogEntry, 'id' | 'timestamp'>): GameState {
     const newEntry: ActionLogEntry = {

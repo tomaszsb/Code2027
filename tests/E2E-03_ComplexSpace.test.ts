@@ -71,8 +71,12 @@ describe('E2E-03: Complex Space Negotiation Test', () => {
     cardService = new CardService(dataService, stateService, resourceService);
     movementService = new MovementService(dataService, stateService, choiceService);
     
-    // Create TurnService first (without EffectEngineService initially)
-    turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
+    // Create temporary services for circular dependency resolution
+    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
+    negotiationService = new NegotiationService(stateService, tempEffectEngine);
+    
+    // Create TurnService with NegotiationService dependency
+    turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
     
     // Create EffectEngineService with TurnService dependency
     effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService);
@@ -81,55 +85,151 @@ describe('E2E-03: Complex Space Negotiation Test', () => {
     turnService.setEffectEngineService(effectEngineService);
     
     playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
-    negotiationService = new NegotiationService(stateService, effectEngineService);
 
     // Load game data
     await dataService.loadData();
   });
 
-  it('should allow a player to negotiate and revert their state', async () => {
+  it('should handle negotiation card offer and cancellation properly', async () => {
     // Reset game state for this test
     stateService.resetGame();
     
-    // 1. Setup: Place player on the negotiation space
-    stateService.addPlayer('Player 1');
+    // 1. Setup: Create player with some cards
+    stateService.addPlayer('Negotiator');
     stateService.startGame();
     
     const gameState = stateService.getGameState();
     const player = gameState.players[0];
     expect(player).toBeDefined();
-    expect(player.name).toBe('Player 1');
+    expect(player.name).toBe('Negotiator');
 
-    stateService.updatePlayer({ id: player.id, currentSpace: 'OWNER-FUND-INITIATION' });
+    // Give player some cards to offer
+    stateService.updatePlayer({ 
+      id: player.id, 
+      currentSpace: 'OWNER-SCOPE-INITIATION',
+      availableCards: {
+        W: ['W001', 'W002'],
+        E: ['E001'], 
+        B: [],
+        L: [],
+        I: []
+      }
+    });
 
-    // Get initial player state for comparison (negotiation feature to be implemented)
+    // Get initial player state for comparison
     const initialPlayerState = stateService.getPlayer(player.id)!;
-    const initialMoney = initialPlayerState.money;
+    const initialWCards = [...(initialPlayerState.availableCards?.W || [])];
+    const initialECards = [...(initialPlayerState.availableCards?.E || [])];
+    
+    console.log('Initial player cards:', {
+      W: initialWCards,
+      E: initialECards
+    });
 
-    // 2. Action: Simulate a turn that processes space effects
-    await turnService.rollDiceAndProcessEffects(player.id);
+    // 2. Action: Start negotiation
+    const negotiationResult = await negotiationService.initiateNegotiation(player.id, {
+      type: 'space_negotiation',
+      space: 'OWNER-SCOPE-INITIATION'
+    });
     
-    // 3. Verify effects were processed (space entry effects should have changed player state)
-    const playerAfterEffects = stateService.getPlayer(player.id)!;
+    expect(negotiationResult.success).toBe(true);
+    expect(negotiationResult.negotiationId).toBeDefined();
     
-    // For now, just verify the space processing worked and game is in consistent state
-    const finalGameState = stateService.getGameState();
-    expect(finalGameState.gamePhase).toBe('PLAY');
-    expect(finalGameState.currentPlayerId).toBe(player.id);
+    // 3. Action: Make offer with cards
+    const offerResult = await negotiationService.makeOffer(player.id, {
+      cards: ['W001', 'E001']
+    });
     
-    console.log(`Initial money: ${initialMoney}, After effects: ${playerAfterEffects.money}`);
-    console.log('Negotiation feature test - basic space processing verified');
+    expect(offerResult.success).toBe(true);
+    
+    // 4. Verify cards moved to negotiation state
+    const playerAfterOffer = stateService.getPlayer(player.id)!;
+    expect(playerAfterOffer.availableCards?.W).not.toContain('W001');
+    expect(playerAfterOffer.availableCards?.E).not.toContain('E001');
+    expect(playerAfterOffer.availableCards?.W).toContain('W002'); // Should still have this one
+    
+    console.log('Player cards after offer:', {
+      W: playerAfterOffer.availableCards?.W || [],
+      E: playerAfterOffer.availableCards?.E || []
+    });
+    
+    // 5. Action: Cancel negotiation (this is where the bug was)
+    const cancelResult = await negotiationService.cancelNegotiation(negotiationResult.negotiationId!);
+    
+    expect(cancelResult.success).toBe(true);
+    
+    // 6. CRITICAL VERIFICATION: Cards should be restored to player
+    const playerAfterCancel = stateService.getPlayer(player.id)!;
+    expect(playerAfterCancel.availableCards?.W).toContain('W001'); // BUG FIX: Should be restored
+    expect(playerAfterCancel.availableCards?.E).toContain('E001'); // BUG FIX: Should be restored
+    expect(playerAfterCancel.availableCards?.W).toContain('W002'); // Should still be there
+    
+    console.log('Player cards after cancellation:', {
+      W: playerAfterCancel.availableCards?.W || [],
+      E: playerAfterCancel.availableCards?.E || []
+    });
+    
+    // 7. Verify no active negotiation
+    const activeNegotiation = negotiationService.getActiveNegotiation();
+    expect(activeNegotiation).toBeNull();
+    
+    console.log('✅ Negotiation cancellation and card restoration test passed');
   });
 
-  it('should detect negotiation capability for OWNER-FUND-INITIATION space', async () => {
-    // Check space content for negotiation capability
-    const spaceContent = dataService.getSpaceContent('OWNER-FUND-INITIATION', 'First');
-    expect(spaceContent).toBeDefined();
-    expect(spaceContent?.can_negotiate).toBe(true); // CSV parsing converts 'Yes' to true
-    expect(spaceContent?.title).toBe('Initial Funding');
+  it('should complete negotiation and transfer cards permanently', async () => {
+    // Reset game state for this test
+    stateService.resetGame();
+    
+    // 1. Setup: Create players
+    stateService.addPlayer('Negotiator');
+    stateService.addPlayer('Counterpart');
+    stateService.startGame();
+    
+    const gameState = stateService.getGameState();
+    const negotiator = gameState.players[0];
+    const counterpart = gameState.players[1];
+
+    // Give negotiator cards to offer
+    stateService.updatePlayer({ 
+      id: negotiator.id, 
+      availableCards: {
+        W: ['W001'],
+        E: ['E001'], 
+        B: [],
+        L: [],
+        I: []
+      }
+    });
+
+    // 2. Start negotiation and make offer
+    const negotiationResult = await negotiationService.initiateNegotiation(negotiator.id, {
+      type: 'space_negotiation'
+    });
+    
+    await negotiationService.makeOffer(negotiator.id, {
+      cards: ['W001', 'E001']
+    });
+    
+    // 3. Complete negotiation (cards remain transferred)
+    const completeResult = await negotiationService.completeNegotiation(
+      negotiationResult.negotiationId!, 
+      { agreed: true }
+    );
+    
+    expect(completeResult.success).toBe(true);
+    
+    // 4. Verify cards remain transferred (not restored)
+    const playerAfterComplete = stateService.getPlayer(negotiator.id)!;
+    expect(playerAfterComplete.availableCards?.W).not.toContain('W001');
+    expect(playerAfterComplete.availableCards?.E).not.toContain('E001');
+    
+    // 5. Verify no active negotiation
+    expect(negotiationService.getActiveNegotiation()).toBeNull();
+    
+    console.log('✅ Negotiation completion test passed');
   });
 
-  it('should process space effects properly for negotiation space', async () => {
+  it('should validate card ownership before allowing offers', async () => {
     // Reset game state for this test
     stateService.resetGame();
     
@@ -139,40 +239,53 @@ describe('E2E-03: Complex Space Negotiation Test', () => {
     
     const gameState = stateService.getGameState();
     const player = gameState.players[0];
-    expect(player).toBeDefined();
-    expect(player.name).toBe('Test Player');
 
-    // Place player on negotiation space
-    stateService.updatePlayer({
+    // Give player only W cards
+    stateService.updatePlayer({ 
       id: player.id,
-      currentSpace: 'OWNER-FUND-INITIATION',
-      visitType: 'First',
-      money: 100000,
-      timeSpent: 10
+      availableCards: {
+        W: ['W001'],
+        E: [], 
+        B: [],
+        L: [],
+        I: []
+      }
     });
 
-    const preEffectPlayer = stateService.getPlayer(player.id)!;
-    console.log(`Pre-effect state: Money=${preEffectPlayer.money}, Time=${preEffectPlayer.timeSpent}`);
-
-    // Process space entry effects
-    await turnService.processTurnEffects(player.id);
-
-    // Verify effects were processed
-    const postEffectPlayer = stateService.getPlayer(player.id)!;
-    console.log(`Post-effect state: Money=${postEffectPlayer.money}, Time=${postEffectPlayer.timeSpent}`);
-
-    // Verify game state is consistent
-    const finalGameState = stateService.getGameState();
-    expect(finalGameState.gamePhase).toBe('PLAY');
-    expect(finalGameState.currentPlayerId).toBe(player.id);
+    // Start negotiation
+    const negotiationResult = await negotiationService.initiateNegotiation(player.id, {});
+    expect(negotiationResult.success).toBe(true);
+    
+    // Try to offer card player doesn't own
+    const invalidOfferResult = await negotiationService.makeOffer(player.id, {
+      cards: ['E999'] // Player doesn't have this card
+    });
+    
+    expect(invalidOfferResult.success).toBe(false);
+    expect(invalidOfferResult.message).toContain('does not own card E999');
+    
+    // Valid offer should work
+    const validOfferResult = await negotiationService.makeOffer(player.id, {
+      cards: ['W001'] // Player has this card
+    });
+    
+    expect(validOfferResult.success).toBe(true);
+    
+    console.log('✅ Card ownership validation test passed');
   });
 
-  it('should integrate NegotiationService with effect system', () => {
-    // Verify NegotiationService was instantiated correctly
-    expect(negotiationService).toBeDefined();
+  it('should detect negotiation capability for OWNER-FUND-INITIATION space', async () => {
+    // Check space content for negotiation capability
+    const spaceContent = dataService.getSpaceContent('OWNER-FUND-INITIATION', 'First');
+    expect(spaceContent).toBeDefined();
+    expect(spaceContent?.can_negotiate).toBe(true); // CSV parsing converts 'Yes' to true
+    expect(spaceContent?.title).toBe('Initial Funding');
     
-    // Test basic service functionality - check if methods exist
+    // Verify NegotiationService integration
+    expect(negotiationService).toBeDefined();
     expect(typeof negotiationService.initiateNegotiation).toBe('function');
-    expect(typeof negotiationService.makeOffer).toBe('function'); // This method exists instead of resolveNegotiation
+    expect(typeof negotiationService.makeOffer).toBe('function');
+    expect(typeof negotiationService.cancelNegotiation).toBe('function');
+    expect(typeof negotiationService.completeNegotiation).toBe('function');
   });
 });

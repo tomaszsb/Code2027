@@ -1,4 +1,5 @@
 import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, TurnResult } from '../types/ServiceContracts';
+import { NegotiationService } from './NegotiationService';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
@@ -11,15 +12,17 @@ export class TurnService implements ITurnService {
   private readonly cardService: ICardService;
   private readonly resourceService: IResourceService;
   private readonly movementService: IMovementService;
+  private readonly negotiationService: NegotiationService;
   private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, effectEngineService?: IEffectEngineService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
     this.cardService = cardService;
     this.resourceService = resourceService;
     this.movementService = movementService;
+    this.negotiationService = negotiationService;
     this.effectEngineService = effectEngineService;
   }
 
@@ -1116,7 +1119,7 @@ export class TurnService implements ITurnService {
   }
 
   /**
-   * Perform negotiation for a player - either restore from snapshot or apply time penalty
+   * Initiate negotiation for a player - delegates to NegotiationService
    */
   async performNegotiation(playerId: string): Promise<{ success: boolean; message: string }> {
     const player = this.stateService.getPlayer(playerId);
@@ -1124,54 +1127,26 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    console.log(`🤝 Performing negotiation for player ${player.name}`);
+    console.log(`🤝 Starting negotiation for player ${player.name} on space ${player.currentSpace}`);
 
     try {
-      if (player.spaceEntrySnapshot) {
-        // Restore player state from snapshot
-        console.log(`🔄 Restoring player ${player.name} from snapshot`);
-        this.stateService.restorePlayerSnapshot(playerId);
-        
-        // End the player's turn after restoration
-        await this.endTurn();
-        
-        return {
-          success: true,
-          message: `Negotiation successful! ${player.name} was restored to their previous state.`
-        };
-      } else {
-        // Apply time penalty - look up time effect for current space
-        console.log(`⏰ Applying time penalty for player ${player.name} on ${player.currentSpace}`);
-        
-        const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-        const timeEffect = spaceEffects.find(effect => effect.effect_type === 'time');
-        
-        let penaltyTime = 5; // Default penalty
-        if (timeEffect) {
-          penaltyTime = typeof timeEffect.effect_value === 'string' ? 
-            parseInt(timeEffect.effect_value) : timeEffect.effect_value;
-        }
-        
-        // Apply time penalty
-        const currentTime = player.timeSpent || 0;
-        this.stateService.updatePlayer({
-          id: playerId,
-          timeSpent: currentTime + penaltyTime
-        });
-        
-        console.log(`Player ${player.name} received ${penaltyTime} time penalty`);
-        
-        // End the player's turn after penalty
-        await this.endTurn();
-        
-        return {
-          success: false,
-          message: `Negotiation failed. ${player.name} received a ${penaltyTime}-day time penalty.`
-        };
-      }
+      // Simply delegate to NegotiationService to initiate negotiation
+      const result = await this.negotiationService.initiateNegotiation(playerId, {
+        type: 'space_negotiation',
+        space: player.currentSpace,
+        initiatedBy: playerId
+      });
+
+      return {
+        success: result.success,
+        message: result.message
+      };
     } catch (error) {
-      console.error(`Error during negotiation for player ${player.name}:`, error);
-      throw error;
+      console.error(`Error initiating negotiation for player ${player.name}:`, error);
+      return {
+        success: false,
+        message: `Failed to start negotiation: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 
