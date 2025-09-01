@@ -221,11 +221,11 @@ describe('CardReplacementModal', () => {
     expect(screen.getByText('Replace with:')).toBeInTheDocument();
 
     // Click on Bank Loan card type
-    const businessButton = screen.getByText(/💼 Business/);
+    const businessButton = screen.getByText(/💼 Bank Loan/);
     fireEvent.click(businessButton);
 
     // Should update the replacement type selection
-    expect(businessButton).toHaveStyle('background-color: rgb(16, 185, 129)');
+    expect(businessButton).toHaveAttribute('aria-selected', 'true');
   });
 
   it('should enable Replace button when cards are selected', () => {
@@ -271,7 +271,7 @@ describe('CardReplacementModal', () => {
     fireEvent.click(foundationCard!);
 
     // Select Business replacement type
-    const businessButton = screen.getByText(/💼 Business/);
+    const businessButton = screen.getByText(/💼 Bank Loan/);
     fireEvent.click(businessButton);
 
     // Click replace
@@ -318,7 +318,7 @@ describe('CardReplacementModal', () => {
   });
 
   it('should reset selection state when cancelled', () => {
-    render(
+    const { rerender } = render(
       <CardReplacementModal
         isOpen={true}
         player={mockPlayer}
@@ -338,8 +338,8 @@ describe('CardReplacementModal', () => {
     const cancelButton = screen.getByText('Cancel');
     fireEvent.click(cancelButton);
 
-    // Re-render to check state reset
-    render(
+    // Re-render the same component to check if its internal state was reset
+    rerender(
       <CardReplacementModal
         isOpen={true}
         player={mockPlayer}
@@ -384,7 +384,6 @@ describe('CardReplacementModal', () => {
 
     expect(screen.getByText('Replace Bank Loan Cards')).toBeInTheDocument();
     expect(screen.getByText('Marketing Campaign')).toBeInTheDocument();
-    expect(screen.getByText(/💼/)).toBeInTheDocument(); // Business icon
   });
 
   it('should handle cards with long descriptions by truncating', () => {

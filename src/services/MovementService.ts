@@ -32,6 +32,10 @@ export class MovementService implements IMovementService {
       throw new Error(`No movement data found for space ${player.currentSpace} with visit type ${player.visitType}`);
     }
 
+    if (movement.movement_type === 'dice') {
+      return this.getDiceDestinations(player.currentSpace, player.visitType);
+    }
+
     return this.extractDestinationsFromMovement(movement);
   }
 

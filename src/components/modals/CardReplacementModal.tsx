@@ -350,6 +350,7 @@ export function CardReplacementModal({
                   {(['W', 'B', 'E', 'L', 'I'] as CardType[]).map(type => (
                     <button
                       key={type}
+                      aria-selected={replacementCardType === type}
                       onClick={() => setReplacementCardType(type)}
                       style={{
                         ...buttonStyle,

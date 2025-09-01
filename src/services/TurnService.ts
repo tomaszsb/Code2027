@@ -91,7 +91,8 @@ export class TurnService implements ITurnService {
 
       // Handle movement based on current space
       console.log(`🎮 TurnService.takeTurn - Handling movement...`);
-      const newGameState = this.handleMovement(playerId, diceRoll);
+      await this.movementService.handleMovementChoice(playerId);
+      const newGameState = this.stateService.getGameState();
 
       // Mark that the player has moved this turn
       console.log(`🎮 TurnService.takeTurn - Marking player as moved`);
@@ -183,6 +184,11 @@ export class TurnService implements ITurnService {
       const currentPlayer = this.stateService.getPlayer(gameState.currentPlayerId);
       if (!currentPlayer) {
         throw new Error('Current player not found');
+      }
+
+      // Validation: Check if all required actions are completed
+      if (gameState.requiredActions > gameState.completedActions) {
+        throw new Error(`Cannot end turn: Player has not completed all required actions. Required: ${gameState.requiredActions}, Completed: ${gameState.completedActions}`);
       }
 
       console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
@@ -1071,7 +1077,7 @@ export class TurnService implements ITurnService {
     
     if (effectType === 'cards') {
       const cardType = manualEffect.effect_action.replace('draw_', '').toUpperCase();
-      const count = manualEffect.effect_value;
+      const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
       effects.push({
         type: 'cards',
         description: `You picked up ${count} ${cardType} cards!`,
@@ -1273,17 +1279,25 @@ export class TurnService implements ITurnService {
       }
     });
 
-    // Check for movement choices (this would require additional logic)
-    // For now, we'll detect if the player has movement options
-    const availableMoves = this.dataService.getAllMovements()
-      .filter(m => m.from_space === currentPlayer.currentSpace && m.visit_type === currentPlayer.visitType);
-    
-    if (availableMoves.length > 1) {
-      effects.push({
-        type: 'choice',
-        description: 'Choose your next destination',
-        moveOptions: availableMoves.map(m => m.to_space)
-      });
+    // Check for movement choices
+    const movementRule = this.dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
+
+    if (movementRule && movementRule.movement_type === 'choice') {
+        const moveOptions = [
+            movementRule.destination_1,
+            movementRule.destination_2,
+            movementRule.destination_3,
+            movementRule.destination_4,
+            movementRule.destination_5
+        ].filter((dest): dest is string => !!dest);
+
+        if (moveOptions.length > 0) {
+            effects.push({
+                type: 'choice',
+                description: 'Choose your next destination',
+                moveOptions: moveOptions
+            });
+        }
     }
   }
 
@@ -1453,9 +1467,9 @@ export class TurnService implements ITurnService {
     const workCards = player.availableCards?.W || [];
     for (const cardId of workCards) {
       const cardData = this.dataService.getCardById(cardId);
-      if (cardData && cardData.card_cost && cardData.card_cost > 0) {
-        // Work cards use card_cost to represent project scope value
-        totalScope += cardData.card_cost;
+      if (cardData && cardData.cost && cardData.cost > 0) {
+        // Work cards use cost to represent project scope value
+        totalScope += cardData.cost;
       }
     }
 

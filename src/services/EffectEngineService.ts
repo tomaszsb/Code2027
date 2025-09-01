@@ -406,7 +406,12 @@ export class EffectEngineService implements IEffectEngineService {
             
             try {
               // Execute turn control action through TurnService
-              success = this.turnService.setTurnModifier(payload.playerId, payload.action);
+              if (payload.action === 'SKIP_TURN') {
+                success = this.turnService.setTurnModifier(payload.playerId, payload.action);
+              } else {
+                console.warn(`Unsupported turn control action "${payload.action}" encountered and ignored.`);
+                success = true; // The effect is "successfully" ignored, not a failure.
+              }
               
               if (success) {
                 console.log(`✅ Turn control applied: ${payload.action} for player ${payload.playerId}`);

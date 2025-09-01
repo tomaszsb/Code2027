@@ -565,7 +565,7 @@ export class StateService implements IStateService {
     try {
       // Check if dice roll is required for this space
       const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
-      if (spaceConfig && spaceConfig.dice === 'true') {
+      if (spaceConfig && spaceConfig.requires_dice_roll) {
         availableTypes.push('dice');
         required++;
         // Check if dice has been rolled
@@ -592,25 +592,17 @@ export class StateService implements IStateService {
 
       // Count manual effects (require separate player action)
       manualEffects.forEach(effect => {
-        if (effect.effect_type === 'cards') {
-          availableTypes.push('cards_manual');
-          required++;
-          // Manual effects are counted as completed when hasCompletedManualActions is true
-          if (this.currentState.hasCompletedManualActions) {
-            completed++;
-          }
-        } else if (effect.effect_type === 'money') {
-          availableTypes.push('money_manual');
-          required++;
-          if (this.currentState.hasCompletedManualActions) {
-            completed++;
-          }
-        } else if (effect.effect_type === 'time') {
-          availableTypes.push('time_manual');
-          required++;
-          if (this.currentState.hasCompletedManualActions) {
-            completed++;
-          }
+        // Generic handling for ALL manual effect types
+        const actionType = `${effect.effect_type}_manual`;
+        if (!availableTypes.includes(actionType)) {
+          availableTypes.push(actionType);
+        }
+        required++;
+
+        // This logic might need review later, but for now, we keep it consistent.
+        // If any manual action is completed, we count them all as completed.
+        if (this.currentState.hasCompletedManualActions) {
+          completed++;
         }
       });
       
@@ -659,7 +651,8 @@ export class StateService implements IStateService {
         E: [...player.discardedCards.E],
         L: [...player.discardedCards.L],
         I: [...player.discardedCards.I],
-      }
+      },
+      activeCards: [...player.activeCards]
     };
 
     console.log(`📸 Creating snapshot for player ${player.name} at ${player.currentSpace}`, snapshot);
@@ -704,6 +697,7 @@ export class StateService implements IStateService {
         L: [...snapshot.discardedCards.L],
         I: [...snapshot.discardedCards.I],
       },
+      activeCards: [...snapshot.activeCards],
       spaceEntrySnapshot: undefined // Clear snapshot after restoring
     });
 

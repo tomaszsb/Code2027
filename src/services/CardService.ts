@@ -215,10 +215,10 @@ export class CardService implements ICardService {
     }
 
     // Remove the old card and add a new one
-    let updatedState = this.removeCard(playerId, oldCardId);
-    updatedState = this.drawCards(playerId, newCardType, 1);
+    this.removeCard(playerId, oldCardId);
+    this.drawCards(playerId, newCardType, 1);
 
-    return updatedState;
+    return this.stateService.getGameState();
   }
 
   // Card information methods
@@ -333,10 +333,17 @@ export class CardService implements ICardService {
       this.applyCardEffects(playerId, cardId);
       
       // Step 5: Handle card activation based on duration
-      if (card.duration && card.duration > 0) {
-        // Card has duration - move to activeCards
-        this.activateCard(playerId, cardId, card.duration);
-        console.log(`Card [${cardId}] activated for ${card.duration} turns`);
+      if (card.duration) {
+        const numericDuration = typeof card.duration === 'string' ? parseInt(card.duration, 10) : card.duration;
+        if (numericDuration > 0) {
+          // Card has duration - move to activeCards
+          this.activateCard(playerId, cardId, numericDuration);
+          console.log(`Card [${cardId}] activated for ${numericDuration} turns`);
+        } else {
+          // Card has immediate effect - move to discarded
+          this.moveCardToDiscarded(playerId, cardId);
+          console.log(`Card [${cardId}] used immediately and discarded`);
+        }
       } else {
         // Card has immediate effect - move to discarded
         this.moveCardToDiscarded(playerId, cardId);
@@ -384,9 +391,12 @@ export class CardService implements ICardService {
     }
     
     // Check if player has enough money to play the card
-    if (card.cost && card.cost > 0) {
-      if (player.money < card.cost) {
-        return { isValid: false, errorMessage: `Insufficient funds. Need $${card.cost}, have $${player.money}` };
+    if (card.cost) {
+      const numericCost = typeof card.cost === 'string' ? parseInt(card.cost, 10) : card.cost;
+      if (numericCost > 0) {
+        if (player.money < numericCost) {
+          return { isValid: false, errorMessage: `Insufficient funds. Need $${numericCost}, have $${player.money}` };
+        }
       }
     }
     

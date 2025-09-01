@@ -8,7 +8,8 @@ import {
   SpaceContent,
   Space,
   VisitType,
-  Card
+  Card,
+  CardType
 } from '../types/DataTypes';
 
 export class DataService implements IDataService {

@@ -25,6 +25,7 @@ export class PlayerActionService implements IPlayerActionService {
    */
   public async playCard(playerId: string, cardId: string): Promise<void> {
     try {
+      console.log('SERVICE: playCard function has started.');
       console.log(`🎮 PLAYER_ACTION: Player ${playerId} attempting to play card ${cardId}`);
 
       // 1. Get current game state and player
@@ -49,6 +50,14 @@ export class PlayerActionService implements IPlayerActionService {
       
       if (!canPlayCard) {
         throw new Error(`Player '${player.name}' cannot play card '${card.card_name}'. Validation failed.`);
+      }
+
+      // 3.5. Validate player owns the card in their hand
+      const playerCardType = card.card_type;
+      const playerCards = player.availableCards[playerCardType] || [];
+      
+      if (!playerCards.includes(cardId)) {
+        throw new Error(`Player '${player.name}' does not have card '${card.card_name}' in their ${playerCardType} hand`);
       }
 
       // 4. Validate player can afford the card cost (Effect Engine will handle the deduction)
@@ -79,7 +88,9 @@ export class PlayerActionService implements IPlayerActionService {
 
       // 7. Process all effects through the Effect Engine
       console.log(`🔧 Processing card effects through Effect Engine...`);
+      console.log('SERVICE: About to wait for Effect Engine...');
       const processingResult = await this.effectEngineService.processEffects(effects, effectContext);
+      console.log('SERVICE: Effect Engine has finished.');
       
       if (!processingResult.success) {
         throw new Error(`Failed to process card effects: ${processingResult.errors.join(', ')}`);

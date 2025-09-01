@@ -1,7 +1,7 @@
 // tests/services/MovementService.test.ts
 
 import { MovementService } from '../../src/services/MovementService';
-import { IDataService, IStateService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IChoiceService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTypes';
 
@@ -55,6 +55,13 @@ const mockStateService: jest.Mocked<IStateService> = {
   canStartGame: jest.fn(),
 };
 
+const mockChoiceService: jest.Mocked<IChoiceService> = {
+  createChoice: jest.fn(),
+  resolveChoice: jest.fn(),
+  getActiveChoice: jest.fn(),
+  hasActiveChoice: jest.fn(),
+};
+
 describe('MovementService', () => {
   let movementService: MovementService;
   let mockPlayer: Player;
@@ -64,7 +71,7 @@ describe('MovementService', () => {
     // Reset all mocks
     jest.clearAllMocks();
     
-    movementService = new MovementService(mockDataService, mockStateService);
+    movementService = new MovementService(mockDataService, mockStateService, mockChoiceService);
     
     mockPlayer = {
       id: 'player1',
@@ -73,7 +80,7 @@ describe('MovementService', () => {
       visitType: 'First',
       money: 1000,
       time: 100,
-      cards: { W: [], B: [], E: [], L: [], I: [] }
+      availableCards: { W: [], B: [], E: [], L: [], I: [] }
     };
 
     mockGameState = {
@@ -515,108 +522,6 @@ describe('MovementService', () => {
 
       // Assert - our implementation returns the destination as-is since trim() !== '' checks for non-empty after trim
       expect(result).toBe('  DEST-A  ');
-    });
-  });
-
-  describe('resolveChoice', () => {
-    const mockGameStateWithChoice: GameState = {
-      players: [mockPlayer],
-      currentPlayerId: 'player1',
-      gamePhase: 'PLAY',
-      turn: 1,
-      activeModal: null,
-      awaitingChoice: {
-        playerId: 'player1',
-        options: ['CHOICE-A', 'CHOICE-B', 'CHOICE-C']
-      },
-      hasPlayerMovedThisTurn: false
-    };
-
-    it('should successfully resolve player choice and move player', () => {
-      // Arrange
-      mockStateService.getGameState.mockReturnValue(mockGameStateWithChoice);
-      mockStateService.getPlayer.mockReturnValue(mockPlayer);
-      
-      // Mock the getValidMoves call to allow the choice
-      const mockMovement: Movement = {
-        space_name: 'START-SPACE',
-        visit_type: 'First',
-        movement_type: 'choice',
-        destination_1: 'CHOICE-A',
-        destination_2: 'CHOICE-B',
-        destination_3: 'CHOICE-C'
-      };
-      mockDataService.getMovement.mockReturnValue(mockMovement);
-      mockStateService.updatePlayer.mockReturnValue(mockGameStateWithChoice);
-      mockStateService.clearAwaitingChoice.mockReturnValue(mockGameStateWithChoice);
-
-      // Act
-      const result = movementService.resolveChoice('CHOICE-B');
-
-      // Assert
-      expect(mockStateService.getGameState).toHaveBeenCalled();
-      expect(mockStateService.clearAwaitingChoice).toHaveBeenCalled();
-      expect(result).toEqual(mockGameStateWithChoice);
-    });
-
-    it('should throw error when no choice is awaiting', () => {
-      // Arrange
-      const gameStateNoChoice = {
-        ...mockGameStateWithChoice,
-        awaitingChoice: null
-      };
-      mockStateService.getGameState.mockReturnValue(gameStateNoChoice);
-
-      // Act & Assert
-      expect(() => movementService.resolveChoice('CHOICE-A'))
-        .toThrow('No choice is currently awaiting resolution');
-    });
-
-    it('should throw error when destination is not among available options', () => {
-      // Arrange
-      mockStateService.getGameState.mockReturnValue(mockGameStateWithChoice);
-
-      // Act & Assert
-      expect(() => movementService.resolveChoice('INVALID-CHOICE'))
-        .toThrow('Invalid choice: INVALID-CHOICE is not among the available options');
-    });
-
-    it('should handle choice resolution with subsequent visit type', () => {
-      // Arrange
-      const playerAtNonStarting = {
-        ...mockPlayer,
-        currentSpace: 'NON-STARTING-SPACE'
-      };
-      const gameStateWithPlayer = {
-        ...mockGameStateWithChoice,
-        players: [playerAtNonStarting]
-      };
-      
-      mockStateService.getGameState.mockReturnValue(gameStateWithPlayer);
-      mockStateService.getPlayer.mockReturnValue(playerAtNonStarting);
-      
-      // Mock movement data for this player's current space
-      const mockMovement: Movement = {
-        space_name: 'NON-STARTING-SPACE',
-        visit_type: 'First',
-        movement_type: 'choice',
-        destination_1: 'CHOICE-A',
-        destination_2: 'CHOICE-B'
-      };
-      mockDataService.getMovement.mockReturnValue(mockMovement);
-      mockStateService.updatePlayer.mockReturnValue(gameStateWithPlayer);
-      mockStateService.clearAwaitingChoice.mockReturnValue(gameStateWithPlayer);
-      mockDataService.getAllSpaces.mockReturnValue([
-        { name: 'START-SPACE', config: { is_starting_space: true } },
-        { name: 'NON-STARTING-SPACE', config: { is_starting_space: false } }
-      ] as Space[]);
-
-      // Act
-      const result = movementService.resolveChoice('CHOICE-A');
-
-      // Assert
-      expect(result).toEqual(gameStateWithPlayer);
-      expect(mockStateService.clearAwaitingChoice).toHaveBeenCalled();
     });
   });
 

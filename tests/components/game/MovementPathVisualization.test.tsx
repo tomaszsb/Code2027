@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MovementPathVisualization } from '../../../src/components/game/MovementPathVisualization';
 import { MovementService } from '../../../src/services/MovementService';
@@ -32,6 +32,8 @@ jest.mock('../../../src/context/GameContext', () => ({
 }));
 
 describe('MovementPathVisualization', () => {
+  let stateUpdateCallback: (state: any) => void;
+
   const mockPlayer: Player = {
     id: 'player1',
     name: 'Test Player',
@@ -53,7 +55,8 @@ describe('MovementPathVisualization', () => {
   };
 
   const mockGameState = {
-    currentPlayer: mockPlayer,
+    currentPlayerId: 'player1',
+    players: [mockPlayer],
     gamePhase: 'PLAY' as const
   };
 
@@ -73,7 +76,7 @@ describe('MovementPathVisualization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
-      callback(mockGameState);
+      stateUpdateCallback = callback; // Store the callback
       return () => {}; // unsubscribe function
     });
     (mockStateService.getGameState as jest.Mock).mockReturnValue(mockGameState);
@@ -326,30 +329,23 @@ describe('MovementPathVisualization', () => {
       />
     );
 
-    // Change current player
+    // Define the new state
     const newPlayer: Player = {
       ...mockPlayer,
       id: 'player2',
       name: 'Another Player',
       currentSpace: 'DIFFERENT-SPACE'
     };
-
     const newGameState = {
-      currentPlayer: newPlayer,
+      currentPlayerId: 'player2',
+      players: [newPlayer],
       gamePhase: 'PLAY' as const
     };
 
-    (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
-      callback(newGameState);
-      return () => {};
+    // Simulate a state update from the service
+    act(() => {
+      stateUpdateCallback(newGameState);
     });
-
-    rerender(
-      <MovementPathVisualization
-        isVisible={true}
-        onToggle={mockOnToggle}
-      />
-    );
 
     await waitFor(() => {
       expect(screen.getByText("Another Player's Turn")).toBeInTheDocument();

@@ -2,35 +2,24 @@ import { StateService } from '../../src/services/StateService';
 import { DataService } from '../../src/services/DataService';
 import { GameState, Player, GamePhase } from '../../src/types/StateTypes';
 
-// Mock fetch globally for tests
-global.fetch = jest.fn();
-
 describe('StateService', () => {
   let stateService: StateService;
   let mockDataService: jest.Mocked<DataService>;
 
-  const mockGameConfigCsv = `space_name,phase,path_type,is_starting_space,is_ending_space,min_players,max_players,requires_dice_roll
-START-QUICK-PLAY-GUIDE,SETUP,Tutorial,No,No,2,6,No
-OWNER-SCOPE-INITIATION,SETUP,Main,Yes,No,2,6,No
-FINISH,END,Main,No,Yes,2,6,No`;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Mock fetch response for DataService
-    (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url === '/data/CLEAN_FILES/GAME_CONFIG.csv') {
-        return Promise.resolve({
-          text: () => Promise.resolve(mockGameConfigCsv)
-        });
-      }
-      return Promise.resolve({
-        text: () => Promise.resolve('header\n')
-      });
-    });
 
-    // Create a real DataService for testing
-    mockDataService = new DataService() as jest.Mocked<DataService>;
+    // Create a proper mock of DataService
+    mockDataService = {
+      isLoaded: jest.fn().mockReturnValue(true),
+      getGameConfig: jest.fn().mockReturnValue([
+        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true }
+      ]),
+      // Add mocks for other DataService methods as needed by tests
+      getCardsByType: jest.fn().mockReturnValue([]),
+      getMovement: jest.fn().mockReturnValue(undefined),
+    } as jest.Mocked<DataService>;
+
     stateService = new StateService(mockDataService);
   });
 
@@ -62,8 +51,15 @@ FINISH,END,Main,No,Yes,2,6,No`;
 
   describe('Player Management', () => {
     it('should add a player successfully', () => {
+      // Arrange: Tell the mock what to return for this specific test
+      mockDataService.getGameConfig.mockReturnValue([
+        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true }
+      ] as any);
+
+      // Act
       const newState = stateService.addPlayer('Alice');
-      
+
+      // Assert
       expect(newState.players).toHaveLength(1);
       expect(newState.players[0].name).toBe('Alice');
       expect(newState.players[0].id).toBeDefined();
@@ -103,7 +99,7 @@ FINISH,END,Main,No,Yes,2,6,No`;
       const updatedState = stateService.updatePlayer({
         id: playerId,
         money: 100,
-        time: 5,
+        timeSpent: 5,
         currentSpace: 'NEW-SPACE'
       });
       
@@ -328,8 +324,19 @@ FINISH,END,Main,No,Yes,2,6,No`;
     });
 
     it('should start game successfully', () => {
-      const newState = stateService.startGame();
+      // Arrange: Create fresh StateService and add players
+      const freshStateService = new StateService(mockDataService);
+      mockDataService.getGameConfig.mockReturnValue([
+        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true, min_players: 1, max_players: 4 }
+      ] as any);
       
+      freshStateService.addPlayer('Player1');
+      freshStateService.addPlayer('Player2');
+      
+      // Act
+      const newState = freshStateService.startGame();
+      
+      // Assert
       expect(newState.gamePhase).toBe('PLAY');
       expect(newState.gameStartTime).toBeInstanceOf(Date);
       expect(newState.currentPlayerId).toBe(newState.players[0].id);
@@ -421,8 +428,19 @@ FINISH,END,Main,No,Yes,2,6,No`;
     });
 
     it('should check if game can start with sufficient players', () => {
-      const canStart = stateService.canStartGame();
+      // Arrange: Create fresh StateService and add players
+      const freshStateService = new StateService(mockDataService);
+      mockDataService.getGameConfig.mockReturnValue([
+        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true, min_players: 1, max_players: 4 }
+      ] as any);
       
+      freshStateService.addPlayer('PlayerA');
+      freshStateService.addPlayer('PlayerB');
+      
+      // Act
+      const canStart = freshStateService.canStartGame();
+      
+      // Assert
       expect(canStart).toBe(true);
     });
 
