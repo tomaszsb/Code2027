@@ -704,6 +704,82 @@ export class StateService implements IStateService {
     return restoredState;
   }
 
+  // Global game state snapshot methods for "Try Again" feature
+  savePreSpaceEffectSnapshot(): GameState {
+    console.log('📸 Saving pre-space-effect snapshot for Try Again feature');
+    
+    // Create a deep copy of the current game state
+    const currentState = this.getGameStateDeepCopy();
+    
+    // Save the snapshot (excluding the snapshot itself to avoid circular reference)
+    const snapshotState: GameState = {
+      ...currentState,
+      preSpaceEffectState: null // Don't include nested snapshots
+    };
+    
+    const newState: GameState = {
+      ...this.currentState,
+      preSpaceEffectState: snapshotState
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    
+    console.log('✅ Pre-space-effect snapshot saved successfully');
+    return newState;
+  }
+
+  restorePreSpaceEffectSnapshot(): GameState {
+    console.log('🔄 Restoring pre-space-effect snapshot for Try Again');
+    
+    if (!this.currentState.preSpaceEffectState) {
+      throw new Error('No pre-space-effect snapshot available for Try Again');
+    }
+
+    const snapshotState = this.currentState.preSpaceEffectState;
+    console.log('📝 Restoring game state from snapshot');
+
+    // Restore the game state from snapshot, but clear the snapshot itself
+    this.currentState = {
+      ...snapshotState,
+      preSpaceEffectState: null
+    };
+
+    this.notifyListeners();
+    
+    console.log('✅ Pre-space-effect snapshot restored successfully');
+    return this.currentState;
+  }
+
+  clearPreSpaceEffectSnapshot(): GameState {
+    console.log('🗑️ Clearing pre-space-effect snapshot');
+    
+    const newState: GameState = {
+      ...this.currentState,
+      preSpaceEffectState: null
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    
+    return newState;
+  }
+
+  hasPreSpaceEffectSnapshot(): boolean {
+    return this.currentState.preSpaceEffectState !== null;
+  }
+
+  getPreSpaceEffectSnapshot(): GameState | null {
+    return this.currentState.preSpaceEffectState;
+  }
+
+  setGameState(newState: GameState): GameState {
+    console.log('🔧 Setting entire game state atomically');
+    this.currentState = newState;
+    this.notifyListeners();
+    return this.currentState;
+  }
+
   // Private helper methods
   private createInitialState(): GameState {
     const startingSpace = this.getStartingSpace();
@@ -728,7 +804,9 @@ export class StateService implements IStateService {
       // Initialize negotiation state
       activeNegotiation: null,
       // Initialize global action log
-      globalActionLog: []
+      globalActionLog: [],
+      // Initialize Try Again snapshot
+      preSpaceEffectState: null
     };
   }
 

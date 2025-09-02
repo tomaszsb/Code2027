@@ -5,6 +5,10 @@ import { EndGameModal } from '../../../src/components/modals/EndGameModal';
 import { IStateService } from '../../../src/types/ServiceContracts';
 import { GameState, Player } from '../../../src/types/StateTypes';
 
+beforeAll(() => {
+  jest.spyOn(console, 'error').mockImplementation(jest.fn());
+});
+
 // Create mock outside of describe block
 const mockStateService: jest.Mocked<IStateService> = {
   getGameState: jest.fn(),

@@ -1,4 +1,4 @@
-import { ICardService, IDataService, IStateService, IResourceService } from '../types/ServiceContracts';
+import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
 
@@ -6,6 +6,7 @@ export class CardService implements ICardService {
   private readonly dataService: IDataService;
   private readonly stateService: IStateService;
   private readonly resourceService: IResourceService;
+  public effectEngineService!: IEffectEngineService;
 
   constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService) {
     this.dataService = dataService;
@@ -597,6 +598,43 @@ export class CardService implements ICardService {
     }
   }
 
+
+  // Public method called at end of each turn to handle card expirations
+  endOfTurn(): void {
+    const gameState = this.stateService.getGameState();
+    const currentTurn = gameState.turn;
+
+    console.log(`Processing card expirations for turn ${currentTurn}`);
+
+    // Check each player's active cards for expiration
+    for (const player of gameState.players) {
+      const expiredCards: string[] = [];
+      const remainingActiveCards = player.activeCards.filter(activeCard => {
+        if (activeCard.expirationTurn <= currentTurn) {
+          expiredCards.push(activeCard.cardId);
+          return false; // Remove from active cards
+        }
+        return true; // Keep in active cards
+      });
+
+      // If there are expired cards, update the player
+      if (expiredCards.length > 0) {
+        console.log(`Player ${player.id}: ${expiredCards.length} cards expired`);
+        
+        // Move expired cards to discarded collection
+        for (const expiredCardId of expiredCards) {
+          this.moveExpiredCardToDiscarded(player.id, expiredCardId);
+        }
+
+        // Update active cards list
+        this.stateService.updatePlayer({
+          id: player.id,
+          activeCards: remainingActiveCards
+        });
+      }
+    }
+  }
+
   // Helper method to move expired card to discarded collection
   private moveExpiredCardToDiscarded(playerId: string, cardId: string): void {
     const player = this.stateService.getPlayer(playerId);
@@ -771,19 +809,85 @@ export class CardService implements ICardService {
     // Handle turn effects (skip next turn)
     if (card.turn_effect && card.turn_effect.toLowerCase().includes('skip')) {
       console.log(`Card ${card.card_id}: Turn effect "${card.turn_effect}" - player will skip next turn`);
-      // TODO: Implement turn skipping logic in TurnService
-      // For now, just log the effect
+      this.effectEngineService.processEffect({
+        effectType: 'TURN_CONTROL',
+        payload: {
+          action: 'SKIP_TURN',
+          playerId,
+          source: `card:${card.card_id}`,
+          reason: `Card effect: ${card.card_name}`
+        }
+      }, {
+        source: `card:${card.card_id}`,
+        playerId,
+        triggerEvent: 'CARD_PLAY'
+      });
     }
 
     // Handle card interaction effects (draw/discard)
     if (card.draw_cards) {
-      console.log(`Card ${card.card_id}: Draw cards effect "${card.draw_cards}"`);
-      // TODO: Implement unified card drawing logic
+      const [count, cardType] = card.draw_cards.split(' ');
+      this.effectEngineService.processEffect({
+        effectType: 'CARD_DRAW',
+        payload: {
+          playerId,
+          cardType,
+          count: parseInt(count, 10),
+          source: `card:${card.card_id}`,
+          reason: `Card effect: ${card.card_name}`
+        }
+      }, {
+        source: `card:${card.card_id}`,
+        playerId,
+        triggerEvent: 'CARD_PLAY'
+      });
     }
 
     if (card.discard_cards) {
-      console.log(`Card ${card.card_id}: Discard cards effect "${card.discard_cards}"`);
-      // TODO: Implement unified card discarding logic
+      const [count, cardType] = card.discard_cards.split(' ');
+      const playerCards = this.getPlayerCards(playerId, cardType as CardType);
+      if (playerCards.length > 0) {
+        const cardsToDiscard = playerCards.slice(0, parseInt(count, 10));
+        this.effectEngineService.processEffect({
+          effectType: 'CARD_DISCARD',
+          payload: {
+            playerId,
+            cardIds: cardsToDiscard,
+            source: `card:${card.card_id}`,
+            reason: `Card effect: ${card.card_name}`
+          }
+        }, {
+          source: `card:${card.card_id}`,
+          playerId,
+          triggerEvent: 'CARD_PLAY'
+        });
+      }
+    }
+
+    // Handle targeted effects
+    if (card.target) {
+      this.effectEngineService.processEffect({
+        effectType: 'EFFECT_GROUP_TARGETED',
+        payload: {
+          targetType: card.target,
+          templateEffect: {
+            effectType: 'RESOURCE_CHANGE',
+            payload: {
+              playerId: '', // This will be replaced by the EffectEngineService
+              resource: 'MONEY',
+              amount: -100, // Example: all other players lose 100
+              source: `card:${card.card_id}`,
+              reason: `Card effect: ${card.card_name}`
+            }
+          },
+          prompt: `Choose a player to lose $100`,
+          source: `card:${card.card_id}`
+        }
+      }, {
+        source: `card:${card.card_id}`,
+        playerId,
+        triggerEvent: 'CARD_PLAY'
+      });
     }
   }
 

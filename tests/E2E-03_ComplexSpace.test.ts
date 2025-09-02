@@ -48,7 +48,7 @@ class NodeDataService extends DataService {
   }
 }
 
-describe('E2E-03: Complex Space Negotiation Test', () => {
+describe('E2E-03: Complex Space Features Test', () => {
   let dataService: DataService;
   let stateService: StateService;
   let cardService: CardService;
@@ -90,202 +90,134 @@ describe('E2E-03: Complex Space Negotiation Test', () => {
     await dataService.loadData();
   });
 
-  it('should handle negotiation card offer and cancellation properly', async () => {
+  it('should handle space try-again functionality with time penalty', async () => {
     // Reset game state for this test
     stateService.resetGame();
     
-    // 1. Setup: Create player with some cards
-    stateService.addPlayer('Negotiator');
-    stateService.startGame();
-    
-    const gameState = stateService.getGameState();
-    const player = gameState.players[0];
-    expect(player).toBeDefined();
-    expect(player.name).toBe('Negotiator');
-
-    // Give player some cards to offer
-    stateService.updatePlayer({ 
-      id: player.id, 
-      currentSpace: 'OWNER-SCOPE-INITIATION',
-      availableCards: {
-        W: ['W001', 'W002'],
-        E: ['E001'], 
-        B: [],
-        L: [],
-        I: []
-      }
-    });
-
-    // Get initial player state for comparison
-    const initialPlayerState = stateService.getPlayer(player.id)!;
-    const initialWCards = [...(initialPlayerState.availableCards?.W || [])];
-    const initialECards = [...(initialPlayerState.availableCards?.E || [])];
-    
-    console.log('Initial player cards:', {
-      W: initialWCards,
-      E: initialECards
-    });
-
-    // 2. Action: Start negotiation
-    const negotiationResult = await negotiationService.initiateNegotiation(player.id, {
-      type: 'space_negotiation',
-      space: 'OWNER-SCOPE-INITIATION'
-    });
-    
-    expect(negotiationResult.success).toBe(true);
-    expect(negotiationResult.negotiationId).toBeDefined();
-    
-    // 3. Action: Make offer with cards
-    const offerResult = await negotiationService.makeOffer(player.id, {
-      cards: ['W001', 'E001']
-    });
-    
-    expect(offerResult.success).toBe(true);
-    
-    // 4. Verify cards moved to negotiation state
-    const playerAfterOffer = stateService.getPlayer(player.id)!;
-    expect(playerAfterOffer.availableCards?.W).not.toContain('W001');
-    expect(playerAfterOffer.availableCards?.E).not.toContain('E001');
-    expect(playerAfterOffer.availableCards?.W).toContain('W002'); // Should still have this one
-    
-    console.log('Player cards after offer:', {
-      W: playerAfterOffer.availableCards?.W || [],
-      E: playerAfterOffer.availableCards?.E || []
-    });
-    
-    // 5. Action: Cancel negotiation (this is where the bug was)
-    const cancelResult = await negotiationService.cancelNegotiation(negotiationResult.negotiationId!);
-    
-    expect(cancelResult.success).toBe(true);
-    
-    // 6. CRITICAL VERIFICATION: Cards should be restored to player
-    const playerAfterCancel = stateService.getPlayer(player.id)!;
-    expect(playerAfterCancel.availableCards?.W).toContain('W001'); // BUG FIX: Should be restored
-    expect(playerAfterCancel.availableCards?.E).toContain('E001'); // BUG FIX: Should be restored
-    expect(playerAfterCancel.availableCards?.W).toContain('W002'); // Should still be there
-    
-    console.log('Player cards after cancellation:', {
-      W: playerAfterCancel.availableCards?.W || [],
-      E: playerAfterCancel.availableCards?.E || []
-    });
-    
-    // 7. Verify no active negotiation
-    const activeNegotiation = negotiationService.getActiveNegotiation();
-    expect(activeNegotiation).toBeNull();
-    
-    console.log('✅ Negotiation cancellation and card restoration test passed');
-  });
-
-  it('should complete negotiation and transfer cards permanently', async () => {
-    // Reset game state for this test
-    stateService.resetGame();
-    
-    // 1. Setup: Create players
-    stateService.addPlayer('Negotiator');
-    stateService.addPlayer('Counterpart');
-    stateService.startGame();
-    
-    const gameState = stateService.getGameState();
-    const negotiator = gameState.players[0];
-    const counterpart = gameState.players[1];
-
-    // Give negotiator cards to offer
-    stateService.updatePlayer({ 
-      id: negotiator.id, 
-      availableCards: {
-        W: ['W001'],
-        E: ['E001'], 
-        B: [],
-        L: [],
-        I: []
-      }
-    });
-
-    // 2. Start negotiation and make offer
-    const negotiationResult = await negotiationService.initiateNegotiation(negotiator.id, {
-      type: 'space_negotiation'
-    });
-    
-    await negotiationService.makeOffer(negotiator.id, {
-      cards: ['W001', 'E001']
-    });
-    
-    // 3. Complete negotiation (cards remain transferred)
-    const completeResult = await negotiationService.completeNegotiation(
-      negotiationResult.negotiationId!, 
-      { agreed: true }
-    );
-    
-    expect(completeResult.success).toBe(true);
-    
-    // 4. Verify cards remain transferred (not restored)
-    const playerAfterComplete = stateService.getPlayer(negotiator.id)!;
-    expect(playerAfterComplete.availableCards?.W).not.toContain('W001');
-    expect(playerAfterComplete.availableCards?.E).not.toContain('E001');
-    
-    // 5. Verify no active negotiation
-    expect(negotiationService.getActiveNegotiation()).toBeNull();
-    
-    console.log('✅ Negotiation completion test passed');
-  });
-
-  it('should validate card ownership before allowing offers', async () => {
-    // Reset game state for this test
-    stateService.resetGame();
-    
-    // Setup
+    // 1. Setup: Create player
     stateService.addPlayer('Test Player');
     stateService.startGame();
     
     const gameState = stateService.getGameState();
     const player = gameState.players[0];
+    expect(player).toBeDefined();
+    expect(player.name).toBe('Test Player');
 
-    // Give player only W cards
+    // Place player on OWNER-SCOPE-INITIATION (can_negotiate=true, time penalty)
     stateService.updatePlayer({ 
-      id: player.id,
-      availableCards: {
-        W: ['W001'],
-        E: [], 
-        B: [],
-        L: [],
-        I: []
-      }
+      id: player.id, 
+      currentSpace: 'OWNER-SCOPE-INITIATION',
+      visitType: 'First'
     });
 
-    // Start negotiation
-    const negotiationResult = await negotiationService.initiateNegotiation(player.id, {});
-    expect(negotiationResult.success).toBe(true);
+    // Set player as having rolled dice (to verify reset)
+    stateService.setPlayerHasRolledDice(player.id, true);
+    stateService.setPlayerHasMoved(player.id, true);
+
+    // Get initial player state
+    const initialTime = player.timeSpent || 0;
     
-    // Try to offer card player doesn't own
-    const invalidOfferResult = await negotiationService.makeOffer(player.id, {
-      cards: ['E999'] // Player doesn't have this card
+    console.log('Initial player state:', {
+      timeSpent: initialTime,
+      hasRolledDice: stateService.getGameState().hasPlayerRolledDice,
+      hasMoved: stateService.getGameState().hasPlayerMovedThisTurn
+    });
+
+    // 2. Action: Roll dice to create a snapshot, then try again on space
+    await turnService.rollDiceWithFeedback(player.id);
+    const result = await turnService.tryAgainOnSpace(player.id);
+    
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('penalty');
+    
+    // 3. Verify time penalty was applied 
+    const updatedPlayer = stateService.getPlayer(player.id)!;
+    expect(updatedPlayer.timeSpent).toBeGreaterThan(initialTime);
+    
+    // 4. Verify dice state was reset (player can re-roll)
+    const finalGameState = stateService.getGameState();
+    expect(finalGameState.hasPlayerRolledDice).toBe(false);
+    expect(finalGameState.hasPlayerMovedThisTurn).toBe(false);
+    
+    console.log('Final player state:', {
+      timeSpent: updatedPlayer.timeSpent,
+      hasRolledDice: finalGameState.hasPlayerRolledDice,
+      hasMoved: finalGameState.hasPlayerMovedThisTurn
     });
     
-    expect(invalidOfferResult.success).toBe(false);
-    expect(invalidOfferResult.message).toContain('does not own card E999');
+    // 5. Verify action was logged
+    const actionLogs = finalGameState.globalActionLog || [];
+    const tryAgainLog = actionLogs.find(log => log.description.includes('Try Again: Reverted'));
+    expect(tryAgainLog).toBeDefined();
     
-    // Valid offer should work
-    const validOfferResult = await negotiationService.makeOffer(player.id, {
-      cards: ['W001'] // Player has this card
-    });
-    
-    expect(validOfferResult.success).toBe(true);
-    
-    console.log('✅ Card ownership validation test passed');
+    console.log('✅ Space try-again functionality test passed');
   });
 
-  it('should detect negotiation capability for OWNER-FUND-INITIATION space', async () => {
-    // Check space content for negotiation capability
-    const spaceContent = dataService.getSpaceContent('OWNER-FUND-INITIATION', 'First');
-    expect(spaceContent).toBeDefined();
-    expect(spaceContent?.can_negotiate).toBe(true); // CSV parsing converts 'Yes' to true
-    expect(spaceContent?.title).toBe('Initial Funding');
+  it('should fail try-again on non-negotiable spaces', async () => {
+    // Reset game state for this test
+    stateService.resetGame();
     
-    // Verify NegotiationService integration
-    expect(negotiationService).toBeDefined();
-    expect(typeof negotiationService.initiateNegotiation).toBe('function');
-    expect(typeof negotiationService.makeOffer).toBe('function');
-    expect(typeof negotiationService.cancelNegotiation).toBe('function');
-    expect(typeof negotiationService.completeNegotiation).toBe('function');
+    // 1. Setup: Create player
+    stateService.addPlayer('Decision Maker');
+    stateService.startGame();
+    
+    const gameState = stateService.getGameState();
+    const player = gameState.players[0];
+
+    // Place player on PM-DECISION-CHECK (can_negotiate=false)
+    stateService.updatePlayer({ 
+      id: player.id, 
+      currentSpace: 'PM-DECISION-CHECK',
+      visitType: 'First'
+    });
+
+    const initialTime = player.timeSpent || 0;
+
+    // 2. Action: Try to try again (should fail)
+    const result = await turnService.tryAgainOnSpace(player.id);
+    
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Try again not available on this space');
+    
+    // 3. Verify no time penalty was applied
+    const updatedPlayer = stateService.getPlayer(player.id)!;
+    expect(updatedPlayer.timeSpent).toBe(initialTime);
+    
+    console.log('✅ Non-negotiable space rejection test passed');
+  });
+
+  it('should detect negotiation capability from CSV data', async () => {
+    // Check various spaces for negotiation capability
+    const ownerScopeContent = dataService.getSpaceContent('OWNER-SCOPE-INITIATION', 'First');
+    expect(ownerScopeContent).toBeDefined();
+    expect(ownerScopeContent?.can_negotiate).toBe(true);
+    expect(ownerScopeContent?.title).toBe('Project Scope');
+    
+    const pmDecisionContent = dataService.getSpaceContent('PM-DECISION-CHECK', 'First');
+    expect(pmDecisionContent).toBeDefined();
+    expect(pmDecisionContent?.can_negotiate).toBe(false);
+    
+    const archFeeContent = dataService.getSpaceContent('ARCH-FEE-REVIEW', 'First');
+    expect(archFeeContent).toBeDefined();
+    expect(archFeeContent?.can_negotiate).toBe(true);
+    
+    console.log('✅ CSV negotiation capability detection test passed');
+  });
+
+  it('should calculate correct time penalties from space effects', async () => {
+    // Test penalty calculation for different spaces
+    const ownerScopeEffects = dataService.getSpaceEffects('OWNER-SCOPE-INITIATION', 'First');
+    const timePenalty1 = ownerScopeEffects
+      .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
+      .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+    expect(timePenalty1).toBe(1);
+    
+    const archFeeEffects = dataService.getSpaceEffects('ARCH-FEE-REVIEW', 'First');
+    const timePenalty50 = archFeeEffects
+      .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
+      .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+    expect(timePenalty50).toBe(50);
+    
+    console.log('✅ Time penalty calculation test passed');
   });
 });

@@ -136,6 +136,9 @@ export interface Player {
       I: string[];
     };
   };
+  turnModifiers?: {
+    skipTurns: number;
+  };
 }
 
 export interface GameState {

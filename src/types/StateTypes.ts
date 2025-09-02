@@ -84,12 +84,12 @@ export interface GameState {
   completedActions: number;
   availableActionTypes: string[];
   hasCompletedManualActions: boolean;
-  // Turn control for skip turn effects
-  turnModifiers: { [playerId: string]: { skipTurns: number } };
   // Negotiation state
   activeNegotiation: NegotiationState | null;
   // Global action log
   globalActionLog: ActionLogEntry[];
+  // Try Again state snapshotting
+  preSpaceEffectState: GameState | null;
 }
 
 export interface PlayerAction {

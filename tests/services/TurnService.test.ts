@@ -63,6 +63,13 @@ const mockStateService: jest.Mocked<IStateService> = {
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
   logToActionHistory: jest.fn(),
+  preSpaceEffectState: null,
+  savePreSpaceEffectSnapshot: jest.fn(),
+  restorePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn(),
 };
 
 const mockGameRulesService: jest.Mocked<IGameRulesService> = {

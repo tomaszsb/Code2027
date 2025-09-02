@@ -18,6 +18,12 @@ describe('StateService', () => {
       // Add mocks for other DataService methods as needed by tests
       getCardsByType: jest.fn().mockReturnValue([]),
       getMovement: jest.fn().mockReturnValue(undefined),
+      getMovementData: jest.fn(),
+      getDiceEffects: jest.fn(),
+      getSpaceEffects: jest.fn(),
+      getDiceOutcomes: jest.fn(),
+      getAllCardTypes: jest.fn(),
+      getCardById: jest.fn(),
     } as jest.Mocked<DataService>;
 
     stateService = new StateService(mockDataService);

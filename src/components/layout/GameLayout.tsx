@@ -293,19 +293,19 @@ export function GameLayout(): JSX.Element {
     }
   };
 
-  const handleNegotiate = async () => {
+  const handleTryAgain = async () => {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      const result = await turnService.performNegotiation(currentPlayerId);
+      const result = await turnService.tryAgainOnSpace(currentPlayerId);
       setFeedbackMessage(result.message);
       // Clear feedback after 4 seconds
       setTimeout(() => {
         setFeedbackMessage('');
       }, 4000);
     } catch (error) {
-      console.error("Error during negotiation:", error);
-      setFeedbackMessage(`Negotiation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error trying again on space:", error);
+      setFeedbackMessage(`Try again failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setTimeout(() => {
         setFeedbackMessage('');
       }, 4000);
@@ -392,7 +392,7 @@ export function GameLayout(): JSX.Element {
             onRollDice={handleRollDice}
             onEndTurn={handleEndTurn}
             onManualEffect={handleManualEffect}
-            onNegotiate={handleNegotiate}
+            onNegotiate={handleTryAgain}
             onStartGame={handleStartGame}
             // Legacy props for compatibility
             playerId={currentPlayerId || ''}

@@ -244,6 +244,10 @@ export class TurnService implements ITurnService {
   }
 
   private nextPlayer(): { nextPlayerId: string } {
+    // Clear any existing snapshot when advancing to next player
+    console.log(`🗑️ TurnService.nextPlayer - Clearing pre-space-effect snapshot`);
+    this.stateService.clearPreSpaceEffectSnapshot();
+    
     const gameState = this.stateService.getGameState();
     const allPlayers = gameState.players;
     
@@ -266,16 +270,18 @@ export class TurnService implements ITurnService {
     let nextPlayer = allPlayers[nextPlayerIndex];
 
     // Check if the next player has turn modifiers (turn skips)
-    const turnModifiers = gameState.turnModifiers[nextPlayer.id];
+    const turnModifiers = nextPlayer.turnModifiers;
     if (turnModifiers && turnModifiers.skipTurns > 0) {
       console.log(`🔄 Player ${nextPlayer.name} has ${turnModifiers.skipTurns} turn(s) to skip - skipping their turn`);
       
       // Decrement skip count
-      turnModifiers.skipTurns -= 1;
+      const newModifiers = { ...turnModifiers, skipTurns: turnModifiers.skipTurns - 1 };
+      this.stateService.updatePlayer({ id: nextPlayer.id, turnModifiers: newModifiers });
       
       // If no more skips remaining, clean up
-      if (turnModifiers.skipTurns <= 0) {
-        delete gameState.turnModifiers[nextPlayer.id];
+      if (newModifiers.skipTurns <= 0) {
+        const restoredModifiers = { ...newModifiers, skipTurns: 0 };
+        this.stateService.updatePlayer({ id: nextPlayer.id, turnModifiers: restoredModifiers });
         console.log(`✅ Player ${nextPlayer.name} skip turns cleared`);
       }
       
@@ -1151,11 +1157,122 @@ export class TurnService implements ITurnService {
   }
 
   /**
+   * Try again on space - apply time penalty and reset dice state for re-roll
+   * Based on CSV: "negotiate by repeating the roll next turn" / "waste time and hope to renegotiate next turn"
+   * @param playerId - The player trying again
+   * @returns Promise resolving to the action result
+   */
+  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }> {
+    console.log(`🔄 Try Again requested for player ${playerId}`);
+    
+    try {
+      // 1. Check for the snapshot. If it doesn't exist, return an error.
+      if (!this.stateService.hasPreSpaceEffectSnapshot()) {
+        return {
+          success: false,
+          message: 'No snapshot available - Try Again not possible at this time'
+        };
+      }
+
+      // 2. Get the snapshot object (do not restore it yet)
+      const snapshotState = this.stateService.getPreSpaceEffectSnapshot();
+      if (!snapshotState) {
+        throw new Error('Snapshot exists but could not be retrieved');
+      }
+
+      // Find player in snapshot to get their space info
+      const snapshotPlayer = snapshotState.players.find(p => p.id === playerId);
+      if (!snapshotPlayer) {
+        throw new Error(`Player ${playerId} not found in snapshot`);
+      }
+
+      console.log(`🔄 ${snapshotPlayer.name} trying again on space ${snapshotPlayer.currentSpace}`);
+
+      // Check if space allows negotiation (try again)
+      const spaceContent = this.dataService.getSpaceContent(snapshotPlayer.currentSpace, snapshotPlayer.visitType);
+      if (!spaceContent || !spaceContent.can_negotiate) {
+        return {
+          success: false,
+          message: 'Try again not available on this space'
+        };
+      }
+
+      // 3. Calculate the timePenalty
+      const spaceEffects = this.dataService.getSpaceEffects(snapshotPlayer.currentSpace, snapshotPlayer.visitType);
+      const timePenalty = spaceEffects
+        .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
+        .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+
+      console.log(`⏰ Applying ${timePenalty} day penalty for Try Again on ${snapshotPlayer.currentSpace}`);
+
+      // 4. Create a new state object by deep-copying the snapshot
+      const newStateObject: GameState = {
+        ...snapshotState,
+        players: snapshotState.players.map(player => ({ ...player })),
+        globalActionLog: [...snapshotState.globalActionLog],
+        preSpaceEffectState: null // Clear snapshot after use
+      };
+
+      // 5. In this new object, find the player and add the timePenalty to their timeSpent
+      const targetPlayerIndex = newStateObject.players.findIndex(p => p.id === playerId);
+      if (targetPlayerIndex === -1) {
+        throw new Error(`Player ${playerId} not found in new state object`);
+      }
+
+      newStateObject.players[targetPlayerIndex] = {
+        ...newStateObject.players[targetPlayerIndex],
+        timeSpent: (newStateObject.players[targetPlayerIndex].timeSpent || 0) + timePenalty
+      };
+
+      // Add action log entry
+      newStateObject.globalActionLog.push({
+        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'manual_action',
+        timestamp: new Date(),
+        playerId: playerId,
+        playerName: snapshotPlayer.name,
+        description: `Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty`,
+        details: { 
+          action: 'try_again', 
+          space: snapshotPlayer.currentSpace,
+          timePenalty: timePenalty
+        }
+      });
+
+      // 6. Now, call setGameState(newStateObject) - atomic operation
+      this.stateService.setGameState(newStateObject);
+
+      console.log(`✅ ${snapshotPlayer.name} reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`);
+
+      // 7. Finally, call await this.nextPlayer()
+      console.log(`🏁 Ending turn after Try Again - advancing to next player`);
+      await this.nextPlayer();
+
+      return {
+        success: true,
+        message: `Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty. Turn advanced to next player.`
+      };
+
+    } catch (error) {
+      console.error(`❌ Failed to process Try Again:`, error);
+      return {
+        success: false,
+        message: `Failed to try again: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
    * Roll dice and process effects with detailed feedback for UI
    * Returns comprehensive information about the dice roll and its effects
    */
   async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
     console.log(`🎲 TurnService.rollDiceWithFeedback - Starting for player ${playerId}`);
+    
+    // CRITICAL: Save state snapshot BEFORE any dice roll or effects
+    // This enables the "Try Again" feature to revert to this exact state
+    console.log(`📸 TurnService.rollDiceWithFeedback - Saving pre-dice-roll snapshot for Try Again`);
+    this.stateService.savePreSpaceEffectSnapshot();
     
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
@@ -1463,10 +1580,7 @@ export class TurnService implements ITurnService {
     try {
       console.log(`🔄 TurnService.setTurnModifier - Applying ${action} to player ${playerId}`);
       
-      // Get current game state
-      const gameState = this.stateService.getGameState();
-      
-      // Validate player exists
+      // Get current player state
       const player = this.stateService.getPlayer(playerId);
       if (!player) {
         console.error(`❌ Cannot apply turn modifier: Player ${playerId} not found`);
@@ -1477,17 +1591,14 @@ export class TurnService implements ITurnService {
       switch (action) {
         case 'SKIP_TURN':
           // Initialize player's turn modifiers if they don't exist
-          if (!gameState.turnModifiers[playerId]) {
-            gameState.turnModifiers[playerId] = { skipTurns: 0 };
-          }
+          const currentModifiers = player.turnModifiers || { skipTurns: 0 };
           
           // Increment skip turns count
-          gameState.turnModifiers[playerId].skipTurns += 1;
+          const newModifiers = { ...currentModifiers, skipTurns: currentModifiers.skipTurns + 1 };
+          this.stateService.updatePlayer({ id: playerId, turnModifiers: newModifiers });
           
-          console.log(`✅ Player ${player.name} will skip their next ${gameState.turnModifiers[playerId].skipTurns} turn(s)`);
+          console.log(`✅ Player ${player.name} will skip their next ${newModifiers.skipTurns} turn(s)`);
           
-          // Note: The gameState object is a reference, so our changes are already applied
-          // The StateService will notify listeners of the change
           return true;
           
         default:

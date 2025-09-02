@@ -263,7 +263,7 @@ export function TurnControlsWithActions({
 
         {/* Space and Time Effects are now shown in the GameLog component */}
 
-        {/* Negotiate Button - show if negotiation is available on current space */}
+        {/* Try Again Button - show if re-roll is available on current space */}
         {isCurrentPlayersTurn && canNegotiate && (
           <button
             onClick={onNegotiate}
@@ -286,8 +286,8 @@ export function TurnControlsWithActions({
               opacity: isProcessingTurn ? 0.7 : 1,
             }}
           >
-            <span>🤝</span>
-            <span>Negotiate</span>
+            <span>🔄</span>
+            <span>Try Again</span>
           </button>
         )}
 
