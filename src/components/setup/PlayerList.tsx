@@ -152,7 +152,7 @@ export function PlayerList({
               fontWeight: 'bold',
               transition: 'border-color 0.3s ease'
             }}
-            onFocus={(e) => handleInputFocus(e, player.color)}
+            onFocus={(e) => handleInputFocus(e, player.color || '')}
             onBlur={handleInputBlur}
           />
 

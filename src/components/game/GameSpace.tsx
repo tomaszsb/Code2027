@@ -91,6 +91,7 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
         {playersOnSpace.map((player) => (
           <div
             key={player.id}
+            title={player.name}
             style={{
               width: '32px',
               height: '32px',
@@ -104,7 +105,6 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
               fontWeight: 'bold',
               border: '2px solid #fff',
               boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              title: player.name,
               // Animation properties
               animation: 'playerTokenAppear 0.5s ease-out',
               transition: 'all 0.3s ease-in-out',

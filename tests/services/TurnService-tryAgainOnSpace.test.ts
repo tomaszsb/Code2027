@@ -43,6 +43,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     const choiceService = {} as any;
     const movementService = {} as any;
     const negotiationService = {} as any;
+    const effectEngineService = {} as any;
 
     // Create TurnService with mocked nextPlayer method
     turnService = new TurnService(
@@ -53,9 +54,9 @@ describe('TurnService.tryAgainOnSpace', () => {
       resourceService,
       movementService,
       negotiationService,
-      choiceService
+      effectEngineService
     );
-    turnService.nextPlayer = jest.fn();
+    (turnService as any).nextPlayer = jest.fn();
   });
 
   it('should revert to snapshot, apply penalty, and advance turn', async () => {
@@ -110,7 +111,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     expect(finalState.preSpaceEffectState).toBeNull();
 
     // Verify that the turn was advanced
-    expect(turnService.nextPlayer).toHaveBeenCalledTimes(1);
+    expect((turnService as any).nextPlayer).toHaveBeenCalledTimes(1);
   });
 
   it('should fail if no snapshot is available', async () => {
@@ -125,7 +126,7 @@ describe('TurnService.tryAgainOnSpace', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('No snapshot available');
-    expect(turnService.nextPlayer).not.toHaveBeenCalled();
+    expect((turnService as any).nextPlayer).not.toHaveBeenCalled();
   });
 
   it('should fail if the space is not negotiable', async () => {
@@ -144,6 +145,6 @@ describe('TurnService.tryAgainOnSpace', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('Try again not available on this space');
-    expect(turnService.nextPlayer).not.toHaveBeenCalled();
+    expect((turnService as any).nextPlayer).not.toHaveBeenCalled();
   });
 });

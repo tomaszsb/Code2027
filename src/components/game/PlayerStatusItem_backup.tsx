@@ -384,7 +384,11 @@ export function PlayerStatusItem({ player, isCurrentPlayer, onOpenNegotiationMod
           transform: 'translateY(0)',
           transition: 'all 0.3s ease-in-out'
         }}>
-          <CardPortfolioDashboard player={player} />
+          <CardPortfolioDashboard 
+            player={player} 
+            isCurrentPlayer={isCurrentPlayer}
+            onOpenCardDetailsModal={(cardId) => console.log('Open card details for:', cardId)}
+          />
         </div>
       )}
     </div>

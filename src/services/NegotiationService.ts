@@ -427,4 +427,46 @@ export class NegotiationService {
       availableCards: updatedCards
     };
   }
+
+  /**
+   * Accept the current offer in an active negotiation
+   * 
+   * @param playerId - The ID of the player accepting the offer
+   * @returns Promise resolving to the negotiation result
+   */
+  public async acceptOffer(playerId: string): Promise<NegotiationResult> {
+    console.log(`✅ NegotiationService.acceptOffer - Player ${playerId} accepting offer`);
+    
+    // For now, return a success result
+    // In a full implementation, this would process the actual offer acceptance
+    return {
+      success: true,
+      message: 'Offer accepted successfully',
+      newState: this.stateService.getGameState(),
+      negotiationId: 'temp-negotiation-id',
+      effects: [],
+      data: { accepted: true }
+    };
+  }
+
+  /**
+   * Decline the current offer in an active negotiation
+   * 
+   * @param playerId - The ID of the player declining the offer
+   * @returns Promise resolving to the negotiation result
+   */
+  public async declineOffer(playerId: string): Promise<NegotiationResult> {
+    console.log(`❌ NegotiationService.declineOffer - Player ${playerId} declining offer`);
+    
+    // For now, return a success result with declined status
+    // In a full implementation, this would process the actual offer decline
+    return {
+      success: true,
+      message: 'Offer declined',
+      newState: this.stateService.getGameState(),
+      negotiationId: 'temp-negotiation-id',
+      effects: [],
+      data: { declined: true }
+    };
+  }
 }

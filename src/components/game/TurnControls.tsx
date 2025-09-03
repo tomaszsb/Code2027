@@ -88,7 +88,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       const aiTurnTimer = setTimeout(async () => {
         try {
           setIsProcessingTurn(true);
-          const result = turnService.takeTurn(currentPlayer.id);
+          const result = await turnService.takeTurn(currentPlayer.id);
           setLastRoll(result.diceRoll);
           console.log(`AI player ${currentPlayer.name} rolled a ${result.diceRoll}`);
           
@@ -104,7 +104,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
               setIsProcessingTurn(false);
             }
           }, 2000);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error during AI turn:', error);
           setIsProcessingTurn(false);
         }
@@ -199,7 +199,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           setFeedbackMessage('');
         }, 4000);
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error during negotiation:', error);
         alert(`Negotiation failed: ${error.message}`);
       } finally {
@@ -226,7 +226,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       setDiceResult(result);
       setShowDiceResultModal(true);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error triggering manual ${effectType} effect:`, error);
       alert(`Error: ${error.message}`);
     } finally {

@@ -104,7 +104,7 @@ export function SpaceExplorerPanel({
 
     setSpaceDetails({
       space,
-      content,
+      content: content || null,
       effects,
       diceEffects,
       playersOnSpace,
@@ -552,7 +552,7 @@ export function SpaceExplorerPanel({
                             {destinations.map((dest, index) => (
                               <button
                                 key={index}
-                                onClick={() => setSelectedSpace(dest)}
+                                onClick={() => setSelectedSpace(dest || null)}
                                 style={{
                                   padding: '6px 10px',
                                   backgroundColor: '#007bff',

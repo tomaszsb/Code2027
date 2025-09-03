@@ -1,30 +1,40 @@
 import { StateService } from '../../src/services/StateService';
-import { DataService } from '../../src/services/DataService';
+import { IDataService } from '../../src/types/ServiceContracts';
 import { GameState, Player, GamePhase } from '../../src/types/StateTypes';
 
 describe('StateService', () => {
   let stateService: StateService;
-  let mockDataService: jest.Mocked<DataService>;
+  let mockDataService: jest.Mocked<IDataService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Create a proper mock of DataService
+    // Create a proper mock of IDataService
     mockDataService = {
       isLoaded: jest.fn().mockReturnValue(true),
+      loadData: jest.fn(),
       getGameConfig: jest.fn().mockReturnValue([
-        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true }
+        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true, requires_dice_roll: false }
       ]),
-      // Add mocks for other DataService methods as needed by tests
-      getCardsByType: jest.fn().mockReturnValue([]),
+      getGameConfigBySpace: jest.fn(),
+      getPhaseOrder: jest.fn(),
+      getAllSpaces: jest.fn(),
+      getSpaceByName: jest.fn(),
       getMovement: jest.fn().mockReturnValue(undefined),
-      getMovementData: jest.fn(),
-      getDiceEffects: jest.fn(),
+      getAllMovements: jest.fn(),
+      getDiceOutcome: jest.fn(),
+      getAllDiceOutcomes: jest.fn(),
       getSpaceEffects: jest.fn(),
-      getDiceOutcomes: jest.fn(),
-      getAllCardTypes: jest.fn(),
+      getAllSpaceEffects: jest.fn(),
+      getDiceEffects: jest.fn(),
+      getAllDiceEffects: jest.fn(),
+      getSpaceContent: jest.fn(),
+      getAllSpaceContent: jest.fn(),
+      getCards: jest.fn(),
       getCardById: jest.fn(),
-    } as jest.Mocked<DataService>;
+      getCardsByType: jest.fn().mockReturnValue([]),
+      getAllCardTypes: jest.fn(),
+    };
 
     stateService = new StateService(mockDataService);
   });
@@ -518,8 +528,13 @@ describe('StateService', () => {
         currentSpace: 'FAKE',
         visitType: 'First',
         money: 0,
-        time: 0,
-        cards: { W: [], B: [], E: [], L: [], I: [] }
+        timeSpent: 0,
+        projectScope: 0,
+        color: '#000000',
+        avatar: '👤',
+        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        activeCards: [],
+        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
       });
       
       const currentPlayers = stateService.getAllPlayers();
@@ -528,7 +543,7 @@ describe('StateService', () => {
   });
 
   describe('Fallback Logic (DataService not available)', () => {
-    let mockDataServiceNotLoaded: jest.Mocked<DataService>;
+    let mockDataServiceNotLoaded: jest.Mocked<IDataService>;
     let stateServiceWithUnloadedData: StateService;
 
     beforeEach(() => {
@@ -538,6 +553,7 @@ describe('StateService', () => {
         getGameConfig: jest.fn().mockReturnValue([]),
         loadData: jest.fn().mockResolvedValue(undefined),
         getGameConfigBySpace: jest.fn().mockReturnValue(undefined),
+        getPhaseOrder: jest.fn().mockReturnValue([]),
         getAllSpaces: jest.fn().mockReturnValue([]),
         getSpaceByName: jest.fn().mockReturnValue(undefined),
         getMovement: jest.fn().mockReturnValue(undefined),
@@ -549,8 +565,12 @@ describe('StateService', () => {
         getDiceEffects: jest.fn().mockReturnValue([]),
         getAllDiceEffects: jest.fn().mockReturnValue([]),
         getSpaceContent: jest.fn().mockReturnValue(undefined),
-        getAllSpaceContent: jest.fn().mockReturnValue([])
-      } as jest.Mocked<DataService>;
+        getAllSpaceContent: jest.fn().mockReturnValue([]),
+        getCards: jest.fn().mockReturnValue([]),
+        getCardById: jest.fn().mockReturnValue(undefined),
+        getCardsByType: jest.fn().mockReturnValue([]),
+        getAllCardTypes: jest.fn().mockReturnValue([])
+      } as jest.Mocked<IDataService>;
 
       stateServiceWithUnloadedData = new StateService(mockDataServiceNotLoaded);
     });
@@ -590,7 +610,7 @@ describe('StateService', () => {
         ...mockDataServiceNotLoaded,
         isLoaded: jest.fn().mockReturnValue(true),
         getGameConfig: jest.fn().mockReturnValue([])
-      } as jest.Mocked<DataService>;
+      } as jest.Mocked<IDataService>;
 
       const stateServiceEmptyConfigs = new StateService(mockDataServiceEmptyConfigs);
       stateServiceEmptyConfigs.addPlayer('Alice');

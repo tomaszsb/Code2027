@@ -144,18 +144,19 @@ The EffectFactory eliminates the need for the engine to understand CSV structure
 #### 2. **Effect Types** (Discriminated Union Pattern)
 **Role**: Standardized data structures representing all possible game actions.
 
-The system defines **9 core Effect types** using TypeScript's discriminated union pattern:
+The system defines **10 core Effect types** using TypeScript's discriminated union pattern:
 
 ```typescript
 type Effect = 
   | ResourceChangeEffect     // Money, time, reputation changes
-  | CardDrawEffect          // Drawing cards from decks
-  | CardDiscardEffect       // Discarding cards from hand
+  | CardDrawEffect          // Drawing cards from decks  
+  | CardDiscardEffect       // Discarding cards from hand (NEW: runtime card selection)
   | CardActivationEffect    // Activating cards with duration
-  | MovementChoiceEffect    // Player movement decisions
+  | PlayerMovementEffect    // Player movement between spaces
   | TurnControlEffect       // Turn skipping, extra turns
+  | ChoiceEffect           // Player choice dialogs
   | EffectGroupTargeted     // Multi-player targeting effects
-  | ConditionalEffect       // Conditional logic (scope, dice conditions)
+  | ConditionalEffect      // 🎲 NEW: Dice roll conditional logic
   | RecalculateScopeEffect  // Project scope recalculation for W cards
 ```
 
@@ -187,6 +188,103 @@ The EffectEngineService acts as an orchestration layer, taking arrays of Effect 
 5. **Comprehensive Testing**: Single engine can be tested against all game scenarios
 
 This architecture transformation eliminated the Service Locator anti-patterns, God Objects, and event spaghetti that plagued code2026, replacing them with a clean, predictable, and maintainable system.
+
+---
+
+## 🎲 Conditional Effects System (Latest Feature)
+
+The **Conditional Effects System** extends the Unified Effect Engine with dice roll-based conditional logic, enabling cards with outcomes that depend on dice roll results. This system handles the 14 cards in the CSV data that use "Roll a die. On X-Y [effect]. On Z-W [effect]." mechanics.
+
+### Architecture Components
+
+#### 1. **CONDITIONAL_EFFECT Type Structure**
+```typescript
+{
+  effectType: 'CONDITIONAL_EFFECT';
+  payload: {
+    playerId: string;
+    condition: {
+      type: 'DICE_ROLL';
+      ranges: Array<{
+        min: number;      // e.g., 1
+        max: number;      // e.g., 3
+        effects: Effect[]; // Effects to execute if dice matches range
+      }>;
+    };
+    source?: string;
+    reason?: string;
+  };
+}
+```
+
+#### 2. **Conditional Effect Parsing (EffectFactory)**
+The `parseConditionalEffect()` method uses regex pattern matching to convert card descriptions into structured conditional effects:
+
+```typescript
+// Pattern Detection
+Input:  "Roll a die. On 1-3 increase filing time by 5 ticks. On 4-6 no effect."
+Regex:  /On (\d+)-(\d+)\s+([^.]+)\./g
+
+// Range Extraction  
+Range 1: { min: 1, max: 3, effects: [ResourceChangeEffect(+5 TIME)] }
+Range 2: { min: 4, max: 6, effects: [] } // "no effect" = empty array
+```
+
+**Supported Effect Text Patterns:**
+- `"increase ... by X ticks"` → `+X TIME` ResourceChangeEffect
+- `"reduce/decrease ... by X ticks"` → `-X TIME` ResourceChangeEffect  
+- `"no effect"` → Empty effects array
+- **Extensible**: Framework ready for money, card, and other effect types
+
+#### 3. **Conditional Effect Processing (EffectEngineService)**
+The engine evaluates dice rolls against condition ranges and recursively processes matching effects:
+
+```typescript
+// Runtime Evaluation Flow
+1. Receive CONDITIONAL_EFFECT with dice roll in context
+2. Evaluate: diceRoll >= range.min && diceRoll <= range.max
+3. Find matching range's effects array
+4. Recursively call: this.processEffects(matchingEffects, context)
+5. Handle "no effect" ranges gracefully (empty array = success)
+```
+
+### Integration Features
+
+#### **Context Enhancement**
+Extended `EffectContext` with optional `diceRoll?: number` field to pass dice roll results through the effect processing pipeline.
+
+#### **Targeting Compatibility** 
+CONDITIONAL_EFFECT is included in targetable effect types, enabling cards like hypothetical "All players roll dice for individual outcomes" mechanics.
+
+#### **Validation Framework**
+Comprehensive validation ensures:
+- Dice roll presence in context
+- Valid range structures (min ≤ max)
+- Proper effects array structure
+- PlayerId validation
+
+### Production Cards Enabled
+
+**14 cards now functional with conditional mechanics:**
+```
+L009: NIMBY Lawsuit           (1-3: +5 ticks, 4-6: no effect)
+L013: Endangered Species      (1-3: +6 ticks, 4-6: no effect)  
+L017: Neighborhood Revital.   (1-3: -3 ticks, 4-6: no effect)
+L025: Celebrity Endorsement   (1-3: -4 ticks, 4-6: no effect)
+L032: Diversity Initiative    (1-3: -2 ticks, 4-6: no effect)
+E011: Permit Expedited        (1-3: -4 ticks, 4-6: no effect)
+E016: Routine Procedure       (1-3: -1 tick,  4-6: no effect)
+E023: On the Radar           (1-3: -2 ticks, 4-6: no effect)
+E026: Benefit Verification    (1-3: -2 ticks, 4-6: no effect)
+E033: Audit Preparation       (1-3: -2 ticks, 4-6: +2 ticks) ⭐ Both outcomes!
+```
+
+### Benefits Achieved
+1. **Extensible Design**: Framework supports future condition types (player resources, card counts, etc.)
+2. **Recursive Integration**: Seamlessly processes conditional outcomes through existing effect pipeline
+3. **Type Safety**: Full TypeScript support with discriminated unions and type guards
+4. **Performance Optimized**: Early detection prevents unnecessary processing of non-conditional cards
+5. **Maintainable**: Centralized parsing logic with clear separation of concerns
 
 ---
 

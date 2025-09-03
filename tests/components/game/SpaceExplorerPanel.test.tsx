@@ -10,9 +10,9 @@ import { Space, Player, SpaceContent, SpaceEffect, GameConfig, Movement } from '
 // Mock GameContext
 const mockDataService = {
   getAllSpaces: jest.fn(),
-  getSpaceContentBySpace: jest.fn(),
-  getSpaceEffectsBySpace: jest.fn(),
-  getDiceEffectsBySpace: jest.fn(),
+  getSpaceContent: jest.fn(),
+  getSpaceEffects: jest.fn(),
+  getDiceEffects: jest.fn(),
   getGameConfigBySpace: jest.fn(),
   getMovement: jest.fn()
 } as unknown as DataService;
@@ -36,10 +36,42 @@ jest.mock('../../../src/context/GameContext', () => ({
 
 describe('SpaceExplorerPanel', () => {
   const mockSpaces: Space[] = [
-    { name: 'START', position: { x: 0, y: 0 } },
-    { name: 'OFFICE-SETUP', position: { x: 1, y: 0 } },
-    { name: 'ARCHITECT-MEETING', position: { x: 2, y: 0 } },
-    { name: 'END', position: { x: 3, y: 0 } }
+    { 
+      name: 'START', 
+      config: { space_name: 'START', phase: 'SETUP', path_type: 'main', is_starting_space: true, is_ending_space: false, min_players: 1, max_players: 4, requires_dice_roll: false },
+      content: [],
+      movement: [],
+      spaceEffects: [],
+      diceEffects: [],
+      diceOutcomes: []
+    },
+    { 
+      name: 'OFFICE-SETUP', 
+      config: { space_name: 'OFFICE-SETUP', phase: 'PLAY', path_type: 'main', is_starting_space: false, is_ending_space: false, min_players: 1, max_players: 4, requires_dice_roll: false },
+      content: [],
+      movement: [],
+      spaceEffects: [],
+      diceEffects: [],
+      diceOutcomes: []
+    },
+    { 
+      name: 'ARCHITECT-MEETING', 
+      config: { space_name: 'ARCHITECT-MEETING', phase: 'PLAY', path_type: 'main', is_starting_space: false, is_ending_space: false, min_players: 1, max_players: 4, requires_dice_roll: false },
+      content: [],
+      movement: [],
+      spaceEffects: [],
+      diceEffects: [],
+      diceOutcomes: []
+    },
+    { 
+      name: 'END', 
+      config: { space_name: 'END', phase: 'END', path_type: 'main', is_starting_space: false, is_ending_space: true, min_players: 1, max_players: 4, requires_dice_roll: false },
+      content: [],
+      movement: [],
+      spaceEffects: [],
+      diceEffects: [],
+      diceOutcomes: []
+    }
   ];
 
   const mockPlayers: Player[] = [
@@ -47,25 +79,29 @@ describe('SpaceExplorerPanel', () => {
       id: 'player1',
       name: 'Test Player',
       color: '#ff0000',
-      type: 'human',
-      isAI: false,
+      avatar: '👤',
       money: 100000,
       timeSpent: 45,
+      projectScope: 0,
       currentSpace: 'OFFICE-SETUP',
+      visitType: 'First',
       availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
-      position: { x: 0, y: 0 }
+      activeCards: [],
+      discardedCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] }
     },
     {
       id: 'player2',
       name: 'Another Player',
       color: '#00ff00',
-      type: 'human',
-      isAI: false,
+      avatar: '👥',
       money: 75000,
       timeSpent: 30,
+      projectScope: 0,
       currentSpace: 'OFFICE-SETUP',
+      visitType: 'First',
       availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
-      position: { x: 0, y: 0 }
+      activeCards: [],
+      discardedCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] }
     }
   ];
 
@@ -78,23 +114,33 @@ describe('SpaceExplorerPanel', () => {
   const mockSpaceContent: SpaceContent = {
     space_name: 'OFFICE-SETUP',
     visit_type: 'First',
-    content_text: 'Set up your project office and begin planning',
-    can_negotiate: true
+    title: 'Office Setup',
+    story: 'Set up your project office and begin planning',
+    action_description: 'Setting up office space',
+    outcome_description: 'Office is ready for work',
+    can_negotiate: true,
+    content_text: 'Set up your project office and begin planning'
   };
 
   const mockSpaceEffect: SpaceEffect = {
     space_name: 'OFFICE-SETUP',
     visit_type: 'First',
     effect_type: 'money',
+    effect_action: 'subtract',
     effect_value: -10000,
-    effect_description: 'Office setup costs'
+    condition: 'always',
+    description: 'Office setup costs'
   };
 
   const mockGameConfig: GameConfig = {
     space_name: 'START',
+    phase: 'SETUP',
+    path_type: 'Main',
     is_starting_space: true,
     is_ending_space: false,
-    path_type: 'Main'
+    min_players: 1,
+    max_players: 4,
+    requires_dice_roll: false
   };
 
   const mockMovement: Movement = {
@@ -118,9 +164,9 @@ describe('SpaceExplorerPanel', () => {
     });
     (mockStateService.getGameState as jest.Mock).mockReturnValue(mockGameState);
     (mockDataService.getAllSpaces as jest.Mock).mockReturnValue(mockSpaces);
-    (mockDataService.getSpaceContentBySpace as jest.Mock).mockReturnValue(mockSpaceContent);
-    (mockDataService.getSpaceEffectsBySpace as jest.Mock).mockReturnValue([mockSpaceEffect]);
-    (mockDataService.getDiceEffectsBySpace as jest.Mock).mockReturnValue([]);
+    (mockDataService.getSpaceContent as jest.Mock).mockReturnValue(mockSpaceContent);
+    (mockDataService.getSpaceEffects as jest.Mock).mockReturnValue([mockSpaceEffect]);
+    (mockDataService.getDiceEffects as jest.Mock).mockReturnValue([]);
     (mockDataService.getGameConfigBySpace as jest.Mock).mockImplementation((spaceName) => {
       if (spaceName === 'START') return { ...mockGameConfig, is_starting_space: true };
       if (spaceName === 'END') return { ...mockGameConfig, space_name: spaceName, is_ending_space: true, is_starting_space: false };

@@ -25,7 +25,7 @@ interface NegotiationModalProps {
  * NegotiationModal provides a comprehensive interface for player-to-player negotiations.
  * Supports partner selection, offer creation, and offer response handling.
  */
-export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JSX.Element {
+export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JSX.Element | null {
   const { stateService, dataService, negotiationService } = useGameContext();
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);

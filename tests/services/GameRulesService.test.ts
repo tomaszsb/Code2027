@@ -9,6 +9,7 @@ import { Movement, DiceOutcome, CardType } from '../../src/types/DataTypes';
 const mockDataService: jest.Mocked<IDataService> = {
   getGameConfig: jest.fn(),
   getGameConfigBySpace: jest.fn(),
+  getPhaseOrder: jest.fn(),
   getAllSpaces: jest.fn(),
   getSpaceByName: jest.fn(),
   getMovement: jest.fn(),
@@ -21,6 +22,10 @@ const mockDataService: jest.Mocked<IDataService> = {
   getAllDiceEffects: jest.fn(),
   getSpaceContent: jest.fn(),
   getAllSpaceContent: jest.fn(),
+  getCards: jest.fn(),
+  getCardById: jest.fn(),
+  getCardsByType: jest.fn(),
+  getAllCardTypes: jest.fn(),
   isLoaded: jest.fn(),
   loadData: jest.fn(),
 };
@@ -43,6 +48,30 @@ const mockStateService: jest.Mocked<IStateService> = {
   resetGame: jest.fn(),
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
+  getGameStateDeepCopy: jest.fn(),
+  subscribe: jest.fn(),
+  setAwaitingChoice: jest.fn(),
+  clearAwaitingChoice: jest.fn(),
+  setPlayerHasMoved: jest.fn(),
+  clearPlayerHasMoved: jest.fn(),
+  setPlayerCompletedManualAction: jest.fn(),
+  setPlayerHasRolledDice: jest.fn(),
+  clearPlayerCompletedManualActions: jest.fn(),
+  clearPlayerHasRolledDice: jest.fn(),
+  updateActionCounts: jest.fn(),
+  showCardModal: jest.fn(),
+  dismissModal: jest.fn(),
+  createPlayerSnapshot: jest.fn(),
+  restorePlayerSnapshot: jest.fn(),
+  updateNegotiationState: jest.fn(),
+  fixPlayerStartingSpaces: jest.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
+  logToActionHistory: jest.fn(),
+  savePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn(),
 };
 
 describe('GameRulesService', () => {
@@ -88,9 +117,9 @@ describe('GameRulesService', () => {
       completedActions: 0,
       availableActionTypes: [],
       hasCompletedManualActions: false,
-      turnModifiers: {},
       activeNegotiation: null,
-      globalActionLog: []
+      globalActionLog: [],
+      preSpaceEffectState: null
     };
   });
 
@@ -544,7 +573,8 @@ describe('GameRulesService', () => {
         is_starting_space: false,
         is_ending_space: true,
         min_players: 1,
-        max_players: 4
+        max_players: 4,
+        requires_dice_roll: false
       };
 
       const playerOnEndingSpace = { ...mockPlayer, currentSpace: 'END-SPACE' };
@@ -569,7 +599,8 @@ describe('GameRulesService', () => {
         is_starting_space: false,
         is_ending_space: false,
         min_players: 1,
-        max_players: 4
+        max_players: 4,
+        requires_dice_roll: false
       };
 
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
@@ -638,7 +669,8 @@ describe('GameRulesService', () => {
         is_starting_space: false,
         is_ending_space: false,
         min_players: 1,
-        max_players: 4
+        max_players: 4,
+        requires_dice_roll: false
       };
 
       mockStateService.getPlayer.mockReturnValue(mockPlayer);

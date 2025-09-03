@@ -33,6 +33,43 @@ export class EffectFactory {
 
     console.log(`🏭 EFFECT_FACTORY: Creating effects from card: ${cardName} (${card.card_id})`);
 
+    // === RE-ROLL MECHANICS (E066 Specific) ===
+    // Check if this is E066 - Investor Pitch Preparation
+    if (card.card_id === 'E066') {
+      effects.push({
+        effectType: 'TURN_CONTROL',
+        payload: {
+          action: 'GRANT_REROLL',
+          playerId,
+          source: cardSource,
+          reason: `${cardName}: Gain 1 extra die throw this turn if you do not like the outcome`
+        }
+      });
+      // Don't skip normal processing in case E066 has other effects
+    }
+
+    // === CHOICE OF EFFECTS (Player Choice Between Options) ===
+    // Check if card has "or" choice mechanics in description
+    if (card.description && card.description.includes(' or ')) {
+      const choiceEffect = this.parseChoiceOfEffects(card, playerId, cardSource, cardName);
+      if (choiceEffect) {
+        effects.push(choiceEffect);
+        // Skip normal effect processing for choice cards
+        return effects;
+      }
+    }
+
+    // === CONDITIONAL EFFECTS (Dice Roll Based) ===
+    // Check if card has conditional dice roll mechanics in description
+    if (card.description && card.description.includes('Roll a die')) {
+      const conditionalEffect = this.parseConditionalEffect(card, playerId, cardSource, cardName);
+      if (conditionalEffect) {
+        effects.push(conditionalEffect);
+        // Skip normal effect processing for conditional cards
+        return effects;
+      }
+    }
+
     // === CARD COST DEDUCTION ===
     if (card.cost && card.cost > 0) {
       effects.push({
@@ -65,8 +102,8 @@ export class EffectFactory {
     }
 
     // === TIME EFFECTS ===
-    if (card.time_effect && card.time_effect !== '0' && card.time_effect !== '') {
-      const timeAmount = this.parseTimeEffect(card.time_effect);
+    if (card.tick_modifier && card.tick_modifier !== '0' && card.tick_modifier !== '') {
+      const timeAmount = this.parseTimeEffect(card.tick_modifier);
       if (timeAmount !== 0) {
         effects.push({
           effectType: 'RESOURCE_CHANGE',
@@ -75,7 +112,7 @@ export class EffectFactory {
             resource: 'TIME',
             amount: timeAmount,
             source: cardSource,
-            reason: `${cardName}: ${card.time_effect}`
+            reason: `${cardName}: ${card.tick_modifier}`
           }
         });
       }
@@ -106,6 +143,28 @@ export class EffectFactory {
           });
         }
       });
+    }
+
+    // === CARD DISCARD EFFECTS ===
+    if (card.discard_cards && card.discard_cards !== '0' && card.discard_cards !== '') {
+      const discardCount = parseInt(card.discard_cards, 10);
+      if (discardCount > 0) {
+        // For now, assume we're discarding "E" (Expeditor) cards if type isn't specified
+        // This matches the L003 card example: "All players must discard 1 Expeditor card"
+        const cardTypeToDiscard: CardType = 'E';
+        
+        effects.push({
+          effectType: 'CARD_DISCARD',
+          payload: {
+            playerId, // This will be replaced with actual target player IDs during targeting
+            cardIds: [], // Will be determined at runtime by EffectEngineService
+            cardType: cardTypeToDiscard,
+            count: discardCount,
+            source: cardSource,
+            reason: `${cardName}: Discard ${discardCount} ${cardTypeToDiscard} card${discardCount > 1 ? 's' : ''}`
+          }
+        });
+      }
     }
 
     // === LOAN AMOUNT EFFECTS (New expanded mechanic) ===
@@ -761,7 +820,7 @@ export class EffectFactory {
    * Check if an effect type can be targeted at other players
    */
   private static isTargetableEffectType(effectType: Effect['effectType']): boolean {
-    return ['RESOURCE_CHANGE', 'CARD_DRAW', 'CARD_DISCARD', 'TURN_CONTROL'].includes(effectType);
+    return ['RESOURCE_CHANGE', 'CARD_DRAW', 'CARD_DISCARD', 'TURN_CONTROL', 'CONDITIONAL_EFFECT'].includes(effectType);
   }
 
   /**
@@ -816,5 +875,190 @@ export class EffectFactory {
       default:
         return `${cardName}: Choose target for effect`;
     }
+  }
+
+  /**
+   * Parse choice-of-effects from card description
+   * 
+   * Handles cards with "or" mechanics like "Discard 1 card or lose $50"
+   * 
+   * @param card Card object with description containing choice text
+   * @param playerId Player who must make the choice
+   * @param cardSource Source string for the effect
+   * @param cardName Display name for the card
+   * @returns CHOICE_OF_EFFECTS or null if parsing fails
+   */
+  private static parseChoiceOfEffects(
+    card: Card, 
+    playerId: string, 
+    cardSource: string, 
+    cardName: string
+  ): Effect | null {
+    const description = card.description || '';
+    
+    // For E012: "Discard 1 Expeditor Card or the current filing takes 1 tick more time."
+    if (card.card_id === 'E012') {
+      return {
+        effectType: 'CHOICE_OF_EFFECTS',
+        payload: {
+          playerId,
+          prompt: `${cardName}: Choose one option`,
+          options: [
+            {
+              label: 'Discard 1 Expeditor Card',
+              effects: [{
+                effectType: 'CARD_DISCARD',
+                payload: {
+                  playerId,
+                  cardIds: [],
+                  cardType: 'E',
+                  count: 1,
+                  source: cardSource,
+                  reason: `${cardName}: Player chose to discard Expeditor card`
+                }
+              }]
+            },
+            {
+              label: 'Current filing takes 1 tick more time',
+              effects: [{
+                effectType: 'RESOURCE_CHANGE',
+                payload: {
+                  playerId,
+                  resource: 'TIME',
+                  amount: 1,
+                  source: cardSource,
+                  reason: `${cardName}: Player chose filing delay`
+                }
+              }]
+            }
+          ]
+        }
+      };
+    }
+    
+    return null; // No other choice cards implemented yet
+  }
+
+  /**
+   * Parse conditional dice roll effects from card description
+   * 
+   * @param card The card object with conditional description
+   * @param playerId The player ID for the effect
+   * @param cardSource Source string for the effect
+   * @param cardName Display name for the card
+   * @returns CONDITIONAL_EFFECT or null if parsing fails
+   */
+  private static parseConditionalEffect(
+    card: Card, 
+    playerId: string, 
+    cardSource: string, 
+    cardName: string
+  ): Effect | null {
+    if (!card.description || !card.description.includes('Roll a die')) {
+      return null;
+    }
+
+    const description = card.description;
+    console.log(`🎲 EFFECT_FACTORY: Parsing conditional effect for ${cardName}: ${description}`);
+
+    // Extract the conditional ranges and their effects
+    // Pattern: "On X-Y [effect]. On Z-W [effect]." or "On X-Y [effect]. On Z-W no effect."
+    const ranges: Array<{ min: number; max: number; effects: Effect[] }> = [];
+    
+    // Match patterns like "On 1-3 increase the current filing time by 5 ticks"
+    const rangePattern = /On (\d+)-(\d+)\s+([^.]+)\./g;
+    let match;
+    
+    while ((match = rangePattern.exec(description)) !== null) {
+      const min = parseInt(match[1]);
+      const max = parseInt(match[2]);
+      const effectText = match[3].trim();
+      
+      console.log(`   Found range: ${min}-${max} -> "${effectText}"`);
+      
+      // Parse the effect text to create actual effects
+      const rangeEffects = this.parseConditionalEffectText(effectText, card, playerId, cardSource, cardName);
+      
+      ranges.push({
+        min,
+        max,
+        effects: rangeEffects
+      });
+    }
+    
+    if (ranges.length === 0) {
+      console.warn(`   Could not parse conditional ranges from: ${description}`);
+      return null;
+    }
+    
+    console.log(`🎲 EFFECT_FACTORY: Created conditional effect with ${ranges.length} ranges`);
+    
+    return {
+      effectType: 'CONDITIONAL_EFFECT',
+      payload: {
+        playerId,
+        condition: {
+          type: 'DICE_ROLL',
+          ranges
+        },
+        source: cardSource,
+        reason: `${cardName}: Conditional dice roll effect`
+      }
+    };
+  }
+
+  /**
+   * Parse conditional effect text into actual Effect objects
+   * 
+   * @param effectText The text describing the effect (e.g., "increase the current filing time by 5 ticks")
+   * @param card The original card object for reference
+   * @param playerId The player ID
+   * @param cardSource Source string
+   * @param cardName Display name
+   * @returns Array of Effect objects
+   */
+  private static parseConditionalEffectText(
+    effectText: string, 
+    card: Card, 
+    playerId: string, 
+    cardSource: string, 
+    cardName: string
+  ): Effect[] {
+    const effects: Effect[] = [];
+    const text = effectText.toLowerCase();
+    
+    // Handle "no effect" case
+    if (text.includes('no effect')) {
+      return effects; // Return empty array
+    }
+    
+    // Parse time/tick modifications
+    // Patterns: "increase ... by X ticks", "reduce ... by X ticks", "decrease ... by X ticks"
+    const tickPattern = /(increase|reduce|decrease)\s+.*?\s+by\s+(\d+)\s+ticks?/i;
+    const tickMatch = effectText.match(tickPattern);
+    
+    if (tickMatch) {
+      const action = tickMatch[1].toLowerCase();
+      const amount = parseInt(tickMatch[2]);
+      
+      const timeAmount = (action === 'increase') ? amount : -amount;
+      
+      effects.push({
+        effectType: 'RESOURCE_CHANGE',
+        payload: {
+          playerId,
+          resource: 'TIME',
+          amount: timeAmount,
+          source: cardSource,
+          reason: `${cardName}: ${effectText}`
+        }
+      });
+      
+      console.log(`   Parsed time effect: ${timeAmount} ticks`);
+    }
+    
+    // Could add more parsing patterns here for other effect types (money, cards, etc.)
+    
+    return effects;
   }
 }

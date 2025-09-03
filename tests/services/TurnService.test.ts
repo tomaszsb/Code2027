@@ -45,6 +45,7 @@ const mockStateService: jest.Mocked<IStateService> = {
   startGame: jest.fn(),
   endGame: jest.fn(),
   resetGame: jest.fn(),
+  updateNegotiationState: jest.fn(),
   fixPlayerStartingSpaces: jest.fn(),
   forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
   setAwaitingChoice: jest.fn(),
@@ -63,9 +64,7 @@ const mockStateService: jest.Mocked<IStateService> = {
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
   logToActionHistory: jest.fn(),
-  preSpaceEffectState: null,
   savePreSpaceEffectSnapshot: jest.fn(),
-  restorePreSpaceEffectSnapshot: jest.fn(),
   clearPreSpaceEffectSnapshot: jest.fn(),
   hasPreSpaceEffectSnapshot: jest.fn(),
   getPreSpaceEffectSnapshot: jest.fn(),
@@ -100,6 +99,12 @@ const mockCardService: jest.Mocked<ICardService> = {
   getPlayerCards: jest.fn(),
   getPlayerCardCount: jest.fn(),
   applyCardEffects: jest.fn(),
+  effectEngineService: {
+    processEffects: jest.fn(),
+    processEffect: jest.fn(),
+    validateEffect: jest.fn(),
+    validateEffects: jest.fn(),
+  } as jest.Mocked<IEffectEngineService>,
 };
 
 const mockResourceService: jest.Mocked<IResourceService> = {
@@ -118,6 +123,15 @@ const mockMovementService: jest.Mocked<IMovementService> = {
   movePlayer: jest.fn(),
   getDiceDestination: jest.fn(),
   handleMovementChoice: jest.fn(),
+};
+
+const mockNegotiationService = {
+  initiateNegotiation: jest.fn(),
+  makeOffer: jest.fn(),
+  acceptOffer: jest.fn(),
+  declineOffer: jest.fn(),
+  getActiveNegotiation: jest.fn(),
+  hasActiveNegotiation: jest.fn(),
 };
 
 const mockEffectEngineService: jest.Mocked<IEffectEngineService> = {
@@ -183,9 +197,9 @@ describe('TurnService', () => {
     completedActions: 0,
     availableActionTypes: [],
     hasCompletedManualActions: false,
-    turnModifiers: {},
     activeNegotiation: null,
-    globalActionLog: []
+    globalActionLog: [],
+    preSpaceEffectState: null
   };
 
   const mockPlayer: Player = mockPlayers[0];
@@ -194,7 +208,7 @@ describe('TurnService', () => {
     jest.clearAllMocks();
     
     // Create TurnService first without EffectEngineService to avoid circular dependency
-    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService, mockCardService, mockResourceService, mockMovementService);
+    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService, mockCardService, mockResourceService, mockMovementService, mockNegotiationService as any);
     
     // Set EffectEngineService using setter injection to complete the circular dependency
     turnService.setEffectEngineService(mockEffectEngineService);
@@ -469,7 +483,7 @@ describe('TurnService', () => {
       const spaceEffect = {
         space_name: 'TEST_SPACE',
         visit_type: 'First' as const,
-        effect_type: 'cards',
+        effect_type: 'cards' as const,
         effect_action: 'replace_e',
         effect_value: 1,
         condition: 'always',
@@ -534,7 +548,7 @@ describe('TurnService', () => {
       const spaceEffect = {
         space_name: 'TEST_SPACE',
         visit_type: 'First' as const,
-        effect_type: 'cards',
+        effect_type: 'cards' as const,
         effect_action: 'transfer',
         effect_value: 1,
         condition: 'to_right',
@@ -599,7 +613,7 @@ describe('TurnService', () => {
       const spaceEffect = {
         space_name: 'TEST_SPACE',
         visit_type: 'First' as const,
-        effect_type: 'money',
+        effect_type: 'money' as const,
         effect_action: 'fee_percent',
         effect_value: 5, // 5% fee
         condition: 'always',

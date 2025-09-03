@@ -62,9 +62,9 @@ export function CardModal(): JSX.Element | null {
     
     // Also handle initial card data if modal is already active
     if (currentState.activeModal?.type === 'CARD') {
-      if (dataService.isLoaded()) {
+      if (dataService.isLoaded() && currentState.activeModal) {
         const cards = dataService.getCards();
-        const card = cards.find(c => c.card_id === currentState.activeModal.cardId);
+        const card = cards.find(c => c.card_id === currentState.activeModal!.cardId);
         setCardData(card || null);
       }
     }
@@ -100,7 +100,7 @@ export function CardModal(): JSX.Element | null {
           
           // Close modal after successful play
           handleClose();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to play card:', error);
           alert(`Cannot play card: ${error.message}`);
         }

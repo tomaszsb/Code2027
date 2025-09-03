@@ -18,7 +18,7 @@ jest.mock('../../../src/context/GameContext', () => ({
 
 describe('CardReplacementModal', () => {
   const mockCard1: Card = {
-    id: 'W1',
+    card_id: 'W1',
     card_name: 'Foundation Work',
     card_type: 'W',
     cost: 0,
@@ -26,7 +26,7 @@ describe('CardReplacementModal', () => {
   };
 
   const mockCard2: Card = {
-    id: 'W2', 
+    card_id: 'W2', 
     card_name: 'Electrical Upgrade',
     card_type: 'W',
     cost: 25000,
@@ -37,11 +37,12 @@ describe('CardReplacementModal', () => {
     id: 'player1',
     name: 'Test Player',
     color: '#ff0000',
-    type: 'human',
-    isAI: false,
+    avatar: '👤',
     money: 100000,
     timeSpent: 45,
+    projectScope: 0,
     currentSpace: 'START',
+    visitType: 'First',
     availableCards: {
       'W': ['W1', 'W2'],
       'B': [],
@@ -49,7 +50,14 @@ describe('CardReplacementModal', () => {
       'L': [],
       'I': []
     },
-    position: { x: 0, y: 0 }
+    activeCards: [],
+    discardedCards: {
+      'W': [],
+      'B': [],
+      'E': [],
+      'L': [],
+      'I': []
+    }
   };
 
   const mockOnReplace = jest.fn();
@@ -388,7 +396,7 @@ describe('CardReplacementModal', () => {
 
   it('should handle cards with long descriptions by truncating', () => {
     const longDescCard: Card = {
-      id: 'W3',
+      card_id: 'W3',
       card_name: 'Complex Project',
       card_type: 'W',
       cost: 50000,

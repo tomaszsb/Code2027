@@ -11,6 +11,23 @@ import { Choice } from './CommonTypes';
  * 
  * This discriminated union allows for type-safe effect processing while
  * maintaining flexibility for different effect types.
+ * 
+ * SUPPORTED EFFECT TYPES (10 core types):
+ * • RESOURCE_CHANGE: Money/time modifications
+ * • CARD_DRAW: Draw cards from deck
+ * • CARD_DISCARD: Remove cards from hand (explicit IDs or runtime selection)
+ * • CHOICE: Present player choices
+ * • LOG: System logging
+ * • PLAYER_MOVEMENT: Move player to new space
+ * • TURN_CONTROL: Skip, end, or grant extra turns
+ * • CARD_ACTIVATION: Activate cards with duration
+ * • EFFECT_GROUP_TARGETED: Apply effects to multiple players
+ * • RECALCULATE_SCOPE: Trigger scope recalculation
+ * • CONDITIONAL_EFFECT: Dice roll-based conditional mechanics
+ * 
+ * LATEST ADDITIONS:
+ * • CARD_DISCARD: Enhanced with cardType/count for CSV-driven runtime selection
+ * • CONDITIONAL_EFFECT: Full dice roll conditional logic with range-based outcomes
  */
 
 export type Effect =
@@ -38,7 +55,9 @@ export type Effect =
       effectType: 'CARD_DISCARD'; 
       payload: { 
         playerId: string; 
-        cardIds: string[]; 
+        cardIds: string[]; // Explicit card IDs for immediate discard
+        cardType?: CardType; // For runtime selection: type of cards to discard
+        count?: number; // For runtime selection: number of cards to discard
         source?: string;
         reason?: string;
       }; 
@@ -67,7 +86,7 @@ export type Effect =
   | {
       effectType: 'TURN_CONTROL';
       payload: {
-        action: 'SKIP_TURN' | 'EXTRA_TURN' | 'END_TURN';
+        action: 'SKIP_TURN' | 'EXTRA_TURN' | 'END_TURN' | 'GRANT_REROLL';
         playerId: string;
         source?: string;
         reason?: string;
@@ -97,6 +116,33 @@ export type Effect =
       payload: {
         playerId: string;
       };
+    }
+  | {
+      effectType: 'CONDITIONAL_EFFECT';
+      payload: {
+        playerId: string;
+        condition: {
+          type: 'DICE_ROLL'; // Future: could support other condition types
+          ranges: Array<{
+            min: number; // Minimum dice roll value (inclusive)
+            max: number; // Maximum dice roll value (inclusive)
+            effects: Effect[]; // Effects to execute if roll is in range
+          }>;
+        };
+        source?: string;
+        reason?: string;
+      };
+    }
+  | {
+      effectType: 'CHOICE_OF_EFFECTS';
+      payload: {
+        playerId: string;
+        prompt: string;
+        options: Array<{
+          label: string;
+          effects: Effect[];
+        }>;
+      };
     };
 
 /**
@@ -109,6 +155,7 @@ export interface EffectContext {
   source: string;
   playerId?: string;
   triggerEvent?: 'CARD_PLAY' | 'SPACE_ENTRY' | 'DICE_ROLL' | 'TURN_START' | 'TURN_END';
+  diceRoll?: number; // Required for CONDITIONAL_EFFECT processing
   metadata?: Record<string, any>;
 }
 
@@ -182,4 +229,12 @@ export function isEffectGroupTargetedEffect(effect: Effect): effect is Extract<E
 
 export function isRecalculateScopeEffect(effect: Effect): effect is Extract<Effect, { effectType: 'RECALCULATE_SCOPE' }> {
   return effect.effectType === 'RECALCULATE_SCOPE';
+}
+
+export function isConditionalEffect(effect: Effect): effect is Extract<Effect, { effectType: 'CONDITIONAL_EFFECT' }> {
+  return effect.effectType === 'CONDITIONAL_EFFECT';
+}
+
+export function isChoiceOfEffectsEffect(effect: Effect): effect is Extract<Effect, { effectType: 'CHOICE_OF_EFFECTS' }> {
+  return effect.effectType === 'CHOICE_OF_EFFECTS';
 }

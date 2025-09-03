@@ -63,7 +63,7 @@ export function CardReplacementModal({
   };
 
   const getCardDetails = (cardId: string): Card | null => {
-    return dataService.getCardById(cardId);
+    return dataService.getCardById(cardId) || null;
   };
 
   const getCardTypeName = (type: CardType): string => {
@@ -287,7 +287,7 @@ export function CardReplacementModal({
                             color: '#64748b',
                             marginBottom: '8px'
                           }}>
-                            Cost: {card ? FormatUtils.formatCardCost(card.cost) : 'Unknown'}
+                            Cost: {card ? FormatUtils.formatCardCost(card.cost || 0) : 'Unknown'}
                           </div>
                         </div>
                         {isSelected && (

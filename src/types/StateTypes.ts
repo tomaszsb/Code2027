@@ -11,18 +11,7 @@ export interface ActionLogEntry {
   playerId: string;
   playerName: string;
   description: string;
-  details?: {
-    diceValue?: number;
-    diceResult?: string;
-    cards?: string[];
-    cardType?: string;
-    cardCount?: number;
-    money?: number;
-    time?: number;
-    space?: string;
-    effectType?: string;
-    effects?: any[];
-  };
+  details?: Record<string, any>;
 }
 
 
@@ -59,6 +48,7 @@ export interface NegotiationResult {
   negotiationId?: string;
   effects: Effect[];
   data?: any;
+  newState?: GameState;
 }
 
 export interface ActiveModal {
@@ -167,6 +157,9 @@ export interface PlayerUpdateData {
       I: string[];
     };
   };
+  turnModifiers?: {
+    skipTurns: number;
+  };
 }
 
 export type PlayerCards = {
@@ -177,7 +170,7 @@ export type PlayerCards = {
   I: string[];
 };
 
-export { Player, ActiveCard } from './DataTypes';
+export type { Player, ActiveCard } from './DataTypes';
 
 // Dice result feedback types
 export interface DiceResultEffect {
@@ -195,4 +188,5 @@ export interface TurnEffectResult {
   effects: DiceResultEffect[];
   summary: string;
   hasChoices: boolean;
+  canReRoll?: boolean; // True if player can re-roll dice this turn
 }

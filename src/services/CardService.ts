@@ -299,6 +299,42 @@ export class CardService implements ICardService {
     return this.getPlayerCards(playerId, cardType).length;
   }
 
+  /**
+   * Gets the first available card of a specific type from a player's hand for discarding.
+   * This method prioritizes cards from the available cards collection over active/discarded cards.
+   * 
+   * @param playerId The ID of the player
+   * @param cardType The type of card to find (W, B, E, L, I)
+   * @returns The card ID if found, null if no cards of that type are available
+   */
+  getCardToDiscard(playerId: string, cardType: CardType): string | null {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      return null;
+    }
+
+    // First, try to get from available cards (preferred for discarding)
+    if (player.availableCards && player.availableCards[cardType]) {
+      const availableCards = player.availableCards[cardType];
+      if (availableCards.length > 0) {
+        return availableCards[0]; // Return the first available card
+      }
+    }
+
+    // If no available cards of this type, check active cards
+    if (player.activeCards) {
+      for (const activeCard of player.activeCards) {
+        const activeCardType = this.getCardType(activeCard.cardId);
+        if (activeCardType === cardType) {
+          return activeCard.cardId;
+        }
+      }
+    }
+
+    // No cards of the requested type found
+    return null;
+  }
+
   // Main card playing method
   playCard(playerId: string, cardId: string): GameState {
     console.log(`Attempting to play card [${cardId}] for player [${playerId}]`);
@@ -559,43 +595,6 @@ export class CardService implements ICardService {
     }
 
     return false;
-  }
-
-
-  // Public method called at end of each turn to handle card expirations
-  endOfTurn(): void {
-    const gameState = this.stateService.getGameState();
-    const currentTurn = gameState.turn;
-
-    console.log(`Processing card expirations for turn ${currentTurn}`);
-
-    // Check each player's active cards for expiration
-    for (const player of gameState.players) {
-      const expiredCards: string[] = [];
-      const remainingActiveCards = player.activeCards.filter(activeCard => {
-        if (activeCard.expirationTurn <= currentTurn) {
-          expiredCards.push(activeCard.cardId);
-          return false; // Remove from active cards
-        }
-        return true; // Keep in active cards
-      });
-
-      // If there are expired cards, update the player
-      if (expiredCards.length > 0) {
-        console.log(`Player ${player.id}: ${expiredCards.length} cards expired`);
-        
-        // Move expired cards to discarded collection
-        for (const expiredCardId of expiredCards) {
-          this.moveExpiredCardToDiscarded(player.id, expiredCardId);
-        }
-
-        // Update active cards list
-        this.stateService.updatePlayer({
-          id: player.id,
-          activeCards: remainingActiveCards
-        });
-      }
-    }
   }
 
 

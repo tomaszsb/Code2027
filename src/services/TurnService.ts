@@ -265,6 +265,19 @@ export class TurnService implements ITurnService {
     console.log(`🃏 Processing card expirations at end of turn ${gameState.turn}`);
     this.cardService.endOfTurn();
 
+    // Reset re-roll flag for the current player ending their turn
+    const currentPlayer = allPlayers[currentPlayerIndex];
+    if (currentPlayer.turnModifiers?.canReRoll) {
+      console.log(`🎲 Resetting re-roll flag for ${currentPlayer.name} at turn end`);
+      this.stateService.updatePlayer({
+        id: currentPlayer.id,
+        turnModifiers: {
+          ...currentPlayer.turnModifiers,
+          canReRoll: false
+        }
+      });
+    }
+
     // Determine next player (wrap around to first player if at end)
     let nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
     let nextPlayer = allPlayers[nextPlayerIndex];
@@ -1201,7 +1214,7 @@ export class TurnService implements ITurnService {
       const spaceEffects = this.dataService.getSpaceEffects(snapshotPlayer.currentSpace, snapshotPlayer.visitType);
       const timePenalty = spaceEffects
         .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
-        .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+        .reduce((total, effect) => total + Number(effect.effect_value || 0), 0);
 
       console.log(`⏰ Applying ${timePenalty} day penalty for Try Again on ${snapshotPlayer.currentSpace}`);
 
@@ -1263,6 +1276,60 @@ export class TurnService implements ITurnService {
   }
 
   /**
+   * Re-roll dice if player has re-roll ability from E066 card
+   * Consumes the re-roll ability and returns new dice result
+   */
+  async rerollDice(playerId: string): Promise<TurnEffectResult> {
+    console.log(`🎲 TurnService.rerollDice - Attempting re-roll for player ${playerId}`);
+    
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+    
+    // Validate player can re-roll
+    if (!currentPlayer.turnModifiers?.canReRoll) {
+      throw new Error(`Player ${playerId} does not have re-roll ability`);
+    }
+    
+    console.log(`🎲 Player ${currentPlayer.name} is using their re-roll ability`);
+    
+    // Consume the re-roll ability
+    this.stateService.updatePlayer({
+      id: playerId,
+      turnModifiers: {
+        ...currentPlayer.turnModifiers,
+        canReRoll: false
+      }
+    });
+    
+    // Save state snapshot before re-roll
+    console.log(`📸 TurnService.rerollDice - Saving pre-reroll snapshot`);
+    this.stateService.savePreSpaceEffectSnapshot();
+    
+    // Roll new dice
+    const newDiceRoll = this.rollDice();
+    console.log(`🎲 Re-rolled: ${newDiceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
+    
+    // Process effects for new dice roll
+    const effects: DiceResultEffect[] = [];
+    await this.processTurnEffectsWithTracking(playerId, newDiceRoll, effects);
+    
+    // Generate summary for new result
+    const summary = this.generateEffectSummary(effects, newDiceRoll);
+    const hasChoices = effects.some(effect => effect.type === 'choice');
+    
+    return {
+      diceValue: newDiceRoll,
+      spaceName: currentPlayer.currentSpace,
+      effects,
+      summary,
+      hasChoices,
+      canReRoll: false // No longer available after use
+    };
+  }
+
+  /**
    * Roll dice and process effects with detailed feedback for UI
    * Returns comprehensive information about the dice roll and its effects
    */
@@ -1299,13 +1366,17 @@ export class TurnService implements ITurnService {
     // Generate summary
     const summary = this.generateEffectSummary(effects, diceRoll);
     const hasChoices = effects.some(effect => effect.type === 'choice');
+    
+    // Check if player can re-roll (from E066 card effect)
+    const canReRoll = currentPlayer.turnModifiers?.canReRoll || false;
 
     return {
       diceValue: diceRoll,
       spaceName: currentPlayer.currentSpace,
       effects,
       summary,
-      hasChoices
+      hasChoices,
+      canReRoll
     };
   }
 
@@ -1561,7 +1632,7 @@ export class TurnService implements ITurnService {
       const cardData = this.dataService.getCardById(cardId);
       if (cardData && cardData.cost && cardData.cost > 0) {
         // Work cards use cost to represent project scope value
-        totalScope += cardData.cost;
+        totalScope += Number(cardData.cost);
       }
     }
 

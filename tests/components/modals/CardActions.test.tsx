@@ -26,9 +26,18 @@ describe('CardActions Service Integration', () => {
     currentPlayerId: 'player1',
     gamePhase: 'PLAY',
     turn: 1,
-    activeModal: null,
+    hasPlayerMovedThisTurn: false,
+    hasPlayerRolledDice: false,
     awaitingChoice: null,
-    hasPlayerMovedThisTurn: false
+    isGameOver: false,
+    activeModal: null,
+    requiredActions: 1,
+    completedActions: 0,
+    availableActionTypes: [],
+    hasCompletedManualActions: false,
+    activeNegotiation: null,
+    globalActionLog: [],
+    preSpaceEffectState: null
   };
 
   beforeEach(() => {
@@ -38,11 +47,15 @@ describe('CardActions Service Integration', () => {
     // Create mock services
     mockPlayerActionService = {
       playCard: jest.fn(),
+      rollDice: jest.fn(),
+      endTurn: jest.fn(),
     };
 
     mockStateService = {
       getGameState: jest.fn().mockReturnValue(mockGameState),
+      getGameStateDeepCopy: jest.fn(),
       isStateLoaded: jest.fn(),
+      subscribe: jest.fn(),
       addPlayer: jest.fn(),
       updatePlayer: jest.fn(),
       removePlayer: jest.fn(),
@@ -56,14 +69,30 @@ describe('CardActions Service Integration', () => {
       startGame: jest.fn(),
       endGame: jest.fn(),
       resetGame: jest.fn(),
+      updateNegotiationState: jest.fn(),
+      fixPlayerStartingSpaces: jest.fn(),
+      forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
       setAwaitingChoice: jest.fn(),
       clearAwaitingChoice: jest.fn(),
       setPlayerHasMoved: jest.fn(),
       clearPlayerHasMoved: jest.fn(),
+      setPlayerCompletedManualAction: jest.fn(),
+      setPlayerHasRolledDice: jest.fn(),
+      clearPlayerCompletedManualActions: jest.fn(),
+      clearPlayerHasRolledDice: jest.fn(),
+      updateActionCounts: jest.fn(),
       showCardModal: jest.fn(),
       dismissModal: jest.fn(),
+      createPlayerSnapshot: jest.fn(),
+      restorePlayerSnapshot: jest.fn(),
       validatePlayerAction: jest.fn(),
       canStartGame: jest.fn(),
+      logToActionHistory: jest.fn(),
+      savePreSpaceEffectSnapshot: jest.fn(),
+      clearPreSpaceEffectSnapshot: jest.fn(),
+      hasPreSpaceEffectSnapshot: jest.fn(),
+      getPreSpaceEffectSnapshot: jest.fn(),
+      setGameState: jest.fn(),
     };
 
     mockUseGameContext = useGameContext as jest.MockedFunction<typeof useGameContext>;
@@ -75,6 +104,10 @@ describe('CardActions Service Integration', () => {
       cardService: {} as any,
       movementService: {} as any,
       gameRulesService: {} as any,
+      resourceService: {} as any,
+      choiceService: {} as any,
+      effectEngineService: {} as any,
+      negotiationService: {} as any,
     });
   });
 
@@ -149,7 +182,7 @@ describe('CardActions Service Integration', () => {
     });
 
     it('should test unknown error handling', () => {
-      const testError = 'String error';
+      const testError: unknown = 'String error';
       const errorMessage = testError instanceof Error ? testError.message : 'Unknown error occurred';
       
       expect(errorMessage).toBe('Unknown error occurred');

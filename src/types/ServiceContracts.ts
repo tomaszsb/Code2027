@@ -179,6 +179,15 @@ export interface IStateService {
   
   // Action logging methods
   logToActionHistory(actionData: Omit<import('./StateTypes').ActionLogEntry, 'id' | 'timestamp'>): GameState;
+  
+  // Pre-space effect snapshot methods (Try Again feature)
+  savePreSpaceEffectSnapshot(): GameState;
+  clearPreSpaceEffectSnapshot(): GameState;
+  hasPreSpaceEffectSnapshot(): boolean;
+  getPreSpaceEffectSnapshot(): GameState | null;
+  
+  // State management methods
+  setGameState(newState: GameState): GameState;
 }
 
 export interface TurnResult {
@@ -208,8 +217,10 @@ export interface ITurnService {
   
   // Feedback methods for UI components
   rollDiceWithFeedback(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
+  rerollDice(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
   triggerManualEffectWithFeedback(playerId: string, effectType: string): import('./StateTypes').TurnEffectResult;
   performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
+  tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }>;
 }
 
 export interface ICardService {
@@ -236,6 +247,7 @@ export interface ICardService {
   getCardType(cardId: string): CardType | null;
   getPlayerCards(playerId: string, cardType?: CardType): string[];
   getPlayerCardCount(playerId: string, cardType?: CardType): number;
+  getCardToDiscard(playerId: string, cardType: CardType): string | null;
   
   // Card effect methods
   applyCardEffects(playerId: string, cardId: string): GameState;
@@ -314,6 +326,8 @@ export interface INegotiationService {
   // Core negotiation methods
   initiateNegotiation(playerId: string, context: any): Promise<NegotiationResult>;
   makeOffer(playerId: string, offer: any): Promise<NegotiationResult>;
+  acceptOffer(playerId: string): Promise<NegotiationResult>;
+  declineOffer(playerId: string): Promise<NegotiationResult>;
   
   // Negotiation state methods
   getActiveNegotiation(): NegotiationState | null;

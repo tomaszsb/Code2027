@@ -799,8 +799,6 @@ export class StateService implements IStateService {
       completedActions: 0,
       availableActionTypes: [],
       hasCompletedManualActions: false,
-      // Initialize turn modifiers
-      turnModifiers: {},
       // Initialize negotiation state
       activeNegotiation: null,
       // Initialize global action log
@@ -839,7 +837,8 @@ export class StateService implements IStateService {
         E: [],
         L: [],
         I: []
-      }
+      },
+      turnModifiers: { skipTurns: 0 }
     };
   }
 

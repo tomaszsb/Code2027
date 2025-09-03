@@ -13,6 +13,7 @@ const mockDataService: jest.Mocked<IDataService> = {
   getAllCardTypes: jest.fn(),
   getGameConfig: jest.fn(),
   getGameConfigBySpace: jest.fn(),
+  getPhaseOrder: jest.fn(),
   getAllSpaces: jest.fn(),
   getSpaceByName: jest.fn(),
   getMovement: jest.fn(),
@@ -31,7 +32,9 @@ const mockDataService: jest.Mocked<IDataService> = {
 
 const mockStateService: jest.Mocked<IStateService> = {
   getGameState: jest.fn(),
+  getGameStateDeepCopy: jest.fn(),
   isStateLoaded: jest.fn(),
+  subscribe: jest.fn(),
   addPlayer: jest.fn(),
   updatePlayer: jest.fn(),
   removePlayer: jest.fn(),
@@ -45,14 +48,30 @@ const mockStateService: jest.Mocked<IStateService> = {
   startGame: jest.fn(),
   endGame: jest.fn(),
   resetGame: jest.fn(),
+  updateNegotiationState: jest.fn(),
+  fixPlayerStartingSpaces: jest.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
   setAwaitingChoice: jest.fn(),
   clearAwaitingChoice: jest.fn(),
   setPlayerHasMoved: jest.fn(),
   clearPlayerHasMoved: jest.fn(),
+  setPlayerCompletedManualAction: jest.fn(),
+  setPlayerHasRolledDice: jest.fn(),
+  clearPlayerCompletedManualActions: jest.fn(),
+  clearPlayerHasRolledDice: jest.fn(),
+  updateActionCounts: jest.fn(),
   showCardModal: jest.fn(),
   dismissModal: jest.fn(),
+  createPlayerSnapshot: jest.fn(),
+  restorePlayerSnapshot: jest.fn(),
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
+  logToActionHistory: jest.fn(),
+  savePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn(),
 };
 
 const mockChoiceService: jest.Mocked<IChoiceService> = {
@@ -79,15 +98,32 @@ describe('MovementService', () => {
       currentSpace: 'START-QUICK-PLAY-GUIDE',
       visitType: 'First',
       money: 1000,
-      time: 100,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] }
+      timeSpent: 100,
+      projectScope: 0,
+      color: '#007bff',
+      avatar: '👤',
+      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      activeCards: [],
+      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
     };
 
     mockGameState = {
       players: [mockPlayer],
       currentPlayerId: 'player1',
       gamePhase: 'PLAY',
-      turn: 1
+      turn: 1,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      awaitingChoice: null,
+      isGameOver: false,
+      activeModal: null,
+      requiredActions: 1,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      activeNegotiation: null,
+      globalActionLog: [],
+      preSpaceEffectState: null
     };
   });
 

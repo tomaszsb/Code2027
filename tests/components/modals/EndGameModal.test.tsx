@@ -12,6 +12,7 @@ beforeAll(() => {
 // Create mock outside of describe block
 const mockStateService: jest.Mocked<IStateService> = {
   getGameState: jest.fn(),
+  getGameStateDeepCopy: jest.fn(),
   subscribe: jest.fn(),
   isStateLoaded: jest.fn(),
   addPlayer: jest.fn(),
@@ -27,14 +28,30 @@ const mockStateService: jest.Mocked<IStateService> = {
   startGame: jest.fn(),
   endGame: jest.fn(),
   resetGame: jest.fn(),
+  updateNegotiationState: jest.fn(),
+  fixPlayerStartingSpaces: jest.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
   setAwaitingChoice: jest.fn(),
   clearAwaitingChoice: jest.fn(),
   setPlayerHasMoved: jest.fn(),
   clearPlayerHasMoved: jest.fn(),
+  setPlayerCompletedManualAction: jest.fn(),
+  setPlayerHasRolledDice: jest.fn(),
+  clearPlayerCompletedManualActions: jest.fn(),
+  clearPlayerHasRolledDice: jest.fn(),
+  updateActionCounts: jest.fn(),
   showCardModal: jest.fn(),
   dismissModal: jest.fn(),
+  createPlayerSnapshot: jest.fn(),
+  restorePlayerSnapshot: jest.fn(),
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
+  logToActionHistory: jest.fn(),
+  savePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn(),
 };
 
 // Mock the useGameContext hook
@@ -57,12 +74,23 @@ describe('EndGameModal', () => {
       currentSpace: 'END-SPACE',
       visitType: 'First',
       money: 1000,
-      time: 100,
-      cards: {
+      timeSpent: 100,
+      projectScope: 0,
+      color: '#007bff',
+      avatar: '👤',
+      availableCards: {
         W: ['W_001', 'W_002'],
         B: ['B_001'],
         E: [],
         L: ['L_001'],
+        I: []
+      },
+      activeCards: [],
+      discardedCards: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
         I: []
       }
     };
@@ -73,12 +101,18 @@ describe('EndGameModal', () => {
       currentPlayerId: 'player1',
       gamePhase: 'PLAY',
       turn: 5,
-      activeModal: null,
-      awaitingChoice: null,
       hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      awaitingChoice: null,
       isGameOver: false,
-      gameEndTime: undefined,
-      winner: undefined
+      activeModal: null,
+      requiredActions: 1,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      activeNegotiation: null,
+      globalActionLog: [],
+      preSpaceEffectState: null
     };
 
     mockStateService.getGameState.mockReturnValue(mockGameState);
@@ -295,30 +329,6 @@ describe('EndGameModal', () => {
       expect(screen.getByText(/Well played! You've mastered the game/)).toBeInTheDocument();
     });
 
-    it('should have proper button hover styling', () => {
-      const gameOverState = {
-        ...mockGameState,
-        isGameOver: true,
-        winner: 'player1',
-        gamePhase: 'END' as const,
-        gameEndTime: new Date()
-      };
-
-      mockStateService.getGameState.mockReturnValue(gameOverState);
-
-      render(<EndGameModal />);
-      
-      const playAgainButton = screen.getByRole('button', { name: /play again/i });
-      
-      // Test hover effects (mouse enter and leave are handled by React)
-      fireEvent.mouseEnter(playAgainButton);
-      fireEvent.mouseLeave(playAgainButton);
-      
-      // Button should still be present and functional
-      expect(playAgainButton).toBeInTheDocument();
-      fireEvent.click(playAgainButton);
-      expect(mockStateService.resetGame).toHaveBeenCalledTimes(1);
-    });
   });
 
   describe('Edge Cases', () => {

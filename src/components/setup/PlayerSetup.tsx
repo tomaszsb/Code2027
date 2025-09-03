@@ -64,7 +64,7 @@ export function PlayerSetup({
     try {
       const playerName = `Player ${players.length + 1}`;
       stateService.addPlayer(playerName);
-    } catch (error) {
+    } catch (error: any) {
       alert(`Failed to add player: ${error.message}`);
     }
   };
@@ -80,7 +80,7 @@ export function PlayerSetup({
 
     try {
       stateService.removePlayer(playerId);
-    } catch (error) {
+    } catch (error: any) {
       alert(`Failed to remove player: ${error.message}`);
     }
   };
@@ -94,7 +94,7 @@ export function PlayerSetup({
     
     try {
       stateService.updatePlayer({ id: playerId, [property]: value });
-    } catch (error) {
+    } catch (error: any) {
       alert(`Failed to update player: ${error.message}`);
     }
   };
@@ -106,7 +106,7 @@ export function PlayerSetup({
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
-    const nextAvatar = validation.getNextAvatar(player.avatar, playerId);
+    const nextAvatar = validation.getNextAvatar(player.avatar || '', playerId);
     handleUpdatePlayer(playerId, 'avatar', nextAvatar);
   };
 

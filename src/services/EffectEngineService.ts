@@ -22,7 +22,9 @@ import {
   isPlayerMovementEffect,
   isTurnControlEffect,
   isCardActivationEffect,
-  isEffectGroupTargetedEffect
+  isEffectGroupTargetedEffect,
+  isConditionalEffect,
+  isChoiceOfEffectsEffect
 } from '../types/EffectTypes';
 
 /**
@@ -279,14 +281,33 @@ export class EffectEngineService implements IEffectEngineService {
             const { payload } = effect;
             const source = payload.source || context.source;
             const reason = payload.reason || 'Effect processing';
+            let cardIdsToDiscard = payload.cardIds;
             
-            console.log(`🔧 EFFECT_ENGINE: Discarding ${payload.cardIds.length} card(s) for player ${payload.playerId}`);
-            console.log(`    Card IDs: ${payload.cardIds.join(', ')}`);
+            // If cardIds is empty but cardType and count are provided, determine cards at runtime
+            if ((!cardIdsToDiscard || cardIdsToDiscard.length === 0) && payload.cardType && payload.count) {
+              console.log(`🔧 EFFECT_ENGINE: Finding ${payload.count} ${payload.cardType} card(s) to discard for player ${payload.playerId}`);
+              
+              // Get all cards of the specified type from the player's hand
+              const allCardsOfType = this.cardService.getPlayerCards(payload.playerId, payload.cardType);
+              
+              // Take the first 'count' cards from that list
+              if (allCardsOfType.length > 0) {
+                cardIdsToDiscard = allCardsOfType.slice(0, payload.count);
+              }
+              
+              if (cardIdsToDiscard.length === 0) {
+                console.log(`    ⚠️  Player ${payload.playerId} has no ${payload.cardType} cards to discard - effect skipped`);
+                break; // Skip this effect if no cards can be discarded
+              }
+            }
+            
+            console.log(`🔧 EFFECT_ENGINE: Discarding ${cardIdsToDiscard.length} card(s) for player ${payload.playerId}`);
+            console.log(`    Card IDs: ${cardIdsToDiscard.join(', ')}`);
             
             try {
-              const success = this.cardService.discardCards(payload.playerId, payload.cardIds, source, reason);
+              const discardResult = await this.cardService.discardCards(payload.playerId, cardIdsToDiscard, source, reason);
               
-              if (!success) {
+              if (!discardResult || !discardResult.success) {
                 return {
                   success: false,
                   effectType: effect.effectType,
@@ -294,7 +315,8 @@ export class EffectEngineService implements IEffectEngineService {
                 };
               }
               
-              console.log(`    ✅ Successfully discarded ${payload.cardIds.length} card(s)`);
+              console.log(`    ✅ Successfully discarded ${cardIdsToDiscard.length} card(s)`);
+              success = true;
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Unknown card discard error';
               return {
@@ -408,6 +430,23 @@ export class EffectEngineService implements IEffectEngineService {
               // Execute turn control action through TurnService
               if (payload.action === 'SKIP_TURN') {
                 success = this.turnService.setTurnModifier(payload.playerId, payload.action);
+              } else if (payload.action === 'GRANT_REROLL') {
+                const player = this.stateService.getPlayer(payload.playerId);
+                if (player) {
+                  this.stateService.updatePlayer({
+                    id: payload.playerId,
+                    turnModifiers: {
+                      ...player.turnModifiers,
+                      skipTurns: player.turnModifiers?.skipTurns || 0,
+                      canReRoll: true
+                    }
+                  });
+                  success = true;
+                  console.log(`✅ Granted re-roll ability to player ${payload.playerId}`);
+                } else {
+                  console.error(`❌ Player ${payload.playerId} not found for re-roll grant`);
+                  success = false;
+                }
               } else {
                 console.warn(`Unsupported turn control action "${payload.action}" encountered and ignored.`);
                 success = true; // The effect is "successfully" ignored, not a failure.
@@ -494,6 +533,115 @@ export class EffectEngineService implements IEffectEngineService {
           }
           break;
 
+        case 'CHOICE_OF_EFFECTS':
+          if (isChoiceOfEffectsEffect(effect)) {
+            const { payload } = effect;
+            
+            console.log(`🎯 EFFECT_ENGINE: Processing choice effect for player ${payload.playerId}`);
+            
+            // Present choice to player using ChoiceService
+            const choiceOptions = payload.options.map((option, index) => ({
+              id: index.toString(),
+              label: option.label
+            }));
+
+            const selectedOptionId = await this.choiceService.createChoice(
+              payload.playerId,
+              'SINGLE_SELECT',
+              payload.prompt,
+              choiceOptions
+            );
+
+            const chosenOptionIndex = parseInt(selectedOptionId, 10);
+            const chosenOption = payload.options[chosenOptionIndex];
+            
+            if (!chosenOption) {
+              console.error(`🎯 EFFECT_ENGINE: Invalid choice option index: ${chosenOptionIndex}`);
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: 'Invalid choice option selected'
+              };
+            }
+            
+            console.log(`🎯 Player chose: "${chosenOption.label}"`);
+            
+            // Recursively process the chosen effects
+            const chosenEffectContext: EffectContext = {
+              ...context,
+              source: `Choice: ${chosenOption.label}`
+            };
+            
+            const batchResult = await this.processEffects(chosenOption.effects, chosenEffectContext);
+            success = batchResult.success;
+            
+            if (!success) {
+              console.error(`🎯 EFFECT_ENGINE: Failed to process chosen effects: ${batchResult.errors.join(', ')}`);
+            }
+          }
+          break;
+
+        case 'CONDITIONAL_EFFECT':
+          if (isConditionalEffect(effect)) {
+            const { payload } = effect;
+            const source = payload.source || context.source;
+            const reason = payload.reason || 'Conditional effect processing';
+            
+            console.log(`🎲 EFFECT_ENGINE: Processing conditional effect for player ${payload.playerId}`);
+            
+            // Get dice roll from context
+            const diceRoll = context.diceRoll;
+            if (diceRoll === undefined) {
+              console.error(`🎲 EFFECT_ENGINE: No dice roll provided in context for conditional effect`);
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: 'No dice roll provided for conditional effect'
+              };
+            }
+            
+            console.log(`🎲 Evaluating dice roll: ${diceRoll}`);
+            
+            // Find the matching range
+            let matchingEffects: Effect[] = [];
+            for (const range of payload.condition.ranges) {
+              if (diceRoll >= range.min && diceRoll <= range.max) {
+                matchingEffects = range.effects;
+                console.log(`🎯 Dice roll ${diceRoll} matches range ${range.min}-${range.max}, executing ${range.effects.length} effect(s)`);
+                break;
+              }
+            }
+            
+            if (matchingEffects.length === 0) {
+              console.log(`🎲 Dice roll ${diceRoll} matches no ranges or results in no effects`);
+              success = true; // Not an error, just no effects to process
+            } else {
+              try {
+                // Recursively process the matching effects
+                const batchResult = await this.processEffects(matchingEffects, context);
+                success = batchResult.success;
+                
+                if (!success) {
+                  return {
+                    success: false,
+                    effectType: effect.effectType,
+                    error: `Failed to process conditional effects: ${batchResult.errors.join(', ')}`
+                  };
+                }
+                
+                console.log(`✅ Successfully processed ${matchingEffects.length} conditional effect(s)`);
+              } catch (error) {
+                console.error('🚨 EFFECT_ENGINE: CONDITIONAL_EFFECT error:', error);
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: `Failed to process conditional effects: ${error instanceof Error ? error.message : 'Unknown error'}`
+                };
+              }
+            }
+          }
+          break;
+
         default:
           // TypeScript exhaustiveness check - this should never be reached
           const _exhaustiveCheck: never = effect;
@@ -559,9 +707,55 @@ export class EffectEngineService implements IEffectEngineService {
       case 'CARD_DISCARD':
         if (isCardDiscardEffect(effect)) {
           const { payload } = effect;
-          if (!payload.playerId || !payload.cardIds || payload.cardIds.length === 0) {
-            console.error('EFFECT_ENGINE: CARD_DISCARD effect missing required fields or empty cardIds');
+          if (!payload.playerId) {
+            console.error('EFFECT_ENGINE: CARD_DISCARD effect missing playerId');
             return false;
+          }
+          // Either cardIds must be provided, or cardType and count for runtime determination
+          if ((!payload.cardIds || payload.cardIds.length === 0) && 
+              (!payload.cardType || !payload.count || payload.count <= 0)) {
+            console.error('EFFECT_ENGINE: CARD_DISCARD effect must have either cardIds or both cardType and count');
+            return false;
+          }
+        }
+        break;
+
+      case 'CHOICE_OF_EFFECTS':
+        if (isChoiceOfEffectsEffect(effect)) {
+          const { payload } = effect;
+          if (!payload.playerId || !payload.prompt || !payload.options || payload.options.length === 0) {
+            console.error('EFFECT_ENGINE: CHOICE_OF_EFFECTS effect missing required fields or empty options');
+            return false;
+          }
+          
+          // Validate each option
+          for (const option of payload.options) {
+            if (!option.label || !Array.isArray(option.effects)) {
+              console.error('EFFECT_ENGINE: CHOICE_OF_EFFECTS option missing label or effects array');
+              return false;
+            }
+          }
+        }
+        break;
+
+      case 'CONDITIONAL_EFFECT':
+        if (isConditionalEffect(effect)) {
+          const { payload } = effect;
+          if (!payload.playerId || !payload.condition || !payload.condition.ranges || payload.condition.ranges.length === 0) {
+            console.error('EFFECT_ENGINE: CONDITIONAL_EFFECT effect missing required fields or empty ranges');
+            return false;
+          }
+          
+          // Validate each range
+          for (const range of payload.condition.ranges) {
+            if (range.min === undefined || range.max === undefined || range.min > range.max) {
+              console.error('EFFECT_ENGINE: CONDITIONAL_EFFECT range has invalid min/max values');
+              return false;
+            }
+            if (!Array.isArray(range.effects)) {
+              console.error('EFFECT_ENGINE: CONDITIONAL_EFFECT range missing effects array');
+              return false;
+            }
           }
         }
         break;

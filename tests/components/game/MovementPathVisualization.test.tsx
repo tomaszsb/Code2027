@@ -38,10 +38,10 @@ describe('MovementPathVisualization', () => {
     id: 'player1',
     name: 'Test Player',
     color: '#ff0000',
-    type: 'human',
-    isAI: false,
+    avatar: '👤',
     money: 100000,
     timeSpent: 45,
+    projectScope: 0,
     currentSpace: 'OFFICE-SETUP',
     visitType: 'First',
     availableCards: {
@@ -51,7 +51,14 @@ describe('MovementPathVisualization', () => {
       'L': [],
       'I': []
     },
-    position: { x: 0, y: 0 }
+    activeCards: [],
+    discardedCards: {
+      'W': [],
+      'B': [],
+      'E': [],
+      'L': [],
+      'I': []
+    }
   };
 
   const mockGameState = {

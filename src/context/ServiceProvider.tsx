@@ -41,7 +41,7 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const movementService = new MovementService(dataService, stateService, choiceService);
   
   // Create temporary services for circular dependency resolution
-  const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
+  const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any);
   const negotiationService = new NegotiationService(stateService, tempEffectEngine);
   
   // Create TurnService with NegotiationService dependency

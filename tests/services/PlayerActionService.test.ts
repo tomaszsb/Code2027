@@ -1,9 +1,25 @@
-console.log('IMPORT: About to import PlayerActionService...');
 import { PlayerActionService } from '../../src/services/PlayerActionService';
-console.log('IMPORT: PlayerActionService imported successfully');
 import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../../src/types/ServiceContracts';
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
+
+// Mock EffectFactory to prevent real logic execution
+const mockCreateEffectsFromCard = jest.fn();
+jest.mock('../../src/utils/EffectFactory', () => ({
+  EffectFactory: {
+    createEffectsFromCard: mockCreateEffectsFromCard
+  }
+}));
+
+// Suppress console.log calls from service
+const originalConsoleLog = console.log;
+beforeAll(() => {
+  console.log = jest.fn();
+});
+
+afterAll(() => {
+  console.log = originalConsoleLog;
+});
 
 // Mock the services
 const mockDataService: jest.Mocked<IDataService> = {
@@ -13,6 +29,7 @@ const mockDataService: jest.Mocked<IDataService> = {
   getAllCardTypes: jest.fn(),
   getGameConfig: jest.fn(),
   getGameConfigBySpace: jest.fn(),
+  getPhaseOrder: jest.fn(),
   getAllSpaces: jest.fn(),
   getSpaceByName: jest.fn(),
   getMovement: jest.fn(),
@@ -31,7 +48,9 @@ const mockDataService: jest.Mocked<IDataService> = {
 
 const mockStateService: jest.Mocked<IStateService> = {
   getGameState: jest.fn(),
+  getGameStateDeepCopy: jest.fn(),
   isStateLoaded: jest.fn(),
+  subscribe: jest.fn(),
   addPlayer: jest.fn(),
   updatePlayer: jest.fn(),
   removePlayer: jest.fn(),
@@ -45,14 +64,30 @@ const mockStateService: jest.Mocked<IStateService> = {
   startGame: jest.fn(),
   endGame: jest.fn(),
   resetGame: jest.fn(),
+  updateNegotiationState: jest.fn(),
+  fixPlayerStartingSpaces: jest.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
   setAwaitingChoice: jest.fn(),
   clearAwaitingChoice: jest.fn(),
   setPlayerHasMoved: jest.fn(),
   clearPlayerHasMoved: jest.fn(),
+  setPlayerCompletedManualAction: jest.fn(),
+  setPlayerHasRolledDice: jest.fn(),
+  clearPlayerCompletedManualActions: jest.fn(),
+  clearPlayerHasRolledDice: jest.fn(),
+  updateActionCounts: jest.fn(),
   showCardModal: jest.fn(),
   dismissModal: jest.fn(),
+  createPlayerSnapshot: jest.fn(),
+  restorePlayerSnapshot: jest.fn(),
   validatePlayerAction: jest.fn(),
   canStartGame: jest.fn(),
+  logToActionHistory: jest.fn(),
+  savePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn(),
 };
 
 const mockGameRulesService: jest.Mocked<IGameRulesService> = {
@@ -62,30 +97,32 @@ const mockGameRulesService: jest.Mocked<IGameRulesService> = {
   canPlayerAfford: jest.fn(),
   isPlayerTurn: jest.fn(),
   isGameInProgress: jest.fn(),
-  canPlayerTakeAction: jest.fn(),
   checkWinCondition: jest.fn(),
+  canPlayerTakeAction: jest.fn(),
+  calculateProjectScope: jest.fn(),
 };
 
 const mockMovementService: jest.Mocked<IMovementService> = {
   getValidMoves: jest.fn(),
   movePlayer: jest.fn(),
   getDiceDestination: jest.fn(),
-  resolveChoice: jest.fn(),
+  handleMovementChoice: jest.fn(),
 };
 
 const mockTurnService: jest.Mocked<ITurnService> = {
   takeTurn: jest.fn(),
   endTurn: jest.fn(),
   rollDice: jest.fn(),
+  rollDiceAndProcessEffects: jest.fn(),
+  endTurnWithMovement: jest.fn(),
   canPlayerTakeTurn: jest.fn(),
   getCurrentPlayerTurn: jest.fn(),
   processTurnEffects: jest.fn(),
-  rollDiceAndProcessEffects: jest.fn(),
-  endTurnWithMovement: jest.fn(),
+  setTurnModifier: jest.fn(),
   rollDiceWithFeedback: jest.fn(),
   triggerManualEffectWithFeedback: jest.fn(),
   performNegotiation: jest.fn(),
-  setTurnModifier: jest.fn(),
+  tryAgainOnSpace: jest.fn(),
 };
 
 const mockEffectEngineService: jest.Mocked<IEffectEngineService> = {
@@ -95,10 +132,7 @@ const mockEffectEngineService: jest.Mocked<IEffectEngineService> = {
   validateEffects: jest.fn(),
 };
 
-console.log('LOADING: Test file is being loaded...');
-
 describe('PlayerActionService', () => {
-  console.log('DESCRIBE: Inside PlayerActionService describe block');
   let playerActionService: PlayerActionService;
   
   // Test data
@@ -108,11 +142,22 @@ describe('PlayerActionService', () => {
     currentSpace: 'START-SPACE',
     visitType: 'First',
     money: 1000,
-    time: 5,
+    timeSpent: 5,
+    projectScope: 0,
+    color: '#007bff',
+    avatar: '👤',
     availableCards: {
       W: ['W001', 'W002'],
       B: ['B001'],
       E: ['E001'],
+      L: [],
+      I: []
+    },
+    activeCards: [],
+    discardedCards: {
+      W: [],
+      B: [],
+      E: [],
       L: [],
       I: []
     }
@@ -123,9 +168,18 @@ describe('PlayerActionService', () => {
     currentPlayerId: 'player1',
     gamePhase: 'PLAY',
     turn: 1,
-    activeModal: null,
+    hasPlayerMovedThisTurn: false,
+    hasPlayerRolledDice: false,
     awaitingChoice: null,
-    hasPlayerMovedThisTurn: false
+    isGameOver: false,
+    activeModal: null,
+    requiredActions: 1,
+    completedActions: 0,
+    availableActionTypes: [],
+    hasCompletedManualActions: false,
+    activeNegotiation: null,
+    globalActionLog: [],
+    preSpaceEffectState: null
   };
 
   const mockCard: Card = {
@@ -159,9 +213,11 @@ describe('PlayerActionService', () => {
   };
 
   beforeEach(() => {
-    console.log('BEFORE_EACH: Starting beforeEach setup...');
     // Reset all mocks
     jest.clearAllMocks();
+    
+    // Setup default EffectFactory mock
+    mockCreateEffectsFromCard.mockReturnValue([]);
     
     // Create service instance
     playerActionService = new PlayerActionService(
@@ -173,7 +229,7 @@ describe('PlayerActionService', () => {
       mockEffectEngineService
     );
 
-    // Setup default EffectEngineService mock
+    // Setup default EffectEngineService mock - return immediately
     mockEffectEngineService.processEffects.mockResolvedValue({
       success: true,
       totalEffects: 0,
@@ -184,8 +240,7 @@ describe('PlayerActionService', () => {
     });
     mockEffectEngineService.processEffect.mockResolvedValue({
       success: true,
-      message: 'Mock effect processed',
-      metadata: {}
+      effectType: 'RESOURCE_CHANGE'
     });
     mockEffectEngineService.validateEffect.mockReturnValue(true);
     mockEffectEngineService.validateEffects.mockReturnValue(true);
@@ -198,44 +253,44 @@ describe('PlayerActionService', () => {
     mockMovementService.getValidMoves.mockReturnValue([]);
     mockMovementService.getDiceDestination.mockReturnValue(null);
     mockMovementService.movePlayer.mockReturnValue(mockGameState);
-    mockMovementService.resolveChoice.mockReturnValue(mockGameState);
     
-    // Setup default TurnService mock implementations
+    // Setup default TurnService mock implementations - all synchronous returns
     mockTurnService.endTurn.mockResolvedValue({ nextPlayerId: 'player2' });
     mockTurnService.canPlayerTakeTurn.mockReturnValue(true);
     mockTurnService.getCurrentPlayerTurn.mockReturnValue('player1');
     mockTurnService.rollDiceAndProcessEffects.mockResolvedValue({ diceRoll: 3 });
     mockTurnService.endTurnWithMovement.mockResolvedValue({ nextPlayerId: 'player2' });
+    mockTurnService.processTurnEffects.mockResolvedValue({}); // Add this mock
     mockTurnService.rollDiceWithFeedback.mockResolvedValue({
-      success: true,
-      message: 'Dice rolled successfully',
-      data: { roll: 3 }
+      diceValue: 3,
+      spaceName: 'TEST-SPACE',
+      effects: [],
+      summary: 'Dice rolled successfully',
+      hasChoices: false
     });
     mockTurnService.triggerManualEffectWithFeedback.mockReturnValue({
-      success: true,
-      message: 'Manual effect triggered',
-      data: {}
+      diceValue: 0,
+      spaceName: 'TEST-SPACE',
+      effects: [],
+      summary: 'Manual effect triggered',
+      hasChoices: false
     });
     mockTurnService.performNegotiation.mockResolvedValue({ success: true, message: 'Negotiation completed' });
     mockTurnService.setTurnModifier.mockReturnValue(true);
   });
 
-  describe.only('playCard', () => {
+  describe('playCard', () => {
     it('should successfully play a valid card', async () => {
       // Arrange
-      console.log('TEST: Setting up mocks...');
       mockDataService.getCardById.mockReturnValue(mockCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
       mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
-      console.log('TEST: About to call playCard...');
       await playerActionService.playCard('player1', 'W001');
-      console.log('TEST: Call to playCard has finished.');
 
       // Assert
-      console.log('TEST: Starting assertions...');
       expect(mockDataService.getCardById).toHaveBeenCalledWith('W001');
       expect(mockGameRulesService.canPlayCard).toHaveBeenCalledWith('player1', 'W001');
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 100);

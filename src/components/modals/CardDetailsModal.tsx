@@ -342,7 +342,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                   fontWeight: 'bold',
                   color: '#495057'
                 }}>
-                  {card.duration} turn{card.duration !== 1 ? 's' : ''}
+                  {card.duration} turn{Number(card.duration) !== 1 ? 's' : ''}
                 </div>
               </div>
             )}

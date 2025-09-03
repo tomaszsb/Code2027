@@ -138,6 +138,7 @@ export interface Player {
   };
   turnModifiers?: {
     skipTurns: number;
+    canReRoll?: boolean; // Allow re-roll if player doesn't like dice outcome
   };
 }
 

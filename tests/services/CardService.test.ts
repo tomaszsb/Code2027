@@ -1,5 +1,5 @@
 import { CardService } from '../../src/services/CardService';
-import { IDataService, IStateService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IResourceService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { CardType } from '../../src/types/DataTypes';
 
@@ -7,6 +7,7 @@ describe('CardService - Enhanced Coverage', () => {
   let cardService: CardService;
   let mockDataService: jest.Mocked<IDataService>;
   let mockStateService: jest.Mocked<IStateService>;
+  let mockResourceService: jest.Mocked<IResourceService>;
 
   const mockPlayer: Player = {
     id: 'player1',
@@ -15,6 +16,7 @@ describe('CardService - Enhanced Coverage', () => {
     visitType: 'First',
     money: 100,
     timeSpent: 5,
+    projectScope: 0,
     color: '#007bff',
     avatar: '👤',
     availableCards: {
@@ -43,8 +45,17 @@ describe('CardService - Enhanced Coverage', () => {
     gamePhase: 'PLAY',
     turn: 3,
     hasPlayerMovedThisTurn: false,
-    awaitingChoice: false,
-    isGameOver: false
+    hasPlayerRolledDice: false,
+    awaitingChoice: null,
+    isGameOver: false,
+    activeModal: null,
+    requiredActions: 1,
+    completedActions: 0,
+    availableActionTypes: [],
+    hasCompletedManualActions: false,
+    activeNegotiation: null,
+    globalActionLog: [],
+    preSpaceEffectState: null
   };
 
   beforeEach(() => {
@@ -58,6 +69,7 @@ describe('CardService - Enhanced Coverage', () => {
       loadData: jest.fn(),
       getGameConfig: jest.fn(),
       getGameConfigBySpace: jest.fn(),
+      getPhaseOrder: jest.fn(),
       getAllSpaces: jest.fn(),
       getSpaceByName: jest.fn(),
       getMovement: jest.fn(),
@@ -95,7 +107,36 @@ describe('CardService - Enhanced Coverage', () => {
       dismissModal: jest.fn(),
       validatePlayerAction: jest.fn(),
       canStartGame: jest.fn(),
-      isStateLoaded: jest.fn()
+      isStateLoaded: jest.fn(),
+      getGameStateDeepCopy: jest.fn(),
+      subscribe: jest.fn(),
+      updateNegotiationState: jest.fn(),
+      fixPlayerStartingSpaces: jest.fn(),
+      forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
+      setPlayerCompletedManualAction: jest.fn(),
+      setPlayerHasRolledDice: jest.fn(),
+      clearPlayerCompletedManualActions: jest.fn(),
+      clearPlayerHasRolledDice: jest.fn(),
+      updateActionCounts: jest.fn(),
+      createPlayerSnapshot: jest.fn(),
+      restorePlayerSnapshot: jest.fn(),
+      logToActionHistory: jest.fn(),
+      savePreSpaceEffectSnapshot: jest.fn(),
+      clearPreSpaceEffectSnapshot: jest.fn(),
+      hasPreSpaceEffectSnapshot: jest.fn(),
+      getPreSpaceEffectSnapshot: jest.fn(),
+      setGameState: jest.fn()
+    };
+
+    mockResourceService = {
+      addMoney: jest.fn(),
+      spendMoney: jest.fn(),
+      canAfford: jest.fn(),
+      addTime: jest.fn(),
+      spendTime: jest.fn(),
+      updateResources: jest.fn(),
+      getResourceHistory: jest.fn(),
+      validateResourceChange: jest.fn()
     };
 
     // Setup default mock responses
@@ -127,27 +168,27 @@ describe('CardService - Enhanced Coverage', () => {
     mockDataService.getCardsByType.mockImplementation((cardType: CardType) => {
       const sampleCards = {
         W: [
-          { card_id: 'W001', card_name: 'Work Card 1', card_type: 'W' },
-          { card_id: 'W002', card_name: 'Work Card 2', card_type: 'W' },
-          { card_id: 'W003', card_name: 'Work Card 3', card_type: 'W' }
+          { card_id: 'W001', card_name: 'Work Card 1', card_type: 'W' as const, description: 'Test work card' },
+          { card_id: 'W002', card_name: 'Work Card 2', card_type: 'W' as const, description: 'Test work card' },
+          { card_id: 'W003', card_name: 'Work Card 3', card_type: 'W' as const, description: 'Test work card' }
         ],
         B: [
-          { card_id: 'B001', card_name: 'Business Card 1', card_type: 'B' }
+          { card_id: 'B001', card_name: 'Business Card 1', card_type: 'B' as const, description: 'Test business card' }
         ],
         E: [
-          { card_id: 'E001', card_name: 'Economic Card 1', card_type: 'E' }
+          { card_id: 'E001', card_name: 'Economic Card 1', card_type: 'E' as const, description: 'Test economic card' }
         ],
         L: [
-          { card_id: 'L001', card_name: 'Loan Card 1', card_type: 'L' }
+          { card_id: 'L001', card_name: 'Loan Card 1', card_type: 'L' as const, description: 'Test loan card' }
         ],
         I: [
-          { card_id: 'I001', card_name: 'Investment Card 1', card_type: 'I' }
+          { card_id: 'I001', card_name: 'Investment Card 1', card_type: 'I' as const, description: 'Test investment card' }
         ]
       };
       return sampleCards[cardType] || [];
     });
 
-    cardService = new CardService(mockDataService, mockStateService);
+    cardService = new CardService(mockDataService, mockStateService, mockResourceService);
   });
 
   describe('Card Expiration System', () => {
@@ -201,6 +242,7 @@ describe('CardService - Enhanced Coverage', () => {
         visitType: 'First',
         money: 50,
         timeSpent: 3,
+        projectScope: 0,
         color: '#28a745',
         avatar: '🧑',
         availableCards: { W: [], B: [], E: [], L: [], I: [] },
@@ -306,7 +348,7 @@ describe('CardService - Enhanced Coverage', () => {
 
       // Assert: Check that the player now has 4 'W' cards (the original 1 + 3 new ones)
       const updatePlayerCall = mockStateService.updatePlayer.mock.calls[0][0];
-      const finalWCards = updatePlayerCall.availableCards.W;
+      const finalWCards = updatePlayerCall.availableCards?.W || [];
 
       expect(finalWCards).toHaveLength(4);
       expect(finalWCards).toContain('W_active_001'); // Verify the original card is still there
