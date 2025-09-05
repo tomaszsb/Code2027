@@ -98,6 +98,7 @@ const mockCardService: jest.Mocked<ICardService> = {
   getCardType: jest.fn(),
   getPlayerCards: jest.fn(),
   getPlayerCardCount: jest.fn(),
+  getCardToDiscard: jest.fn(),
   applyCardEffects: jest.fn(),
   effectEngineService: {
     processEffects: jest.fn(),

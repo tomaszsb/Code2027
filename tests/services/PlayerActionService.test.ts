@@ -120,6 +120,7 @@ const mockTurnService: jest.Mocked<ITurnService> = {
   processTurnEffects: jest.fn(),
   setTurnModifier: jest.fn(),
   rollDiceWithFeedback: jest.fn(),
+  rerollDice: jest.fn(),
   triggerManualEffectWithFeedback: jest.fn(),
   performNegotiation: jest.fn(),
   tryAgainOnSpace: jest.fn(),
@@ -260,7 +261,24 @@ describe('PlayerActionService', () => {
     mockTurnService.getCurrentPlayerTurn.mockReturnValue('player1');
     mockTurnService.rollDiceAndProcessEffects.mockResolvedValue({ diceRoll: 3 });
     mockTurnService.endTurnWithMovement.mockResolvedValue({ nextPlayerId: 'player2' });
-    mockTurnService.processTurnEffects.mockResolvedValue({}); // Add this mock
+    mockTurnService.processTurnEffects.mockResolvedValue({
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY',
+      turn: 1,
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      isGameOver: false,
+      requiredActions: 0,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      activeNegotiation: null,
+      globalActionLog: [],
+      preSpaceEffectState: null
+    });
     mockTurnService.rollDiceWithFeedback.mockResolvedValue({
       diceValue: 3,
       spaceName: 'TEST-SPACE',

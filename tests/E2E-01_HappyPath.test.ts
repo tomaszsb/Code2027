@@ -7,6 +7,7 @@ import { GameRulesService } from '../src/services/GameRulesService';
 import { MovementService } from '../src/services/MovementService';
 import { ResourceService } from '../src/services/ResourceService';
 import { TurnService } from '../src/services/TurnService';
+import { NegotiationService } from '../src/services/NegotiationService';
 import { IDataService, IStateService, ITurnService } from '../src/types/ServiceContracts';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -64,10 +65,14 @@ describe('E2E-01: Happy Path', () => {
     const movementService = new MovementService(dataService, stateService, choiceService);
     const gameRulesService = new GameRulesService(dataService, stateService);
 
-    // Handle circular dependency between TurnService and EffectEngineService
-    const turnServiceInstance = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService);
-    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnServiceInstance, gameRulesService);
+    // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
+    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    const negotiationService = new NegotiationService(stateService, effectEngine);
+    const turnServiceInstance = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+
+    // Complete the circular dependency wiring
     turnServiceInstance.setEffectEngineService(effectEngine);
+    effectEngine.setTurnService(turnServiceInstance);
 
     turnService = turnServiceInstance;
   });
@@ -86,7 +91,7 @@ describe('E2E-01: Happy Path', () => {
 
     // Action: Take a turn
     await turnService.rollDiceAndProcessEffects(player.id);
-    await turnService.triggerManualEffect(player.id, 'cards'); // Perform the manual card draw
+    await turnService.triggerManualEffectWithFeedback(player.id, 'cards'); // Perform the manual card draw
     await turnService.endTurnWithMovement();
 
     // Assert Phase 2: Check that the player has moved

@@ -9,6 +9,7 @@ import { ResourceService } from '../src/services/ResourceService';
 import { TurnService } from '../src/services/TurnService';
 import { PlayerActionService } from '../src/services/PlayerActionService';
 import { NegotiationService } from '../src/services/NegotiationService';
+import { ITurnService } from '../src/types/ServiceContracts';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -57,12 +58,17 @@ describe('E2E-04: Space Try Again Logic', () => {
     const gameRulesService = new GameRulesService(dataService, stateService);
     const cardService = new CardService(dataService, stateService, resourceService);
     const movementService = new MovementService(dataService, stateService, choiceService);
-    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
-    const negotiationService = new NegotiationService(stateService, tempEffectEngine);
     
-    turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, choiceService);
-    const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService);
-    turnService.setEffectEngineService(effectEngineService);
+    // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
+    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    const negotiationService = new NegotiationService(stateService, effectEngine);
+    const turnServiceInstance = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+
+    // Complete the circular dependency wiring
+    turnServiceInstance.setEffectEngineService(effectEngine);
+    effectEngine.setTurnService(turnServiceInstance);
+    
+    turnService = turnServiceInstance;
 
     await dataService.loadData();
   });

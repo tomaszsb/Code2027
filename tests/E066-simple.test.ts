@@ -11,17 +11,56 @@ import {
   IGameRulesService
 } from '../src/types/ServiceContracts';
 import { Effect, EffectContext, isTurnControlEffect } from '../src/types/EffectTypes';
-import { Player } from '../src/types/DataTypes';
+import { Player, Card } from '../src/types/DataTypes';
 
 // Simple mock services for focused testing
-const createMockStateService = (): jest.Mocked<Pick<IStateService, 'getPlayer' | 'updatePlayer'>> => ({
+const createMockStateService = (): jest.Mocked<IStateService> => ({
+  getGameState: jest.fn(),
+  getGameStateDeepCopy: jest.fn(),
+  isStateLoaded: jest.fn(),
+  subscribe: jest.fn(),
+  addPlayer: jest.fn(),
+  updatePlayer: jest.fn(),
+  removePlayer: jest.fn(),
   getPlayer: jest.fn(),
-  updatePlayer: jest.fn()
+  getAllPlayers: jest.fn(),
+  setCurrentPlayer: jest.fn(),
+  setGamePhase: jest.fn(),
+  advanceTurn: jest.fn(),
+  nextPlayer: jest.fn(),
+  initializeGame: jest.fn(),
+  startGame: jest.fn(),
+  endGame: jest.fn(),
+  resetGame: jest.fn(),
+  updateNegotiationState: jest.fn(),
+  fixPlayerStartingSpaces: jest.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
+  setAwaitingChoice: jest.fn(),
+  clearAwaitingChoice: jest.fn(),
+  setPlayerHasMoved: jest.fn(),
+  clearPlayerHasMoved: jest.fn(),
+  setPlayerCompletedManualAction: jest.fn(),
+  setPlayerHasRolledDice: jest.fn(),
+  clearPlayerCompletedManualActions: jest.fn(),
+  clearPlayerHasRolledDice: jest.fn(),
+  updateActionCounts: jest.fn(),
+  showCardModal: jest.fn(),
+  dismissModal: jest.fn(),
+  createPlayerSnapshot: jest.fn(),
+  restorePlayerSnapshot: jest.fn(),
+  validatePlayerAction: jest.fn(),
+  canStartGame: jest.fn(),
+  logToActionHistory: jest.fn(),
+  savePreSpaceEffectSnapshot: jest.fn(),
+  clearPreSpaceEffectSnapshot: jest.fn(),
+  hasPreSpaceEffectSnapshot: jest.fn(),
+  getPreSpaceEffectSnapshot: jest.fn(),
+  setGameState: jest.fn()
 });
 
 describe('E066 Card - Core Re-roll Functionality', () => {
   it('should parse E066 card and create GRANT_REROLL effect', () => {
-    const e066Card = {
+    const e066Card: Card = {
       card_id: 'E066',
       card_name: 'Investor Pitch Preparation',
       description: 'Gain 1 extra die throw this turn if you do not like the outcome of first throw.',
@@ -50,7 +89,7 @@ describe('E066 Card - Core Re-roll Functionality', () => {
       {} as IResourceService,
       {} as ICardService,
       {} as IChoiceService,
-      mockStateService as IStateService,
+      mockStateService,
       {} as IMovementService,
       {} as ITurnService,
       {} as IGameRulesService

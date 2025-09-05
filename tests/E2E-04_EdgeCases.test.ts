@@ -29,6 +29,7 @@ import { ResourceService } from '../src/services/ResourceService';
 import { ChoiceService } from '../src/services/ChoiceService';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { NegotiationService } from '../src/services/NegotiationService';
+import { ITurnService } from '../src/types/ServiceContracts';
 
 describe('E2E-04: Edge Cases Gauntlet', () => {
   it('should have a placeholder test to satisfy Jest', () => {
@@ -47,7 +48,7 @@ interface TestResult {
 // Node.js compatible DataService for E2E testing
 class NodeDataService extends DataService {
   async loadData(): Promise<void> {
-    if (this.loaded) return;
+    if (this.isLoaded()) return;
 
     try {
       const dataDir = join(process.cwd(), 'public', 'data', 'CLEAN_FILES');
@@ -82,24 +83,28 @@ let services: any = {};
 
 async function initializeServices(): Promise<void> {
   console.log('🔧 Initializing services for edge case testing...');
-  
+
   const dataService = new NodeDataService();
+  await dataService.loadData(); // Load data early
+
   const stateService = new StateService(dataService);
   const resourceService = new ResourceService(stateService);
   const choiceService = new ChoiceService(stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
   const cardService = new CardService(dataService, stateService, resourceService);
   const movementService = new MovementService(dataService, stateService, choiceService);
-  
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService);
-  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService);
-  turnService.setEffectEngineService(effectEngineService);
-  
-  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+
+  // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
+  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
   const negotiationService = new NegotiationService(stateService, effectEngineService);
-  
-  await dataService.loadData();
-  
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+
+  // Complete the circular dependency wiring
+  turnService.setEffectEngineService(effectEngineService);
+  effectEngineService.setTurnService(turnService);
+
+  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+
   services = {
     dataService,
     stateService,
@@ -113,7 +118,7 @@ async function initializeServices(): Promise<void> {
     playerActionService,
     negotiationService
   };
-  
+
   console.log('✅ All services initialized successfully');
 }
 

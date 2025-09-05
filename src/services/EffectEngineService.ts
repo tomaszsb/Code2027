@@ -78,6 +78,10 @@ export class EffectEngineService implements IEffectEngineService {
     this.gameRulesService = gameRulesService;
   }
 
+  public setTurnService(turnService: ITurnService): void {
+    this.turnService = turnService;
+  }
+
   /**
    * Process multiple effects as a batch operation
    * 
@@ -307,7 +311,7 @@ export class EffectEngineService implements IEffectEngineService {
             try {
               const discardResult = await this.cardService.discardCards(payload.playerId, cardIdsToDiscard, source, reason);
               
-              if (!discardResult || !discardResult.success) {
+              if (!discardResult) {
                 return {
                   success: false,
                   effectType: effect.effectType,
@@ -547,7 +551,7 @@ export class EffectEngineService implements IEffectEngineService {
 
             const selectedOptionId = await this.choiceService.createChoice(
               payload.playerId,
-              'SINGLE_SELECT',
+              'GENERAL',
               payload.prompt,
               choiceOptions
             );

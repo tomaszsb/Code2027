@@ -18,7 +18,7 @@ window.GameStateManager.doSomething(); // Will not exist
 ### **Current Status**
 - **Production Ready**: `npm run dev` fully functional
 - **Test Suite**: 95% passing (21 test files) 
-- **TypeScript**: Strict mode, 54 files, some compile errors (non-blocking)
+- **TypeScript**: Strict mode, 54 files, 0 compile errors ✅
 - **Architecture**: Service-oriented with dependency injection
 
 ---
@@ -306,21 +306,23 @@ src/
 
 ---
 
-## 🎯 **CURRENT PRIORITIES** (See TODO.md)
+## 🎯 **CURRENT PRIORITIES** (Code Building Optimized - September 5, 2025)
 
-### **🔥 Priority 1: Critical**
-- [ ] Fix EndGameModal timeout (1 failing test)
-- [ ] Resolve 89 TypeScript errors
+### **🚨 IMMEDIATE PRIORITY - Week 1 (40 hours)**
+- [ ] **Fix story content display** (30 minutes) - Trivial 2-line change, massive UX impact
+- [ ] **Fix OWNER-FUND-INITIATION dice roll** (4 hours) - Remove confusing UX
+- [ ] **Connect logging infrastructure** (8 hours) - Leverage existing GameLog UI
+- [ ] **Code quality foundation** (16 hours) - Shared mocks, theme constants
+- [ ] **Remove PlayerStatusItem_backup.tsx** (15 minutes) - Cleanup duplicate file
 
-### **🎯 Priority 2: Features**
-- [ ] Implement missing card effects
-- [ ] Add advanced negotiation
-- [ ] Complete win condition variations
+### **🔥 HIGH PRIORITY - Week 2-3 (80 hours) - Game Transformation**
+- [ ] **Phase-Restricted Card System** (20 hours) - Fix broken game balance
+- [ ] **Duration-Based Card Effects** (32 hours) - Make 20+ cards functional
+- [ ] **Multi-Player Interactive Effects** (40 hours) - Enable social gameplay
 
-### **🔧 Priority 3: Quality**
-- [ ] Performance optimization  
-- [ ] Bundle size reduction
-- [ ] Enhanced logging
+### **🔧 MEDIUM PRIORITY - Week 4+ (120+ hours) - Polish**
+- [ ] **System enhancements** - Complex conditionals, dynamic movement, financial complexity
+- [ ] **Infrastructure** - Base service class, component library, performance optimization
 
 ---
 
@@ -332,8 +334,8 @@ src/
 // Solution: Check GameContextProvider wraps component
 const { cardService } = useGameContext(); // Must be inside provider
 
-// Issue: TypeScript errors  
-// Solution: Check service contracts
+// Issue: TypeScript errors (RESOLVED - 0 errors as of Sept 2025)
+// Solution: Check service contracts and maintain proper interfaces
 interface IMyService extends BaseService {
   // All methods must match implementation
 }

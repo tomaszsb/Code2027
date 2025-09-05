@@ -9,6 +9,7 @@ import { ResourceService } from '../src/services/ResourceService';
 import { TurnService } from '../src/services/TurnService';
 import { PlayerActionService } from '../src/services/PlayerActionService';
 import { NegotiationService } from '../src/services/NegotiationService';
+import { ITurnService } from '../src/types/ServiceContracts';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -70,20 +71,16 @@ describe('E2E-03: Complex Space Features Test', () => {
     gameRulesService = new GameRulesService(dataService, stateService);
     cardService = new CardService(dataService, stateService, resourceService);
     movementService = new MovementService(dataService, stateService, choiceService);
-    
-    // Create temporary services for circular dependency resolution
-    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
-    negotiationService = new NegotiationService(stateService, tempEffectEngine);
-    
-    // Create TurnService with NegotiationService dependency
+
+    // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
+    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    negotiationService = new NegotiationService(stateService, effectEngineService);
     turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
-    
-    // Create EffectEngineService with TurnService dependency
-    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService);
-    
-    // Set EffectEngineService on TurnService to complete the circular dependency
+
+    // Complete the circular dependency wiring
     turnService.setEffectEngineService(effectEngineService);
-    
+    effectEngineService.setTurnService(turnService);
+
     playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
 
     // Load game data
@@ -111,8 +108,8 @@ describe('E2E-03: Complex Space Features Test', () => {
     });
 
     // Set player as having rolled dice (to verify reset)
-    stateService.setPlayerHasRolledDice(player.id, true);
-    stateService.setPlayerHasMoved(player.id, true);
+    stateService.setPlayerHasRolledDice();
+    stateService.setPlayerHasMoved();
 
     // Get initial player state
     const initialTime = player.timeSpent || 0;
@@ -209,13 +206,13 @@ describe('E2E-03: Complex Space Features Test', () => {
     const ownerScopeEffects = dataService.getSpaceEffects('OWNER-SCOPE-INITIATION', 'First');
     const timePenalty1 = ownerScopeEffects
       .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
-      .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+      .reduce((total, effect) => total + Number(effect.effect_value || 0), 0);
     expect(timePenalty1).toBe(1);
     
     const archFeeEffects = dataService.getSpaceEffects('ARCH-FEE-REVIEW', 'First');
     const timePenalty50 = archFeeEffects
       .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add')
-      .reduce((total, effect) => total + (effect.effect_value || 0), 0);
+      .reduce((total, effect) => total + Number(effect.effect_value || 0), 0);
     expect(timePenalty50).toBe(50);
     
     console.log('✅ Time penalty calculation test passed');

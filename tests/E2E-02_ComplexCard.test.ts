@@ -32,12 +32,13 @@ import { ResourceService } from '../src/services/ResourceService';
 import { ChoiceService } from '../src/services/ChoiceService';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { NegotiationService } from '../src/services/NegotiationService';
+import { ITurnService } from '../src/types/ServiceContracts';
 
 // Node.js compatible DataService for E2E testing
 class NodeDataService extends DataService {
   // Override the loadData method to use filesystem instead of fetch
   async loadData(): Promise<void> {
-    if (this.loaded) return;
+    if (this.isLoaded()) return;
 
     try {
       const dataDir = join(process.cwd(), 'public', 'data', 'CLEAN_FILES');
@@ -75,7 +76,7 @@ async function runComplexCardTest(): Promise<void> {
   try {
     // === SETUP: Instantiate all services (matching ServiceProvider.tsx) ===
     console.log('🔧 Setting up services...');
-    
+
     const dataService = new NodeDataService();
     const stateService = new StateService(dataService);
     const resourceService = new ResourceService(stateService);
@@ -83,21 +84,17 @@ async function runComplexCardTest(): Promise<void> {
     const gameRulesService = new GameRulesService(dataService, stateService);
     const cardService = new CardService(dataService, stateService, resourceService);
     const movementService = new MovementService(dataService, stateService, choiceService);
-    
-    // Create temporary services for circular dependency resolution
-    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService);
-    const negotiationService = new NegotiationService(stateService, tempEffectEngine);
-    
-    // Create TurnService with NegotiationService dependency
+
+    // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
+    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    const negotiationService = new NegotiationService(stateService, effectEngine);
     const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
-    
-    // Create EffectEngineService with TurnService dependency
-    const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService);
-    
-    // Set EffectEngineService on TurnService to complete the circular dependency
-    turnService.setEffectEngineService(effectEngineService);
-    
-    const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+
+    // Complete the circular dependency wiring
+    turnService.setEffectEngineService(effectEngine);
+    effectEngine.setTurnService(turnService);
+
+    const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngine);
     
     console.log('✅ All services instantiated successfully');
     
@@ -267,7 +264,7 @@ async function runComplexCardTest(): Promise<void> {
         console.log(`   🎴 Completing manual card draw action...`);
         // Use the proper high-level method to trigger manual effect
         // This will draw the E card AND update the completedActions counter
-        turnService.triggerManualEffect(currentPlayerId!, 'cards');
+        turnService.triggerManualEffectWithFeedback(currentPlayerId!, 'cards');
         console.log(`   ✅ Manual action completed`);
       }
       
