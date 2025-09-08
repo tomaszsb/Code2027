@@ -677,21 +677,31 @@ export class EffectFactory {
       return null;
     }
 
-    // Try to extract card type and count from effect value
-    // This is a simplified parser - may need enhancement based on actual data format
-    const valueStr = String(effectValue);
-    const match = valueStr.match(/(\d+)\s*([WBEIL])/i);
+    // Extract card type from effect action (e.g., 'draw_b' -> 'B', 'draw_i' -> 'I')
+    const actionStr = effectAction.toLowerCase();
+    let cardType: CardType | null = null;
     
-    if (match) {
-      const count = parseInt(match[1]);
-      const cardType = match[2].toUpperCase() as CardType;
-      
-      if (['W', 'B', 'E', 'I', 'L'].includes(cardType)) {
-        return { action, cardType, count };
-      }
+    if (actionStr.includes('_w')) {
+      cardType = 'W';
+    } else if (actionStr.includes('_b')) {
+      cardType = 'B';
+    } else if (actionStr.includes('_e')) {
+      cardType = 'E';
+    } else if (actionStr.includes('_i')) {
+      cardType = 'I';
+    } else if (actionStr.includes('_l')) {
+      cardType = 'L';
     }
-
-    return null;
+    
+    if (!cardType) {
+      console.warn(`Could not determine card type from action: ${effectAction}`);
+      return null;
+    }
+    
+    // Use effectValue as count
+    const count = typeof effectValue === 'number' ? effectValue : parseInt(String(effectValue)) || 1;
+    
+    return { action, cardType, count };
   }
 
   /**

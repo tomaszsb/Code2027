@@ -1,6 +1,7 @@
 // src/components/modals/RulesModal.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 
 interface RulesModalProps {
   isOpen: boolean;
@@ -61,8 +62,8 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
         {/* Modal Header */}
         <div style={{
           padding: '20px 24px 16px',
-          borderBottom: '1px solid #dee2e6',
-          backgroundColor: '#f8f9fa',
+          borderBottom: `1px solid ${colors.secondary.border}`,
+          backgroundColor: colors.secondary.bg,
           borderRadius: '12px 12px 0 0'
         }}>
           <div style={{
@@ -74,7 +75,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
               margin: 0,
               fontSize: '24px',
               fontWeight: 'bold',
-              color: '#495057'
+              color: colors.secondary.dark
             }}>
               📋 Game Rules
             </h2>
@@ -85,19 +86,19 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 background: 'none',
                 border: 'none',
                 fontSize: '24px',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 cursor: 'pointer',
                 padding: '4px',
                 borderRadius: '4px',
                 lineHeight: 1
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e9ecef';
-                e.currentTarget.style.color = '#495057';
+                e.currentTarget.style.backgroundColor = colors.secondary.light;
+                e.currentTarget.style.color = colors.secondary.dark;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#6c757d';
+                e.currentTarget.style.color = colors.secondary.main;
               }}
               title="Close modal"
             >
@@ -115,14 +116,14 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
           <div style={{ 
             fontSize: '14px', 
             lineHeight: '1.6',
-            color: '#333'
+            color: colors.text.primary
           }}>
             <section style={{ marginBottom: '24px' }}>
               <h3 style={{ 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 🎯 Game Objective
               </h3>
@@ -138,7 +139,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 🎲 Turn Structure
               </h3>
@@ -160,7 +161,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 🃏 Card Types
               </h3>
@@ -188,7 +189,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 🏗️ Key Spaces
               </h3>
@@ -216,7 +217,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
               🤝 Negotiation
               </h3>
@@ -232,7 +233,7 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
                 fontSize: '18px', 
                 fontWeight: 'bold', 
                 marginBottom: '12px',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 🏆 Winning
               </h3>
@@ -248,8 +249,8 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
         {/* Modal Footer */}
         <div style={{
           padding: '16px 24px',
-          borderTop: '1px solid #dee2e6',
-          backgroundColor: '#f8f9fa',
+          borderTop: `1px solid ${colors.secondary.border}`,
+          backgroundColor: colors.secondary.bg,
           display: 'flex',
           justifyContent: 'flex-end'
         }}>
@@ -259,17 +260,17 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
               padding: '8px 16px',
               fontSize: '14px',
               fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#28a745',
+              color: colors.white,
+              backgroundColor: colors.success.main,
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#218838';
+              e.currentTarget.style.backgroundColor = colors.special.button.primaryHover;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#28a745';
+              e.currentTarget.style.backgroundColor = colors.success.main;
             }}
           >
             Got it!

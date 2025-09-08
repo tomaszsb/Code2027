@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Player } from '../../types/DataTypes';
 
@@ -152,20 +153,20 @@ export function MovementPathVisualization({
     right: '20px',
     width: '350px',
     maxHeight: '70vh',
-    backgroundColor: 'white',
+    backgroundColor: colors.white,
     borderRadius: '12px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
     zIndex: 900,
     transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
     transition: 'transform 0.3s ease-in-out',
     overflow: 'hidden',
-    border: '2px solid #e1e5e9'
+    border: `2px solid ${colors.secondary.border}`
   };
 
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px',
-    backgroundColor: '#f8f9fa',
-    borderBottom: '2px solid #e1e5e9',
+    backgroundColor: colors.secondary.bg,
+    borderBottom: `2px solid ${colors.secondary.border}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -182,10 +183,10 @@ export function MovementPathVisualization({
     padding: '12px 16px',
     margin: '8px 0',
     borderRadius: '8px',
-    border: `2px solid ${node.isCurrentPosition ? '#28a745' : node.isValidDestination ? '#007bff' : '#6c757d'}`,
-    backgroundColor: node.isCurrentPosition ? '#d4edda' : 
-                    selectedNode === node.spaceName ? '#e3f2fd' : 
-                    node.isValidDestination ? '#f8f9fa' : '#f5f5f5',
+    border: `2px solid ${node.isCurrentPosition ? colors.success.main : node.isValidDestination ? colors.primary.main : colors.secondary.main}`,
+    backgroundColor: node.isCurrentPosition ? colors.success.light : 
+                    selectedNode === node.spaceName ? colors.primary.light : 
+                    node.isValidDestination ? colors.secondary.bg : colors.secondary.light,
     cursor: node.isValidDestination ? 'pointer' : 'default',
     transition: 'all 0.2s ease'
   });
@@ -199,7 +200,7 @@ export function MovementPathVisualization({
             margin: 0, 
             fontSize: '18px', 
             fontWeight: 'bold',
-            color: '#2c3e50'
+            color: colors.text.primary
           }}>
             Movement Paths
           </h3>
@@ -210,7 +211,7 @@ export function MovementPathVisualization({
               border: 'none',
               fontSize: '20px',
               cursor: 'pointer',
-              color: '#6c757d'
+              color: colors.secondary.main
             }}
           >
             ✕
@@ -223,10 +224,10 @@ export function MovementPathVisualization({
               {/* Movement Type Info */}
               <div style={{
                 padding: '12px',
-                backgroundColor: '#e3f2fd',
+                backgroundColor: colors.primary.light,
                 borderRadius: '8px',
                 marginBottom: '16px',
-                border: '2px solid #2196f3'
+                border: `2px solid ${colors.primary.main}`
               }}>
                 <div style={{ 
                   display: 'flex', 
@@ -238,7 +239,7 @@ export function MovementPathVisualization({
                   </span>
                   <span style={{ 
                     fontWeight: 'bold', 
-                    color: '#1976d2' 
+                    color: colors.primary.text 
                   }}>
                     {currentPlayer.name}'s Turn
                   </span>
@@ -246,7 +247,7 @@ export function MovementPathVisualization({
                 <p style={{
                   margin: 0,
                   fontSize: '14px',
-                  color: '#1976d2'
+                  color: colors.primary.text
                 }}>
                   {getMovementTypeDescription()}
                 </p>
@@ -257,7 +258,7 @@ export function MovementPathVisualization({
                 <h4 style={{ 
                   fontSize: '16px', 
                   fontWeight: 'bold',
-                  color: '#2c3e50',
+                  color: colors.text.primary,
                   marginBottom: '12px' 
                 }}>
                   Available Paths:
@@ -266,7 +267,7 @@ export function MovementPathVisualization({
                 {pathNodes.length === 0 ? (
                   <div style={{
                     textAlign: 'center',
-                    color: '#6c757d',
+                    color: colors.secondary.main,
                     padding: '20px',
                     fontStyle: 'italic'
                   }}>
@@ -299,8 +300,8 @@ export function MovementPathVisualization({
                         <div style={{ flex: 1 }}>
                           <div style={{
                             fontWeight: 'bold',
-                            color: node.isCurrentPosition ? '#28a745' : 
-                                  node.isValidDestination ? '#007bff' : '#6c757d',
+                            color: node.isCurrentPosition ? colors.success.main : 
+                                  node.isValidDestination ? colors.primary.main : colors.secondary.main,
                             marginBottom: '4px'
                           }}>
                             {node.spaceName}
@@ -309,7 +310,7 @@ export function MovementPathVisualization({
                           {node.isCurrentPosition && (
                             <div style={{
                               fontSize: '12px',
-                              color: '#28a745',
+                              color: colors.success.main,
                               fontWeight: 'bold'
                             }}>
                               📍 Current Position
@@ -319,7 +320,7 @@ export function MovementPathVisualization({
                           {node.isDiceDestination && node.diceRolls && (
                             <div style={{
                               fontSize: '12px',
-                              color: '#fd7e14',
+                              color: colors.warning.main,
                               fontStyle: 'italic'
                             }}>
                               🎲 {formatDiceRolls(node.diceRolls)}
@@ -330,7 +331,7 @@ export function MovementPathVisualization({
                         {node.isValidDestination && (
                           <div style={{
                             fontSize: '18px',
-                            color: '#28a745'
+                            color: colors.success.main
                           }}>
                             ➡️
                           </div>
@@ -341,11 +342,11 @@ export function MovementPathVisualization({
                         <div style={{
                           marginTop: '8px',
                           padding: '8px',
-                          backgroundColor: 'white',
+                          backgroundColor: colors.white,
                           borderRadius: '4px',
-                          border: '1px solid #dee2e6',
+                          border: `1px solid ${colors.secondary.border}`,
                           fontSize: '12px',
-                          color: '#6c757d'
+                          color: colors.secondary.main
                         }}>
                           Space Details: {node.spaceName}
                           {node.isDiceDestination && (
@@ -364,7 +365,7 @@ export function MovementPathVisualization({
           ) : (
             <div style={{
               textAlign: 'center',
-              color: '#6c757d',
+              color: colors.secondary.main,
               padding: '40px 20px'
             }}>
               <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>

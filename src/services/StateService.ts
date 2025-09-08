@@ -8,6 +8,7 @@ import {
   ActiveModal,
   ActionLogEntry
 } from '../types/StateTypes';
+import { colors } from '../styles/theme';
 import { Choice } from '../types/CommonTypes';
 
 export class StateService implements IStateService {
@@ -868,8 +869,8 @@ export class StateService implements IStateService {
 
   private getNextAvailableColor(): string {
     const availableColors = [
-      '#007bff', '#28a745', '#dc3545', '#fd7e14', 
-      '#6f42c1', '#e83e8c', '#20c997', '#ffc107'
+      colors.game.player1, colors.game.player2, colors.game.player3, colors.game.player8, 
+      colors.game.player5, colors.game.player6, colors.game.player7, colors.game.player4
     ];
     const usedColors = this.currentState.players.map(p => p.color).filter(Boolean);
     const available = availableColors.filter(color => !usedColors.includes(color));
@@ -888,8 +889,8 @@ export class StateService implements IStateService {
 
   private resolveConflicts(players: Player[]): Player[] {
     const availableColors = [
-      '#007bff', '#28a745', '#dc3545', '#fd7e14', 
-      '#6f42c1', '#e83e8c', '#20c997', '#ffc107'
+      colors.game.player1, colors.game.player2, colors.game.player3, colors.game.player8, 
+      colors.game.player5, colors.game.player6, colors.game.player7, colors.game.player4
     ];
     const availableAvatars = [
       '👤', '👨‍💼', '👩‍💼', '👨‍🔧', '👩‍🔧', 

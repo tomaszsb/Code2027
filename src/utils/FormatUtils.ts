@@ -2,6 +2,7 @@
  * Formatting utilities for money, time, and other game values
  * Provides consistent formatting across the entire application
  */
+import { colors } from '../styles/theme';
 
 export interface FormatOptions {
   showCurrency?: boolean;
@@ -176,7 +177,7 @@ export class FormatUtils {
     if (amount === 0) {
       return {
         text: type === 'money' ? '$0' : '0 days',
-        color: '#666',
+        color: colors.text.secondary,
         className: 'resource-neutral'
       };
     }
@@ -195,7 +196,7 @@ export class FormatUtils {
     
     return {
       text,
-      color: isPositive ? '#28a745' : '#dc3545',
+      color: isPositive ? colors.success.main : colors.danger.main,
       className: isPositive ? 'resource-gain' : 'resource-loss'
     };
   }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 
 export function EndGameModal(): JSX.Element {
@@ -66,7 +67,7 @@ export function EndGameModal(): JSX.Element {
         {/* Modal Content */}
         <div
           style={{
-            backgroundColor: '#fff',
+            backgroundColor: colors.white,
             padding: '40px',
             borderRadius: '16px',
             maxWidth: '600px',
@@ -74,7 +75,7 @@ export function EndGameModal(): JSX.Element {
             maxHeight: '80vh',
             overflow: 'auto',
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
-            border: '4px solid #28a745',
+            border: `4px solid ${colors.success.main}`,
             textAlign: 'center'
           }}
         >
@@ -87,7 +88,7 @@ export function EndGameModal(): JSX.Element {
           <div style={{ marginBottom: '30px' }}>
             <h1 style={{ 
               margin: '0 0 15px 0', 
-              color: '#28a745',
+              color: colors.success.main,
               fontSize: '36px',
               fontWeight: 'bold'
             }}>
@@ -95,7 +96,7 @@ export function EndGameModal(): JSX.Element {
             </h1>
             <h2 style={{ 
               margin: '0 0 10px 0',
-              color: '#333',
+              color: colors.text.primary,
               fontSize: '24px',
               fontWeight: 'normal'
             }}>
@@ -103,7 +104,7 @@ export function EndGameModal(): JSX.Element {
             </h2>
             <p style={{ 
               margin: '0',
-              color: '#666',
+              color: colors.text.secondary,
               fontSize: '18px'
             }}>
               You have successfully reached an ending space and won the game!
@@ -115,13 +116,13 @@ export function EndGameModal(): JSX.Element {
             <div style={{ 
               marginBottom: '30px',
               padding: '20px',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: colors.secondary.bg,
               borderRadius: '12px',
-              border: '2px solid #e9ecef'
+              border: `2px solid ${colors.secondary.light}`
             }}>
               <h3 style={{ 
                 margin: '0 0 10px 0',
-                color: '#495057',
+                color: colors.secondary.dark,
                 fontSize: '18px'
               }}>
                 📊 Game Statistics
@@ -129,7 +130,7 @@ export function EndGameModal(): JSX.Element {
               <p style={{ 
                 margin: '0',
                 fontSize: '16px',
-                color: '#6c757d'
+                color: colors.secondary.main
               }}>
                 Game completed at: {gameEndTime.toLocaleString()}
               </p>
@@ -144,8 +145,8 @@ export function EndGameModal(): JSX.Element {
                 padding: '15px 30px',
                 fontSize: '18px',
                 fontWeight: 'bold',
-                backgroundColor: '#007bff',
-                color: '#fff',
+                backgroundColor: colors.primary.main,
+                color: colors.white,
                 border: 'none',
                 borderRadius: '10px',
                 cursor: 'pointer',
@@ -153,12 +154,12 @@ export function EndGameModal(): JSX.Element {
                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#0056b3';
+                e.currentTarget.style.backgroundColor = colors.primary.dark;
                 e.currentTarget.style.transform = 'translateY(-3px)';
                 e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#007bff';
+                e.currentTarget.style.backgroundColor = colors.primary.main;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
               }}
@@ -171,14 +172,14 @@ export function EndGameModal(): JSX.Element {
           <div style={{ 
             marginTop: '30px', 
             padding: '20px',
-            backgroundColor: '#d4edda',
+            backgroundColor: colors.success.light,
             borderRadius: '12px',
-            border: '2px solid #c3e6cb'
+            border: `2px solid ${colors.success.border}`
           }}>
             <p style={{ 
               margin: '0',
               fontSize: '16px',
-              color: '#155724',
+              color: colors.success.darker,
               fontWeight: '500'
             }}>
               🌟 Well played! You've mastered the game and reached your destination successfully!

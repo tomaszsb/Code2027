@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { DiceResultModal, DiceRollResult } from '../modals/DiceResultModal';
 import { Player } from '../../types/DataTypes';
@@ -241,10 +242,16 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       .filter(effect => effect.trigger_type === 'manual') : [];
 
   const isHumanPlayerTurn = currentPlayer?.id === humanPlayerId;
+  // Hide dice roll button on OWNER-FUND-INITIATION space (funding is automatic)
+  const isOnFundingSpace = currentPlayer?.currentSpace === 'OWNER-FUND-INITIATION';
   const canRollDice = gamePhase === 'PLAY' && isHumanPlayerTurn && 
-                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice;
+                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice &&
+                     !isOnFundingSpace;
+  // On OWNER-FUND-INITIATION space, allow ending turn without dice roll (funding is automatic)
   const canEndTurn = gamePhase === 'PLAY' && isHumanPlayerTurn && 
-                    !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required;
+                    !isProcessingTurn && 
+                    (hasPlayerRolledDice || isOnFundingSpace) && 
+                    actionCounts.completed >= actionCounts.required;
   
   // Debug End Turn button state
   if (currentPlayer && actionCounts.completed >= actionCounts.required) {
@@ -280,10 +287,10 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           alignItems: 'center',
           justifyContent: 'center',
           padding: '10px',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #dee2e6',
+          backgroundColor: colors.secondary.bg,
+          border: `1px solid ${colors.secondary.border}`,
           borderRadius: '4px',
-          color: '#6c757d',
+          color: colors.secondary.main,
           fontSize: '8px',
           gap: '6px'
         }}
@@ -296,8 +303,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           style={{
             padding: '4px 8px',
             fontSize: '8px',
-            backgroundColor: '#28a745',
-            color: 'white',
+            backgroundColor: colors.success.main,
+            color: colors.white,
             border: 'none',
             borderRadius: '3px',
             cursor: 'pointer'
@@ -316,13 +323,13 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
         flexDirection: 'column',
         gap: '6px',
         padding: '6px',
-        backgroundColor: '#fff',
+        backgroundColor: colors.white,
         borderRadius: '6px'
       }}
     >
       {/* Turn Controls Header */}
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+        <div style={{ fontSize: '12px', fontWeight: 'bold', color: colors.text.primary }}>
           🎮 Turn Controls
         </div>
       </div>
@@ -338,12 +345,12 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           <div 
             style={{
               padding: '6px 12px',
-              backgroundColor: '#d1ecf1',
-              border: '2px solid #17a2b8',
+              backgroundColor: colors.info.light,
+              border: `2px solid ${colors.info.main}`,
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 'bold',
-              color: '#0c5460',
+              color: colors.info.dark,
               animation: 'fadeIn 0.3s ease-in',
               textAlign: 'center'
             }}
@@ -359,53 +366,77 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
         flexDirection: 'column',
         gap: '4px',
         padding: '6px',
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.secondary.bg,
         borderRadius: '6px',
-        border: '1px solid #dee2e6'
+        border: `1px solid ${colors.secondary.border}`
       }}>
         <div style={{
           fontSize: '10px',
           fontWeight: 'bold',
-          color: '#6c757d',
+          color: colors.secondary.main,
           textAlign: 'center',
           marginBottom: '2px'
         }}>
           🎯 ACTIONS
         </div>
         
-        <button
-          onClick={handleRollDice}
-          disabled={!canRollDice}
-          style={{
-            padding: '4px 8px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            color: canRollDice ? '#fff' : '#6c757d',
-            backgroundColor: canRollDice ? '#28a745' : '#e9ecef',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: canRollDice ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '3px',
-            transition: 'all 0.2s ease',
-            transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
-            opacity: isProcessingTurn ? 0.7 : 1,
-          }}
-        >
-          {isProcessingTurn ? (
-            <>
-              <span>🎲</span>
-              <span>Rolling...</span>
-            </>
-          ) : (
-            <>
-              <span>🎲</span>
-              <span>Roll Dice</span>
-            </>
-          )}
-        </button>
+        {/* Show funding message on OWNER-FUND-INITIATION space instead of dice button */}
+        {isOnFundingSpace ? (
+          <div
+            style={{
+              padding: '6px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: colors.warning.dark,
+              backgroundColor: colors.warning.light,
+              border: `1px solid ${colors.warning.border}`,
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              textAlign: 'center',
+              lineHeight: '1.2'
+            }}
+          >
+            <span>💰</span>
+            <span>Reviewing project scope for funding level...</span>
+          </div>
+        ) : (
+          <button
+            onClick={handleRollDice}
+            disabled={!canRollDice}
+            style={{
+              padding: '4px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: canRollDice ? colors.white : colors.secondary.main,
+              backgroundColor: canRollDice ? colors.success.main : colors.secondary.bg,
+              border: 'none',
+              borderRadius: '4px',
+              cursor: canRollDice ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              transition: 'all 0.2s ease',
+              transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
+              opacity: isProcessingTurn ? 0.7 : 1,
+            }}
+          >
+            {isProcessingTurn ? (
+              <>
+                <span>🎲</span>
+                <span>Rolling...</span>
+              </>
+            ) : (
+              <>
+                <span>🎲</span>
+                <span>Roll Dice</span>
+              </>
+            )}
+          </button>
+        )}
 
 
         {/* Manual Space Effect Buttons */}
@@ -428,8 +459,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
                 padding: '4px 8px',
                 fontSize: '10px',
                 fontWeight: 'bold',
-                color: !isButtonDisabled ? '#fff' : '#6c757d',
-                backgroundColor: !isButtonDisabled ? '#17a2b8' : '#e9ecef',
+                color: !isButtonDisabled ? colors.white : colors.secondary.main,
+                backgroundColor: !isButtonDisabled ? colors.info.main : colors.secondary.bg,
                 border: 'none',
                 borderRadius: '4px',
                 cursor: !isButtonDisabled ? 'pointer' : 'not-allowed',
@@ -456,15 +487,15 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           flexDirection: 'column',
           gap: '4px',
           padding: '6px',
-          backgroundColor: '#fff5f5',
+          backgroundColor: colors.danger.light,
           borderRadius: '6px',
-          border: '2px solid #dc3545',
+          border: `2px solid ${colors.danger.main}`,
           marginTop: '8px'
         }}>
           <div style={{
             fontSize: '10px',
             fontWeight: 'bold',
-            color: '#dc3545',
+            color: colors.danger.main,
             textAlign: 'center',
             marginBottom: '2px'
           }}>
@@ -480,8 +511,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: canEndTurn ? '#fff' : '#6c757d',
-              backgroundColor: canEndTurn ? '#28a745' : '#e9ecef',
+              color: canEndTurn ? colors.white : colors.secondary.main,
+              backgroundColor: canEndTurn ? colors.success.main : colors.secondary.bg,
               border: 'none',
               borderRadius: '4px',
               cursor: canEndTurn ? 'pointer' : 'not-allowed',
@@ -506,8 +537,8 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: !isProcessingTurn ? '#fff' : '#6c757d',
-              backgroundColor: !isProcessingTurn ? '#ffc107' : '#e9ecef',
+              color: !isProcessingTurn ? colors.white : colors.secondary.main,
+              backgroundColor: !isProcessingTurn ? colors.warning.main : colors.secondary.bg,
               border: 'none',
               borderRadius: '4px',
               cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',

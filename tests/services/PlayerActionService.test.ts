@@ -2,14 +2,18 @@ import { PlayerActionService } from '../../src/services/PlayerActionService';
 import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../../src/types/ServiceContracts';
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
+import { createMockDataService, createMockStateService, createMockGameRulesService, createMockMovementService, createMockTurnService, createMockEffectEngineService } from '../mocks/mockServices';
 
 // Mock EffectFactory to prevent real logic execution
-const mockCreateEffectsFromCard = jest.fn();
 jest.mock('../../src/utils/EffectFactory', () => ({
   EffectFactory: {
-    createEffectsFromCard: mockCreateEffectsFromCard
+    createEffectsFromCard: jest.fn()
   }
 }));
+
+// Import the mocked module to get access to the mocked functions
+import { EffectFactory } from '../../src/utils/EffectFactory';
+const mockCreateEffectsFromCard = EffectFactory.createEffectsFromCard as jest.MockedFunction<typeof EffectFactory.createEffectsFromCard>;
 
 // Suppress console.log calls from service
 const originalConsoleLog = console.log;
@@ -21,117 +25,13 @@ afterAll(() => {
   console.log = originalConsoleLog;
 });
 
-// Mock the services
-const mockDataService: jest.Mocked<IDataService> = {
-  getCardById: jest.fn(),
-  getCards: jest.fn(),
-  getCardsByType: jest.fn(),
-  getAllCardTypes: jest.fn(),
-  getGameConfig: jest.fn(),
-  getGameConfigBySpace: jest.fn(),
-  getPhaseOrder: jest.fn(),
-  getAllSpaces: jest.fn(),
-  getSpaceByName: jest.fn(),
-  getMovement: jest.fn(),
-  getAllMovements: jest.fn(),
-  getDiceOutcome: jest.fn(),
-  getAllDiceOutcomes: jest.fn(),
-  getSpaceEffects: jest.fn(),
-  getAllSpaceEffects: jest.fn(),
-  getDiceEffects: jest.fn(),
-  getAllDiceEffects: jest.fn(),
-  getSpaceContent: jest.fn(),
-  getAllSpaceContent: jest.fn(),
-  isLoaded: jest.fn(),
-  loadData: jest.fn(),
-};
-
-const mockStateService: jest.Mocked<IStateService> = {
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
-  subscribe: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn(),
-};
-
-const mockGameRulesService: jest.Mocked<IGameRulesService> = {
-  isMoveValid: jest.fn(),
-  canPlayCard: jest.fn(),
-  canDrawCard: jest.fn(),
-  canPlayerAfford: jest.fn(),
-  isPlayerTurn: jest.fn(),
-  isGameInProgress: jest.fn(),
-  checkWinCondition: jest.fn(),
-  canPlayerTakeAction: jest.fn(),
-  calculateProjectScope: jest.fn(),
-};
-
-const mockMovementService: jest.Mocked<IMovementService> = {
-  getValidMoves: jest.fn(),
-  movePlayer: jest.fn(),
-  getDiceDestination: jest.fn(),
-  handleMovementChoice: jest.fn(),
-};
-
-const mockTurnService: jest.Mocked<ITurnService> = {
-  takeTurn: jest.fn(),
-  endTurn: jest.fn(),
-  rollDice: jest.fn(),
-  rollDiceAndProcessEffects: jest.fn(),
-  endTurnWithMovement: jest.fn(),
-  canPlayerTakeTurn: jest.fn(),
-  getCurrentPlayerTurn: jest.fn(),
-  processTurnEffects: jest.fn(),
-  setTurnModifier: jest.fn(),
-  rollDiceWithFeedback: jest.fn(),
-  rerollDice: jest.fn(),
-  triggerManualEffectWithFeedback: jest.fn(),
-  performNegotiation: jest.fn(),
-  tryAgainOnSpace: jest.fn(),
-};
-
-const mockEffectEngineService: jest.Mocked<IEffectEngineService> = {
-  processEffects: jest.fn(),
-  processEffect: jest.fn(),
-  validateEffect: jest.fn(),
-  validateEffects: jest.fn(),
-};
+// Mock the services using centralized creators
+const mockDataService: jest.Mocked<IDataService> = createMockDataService();
+const mockStateService: jest.Mocked<IStateService> = createMockStateService();
+const mockGameRulesService: jest.Mocked<IGameRulesService> = createMockGameRulesService();
+const mockMovementService: jest.Mocked<IMovementService> = createMockMovementService();
+const mockTurnService: jest.Mocked<ITurnService> = createMockTurnService();
+const mockEffectEngineService: jest.Mocked<IEffectEngineService> = createMockEffectEngineService();
 
 describe('PlayerActionService', () => {
   let playerActionService: PlayerActionService;

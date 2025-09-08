@@ -4,82 +4,12 @@ import { MovementService } from '../../src/services/MovementService';
 import { IDataService, IStateService, IChoiceService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTypes';
+import { createMockDataService, createMockStateService, createMockChoiceService } from '../mocks/mockServices';
 
-// Mock implementations
-const mockDataService: jest.Mocked<IDataService> = {
-  getCardById: jest.fn(),
-  getCards: jest.fn(),
-  getCardsByType: jest.fn(),
-  getAllCardTypes: jest.fn(),
-  getGameConfig: jest.fn(),
-  getGameConfigBySpace: jest.fn(),
-  getPhaseOrder: jest.fn(),
-  getAllSpaces: jest.fn(),
-  getSpaceByName: jest.fn(),
-  getMovement: jest.fn(),
-  getAllMovements: jest.fn(),
-  getDiceOutcome: jest.fn(),
-  getAllDiceOutcomes: jest.fn(),
-  getSpaceEffects: jest.fn(),
-  getAllSpaceEffects: jest.fn(),
-  getDiceEffects: jest.fn(),
-  getAllDiceEffects: jest.fn(),
-  getSpaceContent: jest.fn(),
-  getAllSpaceContent: jest.fn(),
-  isLoaded: jest.fn(),
-  loadData: jest.fn(),
-};
-
-const mockStateService: jest.Mocked<IStateService> = {
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
-  subscribe: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn(),
-};
-
-const mockChoiceService: jest.Mocked<IChoiceService> = {
-  createChoice: jest.fn(),
-  resolveChoice: jest.fn(),
-  getActiveChoice: jest.fn(),
-  hasActiveChoice: jest.fn(),
-};
+// Mock implementations using centralized creators
+const mockDataService: jest.Mocked<IDataService> = createMockDataService();
+const mockStateService: jest.Mocked<IStateService> = createMockStateService();
+const mockChoiceService: jest.Mocked<IChoiceService> = createMockChoiceService();
 
 describe('MovementService', () => {
   let movementService: MovementService;

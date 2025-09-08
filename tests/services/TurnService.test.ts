@@ -661,4 +661,199 @@ describe('TurnService', () => {
       );
     });
   });
+
+  describe('OWNER-FUND-INITIATION space funding logic', () => {
+    beforeEach(() => {
+      // Setup OWNER-FUND-INITIATION space effects
+      mockDataService.getSpaceEffects.mockReturnValue([
+        {
+          space_name: 'OWNER-FUND-INITIATION',
+          visit_type: 'First',
+          effect_type: 'time',
+          effect_action: 'add',
+          effect_value: 1,
+          condition: 'always',
+          description: '1 day for funding review',
+          trigger_type: 'auto'
+        },
+        {
+          space_name: 'OWNER-FUND-INITIATION',
+          visit_type: 'First',
+          effect_type: 'cards',
+          effect_action: 'draw_b',
+          effect_value: 1,
+          condition: 'scope_le_4M',
+          description: 'Draw 1 B card if scope ≤ $4M',
+          trigger_type: 'auto'
+        },
+        {
+          space_name: 'OWNER-FUND-INITIATION',
+          visit_type: 'First',
+          effect_type: 'cards',
+          effect_action: 'draw_i',
+          effect_value: 1,
+          condition: 'scope_gt_4M',
+          description: 'Draw 1 I card if scope > $4M',
+          trigger_type: 'auto'
+        }
+      ]);
+
+      mockDataService.getDiceEffects.mockReturnValue([]);
+      mockDataService.getGameConfigBySpace.mockReturnValue(undefined);
+      mockEffectEngineService.processEffects.mockResolvedValue({
+        success: true,
+        totalEffects: 1,
+        successfulEffects: 1,
+        failedEffects: 0,
+        results: [],
+        errors: []
+      });
+    });
+
+    it('should award B card for project scope ≤ $4M', async () => {
+      // Arrange - Player with project scope of $2M
+      const mockPlayer: Player = {
+        id: 'player1',
+        name: 'Test Player',
+        currentSpace: 'OWNER-FUND-INITIATION',
+        visitType: 'First',
+        money: 1000,
+        timeSpent: 0,
+        projectScope: 2000000, // $2M - should get B card
+        color: '#ff0000',
+        avatar: '👤',
+        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        activeCards: [],
+        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+
+      // Act
+      await turnService.processTurnEffects('player1', 3);
+
+      // Assert - Should process time effect + B card draw effect (not I card)
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              resource: 'TIME'
+            })
+          }),
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'B'
+            })
+          })
+        ]),
+        expect.any(Object)
+      );
+
+      // Should NOT include I card draw effect
+      expect(mockEffectEngineService.processEffects).not.toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'I'
+            })
+          })
+        ]),
+        expect.any(Object)
+      );
+    });
+
+    it('should award I card for project scope > $4M', async () => {
+      // Arrange - Player with project scope of $6M
+      const mockPlayer: Player = {
+        id: 'player1',
+        name: 'Test Player',
+        currentSpace: 'OWNER-FUND-INITIATION',
+        visitType: 'First',
+        money: 1000,
+        timeSpent: 0,
+        projectScope: 6000000, // $6M - should get I card
+        color: '#ff0000',
+        avatar: '👤',
+        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        activeCards: [],
+        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+
+      // Act
+      await turnService.processTurnEffects('player1', 3);
+
+      // Assert - Should process time effect + I card draw effect (not B card)
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              resource: 'TIME'
+            })
+          }),
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'I'
+            })
+          })
+        ]),
+        expect.any(Object)
+      );
+
+      // Should NOT include B card draw effect
+      expect(mockEffectEngineService.processEffects).not.toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'B'
+            })
+          })
+        ]),
+        expect.any(Object)
+      );
+    });
+
+    it('should award B card for project scope exactly $4M', async () => {
+      // Arrange - Player with project scope exactly $4M (edge case)
+      const mockPlayer: Player = {
+        id: 'player1',
+        name: 'Test Player',
+        currentSpace: 'OWNER-FUND-INITIATION',
+        visitType: 'First',
+        money: 1000,
+        timeSpent: 0,
+        projectScope: 4000000, // Exactly $4M - should get B card (≤ condition)
+        color: '#ff0000',
+        avatar: '👤',
+        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        activeCards: [],
+        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+
+      // Act
+      await turnService.processTurnEffects('player1', 3);
+
+      // Assert - Should get B card (≤ $4M condition)
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'B'
+            })
+          })
+        ]),
+        expect.any(Object)
+      );
+    });
+  });
 });

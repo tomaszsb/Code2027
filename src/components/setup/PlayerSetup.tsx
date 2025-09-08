@@ -1,6 +1,7 @@
 // src/components/setup/PlayerSetup.tsx
 
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { PlayerForm } from './PlayerForm';
 import { PlayerList } from './PlayerList';
 import { usePlayerValidation, GameSettings } from './usePlayerValidation';
@@ -160,7 +161,7 @@ export function PlayerSetup({
       left: 0,
       width: '100%',
       height: '100%',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.purple.main} 100%)`,
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'center',
@@ -192,7 +193,7 @@ export function PlayerSetup({
           </div>
           
           <h1 style={{
-            color: '#2c5530',
+            color: colors.success.text,
             fontSize: '2.5rem',
             marginBottom: '0.5rem',
             fontWeight: 'bold'
@@ -201,7 +202,7 @@ export function PlayerSetup({
           </h1>
           
           <h2 style={{
-            color: '#6c757d',
+            color: colors.secondary.main,
             fontSize: '1.5rem',
             fontWeight: 'normal',
             margin: 0
@@ -210,7 +211,7 @@ export function PlayerSetup({
           </h2>
           
           <p style={{
-            color: '#6c757d',
+            color: colors.secondary.main,
             fontSize: '1.1rem',
             margin: '1rem 0 0 0'
           }}>
@@ -221,7 +222,7 @@ export function PlayerSetup({
         {/* Players section */}
         <div style={{ marginBottom: '2rem' }}>
           <h3 style={{
-            color: '#2c5530',
+            color: colors.success.text,
             fontSize: '1.5rem',
             marginBottom: '1.5rem',
             display: 'flex',
@@ -233,7 +234,7 @@ export function PlayerSetup({
           
           {/* Player count summary */}
           <p style={{
-            color: '#6c757d',
+            color: colors.secondary.main,
             fontSize: '1rem',
             margin: '0 0 1.5rem 0',
             fontStyle: 'italic'
@@ -264,13 +265,13 @@ export function PlayerSetup({
 
         {/* Game settings section */}
         <div style={{
-          background: '#f8f9fa',
+          background: colors.secondary.bg,
           borderRadius: '12px',
           padding: '1.5rem',
           marginBottom: '2rem'
         }}>
           <h3 style={{
-            color: '#2c5530',
+            color: colors.success.text,
             fontSize: '1.2rem',
             marginBottom: '1rem',
             display: 'flex',
@@ -290,7 +291,7 @@ export function PlayerSetup({
                 display: 'block',
                 marginBottom: '0.5rem',
                 fontWeight: 'bold',
-                color: '#495057'
+                color: colors.secondary.dark
               }}>
                 Win Condition
               </label>
@@ -303,7 +304,7 @@ export function PlayerSetup({
                 style={{
                   width: '100%',
                   padding: '0.75rem',
-                  border: '2px solid #e9ecef',
+                  border: `2px solid ${colors.secondary.light}`,
                   borderRadius: '8px',
                   fontSize: '1rem'
                 }}
@@ -321,7 +322,7 @@ export function PlayerSetup({
           onClick={handleStartGame}
           disabled={isStarting}
           style={{
-            background: isStarting ? '#6c757d' : 'linear-gradient(45deg, #2c5530, #4CAF50)',
+            background: isStarting ? colors.secondary.main : `linear-gradient(45deg, ${colors.success.text}, ${colors.success.main})`,
             color: 'white',
             border: 'none',
             borderRadius: '12px',

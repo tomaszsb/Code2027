@@ -143,6 +143,14 @@ export type Effect =
           effects: Effect[];
         }>;
       };
+    }
+  | {
+      effectType: 'PLAY_CARD';
+      payload: {
+        playerId: string;
+        cardId: string;
+        source?: string;
+      };
     };
 
 /**
@@ -237,4 +245,8 @@ export function isConditionalEffect(effect: Effect): effect is Extract<Effect, {
 
 export function isChoiceOfEffectsEffect(effect: Effect): effect is Extract<Effect, { effectType: 'CHOICE_OF_EFFECTS' }> {
   return effect.effectType === 'CHOICE_OF_EFFECTS';
+}
+
+export function isPlayCardEffect(effect: Effect): effect is Extract<Effect, { effectType: 'PLAY_CARD' }> {
+  return effect.effectType === 'PLAY_CARD';
 }

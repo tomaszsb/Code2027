@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { ActionLogEntry } from '../../types/StateTypes';
 import { formatActionDescription } from '../../utils/actionLogFormatting';
@@ -32,23 +33,23 @@ export function GameLog(): JSX.Element {
 
   // Group actions by player for better readability
   const getPlayerColor = (playerId: string): string => {
-    const colors = {
-      player_1: '#007bff',  // Blue
-      player_2: '#28a745',  // Green
-      player_3: '#dc3545',  // Red
-      player_4: '#fd7e14',  // Orange
+    const playerColors = {
+      player_1: colors.primary.main,  // Blue
+      player_2: colors.success.main,  // Green
+      player_3: colors.danger.main,  // Red
+      player_4: colors.game.player8,  // Orange
     };
     // Fallback colors based on player ID hash
     const hash = playerId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    const colorArray = ['#6f42c1', '#e83e8c', '#20c997', '#ffc107'];
-    return colors[playerId as keyof typeof colors] || colorArray[hash % colorArray.length];
+    const colorArray = [colors.purple.main, colors.game.pink, colors.game.teal, colors.warning.main];
+    return playerColors[playerId as keyof typeof playerColors] || colorArray[hash % colorArray.length];
   };
 
   return (
     <div style={{
       height: '300px',
-      backgroundColor: '#f8f9fa',
-      border: '1px solid #dee2e6',
+      backgroundColor: colors.secondary.bg,
+      border: `1px solid ${colors.secondary.border}`,
       borderRadius: '8px',
       overflow: 'hidden',
       display: 'flex',
@@ -57,11 +58,11 @@ export function GameLog(): JSX.Element {
       {/* Header */}
       <div style={{
         padding: '8px 12px',
-        backgroundColor: '#e9ecef',
-        borderBottom: '1px solid #dee2e6',
+        backgroundColor: colors.secondary.light,
+        borderBottom: `1px solid ${colors.secondary.border}`,
         fontWeight: 'bold',
         fontSize: '14px',
-        color: '#495057'
+        color: colors.text.secondary
       }}>
         📜 Game Log ({actionLog.length} entries)
       </div>
@@ -75,7 +76,7 @@ export function GameLog(): JSX.Element {
         {actionLog.length === 0 ? (
           <div style={{
             textAlign: 'center',
-            color: '#6c757d',
+            color: colors.secondary.main,
             fontStyle: 'italic',
             padding: '20px'
           }}>
@@ -88,7 +89,7 @@ export function GameLog(): JSX.Element {
                 key={entry.id}
                 style={{
                   padding: '8px 10px',
-                  backgroundColor: '#fff',
+                  backgroundColor: colors.white,
                   border: `1px solid ${getPlayerColor(entry.playerId)}20`,
                   borderLeft: `4px solid ${getPlayerColor(entry.playerId)}`,
                   borderRadius: '4px',
@@ -111,7 +112,7 @@ export function GameLog(): JSX.Element {
                     {entry.playerName}
                   </span>
                   <span style={{
-                    color: '#6c757d',
+                    color: colors.secondary.main,
                     fontSize: '9px'
                   }}>
                     {formatTimestamp(entry.timestamp)}
@@ -120,7 +121,7 @@ export function GameLog(): JSX.Element {
 
                 {/* Action description */}
                 <div style={{
-                  color: '#495057'
+                  color: colors.text.secondary
                 }}>
                   {formatActionDescription(entry)}
                 </div>
@@ -128,7 +129,7 @@ export function GameLog(): JSX.Element {
                 {/* Additional details if available */}
                 {entry.details?.space && (
                   <div style={{
-                    color: '#6c757d',
+                    color: colors.secondary.main,
                     fontSize: '9px',
                     marginTop: '2px'
                   }}>

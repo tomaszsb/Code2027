@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 
 interface DiceRollResult {
@@ -59,7 +60,7 @@ export function DiceRoller(): JSX.Element {
     fontSize: '16px',
     cursor: isRolling ? 'not-allowed' : 'pointer',
     transition: 'all 0.2s ease',
-    backgroundColor: isRolling ? '#6c757d' : '#007bff',
+    backgroundColor: isRolling ? colors.secondary.main : colors.primary.main,
     color: 'white',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     opacity: isRolling ? 0.7 : 1
@@ -71,26 +72,26 @@ export function DiceRoller(): JSX.Element {
     alignItems: 'center',
     gap: '16px',
     padding: '20px',
-    border: '1px solid #dee2e6',
+    border: `1px solid ${colors.secondary.border}`,
     borderRadius: '8px',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.secondary.bg,
     minWidth: '200px'
   };
 
   const resultStyle: React.CSSProperties = {
     padding: '12px',
-    backgroundColor: '#d4edda',
-    border: '1px solid #c3e6cb',
+    backgroundColor: colors.success.light,
+    border: `1px solid ${colors.success.border}`,
     borderRadius: '6px',
     textAlign: 'center',
     fontSize: '14px',
     fontWeight: 'bold',
-    color: '#155724'
+    color: colors.success.darker
   };
 
   return (
     <div style={containerStyle}>
-      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#495057' }}>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: colors.secondary.dark }}>
         🎲 Dice Roller
       </h3>
       

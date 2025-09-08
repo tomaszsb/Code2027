@@ -58,6 +58,9 @@ export class MovementService implements IMovementService {
       throw new Error(`Player with ID ${playerId} not found`);
     }
 
+    // Store current space for logging
+    const sourceSpace = player.currentSpace;
+
     // Determine visit type for destination space
     const newVisitType: VisitType = this.hasPlayerVisitedSpace(player, destinationSpace) 
       ? 'Subsequent' 
@@ -68,6 +71,19 @@ export class MovementService implements IMovementService {
       id: playerId,
       currentSpace: destinationSpace,
       visitType: newVisitType
+    });
+
+    // Log the movement
+    this.stateService.logToActionHistory({
+      type: 'player_movement',
+      playerId: playerId,
+      playerName: player.name,
+      description: `Moved from ${sourceSpace} to ${destinationSpace}`,
+      details: {
+        sourceSpace: sourceSpace,
+        destinationSpace: destinationSpace,
+        visitType: newVisitType
+      }
     });
 
     return updatedState;

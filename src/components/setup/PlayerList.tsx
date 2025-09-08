@@ -1,6 +1,7 @@
 // src/components/setup/PlayerList.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
 
@@ -32,7 +33,7 @@ export function PlayerList({
   };
 
   const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = '#e9ecef';
+    e.target.style.borderColor = colors.secondary.light;
   };
 
   /**
@@ -67,7 +68,7 @@ export function PlayerList({
                 height: '30px',
                 borderRadius: '50%',
                 backgroundColor: colorOption.color,
-                border: isSelected ? '3px solid #2c5530' : '2px solid #e9ecef',
+                border: isSelected ? `3px solid ${colors.success.text}` : `2px solid ${colors.secondary.light}`,
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 transform: isSelected ? 'scale(1.2)' : 'scale(1)'
@@ -97,7 +98,7 @@ export function PlayerList({
       <div
         key={player.id}
         style={{
-          background: '#f8f9fa',
+          background: colors.secondary.bg,
           border: `3px solid ${player.color}`,
           borderRadius: '12px',
           padding: '1.5rem',
@@ -125,7 +126,7 @@ export function PlayerList({
           </div>
           <div style={{
             fontSize: '0.75rem',
-            color: '#6c757d'
+            color: colors.secondary.main
           }}>
             Click to change
           </div>
@@ -146,7 +147,7 @@ export function PlayerList({
             maxLength={20}
             style={{
               padding: '0.75rem',
-              border: '2px solid #e9ecef',
+              border: `2px solid ${colors.secondary.light}`,
               borderRadius: '8px',
               fontSize: '1rem',
               fontWeight: 'bold',
@@ -165,7 +166,7 @@ export function PlayerList({
           <button
             onClick={() => onRemovePlayer(player.id)}
             style={{
-              background: '#dc3545',
+              background: colors.danger.main,
               color: 'white',
               border: 'none',
               borderRadius: '50%',
@@ -193,12 +194,12 @@ export function PlayerList({
   if (players.length === 0) {
     return (
       <div style={{
-        background: '#f8f9fa',
-        border: '2px dashed #dee2e6',
+        background: colors.secondary.bg,
+        border: `2px dashed ${colors.secondary.border}`,
         borderRadius: '12px',
         padding: '2rem',
         textAlign: 'center',
-        color: '#6c757d',
+        color: colors.secondary.main,
         fontStyle: 'italic'
       }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>

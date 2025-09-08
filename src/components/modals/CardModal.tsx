@@ -1,6 +1,7 @@
 // src/components/modals/CardModal.tsx
 
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { CardContent } from './CardContent';
 import { CardActions } from './CardActions';
 import { useGameContext } from '../../context/GameContext';
@@ -172,8 +173,8 @@ export function CardModal(): JSX.Element | null {
         {/* Modal Header */}
         <div style={{
           padding: '20px 24px 16px',
-          borderBottom: '1px solid #dee2e6',
-          backgroundColor: '#f8f9fa',
+          borderBottom: `1px solid ${colors.secondary.border}`,
+          backgroundColor: colors.secondary.bg,
           borderRadius: '12px 12px 0 0'
         }}>
           <div style={{
@@ -185,7 +186,7 @@ export function CardModal(): JSX.Element | null {
               margin: 0,
               fontSize: '18px',
               fontWeight: 'bold',
-              color: '#495057'
+              color: colors.secondary.dark
             }}>
               {isFlipped ? "Card Back" : (cardData?.card_name || "Card Details")}
             </h3>
@@ -197,19 +198,19 @@ export function CardModal(): JSX.Element | null {
                 background: 'none',
                 border: 'none',
                 fontSize: '24px',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 cursor: 'pointer',
                 padding: '4px',
                 borderRadius: '4px',
                 lineHeight: 1
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e9ecef';
-                e.currentTarget.style.color = '#495057';
+                e.currentTarget.style.backgroundColor = colors.secondary.light;
+                e.currentTarget.style.color = colors.secondary.dark;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#6c757d';
+                e.currentTarget.style.color = colors.secondary.main;
               }}
               title="Close modal"
             >
@@ -222,7 +223,7 @@ export function CardModal(): JSX.Element | null {
             <p style={{
               margin: '8px 0 0',
               fontSize: '14px',
-              color: '#6c757d',
+              color: colors.secondary.main,
               fontStyle: 'italic'
             }}>
               {cardData.card_type} Card

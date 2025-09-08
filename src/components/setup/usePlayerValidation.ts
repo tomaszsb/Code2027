@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Player } from '../../types/StateTypes';
 import { IStateService, IGameRulesService } from '../../types/ServiceContracts';
+import { colors } from '../../styles/theme';
 
 /**
  * Color option interface
@@ -24,14 +25,14 @@ export interface ValidationResult {
  * Available colors for players (from legacy component)
  */
 export const AVAILABLE_COLORS: ColorOption[] = [
-  { color: '#007bff', name: 'Blue' },
-  { color: '#28a745', name: 'Green' },
-  { color: '#dc3545', name: 'Red' },
-  { color: '#fd7e14', name: 'Orange' },
-  { color: '#6f42c1', name: 'Purple' },
-  { color: '#e83e8c', name: 'Pink' },
-  { color: '#20c997', name: 'Teal' },
-  { color: '#ffc107', name: 'Yellow' }
+  { color: colors.game.player1, name: 'Blue' },
+  { color: colors.game.player2, name: 'Green' },
+  { color: colors.game.player3, name: 'Red' },
+  { color: colors.game.player8, name: 'Orange' },
+  { color: colors.game.player5, name: 'Purple' },
+  { color: colors.game.player6, name: 'Pink' },
+  { color: colors.game.player7, name: 'Teal' },
+  { color: colors.game.player4, name: 'Yellow' }
 ];
 
 /**

@@ -278,6 +278,18 @@ export class TurnService implements ITurnService {
       });
     }
 
+    // Log turn end for current player
+    this.stateService.logToActionHistory({
+      type: 'turn_end',
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      description: `Turn ${gameState.turn} ended`,
+      details: {
+        turn: gameState.turn,
+        space: currentPlayer.currentSpace
+      }
+    });
+
     // Determine next player (wrap around to first player if at end)
     let nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
     let nextPlayer = allPlayers[nextPlayerIndex];
@@ -314,6 +326,19 @@ export class TurnService implements ITurnService {
     this.stateService.clearPlayerHasMoved();
     this.stateService.clearPlayerHasRolledDice();
     this.stateService.clearPlayerCompletedManualActions();
+
+    // Log turn start for new player
+    const newGameState = this.stateService.getGameState();
+    this.stateService.logToActionHistory({
+      type: 'turn_start',
+      playerId: nextPlayer.id,
+      playerName: nextPlayer.name,
+      description: `Turn ${newGameState.turn} started`,
+      details: {
+        turn: newGameState.turn,
+        space: nextPlayer.currentSpace
+      }
+    });
 
     return { nextPlayerId: nextPlayer.id };
   }
@@ -372,6 +397,9 @@ export class TurnService implements ITurnService {
         currentPlayer.visitType
       );
       
+      // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
+      const filteredSpaceEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+      
       // Get dice effect data from DataService  
       const diceEffectsData = this.dataService.getDiceEffects(
         currentPlayer.currentSpace, 
@@ -383,7 +411,7 @@ export class TurnService implements ITurnService {
       
       // Generate all effects from space entry using EffectFactory
       const spaceEffects = EffectFactory.createEffectsFromSpaceEntry(
-        spaceEffectsData,
+        filteredSpaceEffects,
         playerId,
         currentPlayer.currentSpace,
         currentPlayer.visitType,
@@ -398,6 +426,19 @@ export class TurnService implements ITurnService {
         diceRoll
       );
       
+      // Add user messaging for OWNER-FUND-INITIATION space
+      if (currentPlayer.currentSpace === 'OWNER-FUND-INITIATION') {
+        console.log(`💰 Adding user messaging for OWNER-FUND-INITIATION space`);
+        spaceEffects.push({
+          effectType: 'LOG',
+          payload: {
+            message: `Reviewing project scope for funding level...`,
+            level: 'INFO',
+            source: `space:${currentPlayer.currentSpace}:${currentPlayer.visitType}`
+          }
+        });
+      }
+
       // Combine all effects for unified processing
       const allEffects = [...spaceEffects, ...diceEffects];
       
@@ -1353,6 +1394,18 @@ export class TurnService implements ITurnService {
     const diceRoll = this.rollDice();
     console.log(`🎲 Rolled: ${diceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
     
+    // Log dice roll to action history
+    this.stateService.logToActionHistory({
+      type: 'dice_roll',
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      description: `Rolled a ${diceRoll}`,
+      details: {
+        roll: diceRoll,
+        space: currentPlayer.currentSpace
+      }
+    });
+    
     // Note: Dice roll logging now handled by TurnControlsWithActions to create unified entries
 
     // Process effects and track changes
@@ -1679,6 +1732,117 @@ export class TurnService implements ITurnService {
     } catch (error) {
       console.error(`❌ Error applying turn modifier:`, error);
       return false;
+    }
+  }
+
+  /**
+   * Filter space effects based on their conditions
+   * Evaluates conditions like scope_le_4M, scope_gt_4M, etc.
+   */
+  private filterSpaceEffectsByCondition(spaceEffects: SpaceEffect[], player: Player): SpaceEffect[] {
+    return spaceEffects.filter(effect => {
+      return this.evaluateSpaceEffectCondition(effect.condition, player);
+    });
+  }
+
+  /**
+   * Evaluate a single space effect condition
+   * Returns true if the condition is met, false otherwise
+   */
+  private evaluateSpaceEffectCondition(condition: string, player: Player): boolean {
+    console.log(`🔍 Evaluating condition: "${condition}" for player ${player.name}`);
+
+    switch (condition) {
+      case 'always':
+        return true;
+
+      case 'scope_le_4M':
+        const projectScope = player.projectScope || 0;
+        const result_le = projectScope <= 4000000; // 4M = 4,000,000
+        console.log(`💰 Project scope ${projectScope} ≤ $4M? ${result_le}`);
+        return result_le;
+
+      case 'scope_gt_4M':
+        const projectScopeGt = player.projectScope || 0;
+        const result_gt = projectScopeGt > 4000000; // 4M = 4,000,000
+        console.log(`💰 Project scope ${projectScopeGt} > $4M? ${result_gt}`);
+        return result_gt;
+
+      default:
+        console.warn(`⚠️ Unknown space effect condition: "${condition}", defaulting to false`);
+        return false;
+    }
+  }
+
+  /**
+   * Handle automatic funding for OWNER-FUND-INITIATION space
+   * Awards B card if project scope ≤ $4M, I card otherwise
+   */
+  handleAutomaticFunding(playerId: string): TurnEffectResult {
+    console.log(`💰 TurnService.handleAutomaticFunding - Starting for player ${playerId}`);
+    
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    if (currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION') {
+      throw new Error(`Player is not on OWNER-FUND-INITIATION space`);
+    }
+
+    const beforeState = this.stateService.getGameState();
+    const projectScope = currentPlayer.projectScope || 0;
+    
+    // Determine funding type based on project scope
+    const fundingCardType = projectScope <= 4000000 ? 'B' : 'I';
+    const fundingDescription = projectScope <= 4000000 
+      ? `Bank funding approved (scope ≤ $4M)`
+      : `Investor funding required (scope > $4M)`;
+
+    console.log(`💰 Project scope: $${projectScope.toLocaleString()}, awarding ${fundingCardType} card`);
+
+    // Draw and automatically play the funding card
+    try {
+      const drawnCards = this.cardService.drawCards(
+        playerId,
+        fundingCardType,
+        1,
+        'auto_funding',
+        `Automatic funding for OWNER-FUND-INITIATION space`
+      );
+
+      if (drawnCards.length > 0) {
+        // Auto-play the funding card
+        this.cardService.playCard(playerId, drawnCards[0]);
+
+        console.log(`💰 Automatically awarded and played ${fundingCardType} card: ${drawnCards[0]}`);
+      }
+
+      // Mark that player has "rolled dice" to continue turn flow
+      this.stateService.setPlayerHasRolledDice();
+
+      const afterState = this.stateService.getGameState();
+
+      // Create effect description for modal feedback
+      const effects: DiceResultEffect[] = [{
+        type: 'cards',
+        description: `${fundingDescription} - ${fundingCardType} card awarded and applied!`,
+        cardType: fundingCardType,
+        cardCount: 1
+      }];
+
+      return {
+        diceValue: 0, // No actual dice roll
+        spaceName: currentPlayer.currentSpace,
+        effects: effects,
+        summary: fundingDescription,
+        hasChoices: false,
+        canReRoll: false
+      };
+
+    } catch (error) {
+      console.error(`❌ Error in automatic funding:`, error);
+      throw new Error(`Failed to process automatic funding: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }

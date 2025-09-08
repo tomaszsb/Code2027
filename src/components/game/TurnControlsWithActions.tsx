@@ -1,6 +1,7 @@
 // src/components/game/TurnControlsWithActions.tsx
 
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 // Modal imports removed - using persistent GameLog instead
 import { Player } from '../../types/DataTypes';
@@ -28,6 +29,7 @@ interface TurnControlsWithActionsProps {
   onEndTurn: () => Promise<void>;
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
+  onAutomaticFunding?: () => Promise<void>;
   onStartGame: () => void;
   
   // Legacy props (can be removed in future cleanup)
@@ -56,6 +58,7 @@ export function TurnControlsWithActions({
   onEndTurn,
   onManualEffect,
   onNegotiate,
+  onAutomaticFunding,
   onStartGame,
   // Legacy props
   onOpenNegotiationModal,
@@ -102,7 +105,8 @@ export function TurnControlsWithActions({
   // All players can take actions when it's their turn
   const isCurrentPlayersTurn = currentPlayer != null;
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn && 
-                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice;
+                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice &&
+                     currentPlayer?.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
   const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn && 
                     !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required;
 
@@ -141,11 +145,11 @@ export function TurnControlsWithActions({
 
   if (gamePhase !== 'PLAY') {
     return (
-      <div style={{ padding: '10px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '6px' }}>
+      <div style={{ padding: '10px', backgroundColor: colors.secondary.bg, border: `1px solid ${colors.secondary.border}`, borderRadius: '6px' }}>
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
           🎯 Game setup... (Phase: {gamePhase})
         </div>
-        <button onClick={onStartGame} style={{ padding: '4px 8px', fontSize: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
+        <button onClick={onStartGame} style={{ padding: '4px 8px', fontSize: '8px', backgroundColor: colors.success.main, color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
           Start Game
         </button>
       </div>
@@ -153,23 +157,23 @@ export function TurnControlsWithActions({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px', backgroundColor: '#fff', borderRadius: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px', backgroundColor: colors.white, borderRadius: '6px' }}>
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+        <div style={{ fontSize: '12px', fontWeight: 'bold', color: colors.text.primary }}>
           🎮 Turn Controls & Actions
         </div>
       </div>
 
       {/* Feedback Message Display */}
       {feedbackMessage && (
-        <div style={{ padding: '6px 12px', backgroundColor: '#d1ecf1', border: '2px solid #17a2b8', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', color: '#0c5460', textAlign: 'center' }}>
+        <div style={{ padding: '6px 12px', backgroundColor: colors.info.light, border: `2px solid ${colors.info.main}`, borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', color: colors.info.dark, textAlign: 'center' }}>
           💡 {feedbackMessage}
         </div>
       )}
 
       {/* Combined Controls and Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', backgroundColor: colors.secondary.bg, borderRadius: '6px', border: `1px solid ${colors.secondary.border}` }}>
         
         {/* Roll Dice - show button if can roll, otherwise show completed action */}
         {canRollDice ? (
@@ -179,8 +183,8 @@ export function TurnControlsWithActions({
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#28a745',
+              color: colors.white,
+              backgroundColor: colors.success.main,
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -195,15 +199,39 @@ export function TurnControlsWithActions({
           </button>
         ) : hasPlayerRolledDice && completedActions.diceRoll ? (
           // Show local completion message with immediate feedback
-          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#e9ecef', borderRadius: '4px', color: '#6c757d' }}>
+          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ {completedActions.diceRoll}
           </div>
         ) : hasPlayerRolledDice ? (
           // Fallback if no local message available
-          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#e9ecef', borderRadius: '4px', color: '#6c757d' }}>
+          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ Dice rolled - check game log
           </div>
         ) : null}
+
+        {/* Automatic Funding for OWNER-FUND-INITIATION space */}
+        {currentPlayer?.currentSpace === 'OWNER-FUND-INITIATION' && isCurrentPlayersTurn && !hasPlayerRolledDice && !isProcessingTurn && (
+          <button
+            onClick={() => onAutomaticFunding && onAutomaticFunding()}
+            style={{
+              padding: '4px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: colors.white,
+              backgroundColor: colors.info.main,
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px'
+            }}
+          >
+            <span>💰</span>
+            <span>Get Funding</span>
+          </button>
+        )}
 
         {/* Manual Effect Buttons - show if available, replace with actions when completed */}
         {isCurrentPlayersTurn && manualEffects.map((effect, index) => {
@@ -225,8 +253,8 @@ export function TurnControlsWithActions({
                   padding: '4px 8px',
                   fontSize: '10px',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: '#17a2b8',
+                  color: colors.white,
+                  backgroundColor: colors.info.main,
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -245,14 +273,14 @@ export function TurnControlsWithActions({
             const completionMessage = completedActions.manualActions[effect.effect_type];
             if (completionMessage) {
               return (
-                <div key={`completed-${index}`} style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#e9ecef', borderRadius: '4px', color: '#6c757d' }}>
+                <div key={`completed-${index}`} style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
                   ✅ {completionMessage.replace('Manual Action: ', '')}
                 </div>
               );
             } else {
               // Fallback if no local message available
               return (
-                <div key={`completed-${index}`} style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#e9ecef', borderRadius: '4px', color: '#6c757d' }}>
+                <div key={`completed-${index}`} style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
                   ✅ Manual action completed - check game log
                 </div>
               );
@@ -272,8 +300,8 @@ export function TurnControlsWithActions({
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: !isProcessingTurn ? '#fff' : '#6c757d',
-              backgroundColor: !isProcessingTurn ? '#ffc107' : '#e9ecef',
+              color: !isProcessingTurn ? colors.white : colors.secondary.main,
+              backgroundColor: !isProcessingTurn ? colors.warning.main : colors.secondary.light,
               border: 'none',
               borderRadius: '4px',
               cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',
@@ -299,8 +327,8 @@ export function TurnControlsWithActions({
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#28a745',
+              color: colors.white,
+              backgroundColor: colors.success.main,
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -314,7 +342,7 @@ export function TurnControlsWithActions({
             <span>End Turn ({actionCounts.completed}/{actionCounts.required})</span>
           </button>
         ) : actionCounts.completed < actionCounts.required && isCurrentPlayersTurn ? (
-          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', color: '#856404', textAlign: 'center' }}>
+          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.warning.bg, borderRadius: '4px', color: colors.warning.text, textAlign: 'center' }}>
             📋 Complete {actionCounts.required - actionCounts.completed} more action(s)
           </div>
         ) : null}

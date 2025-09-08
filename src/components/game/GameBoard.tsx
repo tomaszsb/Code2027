@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { GameSpace } from './GameSpace';
 import { useGameContext } from '../../context/GameContext';
 import { Space, Player } from '../../types/DataTypes';
@@ -44,7 +45,7 @@ export function GameBoard(): JSX.Element {
         padding: '20px'
       }}
     >
-      <h2 style={{ color: '#4285f4', marginBottom: '20px', textAlign: 'center' }}>
+      <h2 style={{ color: colors.game.boardTitle, marginBottom: '20px', textAlign: 'center' }}>
         🎯 Game Board
       </h2>
       
@@ -73,7 +74,7 @@ export function GameBoard(): JSX.Element {
         <div
           style={{
             textAlign: 'center',
-            color: '#666',
+            color: colors.text.secondary,
             fontSize: '16px',
             marginTop: '40px'
           }}

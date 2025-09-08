@@ -1,6 +1,7 @@
 import { StateService } from '../../src/services/StateService';
 import { IDataService } from '../../src/types/ServiceContracts';
 import { GameState, Player, GamePhase } from '../../src/types/StateTypes';
+import { createMockDataService } from '../mocks/mockServices';
 
 describe('StateService', () => {
   let stateService: StateService;
@@ -9,32 +10,23 @@ describe('StateService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Create a proper mock of IDataService
-    mockDataService = {
-      isLoaded: jest.fn().mockReturnValue(true),
-      loadData: jest.fn(),
-      getGameConfig: jest.fn().mockReturnValue([
-        { space_name: 'OWNER-SCOPE-INITIATION', is_starting_space: true, requires_dice_roll: false }
-      ]),
-      getGameConfigBySpace: jest.fn(),
-      getPhaseOrder: jest.fn(),
-      getAllSpaces: jest.fn(),
-      getSpaceByName: jest.fn(),
-      getMovement: jest.fn().mockReturnValue(undefined),
-      getAllMovements: jest.fn(),
-      getDiceOutcome: jest.fn(),
-      getAllDiceOutcomes: jest.fn(),
-      getSpaceEffects: jest.fn(),
-      getAllSpaceEffects: jest.fn(),
-      getDiceEffects: jest.fn(),
-      getAllDiceEffects: jest.fn(),
-      getSpaceContent: jest.fn(),
-      getAllSpaceContent: jest.fn(),
-      getCards: jest.fn(),
-      getCardById: jest.fn(),
-      getCardsByType: jest.fn().mockReturnValue([]),
-      getAllCardTypes: jest.fn(),
-    };
+    // Create mock using centralized creator, then configure specific return values
+    mockDataService = createMockDataService();
+    mockDataService.isLoaded.mockReturnValue(true);
+    mockDataService.getGameConfig.mockReturnValue([
+      { 
+        space_name: 'OWNER-SCOPE-INITIATION', 
+        phase: 'SETUP',
+        path_type: 'A',
+        is_starting_space: true, 
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false 
+      }
+    ]);
+    mockDataService.getMovement.mockReturnValue(undefined);
+    mockDataService.getCardsByType.mockReturnValue([]);
 
     stateService = new StateService(mockDataService);
   });

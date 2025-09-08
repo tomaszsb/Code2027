@@ -36,6 +36,15 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Player with ID '${playerId}' not found`);
       }
 
+      // Log the card play attempt
+      this.stateService.logToActionHistory({
+        type: 'manual_action',
+        playerId: playerId,
+        playerName: player.name,
+        description: `Attempting to play card: ${cardId}`,
+        details: { action: 'playCard', cardId: cardId, status: 'attempt' }
+      });
+
       // 2. Get card data from DataService
       const card = this.dataService.getCardById(cardId);
       
@@ -124,9 +133,32 @@ export class PlayerActionService implements IPlayerActionService {
 
       console.log(`🎉 Card play complete for ${card.card_name}`);
 
+      // Log successful card play
+      this.stateService.logToActionHistory({
+        type: 'manual_action',
+        playerId: playerId,
+        playerName: player.name,
+        description: `Successfully played card: ${card.card_name}`,
+        details: { action: 'playCard', cardId: cardId, cardName: card.card_name, success: true }
+      });
+
     } catch (error) {
-      // Re-throw with additional context
+      // Log failed card play
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const gameState = this.stateService.getGameState();
+      const player = this.stateService.getPlayer(playerId);
+      
+      if (player) {
+        this.stateService.logToActionHistory({
+          type: 'manual_action',
+          playerId: playerId,
+          playerName: player.name,
+          description: `Failed to play card: ${cardId}`,
+          details: { action: 'playCard', cardId: cardId, success: false, error: errorMessage }
+        });
+      }
+      
+      // Re-throw with additional context
       throw new Error(`Failed to play card: ${errorMessage}`);
     }
   }
@@ -168,7 +200,7 @@ export class PlayerActionService implements IPlayerActionService {
 
       // 4. Process turn effects based on dice roll result (space effects, dice effects, etc.)
       // This must happen before movement as effects might alter movement conditions
-      this.turnService.processTurnEffects(playerId, diceResult.total);
+      await this.turnService.processTurnEffects(playerId, diceResult.total);
 
       // 5. Trigger movement based on dice roll
       await this.handlePlayerMovement(playerId, diceResult.total);
@@ -238,6 +270,21 @@ export class PlayerActionService implements IPlayerActionService {
    */
   public async endTurn(): Promise<void> {
     try {
+      // Get current player for logging
+      const gameState = this.stateService.getGameState();
+      const currentPlayer = gameState.currentPlayerId ? this.stateService.getPlayer(gameState.currentPlayerId) : null;
+      
+      if (currentPlayer) {
+        // Log the end turn attempt
+        this.stateService.logToActionHistory({
+          type: 'manual_action',
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          description: `Ending turn ${gameState.turn}`,
+          details: { action: 'endTurn', turn: gameState.turn, status: 'attempt' }
+        });
+      }
+      
       await this.turnService.endTurn();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

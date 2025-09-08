@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiceResultEffect, TurnEffectResult } from '../../types/StateTypes';
 
@@ -71,12 +72,12 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
   const getEffectColor = (effectType: string): string => {
     switch (effectType) {
-      case 'money': return '#28a745'; // Green for money gains
-      case 'time': return '#fd7e14'; // Orange for time  
-      case 'cards': return '#6f42c1'; // Purple for cards
-      case 'movement': return '#007bff'; // Blue for movement
-      case 'choice': return '#ffc107'; // Yellow for choices
-      default: return '#6c757d'; // Gray for other
+      case 'money': return colors.success.main; // Green for money gains
+      case 'time': return colors.game.orange; // Orange for time  
+      case 'cards': return colors.purple.main; // Purple for cards
+      case 'movement': return colors.primary.main; // Blue for movement
+      case 'choice': return colors.warning.main; // Yellow for choices
+      default: return colors.secondary.main; // Gray for other
     }
   };
 
@@ -103,7 +104,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           alignItems: 'center',
           padding: '12px 16px',
           marginBottom: '8px',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: colors.secondary.bg,
           borderRadius: '8px',
           borderLeft: `4px solid ${color}`,
           transition: 'all 0.2s ease'
@@ -114,7 +115,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           <div style={{ fontWeight: 'bold', color: color, marginBottom: '4px' }}>
             {formattedValue}
           </div>
-          <div style={{ color: '#6c757d', fontSize: '14px' }}>
+          <div style={{ color: colors.secondary.main, fontSize: '14px' }}>
             {effect.description}
           </div>
         </div>
@@ -152,7 +153,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
   const headerStyle: React.CSSProperties = {
     padding: '24px 24px 16px',
-    borderBottom: '2px solid #e9ecef',
+    borderBottom: `2px solid ${colors.secondary.light}`,
     textAlign: 'center'
   };
 
@@ -181,13 +182,13 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
   const primaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary.main,
     color: 'white'
   };
 
   const secondaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#6c757d',
+    backgroundColor: colors.secondary.main,
     color: 'white'
   };
 
@@ -236,7 +237,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                   style={{ 
                     fontSize: '24px',
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: 0,
                     marginBottom: '8px'
                   }}
@@ -261,7 +262,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                   style={{ 
                     fontSize: '24px',
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: 0,
                     marginBottom: '8px'
                   }}
@@ -271,7 +272,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
               </>
             )}
             <p style={{ 
-              color: '#6c757d',
+              color: colors.secondary.main,
               margin: 0,
               fontSize: '14px'
             }}>
@@ -286,7 +287,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 <h3 style={{
                   fontSize: '18px',
                   fontWeight: 'bold',
-                  color: '#2c3e50',
+                  color: colors.text.primary,
                   marginTop: 0,
                   marginBottom: '16px'
                 }}>
@@ -298,7 +299,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
             ) : (
               <div style={{
                 textAlign: 'center',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 fontSize: '16px',
                 padding: '20px'
               }}>
@@ -309,8 +310,8 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
             {result.summary && (
               <div style={{
-                backgroundColor: '#e3f2fd',
-                border: '2px solid #2196f3',
+                backgroundColor: colors.primary.light,
+                border: `2px solid ${colors.primary.main}`,
                 borderRadius: '8px',
                 padding: '16px',
                 marginTop: '16px'
@@ -318,7 +319,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 <h4 style={{
                   fontSize: '16px',
                   fontWeight: 'bold',
-                  color: '#1976d2',
+                  color: colors.primary.text,
                   margin: 0,
                   marginBottom: '8px'
                 }}>
@@ -326,7 +327,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 </h4>
                 <p style={{
                   margin: 0,
-                  color: '#1976d2',
+                  color: colors.primary.text,
                   fontSize: '14px'
                 }}>
                   {result.summary}

@@ -1,6 +1,7 @@
 // src/components/modals/CardDetailsModal.tsx
 
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { Card } from '../../types/DataTypes';
 import { Player } from '../../types/StateTypes';
 import { ICardService } from '../../types/ServiceContracts';
@@ -105,7 +106,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ fontSize: '1.1rem', color: '#6c757d' }}>
+          <div style={{ fontSize: '1.1rem', color: colors.secondary.main }}>
             Loading card details...
           </div>
         </div>
@@ -118,14 +119,14 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
   
   // Card type colors
   const cardTypeColors = {
-    W: '#dc3545', // Red for Work cards
-    B: '#007bff', // Blue for Bank Loan cards
-    I: '#28a745', // Green for Investor Loan cards
-    L: '#ffc107', // Yellow for Life Events cards
-    E: '#6f42c1'  // Purple for Expeditor cards
+    W: colors.danger.main, // Red for Work cards
+    B: colors.primary.main, // Blue for Bank Loan cards
+    I: colors.success.main, // Green for Investor Loan cards
+    L: colors.warning.main, // Yellow for Life Events cards
+    E: colors.purple.main  // Purple for Expeditor cards
   };
 
-  const cardTypeColor = cardType ? cardTypeColors[cardType] : '#6c757d';
+  const cardTypeColor = cardType ? cardTypeColors[cardType] : colors.secondary.main;
 
   return (
     <div
@@ -164,8 +165,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
         {/* Modal Header */}
         <div style={{
           padding: '20px 24px 16px',
-          borderBottom: '1px solid #dee2e6',
-          backgroundColor: '#f8f9fa',
+          borderBottom: `1px solid ${colors.secondary.border}`,
+          backgroundColor: colors.secondary.bg,
           borderRadius: '12px 12px 0 0',
           display: 'flex',
           justifyContent: 'space-between',
@@ -194,7 +195,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
               {/* Card ID */}
               <span style={{
                 fontSize: '0.75rem',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 fontFamily: 'monospace'
               }}>
                 {card.card_id}
@@ -205,7 +206,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
               margin: 0,
               fontSize: '1.4rem',
               fontWeight: 'bold',
-              color: '#212529',
+              color: colors.text.primary,
               lineHeight: '1.3'
             }}>
               {card.card_name}
@@ -222,17 +223,17 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
               cursor: 'pointer',
               padding: '4px',
               lineHeight: 1,
-              color: '#6c757d',
+              color: colors.secondary.main,
               borderRadius: '4px',
               marginLeft: '12px'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#e9ecef';
-              e.currentTarget.style.color = '#495057';
+              e.currentTarget.style.backgroundColor = colors.secondary.light;
+              e.currentTarget.style.color = colors.secondary.dark;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6c757d';
+              e.currentTarget.style.color = colors.secondary.main;
             }}
             title="Close"
           >
@@ -251,7 +252,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
             <h3 style={{
               fontSize: '1rem',
               fontWeight: 'bold',
-              color: '#495057',
+              color: colors.secondary.dark,
               marginBottom: '8px',
               textTransform: 'uppercase',
               letterSpacing: '0.5px'
@@ -260,7 +261,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
             </h3>
             <p style={{
               fontSize: '0.95rem',
-              color: '#212529',
+              color: colors.text.primary,
               lineHeight: '1.5',
               margin: 0
             }}>
@@ -274,7 +275,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
               <h3 style={{
                 fontSize: '1rem',
                 fontWeight: 'bold',
-                color: '#495057',
+                color: colors.secondary.dark,
                 marginBottom: '8px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
@@ -282,12 +283,12 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 Effects When Played
               </h3>
               <div style={{
-                background: '#f8f9fa',
-                border: '1px solid #dee2e6',
+                background: colors.secondary.bg,
+                border: `1px solid ${colors.secondary.border}`,
                 borderRadius: '8px',
                 padding: '12px',
                 fontSize: '0.9rem',
-                color: '#495057',
+                color: colors.secondary.dark,
                 fontStyle: 'italic'
               }}>
                 {card.effects_on_play}
@@ -307,7 +308,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <h4 style={{
                   fontSize: '0.85rem',
                   fontWeight: 'bold',
-                  color: '#6c757d',
+                  color: colors.secondary.main,
                   marginBottom: '4px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -317,7 +318,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <div style={{
                   fontSize: '1.1rem',
                   fontWeight: 'bold',
-                  color: card.cost === 0 ? '#28a745' : '#dc3545'
+                  color: card.cost === 0 ? colors.success.main : colors.danger.main
                 }}>
                   ${card.cost}
                 </div>
@@ -330,7 +331,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <h4 style={{
                   fontSize: '0.85rem',
                   fontWeight: 'bold',
-                  color: '#6c757d',
+                  color: colors.secondary.main,
                   marginBottom: '4px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -340,7 +341,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <div style={{
                   fontSize: '1.1rem',
                   fontWeight: 'bold',
-                  color: '#495057'
+                  color: colors.secondary.dark
                 }}>
                   {card.duration} turn{Number(card.duration) !== 1 ? 's' : ''}
                 </div>
@@ -353,7 +354,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <h4 style={{
                   fontSize: '0.85rem',
                   fontWeight: 'bold',
-                  color: '#6c757d',
+                  color: colors.secondary.main,
                   marginBottom: '4px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -363,8 +364,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                 <div style={{
                   fontSize: '1rem',
                   fontWeight: 'bold',
-                  color: '#6f42c1',
-                  background: '#f3f0ff',
+                  color: colors.purple.main,
+                  background: colors.purple.lighter,
                   padding: '4px 8px',
                   borderRadius: '4px',
                   display: 'inline-block'
@@ -380,13 +381,13 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
         {showTransferUI && (
           <div style={{
             padding: '16px 24px',
-            borderTop: '1px solid #dee2e6',
-            backgroundColor: '#fff3cd'
+            borderTop: `1px solid ${colors.secondary.border}`,
+            backgroundColor: colors.warning.bg
           }}>
             <h4 style={{
               fontSize: '0.9rem',
               fontWeight: 'bold',
-              color: '#856404',
+              color: colors.warning.text,
               marginBottom: '12px',
               margin: 0
             }}>
@@ -408,7 +409,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                     cursor: 'pointer',
                     padding: '8px',
                     borderRadius: '4px',
-                    backgroundColor: selectedTargetPlayer === player.id ? '#e3f2fd' : 'transparent'
+                    backgroundColor: selectedTargetPlayer === player.id ? colors.primary.light : 'transparent'
                   }}
                 >
                   <input
@@ -427,7 +428,7 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                   </span>
                   <span style={{
                     fontWeight: 'bold',
-                    color: '#495057'
+                    color: colors.secondary.dark
                   }}>
                     {player.name}
                   </span>
@@ -449,8 +450,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                   padding: '8px 16px',
                   fontSize: '0.9rem',
                   fontWeight: 'bold',
-                  color: '#6c757d',
-                  backgroundColor: '#e9ecef',
+                  color: colors.secondary.main,
+                  backgroundColor: colors.secondary.light,
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -466,8 +467,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                   padding: '8px 16px',
                   fontSize: '0.9rem',
                   fontWeight: 'bold',
-                  color: selectedTargetPlayer ? '#fff' : '#6c757d',
-                  backgroundColor: selectedTargetPlayer ? '#dc3545' : '#e9ecef',
+                  color: selectedTargetPlayer ? colors.white : colors.secondary.main,
+                  backgroundColor: selectedTargetPlayer ? colors.danger.main : colors.secondary.light,
                   border: 'none',
                   borderRadius: '6px',
                   cursor: selectedTargetPlayer ? 'pointer' : 'not-allowed',
@@ -483,8 +484,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
         {/* Modal Footer */}
         <div style={{
           padding: '16px 24px',
-          borderTop: '1px solid #dee2e6',
-          backgroundColor: '#f8f9fa',
+          borderTop: `1px solid ${colors.secondary.border}`,
+          backgroundColor: colors.secondary.bg,
           borderRadius: '0 0 12px 12px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -498,18 +499,18 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
                   padding: '8px 16px',
                   fontSize: '0.9rem',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: '#28a745',
+                  color: colors.white,
+                  backgroundColor: colors.success.main,
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#218838';
+                  e.currentTarget.style.backgroundColor = colors.special.button.primaryHover;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#28a745';
+                  e.currentTarget.style.backgroundColor = colors.success.main;
                 }}
               >
                 🔄 Transfer Card
@@ -522,20 +523,20 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
               padding: '8px 16px',
               fontSize: '0.9rem',
               fontWeight: 'bold',
-              color: '#6c757d',
-              backgroundColor: '#e9ecef',
+              color: colors.secondary.main,
+              backgroundColor: colors.secondary.light,
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#dee2e6';
-              e.currentTarget.style.color = '#495057';
+              e.currentTarget.style.backgroundColor = colors.secondary.border;
+              e.currentTarget.style.color = colors.secondary.dark;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#e9ecef';
-              e.currentTarget.style.color = '#6c757d';
+              e.currentTarget.style.backgroundColor = colors.secondary.light;
+              e.currentTarget.style.color = colors.secondary.main;
             }}
           >
             Close

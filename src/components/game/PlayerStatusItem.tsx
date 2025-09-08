@@ -1,6 +1,7 @@
 // src/components/game/PlayerStatusItem.tsx
 
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { FinancialStatusDisplay } from './FinancialStatusDisplay';
 import { CardPortfolioDashboard } from './CardPortfolioDashboard';
@@ -37,6 +38,7 @@ interface PlayerStatusItemProps {
   onEndTurn: () => Promise<void>;
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
+  onAutomaticFunding?: () => Promise<void>;
   onStartGame: () => void;
   playerId: string;
   playerName: string;
@@ -71,6 +73,7 @@ export function PlayerStatusItem({
   onEndTurn,
   onManualEffect,
   onNegotiate,
+  onAutomaticFunding,
   onStartGame,
   playerId,
   playerName
@@ -150,8 +153,8 @@ export function PlayerStatusItem({
   }, []);
 
   const baseStyle = {
-    background: isCurrentPlayer ? 'linear-gradient(135deg, #e3f2fd, #f0f9ff)' : '#ffffff',
-    border: isCurrentPlayer ? '3px solid #2196f3' : '2px solid #e0e0e0',
+    background: isCurrentPlayer ? `linear-gradient(135deg, ${colors.primary.light}, ${colors.primary.lighter})` : colors.white,
+    border: isCurrentPlayer ? `3px solid ${colors.primary.main}` : `2px solid ${colors.secondary.border}`,
     borderRadius: '12px',
     padding: '16px',
     marginBottom: '12px',
@@ -190,7 +193,7 @@ export function PlayerStatusItem({
   const nameStyle = {
     fontSize: '0.8rem',
     fontWeight: 'bold' as const,
-    color: isCurrentPlayer ? '#1976d2' : '#2c5530',
+    color: isCurrentPlayer ? colors.primary.text : colors.success.text,
     textAlign: 'center' as const,
     lineHeight: '1.1'
   };
@@ -221,7 +224,7 @@ export function PlayerStatusItem({
 
   const statLabelStyle = {
     fontSize: '0.7rem',
-    color: '#6c757d',
+    color: colors.secondary.main,
     fontWeight: 'bold' as const,
     textTransform: 'uppercase' as const,
     marginBottom: '2px',
@@ -231,7 +234,7 @@ export function PlayerStatusItem({
   const statValueStyle = {
     fontSize: '0.9rem',
     fontWeight: 'bold' as const,
-    color: '#2c3e50'
+    color: colors.text.primary
   };
 
   // Right section styles (Actions) - NO WIDTH CONTROLS
@@ -289,8 +292,8 @@ export function PlayerStatusItem({
                   padding: '4px 8px',
                   fontSize: '9px',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: '#6f42c1',
+                  color: colors.white,
+                  backgroundColor: colors.purple.main,
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -302,11 +305,11 @@ export function PlayerStatusItem({
                   minWidth: '70px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#5a359a';
+                  e.currentTarget.style.backgroundColor = colors.purple.dark;
                   e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6f42c1';
+                  e.currentTarget.style.backgroundColor = colors.purple.main;
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
                 title="View game rules"
@@ -322,8 +325,8 @@ export function PlayerStatusItem({
                   padding: '4px 8px',
                   fontSize: '9px',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: isSpaceExplorerVisible ? '#28a745' : '#6c757d',
+                  color: colors.white,
+                  backgroundColor: isSpaceExplorerVisible ? colors.success.main : colors.secondary.main,
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -335,11 +338,11 @@ export function PlayerStatusItem({
                   minWidth: '70px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? '#218838' : '#5a6268';
+                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? colors.success.dark : colors.secondary.darker;
                   e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? '#28a745' : '#6c757d';
+                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? colors.success.main : colors.secondary.main;
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
                 title="Toggle space explorer panel"
@@ -355,8 +358,8 @@ export function PlayerStatusItem({
                   padding: '4px 8px',
                   fontSize: '9px',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: isMovementPathVisible ? '#007bff' : '#6c757d',
+                  color: colors.white,
+                  backgroundColor: isMovementPathVisible ? colors.primary.main : colors.secondary.main,
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -368,11 +371,11 @@ export function PlayerStatusItem({
                   minWidth: '70px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? '#0056b3' : '#5a6268';
+                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? colors.primary.dark : colors.secondary.darker;
                   e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? '#007bff' : '#6c757d';
+                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? colors.primary.main : colors.secondary.main;
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
                 title="Toggle available movement paths"
@@ -388,8 +391,8 @@ export function PlayerStatusItem({
                   padding: '4px 8px',
                   fontSize: '9px',
                   fontWeight: 'bold',
-                  color: '#fff',
-                  backgroundColor: '#ffc107',
+                  color: colors.white,
+                  backgroundColor: colors.warning.main,
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -401,11 +404,11 @@ export function PlayerStatusItem({
                   minWidth: '70px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e0a800';
+                  e.currentTarget.style.backgroundColor = colors.warning.dark;
                   e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ffc107';
+                  e.currentTarget.style.backgroundColor = colors.warning.main;
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
                 title="View discarded cards"
@@ -451,13 +454,13 @@ export function PlayerStatusItem({
               </div>
               <div style={{
                 ...statValueStyle,
-                color: financialStatus.isDeficit ? '#dc3545' : '#28a745'
+                color: financialStatus.isDeficit ? colors.danger.main : colors.success.main
               }}>
                 📊 {FormatUtils.formatMoney(player.money)}
               </div>
               <div style={{
                 fontSize: '0.7rem',
-                color: financialStatus.isDeficit ? '#dc3545' : '#28a745',
+                color: financialStatus.isDeficit ? colors.danger.main : colors.success.main,
                 fontWeight: 'bold',
                 marginTop: '2px'
               }}>
@@ -498,12 +501,12 @@ export function PlayerStatusItem({
           {/* Location Story Section */}
           {(() => {
             const spaceContent = dataService.getSpaceContent(player.currentSpace, 'First');
-            const storyText = spaceContent?.content_text || 'No story available for this space.';
+            const storyText = spaceContent?.story || 'No story available for this space.';
             
             return (
               <div style={{
-                background: 'linear-gradient(135deg, #fff8e1, #f3e5ab)',
-                border: '2px solid #ffc107',
+                background: `linear-gradient(135deg, ${colors.warning.bg}, ${colors.warning.light})`,
+                border: `2px solid ${colors.warning.main}`,
                 borderRadius: '8px',
                 padding: '12px',
                 marginTop: '8px',
@@ -512,7 +515,7 @@ export function PlayerStatusItem({
                 <div style={{
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
-                  color: '#795548',
+                  color: colors.brown.main,
                   marginBottom: '6px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -521,7 +524,7 @@ export function PlayerStatusItem({
                 </div>
                 <div style={{
                   fontSize: '0.8rem',
-                  color: '#5d4037',
+                  color: colors.brown.dark,
                   lineHeight: '1.4',
                   fontStyle: storyText === 'No story available for this space.' ? 'italic' : 'normal'
                 }}>
@@ -529,7 +532,7 @@ export function PlayerStatusItem({
                 </div>
                 <div style={{
                   fontSize: '0.7rem',
-                  color: '#8d6e63',
+                  color: colors.brown.text,
                   marginTop: '6px',
                   fontStyle: 'italic'
                 }}>
@@ -545,8 +548,8 @@ export function PlayerStatusItem({
         <div style={rightSectionStyle}>
           {isCurrentPlayer ? (
             <div style={{
-              background: '#ffffff',
-              border: '1px solid #dee2e6',
+              background: colors.white,
+              border: `1px solid ${colors.secondary.border}`,
               borderRadius: '4px',
               padding: '4px',
               boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
@@ -574,17 +577,18 @@ export function PlayerStatusItem({
                 onEndTurn={onEndTurn}
                 onManualEffect={onManualEffect}
                 onNegotiate={onNegotiate}
+                onAutomaticFunding={onAutomaticFunding}
                 onStartGame={onStartGame}
               />
             </div>
           ) : (
             <div style={{
-              background: '#ffebee',
-              border: '1px solid #ffcdd2',
+              background: colors.danger.light,
+              border: `1px solid ${colors.danger.border}`,
               borderRadius: '6px',
               padding: '6px',
               textAlign: 'center',
-              color: '#c62828',
+              color: colors.danger.text,
               fontSize: '10px',
               minHeight: '120px',
               display: 'flex',

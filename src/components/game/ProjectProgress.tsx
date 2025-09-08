@@ -1,6 +1,7 @@
 // src/components/game/ProjectProgress.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { IDataService } from '../../types/ServiceContracts';
 
@@ -62,18 +63,18 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   const overallProgress = calculateOverallProgress();
 
   const containerStyle = {
-    background: 'linear-gradient(135deg, #f8f9fa, #e3f2fd)',
+    background: `linear-gradient(135deg, ${colors.secondary.bg}, ${colors.primary.light})`,
     borderRadius: '12px',
     padding: '16px',
     margin: '16px 0',
-    border: '2px solid #2196f3',
+    border: `2px solid ${colors.primary.main}`,
     boxShadow: '0 4px 16px rgba(33, 150, 243, 0.2)'
   };
 
   const titleStyle = {
     fontSize: '1rem',
     fontWeight: 'bold' as const,
-    color: '#1976d2',
+    color: colors.primary.text,
     marginBottom: '12px',
     textAlign: 'center' as const,
     textTransform: 'uppercase' as const,
@@ -81,7 +82,7 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   };
 
   const progressBarContainerStyle = {
-    background: '#e9ecef',
+    background: colors.secondary.light,
     borderRadius: '8px',
     height: '12px',
     marginBottom: '12px',
@@ -90,7 +91,7 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   };
 
   const progressBarFillStyle = {
-    background: 'linear-gradient(90deg, #28a745, #20c997, #17a2b8)',
+    background: `linear-gradient(90deg, ${colors.success.main}, ${colors.game.teal}, ${colors.info.main})`,
     height: '100%',
     width: `${overallProgress.averageProgress}%`,
     transition: 'width 0.3s ease',
@@ -107,7 +108,7 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   const phaseIndicatorStyle = (phase: string, index: number) => ({
     fontSize: '0.7rem',
     fontWeight: 'bold' as const,
-    color: overallProgress.averageProgress >= ((index + 1) / phases.length) * 100 ? '#28a745' : '#6c757d',
+    color: overallProgress.averageProgress >= ((index + 1) / phases.length) * 100 ? colors.success.main : colors.secondary.main,
     textAlign: 'center' as const,
     minWidth: '60px'
   });
@@ -120,26 +121,26 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   };
 
   const playerItemStyle = {
-    background: '#ffffff',
+    background: colors.white,
     borderRadius: '8px',
     padding: '8px 12px',
-    border: '1px solid #dee2e6',
+    border: `1px solid ${colors.secondary.border}`,
     fontSize: '0.8rem'
   };
 
   const playerNameStyle = {
     fontWeight: 'bold' as const,
-    color: '#495057',
+    color: colors.secondary.dark,
     marginBottom: '4px'
   };
 
   const playerPhaseStyle = {
-    color: '#6c757d',
+    color: colors.secondary.main,
     fontSize: '0.75rem'
   };
 
   const playerProgressBarStyle = {
-    background: '#e9ecef',
+    background: colors.secondary.light,
     borderRadius: '4px',
     height: '4px',
     marginTop: '4px',
@@ -147,7 +148,7 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
   };
 
   const getPlayerProgressBarFill = (progress: number) => ({
-    background: 'linear-gradient(90deg, #28a745, #20c997)',
+    background: `linear-gradient(90deg, ${colors.success.main}, ${colors.game.teal})`,
     height: '100%',
     width: `${progress}%`,
     transition: 'width 0.3s ease'
@@ -181,15 +182,15 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
         gap: '16px',
         marginBottom: '16px',
         fontSize: '0.85rem',
-        color: '#495057'
+        color: colors.secondary.dark
       }}>
         <span>
           <strong>Overall Progress:</strong> {Math.round(overallProgress.averageProgress)}% | 
           <strong> Leading Phase:</strong> {overallProgress.leadingPhase}
         </span>
         <div style={{
-          background: '#e3f2fd',
-          color: '#1976d2',
+          background: colors.primary.light,
+          color: colors.primary.text,
           padding: '4px 8px',
           borderRadius: '12px',
           fontSize: '0.8rem',
@@ -199,8 +200,8 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
         </div>
         {currentPlayer && (
           <div style={{
-            background: '#e8f5e8',
-            color: '#2e7d32',
+            background: colors.success.bg,
+            color: colors.text.success,
             padding: '4px 8px',
             borderRadius: '12px',
             fontSize: '0.8rem',
@@ -211,8 +212,8 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
         )}
         {currentPlayer && (
           <div style={{
-            background: '#fff3cd',
-            color: '#856404',
+            background: colors.warning.bg,
+            color: colors.warning.text,
             padding: '4px 8px',
             borderRadius: '12px',
             fontSize: '0.8rem',
@@ -242,7 +243,7 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
                 </div>
                 <div style={{
                   fontSize: '0.7rem',
-                  color: '#6c757d',
+                  color: colors.secondary.main,
                   marginTop: '2px'
                 }}>
                   {Math.round(playerProgress.progress)}% complete

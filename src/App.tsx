@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ServiceProvider } from './context/ServiceProvider';
 import { GameLayout } from './components/layout/GameLayout';
 import { useGameContext } from './context/GameContext';
+import { colors } from './styles/theme';
 
 /**
  * LoadingScreen component displays while the application initializes
@@ -17,18 +18,18 @@ function LoadingScreen(): JSX.Element {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.background.secondary,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '24px',
-        color: '#333'
+        color: colors.neutral.black
       }}
     >
       <div style={{ marginBottom: '20px', fontSize: '48px' }}>🎲</div>
       <div>Loading Game Data...</div>
-      <div style={{ fontSize: '16px', color: '#666', marginTop: '10px' }}>
+      <div style={{ fontSize: '16px', color: colors.text.secondary, marginTop: '10px' }}>
         Please wait while we initialize the game
       </div>
     </div>

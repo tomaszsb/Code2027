@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Space, SpaceContent, SpaceEffect, DiceEffect, Player } from '../../types/DataTypes';
 import { FormatUtils } from '../../utils/FormatUtils';
@@ -168,7 +169,7 @@ export function SpaceExplorerPanel({
     transform: isVisible ? 'translateX(0)' : 'translateX(-100%)',
     transition: 'all 0.3s ease-in-out',
     overflow: 'hidden',
-    border: '2px solid #e1e5e9',
+    border: `2px solid ${colors.secondary.border}`,
     display: 'flex',
     flexDirection: 'row'
   };
@@ -178,13 +179,13 @@ export function SpaceExplorerPanel({
     width: '400px',
     display: 'flex',
     flexDirection: 'column',
-    borderRight: selectedSpace ? '2px solid #e1e5e9' : 'none'
+    borderRight: selectedSpace ? `2px solid ${colors.secondary.border}` : 'none'
   };
 
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px',
-    backgroundColor: '#f8f9fa',
-    borderBottom: '2px solid #e1e5e9',
+    backgroundColor: colors.secondary.bg,
+    borderBottom: `2px solid ${colors.secondary.border}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -192,8 +193,8 @@ export function SpaceExplorerPanel({
 
   const searchStyle: React.CSSProperties = {
     padding: '12px 20px',
-    borderBottom: '1px solid #e1e5e9',
-    backgroundColor: '#fff'
+    borderBottom: `1px solid ${colors.secondary.border}`,
+    backgroundColor: colors.white
   };
 
   const spaceListStyle: React.CSSProperties = {
@@ -206,8 +207,8 @@ export function SpaceExplorerPanel({
     padding: '8px 12px',
     margin: '4px 0',
     borderRadius: '6px',
-    border: `2px solid ${selectedSpace === spaceName ? '#28a745' : '#dee2e6'}`,
-    backgroundColor: selectedSpace === spaceName ? '#d4edda' : '#f8f9fa',
+    border: `2px solid ${selectedSpace === spaceName ? colors.success.main : colors.secondary.border}`,
+    backgroundColor: selectedSpace === spaceName ? colors.success.light : colors.secondary.bg,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     fontSize: '14px'
@@ -217,13 +218,13 @@ export function SpaceExplorerPanel({
     width: '400px',
     display: selectedSpace ? 'flex' : 'none',
     flexDirection: 'column',
-    backgroundColor: '#fafafa'
+    backgroundColor: colors.secondary.light
   };
 
   const detailsHeaderStyle: React.CSSProperties = {
     padding: '16px 20px',
-    backgroundColor: '#e3f2fd',
-    borderBottom: '2px solid #2196f3',
+    backgroundColor: colors.primary.light,
+    borderBottom: `2px solid ${colors.primary.main}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -246,7 +247,7 @@ export function SpaceExplorerPanel({
               margin: 0, 
               fontSize: '18px', 
               fontWeight: 'bold',
-              color: '#2c3e50'
+              color: colors.text.primary
             }}>
               Space Explorer
             </h3>
@@ -257,7 +258,7 @@ export function SpaceExplorerPanel({
                 border: 'none',
                 fontSize: '20px',
                 cursor: 'pointer',
-                color: '#6c757d'
+                color: colors.secondary.main
               }}
             >
               ✕
@@ -274,7 +275,7 @@ export function SpaceExplorerPanel({
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '2px solid #dee2e6',
+                border: `2px solid ${colors.secondary.border}`,
                 borderRadius: '6px',
                 fontSize: '14px',
                 marginBottom: '8px'
@@ -292,8 +293,8 @@ export function SpaceExplorerPanel({
                     borderRadius: '4px',
                     fontSize: '12px',
                     cursor: 'pointer',
-                    backgroundColor: filterType === type ? '#28a745' : '#e9ecef',
-                    color: filterType === type ? 'white' : '#6c757d'
+                    backgroundColor: filterType === type ? colors.success.main : colors.secondary.light,
+                    color: filterType === type ? 'white' : colors.secondary.main
                   }}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -311,14 +312,14 @@ export function SpaceExplorerPanel({
                 onClick={() => setSelectedSpace(space.name)}
                 onMouseEnter={(e) => {
                   if (selectedSpace !== space.name) {
-                    e.currentTarget.style.backgroundColor = '#e3f2fd';
-                    e.currentTarget.style.borderColor = '#2196f3';
+                    e.currentTarget.style.backgroundColor = colors.primary.light;
+                    e.currentTarget.style.borderColor = colors.primary.main;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (selectedSpace !== space.name) {
-                    e.currentTarget.style.backgroundColor = '#f8f9fa';
-                    e.currentTarget.style.borderColor = '#dee2e6';
+                    e.currentTarget.style.backgroundColor = colors.secondary.bg;
+                    e.currentTarget.style.borderColor = colors.secondary.border;
                   }
                 }}
               >
@@ -327,16 +328,16 @@ export function SpaceExplorerPanel({
                     {getSpaceTypeIcon(space.name)}
                   </span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+                    <div style={{ fontWeight: 'bold', color: colors.text.primary }}>
                       {space.name}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                    <div style={{ fontSize: '12px', color: colors.secondary.main }}>
                       {getSpaceTypeLabel(space.name)}
                     </div>
                   </div>
                   {players.filter(p => p.currentSpace === space.name).length > 0 && (
                     <span style={{ 
-                      backgroundColor: '#28a745', 
+                      backgroundColor: colors.success.main, 
                       color: 'white', 
                       borderRadius: '10px',
                       padding: '2px 6px',
@@ -353,7 +354,7 @@ export function SpaceExplorerPanel({
             {getFilteredSpaces().length === 0 && (
               <div style={{
                 textAlign: 'center',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 padding: '20px',
                 fontStyle: 'italic'
               }}>
@@ -369,7 +370,7 @@ export function SpaceExplorerPanel({
             <div style={detailsHeaderStyle}>
               <h4 style={{ 
                 margin: 0,
-                color: '#1976d2',
+                color: colors.primary.text,
                 fontSize: '16px',
                 fontWeight: 'bold'
               }}>
@@ -382,7 +383,7 @@ export function SpaceExplorerPanel({
                   border: 'none',
                   fontSize: '18px',
                   cursor: 'pointer',
-                  color: '#1976d2'
+                  color: colors.primary.text
                 }}
               >
                 ✕
@@ -393,10 +394,10 @@ export function SpaceExplorerPanel({
               {/* Space Type and Configuration */}
               <div style={{
                 padding: '12px',
-                backgroundColor: '#e3f2fd',
+                backgroundColor: colors.primary.light,
                 borderRadius: '8px',
                 marginBottom: '16px',
-                border: '2px solid #2196f3'
+                border: `2px solid ${colors.primary.main}`
               }}>
                 <div style={{ 
                   display: 'flex', 
@@ -407,7 +408,7 @@ export function SpaceExplorerPanel({
                   <span style={{ fontSize: '20px' }}>
                     {getSpaceTypeIcon(spaceDetails.space.name)}
                   </span>
-                  <span style={{ fontWeight: 'bold', color: '#1976d2', fontSize: '16px' }}>
+                  <span style={{ fontWeight: 'bold', color: colors.primary.text, fontSize: '16px' }}>
                     {getSpaceTypeLabel(spaceDetails.space.name)}
                   </span>
                 </div>
@@ -417,7 +418,7 @@ export function SpaceExplorerPanel({
                   const config = dataService.getGameConfigBySpace(spaceDetails.space.name);
                   if (config) {
                     return (
-                      <div style={{ fontSize: '13px', color: '#1976d2' }}>
+                      <div style={{ fontSize: '13px', color: colors.primary.text }}>
                         {config.game_phase && <div><strong>Game Phase:</strong> {config.game_phase}</div>}
                         {config.path_type && <div><strong>Path Type:</strong> {config.path_type}</div>}
                         {config.space_order !== undefined && <div><strong>Space Order:</strong> {config.space_order}</div>}
@@ -435,7 +436,7 @@ export function SpaceExplorerPanel({
                   <h5 style={{ 
                     fontSize: '14px', 
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: '0 0 8px 0'
                   }}>
                     👥 Players Currently Here ({spaceDetails.playersOnSpace.length}):
@@ -449,7 +450,7 @@ export function SpaceExplorerPanel({
                           alignItems: 'center',
                           gap: '6px',
                           padding: '8px 12px',
-                          backgroundColor: player.color || '#007bff',
+                          backgroundColor: player.color || colors.primary.main,
                           color: 'white',
                           borderRadius: '12px',
                           fontSize: '13px',
@@ -475,35 +476,35 @@ export function SpaceExplorerPanel({
                   <h5 style={{ 
                     fontSize: '14px', 
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: '0 0 8px 0'
                   }}>
                     📄 Space Content & Story:
                   </h5>
                   <div style={{
                     padding: '12px',
-                    backgroundColor: '#fff3cd',
+                    backgroundColor: colors.warning.bg,
                     borderRadius: '8px',
-                    border: '2px solid #ffc107',
+                    border: `2px solid ${colors.warning.main}`,
                     fontSize: '13px',
                     lineHeight: '1.5'
                   }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#856404' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: colors.warning.text }}>
                       Story Text:
                     </div>
                     <div style={{ marginBottom: '12px' }}>
-                      {spaceDetails.content.content_text || 'No story content available'}
+                      {spaceDetails.content.story || 'No story content available'}
                     </div>
                     
                     {/* Additional Content Properties */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
                       {spaceDetails.content.can_negotiate && (
-                        <div style={{ color: '#28a745', fontWeight: 'bold' }}>
+                        <div style={{ color: colors.success.main, fontWeight: 'bold' }}>
                           💬 Negotiation: Available
                         </div>
                       )}
                       {spaceDetails.content.requires_choice && (
-                        <div style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                        <div style={{ color: colors.danger.main, fontWeight: 'bold' }}>
                           🎯 Choice Required
                         </div>
                       )}
@@ -530,16 +531,16 @@ export function SpaceExplorerPanel({
                         <h5 style={{ 
                           fontSize: '14px', 
                           fontWeight: 'bold',
-                          color: '#2c3e50',
+                          color: colors.text.primary,
                           margin: '0 0 8px 0'
                         }}>
                           🧭 Movement Options ({movement.movement_type}):
                         </h5>
                         <div style={{
                           padding: '12px',
-                          backgroundColor: '#f8f9fa',
+                          backgroundColor: colors.secondary.bg,
                           borderRadius: '8px',
-                          border: '2px solid #dee2e6'
+                          border: `2px solid ${colors.secondary.border}`
                         }}>
                           <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold' }}>
                             Movement Type: {movement.movement_type} 
@@ -555,7 +556,7 @@ export function SpaceExplorerPanel({
                                 onClick={() => setSelectedSpace(dest || null)}
                                 style={{
                                   padding: '6px 10px',
-                                  backgroundColor: '#007bff',
+                                  backgroundColor: colors.primary.main,
                                   color: 'white',
                                   border: 'none',
                                   borderRadius: '12px',
@@ -583,7 +584,7 @@ export function SpaceExplorerPanel({
                   <h5 style={{ 
                     fontSize: '14px', 
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: '0 0 8px 0'
                   }}>
                     ⚡ Space Effects ({spaceDetails.effects.length}):
@@ -593,24 +594,24 @@ export function SpaceExplorerPanel({
                       key={index}
                       style={{
                         padding: '10px 12px',
-                        backgroundColor: '#fff3cd',
+                        backgroundColor: colors.warning.bg,
                         borderRadius: '8px',
-                        border: '2px solid #ffc107',
+                        border: `2px solid ${colors.warning.main}`,
                         marginBottom: '8px',
                         fontSize: '13px'
                       }}
                     >
-                      <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: 'bold', color: colors.warning.text, marginBottom: '4px' }}>
                         {effect.effect_type}: {effect.effect_action} {effect.effect_value}
                         {effect.trigger_type && ` (${effect.trigger_type})`}
                       </div>
                       {effect.description && (
-                        <div style={{ color: '#856404' }}>
+                        <div style={{ color: colors.warning.text }}>
                           {effect.description}
                         </div>
                       )}
                       {effect.condition && (
-                        <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                        <div style={{ fontSize: '12px', color: colors.secondary.main, marginTop: '4px' }}>
                           <strong>Condition:</strong> {effect.condition}
                         </div>
                       )}
@@ -625,7 +626,7 @@ export function SpaceExplorerPanel({
                   <h5 style={{ 
                     fontSize: '14px', 
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: '0 0 8px 0'
                   }}>
                     🎲 Dice Roll Effects ({spaceDetails.diceEffects.length}):
@@ -635,24 +636,24 @@ export function SpaceExplorerPanel({
                       key={index}
                       style={{
                         padding: '10px 12px',
-                        backgroundColor: '#e8f4fd',
+                        backgroundColor: colors.info.bg,
                         borderRadius: '8px',
-                        border: '2px solid #007bff',
+                        border: `2px solid ${colors.primary.main}`,
                         marginBottom: '8px',
                         fontSize: '13px'
                       }}
                     >
-                      <div style={{ fontWeight: 'bold', color: '#0056b3', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: 'bold', color: colors.primary.dark, marginBottom: '4px' }}>
                         Roll {effect.roll_1}{effect.roll_2 && `, ${effect.roll_2}`}: 
                         {effect.effect_type} {effect.effect_action} {effect.effect_value}
                       </div>
                       {effect.description && (
-                        <div style={{ color: '#0056b3' }}>
+                        <div style={{ color: colors.primary.dark }}>
                           {effect.description}
                         </div>
                       )}
                       {effect.condition && (
-                        <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                        <div style={{ fontSize: '12px', color: colors.secondary.main, marginTop: '4px' }}>
                           <strong>Condition:</strong> {effect.condition}
                         </div>
                       )}
@@ -667,18 +668,18 @@ export function SpaceExplorerPanel({
                   <h5 style={{ 
                     fontSize: '14px', 
                     fontWeight: 'bold',
-                    color: '#2c3e50',
+                    color: colors.text.primary,
                     margin: '0 0 8px 0'
                   }}>
                     🔗 Incoming Connections ({spaceDetails.connections.length}):
                   </h5>
                   <div style={{
                     padding: '12px',
-                    backgroundColor: '#f8f9fa',
+                    backgroundColor: colors.secondary.bg,
                     borderRadius: '8px',
-                    border: '2px solid #dee2e6'
+                    border: `2px solid ${colors.secondary.border}`
                   }}>
-                    <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '12px', color: colors.secondary.main, marginBottom: '8px' }}>
                       Spaces that can move to this location:
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -688,7 +689,7 @@ export function SpaceExplorerPanel({
                           onClick={() => setSelectedSpace(connection)}
                           style={{
                             padding: '6px 10px',
-                            backgroundColor: '#28a745',
+                            backgroundColor: colors.success.main,
                             color: 'white',
                             border: 'none',
                             borderRadius: '12px',
@@ -711,16 +712,16 @@ export function SpaceExplorerPanel({
                 <h5 style={{ 
                   fontSize: '14px', 
                   fontWeight: 'bold',
-                  color: '#2c3e50',
+                  color: colors.text.primary,
                   margin: '0 0 8px 0'
                 }}>
                   📊 Technical Details:
                 </h5>
                 <div style={{
                   padding: '12px',
-                  backgroundColor: '#f1f3f4',
+                  backgroundColor: colors.background.muted,
                   borderRadius: '8px',
-                  border: '2px solid #9aa0a6',
+                  border: `2px solid ${colors.border.dark}`,
                   fontSize: '12px',
                   fontFamily: 'monospace'
                 }}>

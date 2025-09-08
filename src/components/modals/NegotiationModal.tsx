@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Player, Card, CardType } from '../../types/DataTypes';
 
@@ -199,12 +200,12 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
         zIndex: 1000
       }}>
         <div style={{
-          backgroundColor: '#fff',
+          backgroundColor: colors.white,
           borderRadius: '12px',
           padding: '40px',
           textAlign: 'center',
           fontSize: '18px',
-          color: '#333'
+          color: colors.text.primary
         }}>
           🤝 Initializing negotiation...
         </div>
@@ -226,7 +227,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
       zIndex: 1000
     }}>
       <div style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.white,
         borderRadius: '12px',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         maxWidth: '800px',
@@ -238,14 +239,14 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
         {/* Header */}
         <div style={{
           padding: '20px 24px',
-          borderBottom: '2px solid #e9ecef',
-          backgroundColor: '#f8f9fa',
+          borderBottom: `2px solid ${colors.secondary.light}`,
+          backgroundColor: colors.secondary.bg,
           borderRadius: '12px 12px 0 0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <h2 style={{ margin: 0, color: '#333', fontSize: '24px' }}>
+          <h2 style={{ margin: 0, color: colors.text.primary, fontSize: '24px' }}>
             🤝 Negotiation
           </h2>
           <button
@@ -255,7 +256,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               border: 'none',
               fontSize: '24px',
               cursor: 'pointer',
-              color: '#6c757d',
+              color: colors.secondary.main,
               padding: '0',
               width: '32px',
               height: '32px',
@@ -273,7 +274,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
           {/* Partner Selection */}
           {negotiation.status === 'selecting_partner' && (
             <div>
-              <h3 style={{ marginTop: 0, color: '#333' }}>Select a player to negotiate with:</h3>
+              <h3 style={{ marginTop: 0, color: colors.text.primary }}>Select a player to negotiate with:</h3>
               <div style={{ display: 'grid', gap: '12px', marginTop: '16px' }}>
                 {availablePartners.map(partner => (
                   <div
@@ -281,43 +282,43 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                     onClick={() => handleSelectPartner(partner.id)}
                     style={{
                       padding: '16px',
-                      border: '2px solid #dee2e6',
+                      border: `2px solid ${colors.secondary.border}`,
                       borderRadius: '8px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
                       transition: 'all 0.2s ease',
-                      backgroundColor: selectedPartnerId === partner.id ? '#e3f2fd' : '#fff'
+                      backgroundColor: selectedPartnerId === partner.id ? colors.primary.light : colors.white
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#007bff';
-                      e.currentTarget.style.backgroundColor = '#f8f9ff';
+                      e.currentTarget.style.borderColor = colors.primary.main;
+                      e.currentTarget.style.backgroundColor = colors.special.hoverBlue;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = selectedPartnerId === partner.id ? '#007bff' : '#dee2e6';
-                      e.currentTarget.style.backgroundColor = selectedPartnerId === partner.id ? '#e3f2fd' : '#fff';
+                      e.currentTarget.style.borderColor = selectedPartnerId === partner.id ? colors.primary.main : colors.secondary.border;
+                      e.currentTarget.style.backgroundColor = selectedPartnerId === partner.id ? colors.primary.light : colors.white;
                     }}
                   >
                     <div style={{
                       width: '48px',
                       height: '48px',
                       borderRadius: '50%',
-                      backgroundColor: partner.color || '#007bff',
+                      backgroundColor: partner.color || colors.primary.main,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#fff',
+                      color: colors.white,
                       fontSize: '20px',
                       fontWeight: 'bold'
                     }}>
                       {partner.avatar || partner.name.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: colors.text.primary }}>
                         {partner.name}
                       </div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
+                      <div style={{ fontSize: '14px', color: colors.text.secondary }}>
                         💰 ${partner.money} | ⏰ {partner.timeSpent} minutes
                       </div>
                     </div>
@@ -331,14 +332,14 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
           {negotiation.status === 'making_offer' && (
             <div>
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ marginTop: 0, color: '#333' }}>
+                <h3 style={{ marginTop: 0, color: colors.text.primary }}>
                   Making offer to: {players.find(p => p.id === negotiation.partnerId)?.name}
                 </h3>
               </div>
 
               {/* Money Offer */}
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#333' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: colors.text.primary }}>
                   💰 Money Offer:
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -351,13 +352,13 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                     onChange={(e) => handleOfferChange('money', parseInt(e.target.value) || 0)}
                     style={{
                       padding: '8px 12px',
-                      border: '2px solid #dee2e6',
+                      border: `2px solid ${colors.secondary.border}`,
                       borderRadius: '6px',
                       fontSize: '16px',
                       width: '120px'
                     }}
                   />
-                  <span style={{ color: '#666' }}>
+                  <span style={{ color: colors.text.secondary }}>
                     (Available: ${currentPlayer.money})
                   </span>
                 </div>
@@ -365,7 +366,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
 
               {/* Card Offer */}
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#333' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: colors.text.primary }}>
                   🃏 Card Offer:
                 </label>
                 {(['W', 'B', 'E', 'L', 'I'] as CardType[]).map(cardType => {
@@ -374,7 +375,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
 
                   return (
                     <div key={cardType} style={{ marginBottom: '16px' }}>
-                      <h4 style={{ marginBottom: '8px', color: '#555' }}>
+                      <h4 style={{ marginBottom: '8px', color: colors.text.lightGray }}>
                         {cardType} Cards ({playerCards.length} available):
                       </h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -386,9 +387,9 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                               onClick={() => handleOfferChange('cards', null, cardType, cardId)}
                               style={{
                                 padding: '8px 12px',
-                                border: `2px solid ${isSelected ? '#28a745' : '#dee2e6'}`,
+                                border: `2px solid ${isSelected ? colors.success.main : colors.secondary.border}`,
                                 borderRadius: '6px',
-                                backgroundColor: isSelected ? '#d4edda' : '#fff',
+                                backgroundColor: isSelected ? colors.success.light : colors.white,
                                 cursor: 'pointer',
                                 fontSize: '14px',
                                 transition: 'all 0.2s ease'
@@ -407,23 +408,23 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               {/* Offer Summary */}
               <div style={{
                 padding: '16px',
-                backgroundColor: '#f8f9fa',
+                backgroundColor: colors.secondary.bg,
                 borderRadius: '8px',
                 marginBottom: '24px'
               }}>
-                <h4 style={{ marginTop: 0, color: '#333' }}>Offer Summary:</h4>
-                <div style={{ color: '#666' }}>
+                <h4 style={{ marginTop: 0, color: colors.text.primary }}>Offer Summary:</h4>
+                <div style={{ color: colors.text.secondary }}>
                   💰 Money: ${offer.money}
                 </div>
                 {Object.entries(offer.cards).map(([cardType, cardIds]) => {
                   if (cardIds.length === 0) return null;
                   return (
-                    <div key={cardType} style={{ color: '#666' }}>
+                    <div key={cardType} style={{ color: colors.text.secondary }}>
                       🃏 {cardType} Cards: {cardIds.map(getCardName).join(', ')}
                     </div>
                   );
                 })}
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#333' }}>
+                <div style={{ marginTop: '8px', fontWeight: 'bold', color: colors.text.primary }}>
                   Estimated Total Value: ${getTotalOfferValue()}
                 </div>
               </div>
@@ -434,9 +435,9 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   onClick={() => setNegotiation(prev => prev ? { ...prev, status: 'selecting_partner' } : null)}
                   style={{
                     padding: '12px 24px',
-                    border: '2px solid #6c757d',
-                    backgroundColor: '#fff',
-                    color: '#6c757d',
+                    border: `2px solid ${colors.secondary.main}`,
+                    backgroundColor: colors.white,
+                    color: colors.secondary.main,
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '16px'
@@ -450,8 +451,8 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   style={{
                     padding: '12px 24px',
                     border: 'none',
-                    backgroundColor: getTotalOfferValue() > 0 ? '#28a745' : '#e9ecef',
-                    color: getTotalOfferValue() > 0 ? '#fff' : '#6c757d',
+                    backgroundColor: getTotalOfferValue() > 0 ? colors.success.main : colors.secondary.light,
+                    color: getTotalOfferValue() > 0 ? colors.white : colors.secondary.main,
                     borderRadius: '6px',
                     cursor: getTotalOfferValue() > 0 ? 'pointer' : 'not-allowed',
                     fontSize: '16px',
@@ -467,17 +468,17 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
           {/* Awaiting Response */}
           {negotiation.status === 'awaiting_response' && negotiation.currentOffer && (
             <div style={{ textAlign: 'center' }}>
-              <h3 style={{ color: '#333' }}>
+              <h3 style={{ color: colors.text.primary }}>
                 Offer sent to {players.find(p => p.id === negotiation.partnerId)?.name}
               </h3>
               <div style={{
                 padding: '20px',
-                backgroundColor: '#fff3cd',
+                backgroundColor: colors.warning.bg,
                 borderRadius: '8px',
                 marginBottom: '24px'
               }}>
                 <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Waiting for response...</div>
-                <div style={{ color: '#856404' }}>
+                <div style={{ color: colors.warning.text }}>
                   Your offer: ${negotiation.currentOffer.money} + cards worth ~${getTotalOfferValue() - negotiation.currentOffer.money}
                 </div>
               </div>
@@ -485,9 +486,9 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 onClick={handleCloseModal}
                 style={{
                   padding: '12px 24px',
-                  border: '2px solid #6c757d',
-                  backgroundColor: '#fff',
-                  color: '#6c757d',
+                  border: `2px solid ${colors.secondary.main}`,
+                  backgroundColor: colors.white,
+                  color: colors.secondary.main,
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '16px'
@@ -502,7 +503,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
           {negotiation.status === 'reviewing_offer' && negotiation.currentOffer && (
             <div>
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ marginTop: 0, color: '#333' }}>
+                <h3 style={{ marginTop: 0, color: colors.text.primary }}>
                   📨 Incoming offer from: {players.find(p => p.id === negotiation.initiatorId)?.name}
                 </h3>
               </div>
@@ -510,12 +511,12 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               {/* Offer Details */}
               <div style={{
                 padding: '20px',
-                backgroundColor: '#e3f2fd',
+                backgroundColor: colors.primary.light,
                 borderRadius: '8px',
                 marginBottom: '24px',
-                border: '2px solid #2196f3'
+                border: `2px solid ${colors.primary.main}`
               }}>
-                <h4 style={{ marginTop: 0, color: '#333', marginBottom: '16px' }}>
+                <h4 style={{ marginTop: 0, color: colors.text.primary, marginBottom: '16px' }}>
                   🎁 They are offering:
                 </h4>
                 
@@ -523,7 +524,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 {negotiation.currentOffer.money > 0 && (
                   <div style={{
                     padding: '12px',
-                    backgroundColor: '#fff',
+                    backgroundColor: colors.white,
                     borderRadius: '6px',
                     marginBottom: '12px',
                     display: 'flex',
@@ -532,10 +533,10 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   }}>
                     <span style={{ fontSize: '24px' }}>💰</span>
                     <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#333' }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '18px', color: colors.text.primary }}>
                         ${negotiation.currentOffer.money}
                       </div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>Cash payment</div>
+                      <div style={{ fontSize: '14px', color: colors.text.secondary }}>Cash payment</div>
                     </div>
                   </div>
                 )}
@@ -548,7 +549,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                       key={cardType}
                       style={{
                         padding: '12px',
-                        backgroundColor: '#fff',
+                        backgroundColor: colors.white,
                         borderRadius: '6px',
                         marginBottom: '12px'
                       }}
@@ -561,7 +562,7 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                       }}>
                         <span style={{ fontSize: '24px' }}>🃏</span>
                         <div>
-                          <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#333' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '16px', color: colors.text.primary }}>
                             {cardType} Cards ({cardIds.length})
                           </div>
                         </div>
@@ -572,11 +573,11 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                             key={cardId}
                             style={{
                               padding: '6px 12px',
-                              backgroundColor: '#f8f9fa',
+                              backgroundColor: colors.secondary.bg,
                               borderRadius: '4px',
                               marginBottom: '4px',
                               fontSize: '14px',
-                              color: '#555'
+                              color: colors.text.lightGray
                             }}
                           >
                             {getCardName(cardId)}
@@ -591,11 +592,11 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 <div style={{
                   marginTop: '16px',
                   padding: '12px',
-                  backgroundColor: '#f0f8ff',
+                  backgroundColor: colors.background.focus,
                   borderRadius: '6px',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#333' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '18px', color: colors.text.primary }}>
                     Total Estimated Value: ${getTotalOfferValue()}
                   </div>
                 </div>
@@ -604,23 +605,23 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               {/* Your Current Resources */}
               <div style={{
                 padding: '16px',
-                backgroundColor: '#f8f9fa',
+                backgroundColor: colors.secondary.bg,
                 borderRadius: '8px',
                 marginBottom: '24px'
               }}>
-                <h4 style={{ marginTop: 0, color: '#333' }}>📊 Your Current Resources:</h4>
+                <h4 style={{ marginTop: 0, color: colors.text.primary }}>📊 Your Current Resources:</h4>
                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                  <div style={{ color: '#666' }}>
+                  <div style={{ color: colors.text.secondary }}>
                     💰 Money: ${currentPlayer.money}
                   </div>
-                  <div style={{ color: '#666' }}>
+                  <div style={{ color: colors.text.secondary }}>
                     ⏰ Time: {currentPlayer.timeSpent} minutes
                   </div>
                   {(['W', 'B', 'E', 'L', 'I'] as CardType[]).map(cardType => {
                     const cardCount = getPlayerCardsByType(currentPlayer, cardType).length;
                     if (cardCount === 0) return null;
                     return (
-                      <div key={cardType} style={{ color: '#666' }}>
+                      <div key={cardType} style={{ color: colors.text.secondary }}>
                         🃏 {cardType}: {cardCount} cards
                       </div>
                     );
@@ -631,15 +632,15 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               {/* Decision Prompt */}
               <div style={{
                 padding: '20px',
-                backgroundColor: '#fff3cd',
+                backgroundColor: colors.warning.bg,
                 borderRadius: '8px',
                 marginBottom: '24px',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#856404', marginBottom: '8px' }}>
+                <div style={{ fontSize: '18px', fontWeight: 'bold', color: colors.warning.text, marginBottom: '8px' }}>
                   🤔 What's your decision?
                 </div>
-                <div style={{ color: '#856404' }}>
+                <div style={{ color: colors.warning.text }}>
                   This offer will be added to your resources if you accept.
                 </div>
               </div>
@@ -650,9 +651,9 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   onClick={handleDeclineOffer}
                   style={{
                     padding: '16px 32px',
-                    border: '2px solid #dc3545',
-                    backgroundColor: '#fff',
-                    color: '#dc3545',
+                    border: `2px solid ${colors.danger.main}`,
+                    backgroundColor: colors.white,
+                    color: colors.danger.main,
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '16px',
@@ -663,12 +664,12 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#dc3545';
-                    e.currentTarget.style.color = '#fff';
+                    e.currentTarget.style.backgroundColor = colors.danger.main;
+                    e.currentTarget.style.color = colors.white;
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#fff';
-                    e.currentTarget.style.color = '#dc3545';
+                    e.currentTarget.style.backgroundColor = colors.white;
+                    e.currentTarget.style.color = colors.danger.main;
                   }}
                 >
                   ❌ Decline Offer
@@ -677,9 +678,9 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   onClick={handleAcceptOffer}
                   style={{
                     padding: '16px 32px',
-                    border: '2px solid #28a745',
-                    backgroundColor: '#28a745',
-                    color: '#fff',
+                    border: `2px solid ${colors.success.main}`,
+                    backgroundColor: colors.success.main,
+                    color: colors.white,
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '16px',
@@ -690,10 +691,10 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#218838';
+                    e.currentTarget.style.backgroundColor = colors.special.button.primaryHover;
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#28a745';
+                    e.currentTarget.style.backgroundColor = colors.success.main;
                   }}
                 >
                   ✅ Accept Offer

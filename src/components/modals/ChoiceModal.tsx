@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Choice } from '../../types/CommonTypes';
 
@@ -66,7 +67,7 @@ export function ChoiceModal(): JSX.Element {
         {/* Modal Content */}
         <div
           style={{
-            backgroundColor: '#fff',
+            backgroundColor: colors.white,
             padding: '30px',
             borderRadius: '12px',
             maxWidth: '500px',
@@ -74,14 +75,14 @@ export function ChoiceModal(): JSX.Element {
             maxHeight: '80vh',
             overflow: 'auto',
             boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-            border: '3px solid #007bff'
+            border: `3px solid ${colors.primary.main}`
           }}
         >
           {/* Modal Header */}
           <div style={{ marginBottom: '25px', textAlign: 'center' }}>
             <h2 style={{ 
               margin: '0 0 10px 0', 
-              color: '#007bff',
+              color: colors.primary.main,
               fontSize: '24px',
               fontWeight: 'bold'
             }}>
@@ -89,7 +90,7 @@ export function ChoiceModal(): JSX.Element {
             </h2>
             <p style={{ 
               margin: '0',
-              color: '#666',
+              color: colors.text.secondary,
               fontSize: '16px'
             }}>
               {currentPlayerName}: {awaitingChoice.prompt}
@@ -106,8 +107,8 @@ export function ChoiceModal(): JSX.Element {
                   padding: '15px 20px',
                   fontSize: '16px',
                   fontWeight: 'bold',
-                  backgroundColor: '#007bff',
-                  color: '#fff',
+                  backgroundColor: colors.primary.main,
+                  color: colors.white,
                   border: 'none',
                   borderRadius: '8px',
                   cursor: 'pointer',
@@ -115,12 +116,12 @@ export function ChoiceModal(): JSX.Element {
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#0056b3';
+                  e.currentTarget.style.backgroundColor = colors.primary.dark;
                   e.currentTarget.style.transform = 'translateY(-2px)';
                   e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#007bff';
+                  e.currentTarget.style.backgroundColor = colors.primary.main;
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
                 }}
@@ -134,14 +135,14 @@ export function ChoiceModal(): JSX.Element {
           <div style={{ 
             marginTop: '20px', 
             padding: '15px',
-            backgroundColor: '#f8f9fa',
+            backgroundColor: colors.secondary.bg,
             borderRadius: '8px',
-            border: '1px solid #dee2e6'
+            border: `1px solid ${colors.secondary.border}`
           }}>
             <p style={{ 
               margin: '0',
               fontSize: '14px',
-              color: '#6c757d',
+              color: colors.secondary.main,
               textAlign: 'center'
             }}>
               Choose carefully! This decision will determine your next destination.

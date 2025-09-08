@@ -1,6 +1,7 @@
 // src/components/layout/GameLayout.tsx
 
 import React, { useState, useEffect } from 'react';
+import { colors } from '../../styles/theme';
 import { CardModal } from '../modals/CardModal';
 import { CardDetailsModal } from '../modals/CardDetailsModal';
 import { ChoiceModal } from '../modals/ChoiceModal';
@@ -293,6 +294,25 @@ export function GameLayout(): JSX.Element {
     }
   };
 
+  const handleAutomaticFunding = async () => {
+    if (!currentPlayerId) return;
+    setIsProcessingTurn(true);
+    try {
+      const result = await turnService.handleAutomaticFunding(currentPlayerId);
+      // Handle the result similar to dice roll feedback
+      if (result.effects) {
+        // Store the effects for modal display if needed
+        console.log('Automatic funding completed:', result.effects);
+      }
+    } catch (error) {
+      console.error("Error handling automatic funding:", error);
+      setFeedbackMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setFeedbackMessage(''), 3000);
+    } finally {
+      setIsProcessingTurn(false);
+    }
+  };
+
   const handleTryAgain = async () => {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
@@ -359,8 +379,8 @@ export function GameLayout(): JSX.Element {
         style={{
           gridColumn: '1',
           gridRow: gamePhase === 'PLAY' ? '2' : '1',
-          background: '#f5f5f5',
-          border: '2px solid #ddd',
+          background: colors.background.light,
+          border: `2px solid ${colors.secondary.border}`,
           borderRadius: '8px',
           padding: gamePhase === 'PLAY' ? '0' : '15px',
           overflow: 'visible'
@@ -393,6 +413,7 @@ export function GameLayout(): JSX.Element {
             onEndTurn={handleEndTurn}
             onManualEffect={handleManualEffect}
             onNegotiate={handleTryAgain}
+            onAutomaticFunding={handleAutomaticFunding}
             onStartGame={handleStartGame}
             // Legacy props for compatibility
             playerId={currentPlayerId || ''}
@@ -401,7 +422,7 @@ export function GameLayout(): JSX.Element {
         ) : (
           <>
             <h3>👤 Player Status</h3>
-            <div style={{ color: '#666' }}>
+            <div style={{ color: colors.text.secondary }}>
               Player information will be displayed here
             </div>
           </>
@@ -413,8 +434,8 @@ export function GameLayout(): JSX.Element {
         style={{
           gridColumn: '2',
           gridRow: gamePhase === 'PLAY' ? '2' : '1',
-          background: '#fff',
-          border: '3px solid #4285f4',
+          background: colors.white,
+          border: `3px solid ${colors.game.boardTitle}`,
           borderRadius: '8px',
           padding: '0',
           overflow: 'hidden',
@@ -435,21 +456,21 @@ export function GameLayout(): JSX.Element {
               padding: '20px'
             }}
           >
-            <h2 style={{ color: '#4285f4' }}>🎯 Game Board</h2>
+            <h2 style={{ color: colors.game.boardTitle }}>🎯 Game Board</h2>
             <div style={{ padding: '20px', textAlign: 'center' }}>
               <div 
                 style={{
-                  background: '#e3f2fd',
-                  border: '3px solid #2196f3',
+                  background: colors.primary.light,
+                  border: `3px solid ${colors.primary.main}`,
                   borderRadius: '12px',
                   padding: '20px',
                   marginBottom: '20px'
                 }}
               >
-                <h3 style={{ margin: '0 0 10px 0', color: '#1976d2' }}>
+                <h3 style={{ margin: '0 0 10px 0', color: colors.primary.text }}>
                   Current Space
                 </h3>
-                <p style={{ margin: '0', color: '#666' }}>
+                <p style={{ margin: '0', color: colors.text.secondary }}>
                   Game board will be displayed here
                 </p>
               </div>
@@ -463,14 +484,14 @@ export function GameLayout(): JSX.Element {
         style={{
           gridColumn: '1 / -1',
           gridRow: gamePhase === 'PLAY' ? '3' : '2',
-          background: '#f8f9fa',
-          border: '2px solid #e9ecef',
+          background: colors.secondary.bg,
+          border: `2px solid ${colors.secondary.light}`,
           borderRadius: '8px',
           padding: '15px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#6c757d',
+          color: colors.secondary.main,
           minHeight: '80px'
         }}
       >

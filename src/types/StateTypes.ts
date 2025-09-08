@@ -6,7 +6,7 @@ export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
 export interface ActionLogEntry {
   id: string;
-  type: 'space_entry' | 'space_effect' | 'time_effect' | 'dice_roll' | 'card_draw' | 'resource_change' | 'manual_action';
+  type: 'space_entry' | 'space_effect' | 'time_effect' | 'dice_roll' | 'card_draw' | 'resource_change' | 'manual_action' | 'turn_start' | 'turn_end' | 'card_play' | 'card_transfer' | 'card_discard' | 'player_movement';
   timestamp: Date;
   playerId: string;
   playerName: string;

@@ -1,6 +1,7 @@
 // src/components/setup/PlayerForm.tsx
 
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { usePlayerValidation, ValidationResult } from './usePlayerValidation';
 
 interface PlayerFormProps {
@@ -75,15 +76,15 @@ export function PlayerForm({
     if (canAddPlayer && validationResult.isValid) {
       return {
         ...baseStyles,
-        background: 'linear-gradient(45deg, #28a745, #20c997)',
-        color: 'white',
+        background: `linear-gradient(45deg, ${colors.success.main}, ${colors.game.teal})`,
+        color: colors.white,
         boxShadow: '0 4px 12px rgba(40, 167, 69, 0.3)'
       };
     } else {
       return {
         ...baseStyles,
-        background: '#6c757d',
-        color: 'white',
+        background: colors.secondary.main,
+        color: colors.white,
         cursor: 'not-allowed',
         opacity: 0.6
       };
@@ -137,7 +138,7 @@ export function PlayerForm({
           marginBottom: '8px',
           padding: '8px 12px',
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
+          color: colors.white,
           borderRadius: '6px',
           fontSize: '0.9rem',
           whiteSpace: 'nowrap',

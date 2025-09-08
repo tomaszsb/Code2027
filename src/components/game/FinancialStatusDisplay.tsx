@@ -1,6 +1,7 @@
 // src/components/game/FinancialStatusDisplay.tsx
 
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
 import { FormatUtils } from '../../utils/FormatUtils';
@@ -45,26 +46,26 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
   const financialStatus = calculateFinancialStatus();
 
   const containerStyle = {
-    background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
+    background: `linear-gradient(135deg, ${colors.secondary.bg}, ${colors.secondary.light})`,
     borderRadius: '12px',
     padding: '16px',
     marginTop: '12px',
-    border: '2px solid #dee2e6',
+    border: `2px solid ${colors.secondary.border}`,
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
   };
 
   const sectionStyle = {
     marginBottom: '16px',
     padding: '12px',
-    background: '#ffffff',
+    background: colors.white,
     borderRadius: '8px',
-    border: '1px solid #e9ecef'
+    border: `1px solid ${colors.secondary.light}`
   };
 
   const sectionTitleStyle = {
     fontSize: '0.85rem',
     fontWeight: 'bold' as const,
-    color: '#495057',
+    color: colors.secondary.dark,
     marginBottom: '8px',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px'
@@ -79,13 +80,13 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
 
   const metricLabelStyle = {
     fontSize: '0.8rem',
-    color: '#6c757d'
+    color: colors.secondary.main
   };
 
   const metricValueStyle = {
     fontSize: '0.8rem',
     fontWeight: 'bold' as const,
-    color: '#495057'
+    color: colors.secondary.dark
   };
 
   const wCards = player.availableCards?.W || [];
@@ -140,9 +141,9 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '8px 12px',
-                    backgroundColor: '#fff3cd',
+                    backgroundColor: colors.warning.bg,
                     borderRadius: '6px',
-                    border: '2px solid #ffc107',
+                    border: `2px solid ${colors.warning.main}`,
                     cursor: 'pointer',
                     marginBottom: isExpanded ? '4px' : '0'
                   }}
@@ -152,14 +153,14 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     <div style={{
                       fontSize: '0.85rem',
                       fontWeight: 'bold',
-                      color: '#856404',
+                      color: colors.warning.text,
                       marginBottom: '2px'
                     }}>
                       📋 {workType} ({cards.length} project{cards.length > 1 ? 's' : ''})
                     </div>
                     <div style={{
                       fontSize: '0.75rem',
-                      color: '#6c757d'
+                      color: colors.secondary.main
                     }}>
                       {isExpanded ? 'Click to collapse' : 'Click to expand details'}
                     </div>
@@ -167,7 +168,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                   <div style={{
                     fontSize: '0.9rem',
                     fontWeight: 'bold',
-                    color: '#856404',
+                    color: colors.warning.text,
                     marginLeft: '12px'
                   }}>
                     {FormatUtils.formatMoney(totalCost)}
@@ -179,9 +180,9 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                   <div key={cardId} style={{
                     padding: '6px 12px',
                     marginLeft: '16px',
-                    backgroundColor: '#f8f9fa',
+                    backgroundColor: colors.secondary.bg,
                     borderRadius: '4px',
-                    border: '1px solid #dee2e6',
+                    border: `1px solid ${colors.secondary.border}`,
                     marginBottom: '2px'
                   }}>
                     <div style={{
@@ -191,7 +192,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     }}>
                       <div style={{
                         fontSize: '0.8rem',
-                        color: '#495057',
+                        color: colors.secondary.dark,
                         flex: 1
                       }}>
                         {card.card_name}
@@ -199,8 +200,9 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                       <div style={{
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        color: '#856404'
+                        color: colors.warning.text
                       }}>
+
                         {FormatUtils.formatCardCost(card.cost)}
                       </div>
                     </div>
@@ -214,13 +216,13 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           <div style={{
             ...metricRowStyle,
             paddingTop: '8px',
-            borderTop: '2px solid #ffc107',
+            borderTop: `2px solid ${colors.warning.main}`,
             fontWeight: 'bold'
           }}>
             <span style={metricLabelStyle}>Total Scope Cost:</span>
             <span style={{
               ...metricValueStyle,
-              color: '#856404',
+              color: colors.warning.text,
               fontSize: '0.9rem'
             }}>
               {FormatUtils.formatMoney(financialStatus.totalScopeCost)}
@@ -255,22 +257,22 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                 alignItems: 'center',
                 padding: '8px 12px',
                 marginBottom: '6px',
-                backgroundColor: '#e8f4fd',
+                backgroundColor: colors.info.bg,
                 borderRadius: '6px',
-                border: '2px solid #007bff'
+                border: `2px solid ${colors.primary.main}`
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{
                     fontSize: '0.85rem',
                     fontWeight: 'bold',
-                    color: '#0056b3',
+                    color: colors.primary.dark,
                     marginBottom: '2px'
                   }}>
                     {card.card_name}
                   </div>
                   <div style={{
                     fontSize: '0.75rem',
-                    color: '#6c757d',
+                    color: colors.secondary.main,
                     lineHeight: '1.2',
                     marginBottom: '4px'
                   }}>
@@ -278,7 +280,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                   </div>
                   <div style={{
                     fontSize: '0.7rem',
-                    color: '#0056b3',
+                    color: colors.primary.dark,
                     fontWeight: 'bold'
                   }}>
                     📊 {getLoanFeeInfo()} • ⏱️ Processing: 1 day per $200K
@@ -287,12 +289,12 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                 <div style={{
                   fontSize: '0.8rem',
                   fontWeight: 'bold',
-                  color: '#0056b3',
+                  color: colors.primary.dark,
                   marginLeft: '12px',
                   textAlign: 'center'
                 }}>
                   <div>Bank Loan</div>
-                  <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>Low Rate</div>
+                  <div style={{ fontSize: '0.7rem', color: colors.secondary.main }}>Low Rate</div>
                 </div>
               </div>
             );
@@ -302,11 +304,11 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           <div style={{
             marginTop: '8px',
             padding: '8px 12px',
-            backgroundColor: '#f8f9fa',
+            backgroundColor: colors.secondary.bg,
             borderRadius: '6px',
-            border: '1px solid #dee2e6',
+            border: `1px solid ${colors.secondary.border}`,
             fontSize: '0.75rem',
-            color: '#6c757d'
+            color: colors.secondary.main
           }}>
             <strong>Bank Loan Terms:</strong> Quick approval, low rates (1-3%), processing time applies
             <br />
@@ -349,22 +351,22 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                 alignItems: 'center',
                 padding: '8px 12px',
                 marginBottom: '6px',
-                backgroundColor: '#f3e5f5',
+                backgroundColor: colors.purple.light,
                 borderRadius: '6px',
-                border: '2px solid #6f42c1'
+                border: `2px solid ${colors.purple.main}`
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{
                     fontSize: '0.85rem',
                     fontWeight: 'bold',
-                    color: '#4c1d5b',
+                    color: colors.purple.darker,
                     marginBottom: '2px'
                   }}>
                     {card.card_name}
                   </div>
                   <div style={{
                     fontSize: '0.75rem',
-                    color: '#6c757d',
+                    color: colors.secondary.main,
                     lineHeight: '1.2',
                     marginBottom: '4px'
                   }}>
@@ -372,7 +374,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                   </div>
                   <div style={{
                     fontSize: '0.7rem',
-                    color: '#6f42c1',
+                    color: colors.purple.main,
                     fontWeight: 'bold'
                   }}>
                     📈 {getInvestorFeeInfo(loanAmount)} • ⏱️ Processing: 30-70 days
@@ -381,12 +383,12 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                 <div style={{
                   fontSize: '0.8rem',
                   fontWeight: 'bold',
-                  color: '#6f42c1',
+                  color: colors.purple.main,
                   marginLeft: '12px',
                   textAlign: 'center'
                 }}>
                   <div>Investor</div>
-                  <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>High Rate</div>
+                  <div style={{ fontSize: '0.7rem', color: colors.secondary.main }}>High Rate</div>
                 </div>
               </div>
             );
@@ -396,11 +398,11 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           <div style={{
             marginTop: '8px',
             padding: '8px 12px',
-            backgroundColor: '#f8f9fa',
+            backgroundColor: colors.secondary.bg,
             borderRadius: '6px',
-            border: '1px solid #dee2e6',
+            border: `1px solid ${colors.secondary.border}`,
             fontSize: '0.75rem',
-            color: '#6c757d'
+            color: colors.secondary.main
           }}>
             <strong>Investor Loan Terms:</strong> Higher amounts, 5% fixed rate, longer processing times
             <br />
@@ -428,7 +430,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           </span>
           <span style={{
             ...metricValueStyle,
-            color: financialStatus.isDeficit ? '#dc3545' : '#28a745'
+            color: financialStatus.isDeficit ? colors.danger.main : colors.success.main
           }}>
             {FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}
           </span>
@@ -439,13 +441,13 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           marginTop: '8px',
           padding: '8px 12px',
           borderRadius: '6px',
-          backgroundColor: financialStatus.isDeficit ? '#f8d7da' : '#d4edda',
-          border: `2px solid ${financialStatus.isDeficit ? '#dc3545' : '#28a745'}`
+          backgroundColor: financialStatus.isDeficit ? colors.danger.bg : colors.success.light,
+          border: `2px solid ${financialStatus.isDeficit ? colors.danger.main : colors.success.main}`
         }}>
           <div style={{
             fontSize: '0.8rem',
             fontWeight: 'bold',
-            color: financialStatus.isDeficit ? '#721c24' : '#155724',
+            color: financialStatus.isDeficit ? colors.danger.darker : colors.success.darker,
             textAlign: 'center'
           }}>
             {financialStatus.isDeficit ? '⚠️ Insufficient Funding' : '✅ Fully Funded'}

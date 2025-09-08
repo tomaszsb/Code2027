@@ -1,6 +1,7 @@
 // src/components/game/CardPortfolioDashboard.tsx
 
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
 
@@ -76,26 +77,26 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
   };
 
   const containerStyle = {
-    background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
+    background: `linear-gradient(135deg, ${colors.secondary.bg}, ${colors.secondary.light})`,
     borderRadius: '12px',
     padding: '16px',
     marginTop: '12px',
-    border: '2px solid #dee2e6',
+    border: `2px solid ${colors.secondary.border}`,
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
   };
 
   const sectionStyle = {
     marginBottom: '16px',
     padding: '12px',
-    background: '#ffffff',
+    background: colors.white,
     borderRadius: '8px',
-    border: '1px solid #e9ecef'
+    border: `1px solid ${colors.secondary.light}`
   };
 
   const sectionTitleStyle = {
     fontSize: '0.85rem',
     fontWeight: 'bold' as const,
-    color: '#495057',
+    color: colors.secondary.dark,
     marginBottom: '8px',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px'
@@ -103,7 +104,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
 
   const metricLabelStyle = {
     fontSize: '0.8rem',
-    color: '#6c757d'
+    color: colors.secondary.main
   };
 
 
@@ -120,11 +121,11 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
   };
 
   const cardTypeColors = {
-    W: '#dc3545', // Red for Work cards
-    B: '#007bff', // Blue for Bank Loan cards
-    I: '#28a745', // Green for Investor Loan cards
-    L: '#ffc107', // Yellow for Life Events cards
-    E: '#6f42c1'  // Purple for Expeditor cards
+    W: colors.danger.main, // Red for Work cards
+    B: colors.primary.main, // Blue for Bank Loan cards
+    I: colors.success.main, // Green for Investor Loan cards
+    L: colors.warning.main, // Yellow for Life Events cards
+    E: colors.purple.main  // Purple for Expeditor cards
   };
 
   return (
@@ -139,9 +140,9 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           fontWeight: 'bold',
           textAlign: 'center',
           border: '2px solid',
-          backgroundColor: feedbackType === 'success' ? '#d4edda' : '#f8d7da',
-          borderColor: feedbackType === 'success' ? '#28a745' : '#dc3545',
-          color: feedbackType === 'success' ? '#155724' : '#721c24',
+          backgroundColor: feedbackType === 'success' ? colors.success.light : colors.danger.bg,
+          borderColor: feedbackType === 'success' ? colors.success.main : colors.danger.main,
+          color: feedbackType === 'success' ? colors.success.darker : colors.danger.darker,
           animation: 'fadeIn 0.3s ease-in'
         }}>
           {feedbackType === 'success' ? '✅' : '❌'} {feedbackMessage}
@@ -159,7 +160,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           <div style={{
             fontSize: '0.75rem',
             fontWeight: 'bold' as const,
-            color: '#495057',
+            color: colors.secondary.dark,
             marginBottom: '6px',
             textTransform: 'uppercase' as const
           }}>
@@ -170,12 +171,12 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           {((player.availableCards?.W?.length || 0) > 0 || (player.availableCards?.B?.length || 0) > 0 || (player.availableCards?.I?.length || 0) > 0) && (
             <div style={{
               fontSize: '0.7rem',
-              color: '#6c757d',
-              backgroundColor: '#f8f9fa',
+              color: colors.secondary.main,
+              backgroundColor: colors.secondary.bg,
               padding: '6px 8px',
               borderRadius: '4px',
               marginBottom: '8px',
-              border: '1px solid #dee2e6'
+              border: `1px solid ${colors.secondary.border}`
             }}>
               💡 Work scope (W), Bank loans (B), and Investor loans (I) are shown in Financial Status section
             </div>
@@ -215,8 +216,8 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
-                            background: '#f8f9fa',
-                            border: '1px solid #dee2e6',
+                            background: colors.secondary.bg,
+                            border: `1px solid ${colors.secondary.border}`,
                             borderRadius: '4px',
                             padding: '4px 8px',
                             fontSize: '0.7rem'
@@ -242,7 +243,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                                 position: 'absolute',
                                 top: '-4px',
                                 right: '-4px',
-                                backgroundColor: '#28a745',
+                                backgroundColor: colors.success.main,
                                 color: 'white',
                                 borderRadius: '50%',
                                 width: '12px',
@@ -264,8 +265,8 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                               padding: '2px 6px',
                               fontSize: '0.65rem',
                               fontWeight: 'bold',
-                              color: isCurrentPlayer ? '#fff' : '#6c757d',
-                              backgroundColor: isCurrentPlayer ? '#28a745' : '#e9ecef',
+                              color: isCurrentPlayer ? colors.white : colors.secondary.main,
+                              backgroundColor: isCurrentPlayer ? colors.success.main : colors.secondary.light,
                               border: 'none',
                               borderRadius: '3px',
                               cursor: isCurrentPlayer ? 'pointer' : 'not-allowed',
@@ -273,12 +274,12 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                             }}
                             onMouseEnter={(e) => {
                               if (isCurrentPlayer) {
-                                e.currentTarget.style.backgroundColor = '#218838';
+                                e.currentTarget.style.backgroundColor = colors.success.dark;
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (isCurrentPlayer) {
-                                e.currentTarget.style.backgroundColor = '#28a745';
+                                e.currentTarget.style.backgroundColor = colors.success.main;
                               }
                             }}
                             title={isCurrentPlayer ? `Play: ${cardDisplayName}` : 'Wait for your turn'}
@@ -296,7 +297,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
             {Object.values(player.availableCards || {}).every(cards => !cards || cards.length === 0) && (
               <div style={{
                 textAlign: 'center',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 fontSize: '0.75rem',
                 fontStyle: 'italic',
                 padding: '12px'
@@ -312,7 +313,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           <div style={{
             fontSize: '0.75rem',
             fontWeight: 'bold' as const,
-            color: '#495057',
+            color: colors.secondary.dark,
             marginBottom: '6px',
             textTransform: 'uppercase' as const
           }}>
@@ -341,8 +342,8 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: '#f8f9fa',
-                      border: '2px solid #ffc107',
+                      background: colors.secondary.bg,
+                      border: `2px solid ${colors.warning.main}`,
                       borderRadius: '6px',
                       padding: '8px 12px',
                       fontSize: '0.7rem'
@@ -352,7 +353,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                       <span 
                         style={{
                           ...cardTypeStyle,
-                          backgroundColor: cardType ? cardTypeColors[cardType] : '#6c757d',
+                          backgroundColor: cardType ? cardTypeColors[cardType] : colors.secondary.main,
                           minWidth: 'auto',
                           padding: '2px 6px',
                           margin: 0,
@@ -367,7 +368,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                       <span 
                         style={{
                           fontWeight: 'bold',
-                          color: '#495057',
+                          color: colors.secondary.dark,
                           maxWidth: '200px',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -387,11 +388,11 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                     }}>
                       <span style={{
                         fontSize: '0.65rem',
-                        color: remainingTurns > 1 ? '#28a745' : remainingTurns === 1 ? '#ffc107' : '#dc3545',
+                        color: remainingTurns > 1 ? colors.success.main : remainingTurns === 1 ? colors.warning.main : colors.danger.main,
                         fontWeight: 'bold',
                         padding: '2px 6px',
                         borderRadius: '3px',
-                        backgroundColor: remainingTurns > 1 ? '#d4edda' : remainingTurns === 1 ? '#fff3cd' : '#f8d7da'
+                        backgroundColor: remainingTurns > 1 ? colors.success.light : remainingTurns === 1 ? colors.warning.bg : colors.danger.bg
                       }}>
                         ⏳ {remainingTurns} turn{remainingTurns !== 1 ? 's' : ''} left
                       </span>
@@ -402,7 +403,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
             ) : (
               <div style={{
                 textAlign: 'center',
-                color: '#6c757d',
+                color: colors.secondary.main,
                 fontSize: '0.75rem',
                 fontStyle: 'italic',
                 padding: '12px'
@@ -418,7 +419,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
         <div style={{
           ...metricLabelStyle,
           textAlign: 'center' as const,
-          borderTop: '1px solid #dee2e6',
+          borderTop: `1px solid ${colors.secondary.border}`,
           paddingTop: '8px',
           marginTop: '8px'
         }}>

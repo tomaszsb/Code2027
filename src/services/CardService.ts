@@ -114,20 +114,18 @@ export class CardService implements ICardService {
     console.log(`🎴 Card Draw [${playerId}]: ${reasonInfo} (Source: ${sourceInfo})`);
     console.log(`   Cards: ${newCardIds.join(', ')}`);
 
-    // Log to action log if available
-    if (typeof window !== 'undefined' && typeof (window as any)[`addActionToLog_${playerId}`] === 'function') {
-      (window as any)[`addActionToLog_${playerId}`]({
-        type: 'card_draw',
-        playerId: playerId,
-        playerName: player.name,
-        description: `Drew ${count} ${cardType} card${count > 1 ? 's' : ''}`,
-        details: {
-          cardType: cardType,
-          cardCount: count,
-          cards: newCardIds
-        }
-      });
-    }
+    // Log to action history
+    this.stateService.logToActionHistory({
+      type: 'card_draw',
+      playerId: playerId,
+      playerName: player.name,
+      description: `Drew ${count} ${cardType} card${count > 1 ? 's' : ''}`,
+      details: {
+        cardType: cardType,
+        cardCount: count,
+        cards: newCardIds
+      }
+    });
 
     return newCardIds;
   }
@@ -388,6 +386,24 @@ export class CardService implements ICardService {
       }
       
       console.log(`Successfully played card [${cardId}] for player [${playerId}]`);
+      
+      // Log card play to action history
+      const player = this.stateService.getPlayer(playerId);
+      if (player) {
+        this.stateService.logToActionHistory({
+          type: 'card_play',
+          playerId: playerId,
+          playerName: player.name,
+          description: `Played ${card.card_name || cardId}`,
+          details: {
+            cardId: cardId,
+            cardName: card.card_name,
+            cardType: card.card_type,
+            cost: card.cost || 0
+          }
+        });
+      }
+      
       return this.stateService.getGameState();
       
     } catch (error) {
@@ -539,6 +555,25 @@ export class CardService implements ICardService {
       });
       
       console.log(`Successfully transferred card [${cardId}] from ${sourcePlayer.name} to ${targetPlayer.name}`);
+      
+      // Log card transfer to action history
+      const card = this.dataService.getCardById(cardId);
+      this.stateService.logToActionHistory({
+        type: 'card_transfer',
+        playerId: sourcePlayerId,
+        playerName: sourcePlayer.name,
+        description: `Transferred ${card?.card_name || cardId} to ${targetPlayer.name}`,
+        details: {
+          cardId: cardId,
+          cardName: card?.card_name,
+          cardType: cardType,
+          sourcePlayer: sourcePlayer.name,
+          targetPlayer: targetPlayer.name,
+          sourcePlayerId: sourcePlayerId,
+          targetPlayerId: targetPlayerId
+        }
+      });
+      
       return this.stateService.getGameState();
       
     } catch (error) {
@@ -1164,6 +1199,20 @@ export class CardService implements ICardService {
       console.log(`🗑️ Cards Discarded [${playerId}]: ${cardSummary} (Source: ${sourceInfo})`);
       console.log(`   Reason: ${reasonInfo}`);
       console.log(`   Card IDs: ${cardIds.join(', ')}`);
+
+      // Log card discard to action history
+      this.stateService.logToActionHistory({
+        type: 'card_discard',
+        playerId: playerId,
+        playerName: player.name,
+        description: `Discarded ${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`,
+        details: {
+          cardIds: cardIds,
+          cardsByType: cardsByType,
+          source: sourceInfo,
+          reason: reasonInfo
+        }
+      });
 
       return true;
 

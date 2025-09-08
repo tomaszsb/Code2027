@@ -1,6 +1,7 @@
 // src/components/modals/CardContent.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { Card } from '../../types/DataTypes';
 
 interface CardContentProps {
@@ -21,7 +22,7 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
         padding: '40px',
         textAlign: 'center',
         color: 'white',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.purple.main} 100%)`,
         minHeight: '400px',
         display: 'flex',
         flexDirection: 'column',
@@ -60,7 +61,7 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
       <div style={{
         padding: '40px',
         textAlign: 'center',
-        color: '#6c757d',
+        color: colors.secondary.main,
         minHeight: '300px',
         display: 'flex',
         flexDirection: 'column',
@@ -92,17 +93,17 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
 
   // Get card type colors
   const getCardTypeColor = (cardType: string) => {
-    const colors = {
-      'W': { bg: '#e3f2fd', border: '#2196f3', text: '#1976d2' }, // Blue for Work
-      'B': { bg: '#e8f5e8', border: '#4caf50', text: '#388e3c' }, // Green for Budget
-      'E': { bg: '#fff3e0', border: '#ff9800', text: '#f57c00' }, // Orange for Expeditor
-      'L': { bg: '#fce4ec', border: '#e91e63', text: '#c2185b' }, // Pink for Life Events
-      'I': { bg: '#f3e5f5', border: '#9c27b0', text: '#7b1fa2' }  // Purple for Innovation
+    const cardTypeColors = {
+      'W': { bg: colors.primary.light, border: colors.primary.main, text: colors.primary.text }, // Blue for Work
+      'B': { bg: colors.game.cardBg.B, border: colors.success.main, text: colors.success.dark }, // Green for Budget
+      'E': { bg: colors.game.cardBg.E, border: colors.warning.main, text: colors.warning.dark }, // Orange for Expeditor
+      'L': { bg: colors.game.cardBg.L, border: colors.danger.main, text: colors.danger.dark }, // Pink for Life Events
+      'I': { bg: colors.game.cardBg.I, border: colors.purple.main, text: colors.purple.dark }  // Purple for Innovation
     };
-    return colors[cardType as keyof typeof colors] || { 
-      bg: '#f8f9fa', 
-      border: '#dee2e6', 
-      text: '#495057' 
+    return cardTypeColors[cardType as keyof typeof cardTypeColors] || { 
+      bg: colors.secondary.bg, 
+      border: colors.secondary.border, 
+      text: colors.secondary.dark 
     };
   };
 
@@ -146,7 +147,7 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
         
         <p style={{
           margin: 0,
-          color: '#495057',
+          color: colors.secondary.dark,
           fontSize: '1rem',
           lineHeight: '1.5'
         }}>
@@ -162,21 +163,21 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
         {/* Cost */}
         {card.cost !== undefined && (
           <div style={{
-            background: '#fff5f5',
-            border: '2px solid #feb2b2',
+            background: colors.special.cardEffects.negative,
+            border: `2px solid ${colors.game.lightRed}`,
             borderRadius: '8px',
             padding: '12px 16px'
           }}>
             <div style={{
               fontSize: '14px',
               fontWeight: 'bold',
-              color: '#c53030',
+              color: colors.text.danger,
               marginBottom: '4px'
             }}>
               💰 Cost
             </div>
             <div style={{
-              color: '#2d3748',
+              color: colors.text.dark,
               fontSize: '16px'
             }}>
               {card.cost} resources
@@ -187,21 +188,21 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
         {/* Phase Restriction */}
         {card.phase_restriction && (
           <div style={{
-            background: '#f0f9ff',
-            border: '2px solid #7dd3fc',
+            background: colors.special.cardEffects.neutral,
+            border: `2px solid ${colors.game.lightBlue}`,
             borderRadius: '8px',
             padding: '12px 16px'
           }}>
             <div style={{
               fontSize: '14px',
               fontWeight: 'bold',
-              color: '#0369a1',
+              color: colors.text.info,
               marginBottom: '4px'
             }}>
               🎯 Phase Restriction
             </div>
             <div style={{
-              color: '#2d3748',
+              color: colors.text.dark,
               fontSize: '16px'
             }}>
               {card.phase_restriction}
@@ -212,21 +213,21 @@ export function CardContent({ card, isFlipped = false }: CardContentProps): JSX.
         {/* Effects on Play */}
         {card.effects_on_play && (
           <div style={{
-            background: '#f0fff4',
-            border: '2px solid #68d391',
+            background: colors.special.cardEffects.positive,
+            border: `2px solid ${colors.game.lightGreen}`,
             borderRadius: '8px',
             padding: '12px 16px'
           }}>
             <div style={{
               fontSize: '14px',
               fontWeight: 'bold',
-              color: '#276749',
+              color: colors.text.successDark,
               marginBottom: '4px'
             }}>
               ⚡ Effects on Play
             </div>
             <div style={{
-              color: '#2d3748',
+              color: colors.text.dark,
               fontSize: '16px',
               lineHeight: '1.5'
             }}>

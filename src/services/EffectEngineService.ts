@@ -24,7 +24,8 @@ import {
   isCardActivationEffect,
   isEffectGroupTargetedEffect,
   isConditionalEffect,
-  isChoiceOfEffectsEffect
+  isChoiceOfEffectsEffect,
+  isPlayCardEffect
 } from '../types/EffectTypes';
 
 /**
@@ -241,6 +242,25 @@ export class EffectEngineService implements IEffectEngineService {
             try {
               const drawnCards = this.cardService.drawCards(payload.playerId, payload.cardType, payload.count, source, reason);
               console.log(`    ✅ Drew ${drawnCards.length} card(s): ${drawnCards.join(', ')}`);
+              
+              // Special handling for OWNER-FUND-INITIATION: automatically play drawn funding cards
+              if (context.metadata?.spaceName === 'OWNER-FUND-INITIATION' && drawnCards.length > 0) {
+                console.log(`    ✅ OWNER-FUND-INITIATION: Automatically playing drawn funding card.`);
+                const playCardEffects = drawnCards.map(cardId => ({
+                  effectType: 'PLAY_CARD' as const,
+                  payload: {
+                    playerId: payload.playerId,
+                    cardId: cardId,
+                    source: `auto_play:OWNER-FUND-INITIATION`
+                  }
+                }));
+
+                return {
+                  success: true,
+                  effectType: effect.effectType,
+                  resultingEffects: playCardEffects
+                };
+              }
               
               // Log to action log if available
               const player = this.stateService.getPlayer(payload.playerId);
@@ -642,6 +662,21 @@ export class EffectEngineService implements IEffectEngineService {
                   error: `Failed to process conditional effects: ${error instanceof Error ? error.message : 'Unknown error'}`
                 };
               }
+            }
+          }
+          break;
+
+        case 'PLAY_CARD':
+          if (isPlayCardEffect(effect)) {
+            const { payload } = effect;
+            try {
+              console.log(`🎴 EFFECT_ENGINE: Playing card ${payload.cardId} for player ${payload.playerId}`);
+              await this.cardService.playCard(payload.playerId, payload.cardId);
+              success = true;
+            } catch (error) {
+              console.error(`❌ Error playing card ${payload.cardId} from effect:`, error);
+              // We will not return an error here to avoid halting the effect chain
+              success = false;
             }
           }
           break;

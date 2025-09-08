@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors, theme } from '../../styles/theme';
 import { Space, Player } from '../../types/DataTypes';
 
 interface GameSpaceProps {
@@ -45,19 +46,19 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
   return (
     <div
       style={{
-        border: playersOnSpace.length > 0 ? '3px solid #4caf50' : '2px solid #ccc',
+        border: playersOnSpace.length > 0 ? `3px solid ${colors.success.main}` : `2px solid ${colors.secondary.border}`,
         borderRadius: '8px',
         padding: '12px',
         margin: '4px',
-        background: playersOnSpace.length > 0 ? '#f1f8e9' : '#fff',
+        background: playersOnSpace.length > 0 ? colors.success.light : colors.white,
         minHeight: '100px',
         minWidth: '120px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         boxShadow: playersOnSpace.length > 0 
-          ? '0 4px 12px rgba(76, 175, 80, 0.3)' 
-          : '0 2px 4px rgba(0,0,0,0.1)',
+          ? `0 4px 12px ${colors.success.main}30` 
+          : theme.shadows.sm,
         position: 'relative',
         transition: 'all 0.3s ease-in-out',
         animation: playersOnSpace.length > 0 ? 'none' : undefined
@@ -68,7 +69,7 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
         style={{
           fontWeight: 'bold',
           fontSize: '14px',
-          color: '#333',
+          color: colors.text.primary,
           textAlign: 'center',
           marginBottom: '8px',
           lineHeight: '1.2'
@@ -96,15 +97,15 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: player.color || '#007bff',
+              background: player.color || colors.primary.main,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
+              color: colors.white,
               fontSize: '16px',
               fontWeight: 'bold',
-              border: '2px solid #fff',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              border: `2px solid ${colors.white}`,
+              boxShadow: theme.shadows.sm,
               // Animation properties
               animation: 'playerTokenAppear 0.5s ease-out',
               transition: 'all 0.3s ease-in-out',
@@ -115,12 +116,12 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.1)';
               e.currentTarget.style.zIndex = '10';
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
+              e.currentTarget.style.boxShadow = theme.shadows.md;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
               e.currentTarget.style.zIndex = '1';
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+              e.currentTarget.style.boxShadow = theme.shadows.sm;
             }}
           >
             {player.avatar || player.name.charAt(0).toUpperCase()}

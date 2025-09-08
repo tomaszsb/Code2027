@@ -27,10 +27,11 @@ describe('PlayerActionService Fast', () => {
   } as any;
   
   const mockStateService = {
-    getGameState: jest.fn(),
+    getGameState: jest.fn(() => ({ currentPlayerId: 'player1', turn: 1 })),
     getPlayer: jest.fn(),
     updatePlayer: jest.fn(),
-    setPlayerHasMoved: jest.fn()
+    setPlayerHasMoved: jest.fn(),
+    logToActionHistory: jest.fn()
   } as any;
   
   const mockGameRulesService = {

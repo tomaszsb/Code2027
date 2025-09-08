@@ -1,6 +1,7 @@
 // src/components/game/PlayerStatusPanel.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { PlayerStatusItem } from './PlayerStatusItem';
 import { Player } from '../../types/StateTypes';
 
@@ -33,6 +34,7 @@ interface PlayerStatusPanelProps {
   onEndTurn: () => Promise<void>;
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
+  onAutomaticFunding?: () => Promise<void>;
   onStartGame: () => void;
   playerId: string;
   playerName: string;
@@ -68,6 +70,7 @@ export function PlayerStatusPanel({
   onEndTurn,
   onManualEffect,
   onNegotiate,
+  onAutomaticFunding,
   onStartGame,
   playerId,
   playerName
@@ -75,7 +78,7 @@ export function PlayerStatusPanel({
   // No service dependencies - all data comes from props
 
   const containerStyle = {
-    background: '#f8f9fa',
+    background: colors.secondary.bg,
     borderRadius: '8px',
     padding: '8px',
     height: '100%',
@@ -89,19 +92,19 @@ export function PlayerStatusPanel({
     gap: '8px',
     marginBottom: '16px',
     paddingBottom: '12px',
-    borderBottom: '2px solid #e9ecef'
+    borderBottom: `2px solid ${colors.secondary.light}`
   };
 
   const titleStyle = {
     fontSize: '1.4rem',
     fontWeight: 'bold' as const,
-    color: '#2c5530',
+    color: colors.success.text,
     margin: 0
   };
 
   const playerCountStyle = {
-    background: '#e3f2fd',
-    color: '#1976d2',
+    background: colors.primary.light,
+    color: colors.primary.text,
     padding: '4px 8px',
     borderRadius: '12px',
     fontSize: '0.8rem',
@@ -110,7 +113,7 @@ export function PlayerStatusPanel({
 
   const emptyStateStyle = {
     textAlign: 'center' as const,
-    color: '#6c757d',
+    color: colors.secondary.main,
     fontSize: '1rem',
     padding: '40px 20px'
   };
@@ -161,6 +164,7 @@ export function PlayerStatusPanel({
               onEndTurn={onEndTurn}
               onManualEffect={onManualEffect}
               onNegotiate={onNegotiate}
+              onAutomaticFunding={onAutomaticFunding}
               onStartGame={onStartGame}
               playerId={playerId}
               playerName={playerName}

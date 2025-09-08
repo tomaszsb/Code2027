@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { colors } from '../../styles/theme';
 import { Player, CardType } from '../../types/DataTypes';
 import { Card } from '../../types/DataTypes';
 import { useGameContext } from '../../context/GameContext';
@@ -90,12 +91,12 @@ export function CardReplacementModal({
 
   const getCardTypeColor = (type: CardType): string => {
     switch (type) {
-      case 'W': return '#8b5cf6';
-      case 'B': return '#10b981';
-      case 'E': return '#f59e0b';
-      case 'L': return '#ef4444';
-      case 'I': return '#3b82f6';
-      default: return '#6b7280';
+      case 'W': return colors.purple.main;
+      case 'B': return colors.success.main;
+      case 'E': return colors.warning.main;
+      case 'L': return colors.danger.main;
+      case 'I': return colors.primary.main;
+      default: return colors.secondary.main;
     }
   };
 
@@ -127,8 +128,8 @@ export function CardReplacementModal({
 
   const headerStyle: React.CSSProperties = {
     padding: '24px 24px 16px',
-    borderBottom: '2px solid #f1f5f9',
-    backgroundColor: '#f8fafc'
+    borderBottom: `2px solid ${colors.neutral.gray[100]}`,
+    backgroundColor: colors.neutral.gray[50]
   };
 
   const bodyStyle: React.CSSProperties = {
@@ -139,8 +140,8 @@ export function CardReplacementModal({
 
   const footerStyle: React.CSSProperties = {
     padding: '16px 24px 24px',
-    borderTop: '1px solid #e2e8f0',
-    backgroundColor: '#f8fafc',
+    borderTop: `1px solid ${colors.secondary.light}`,
+    backgroundColor: colors.neutral.gray[50],
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -154,18 +155,18 @@ export function CardReplacementModal({
   };
 
   const cardItemStyle: React.CSSProperties = {
-    border: '2px solid #e2e8f0',
+    border: `2px solid ${colors.secondary.light}`,
     borderRadius: '12px',
     padding: '16px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    backgroundColor: '#fff'
+    backgroundColor: colors.white
   };
 
   const selectedCardStyle: React.CSSProperties = {
     ...cardItemStyle,
-    borderColor: '#3b82f6',
-    backgroundColor: '#eff6ff',
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.lighter,
     boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
   };
 
@@ -182,20 +183,20 @@ export function CardReplacementModal({
 
   const primaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary.main,
     color: 'white'
   };
 
   const secondaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.secondary.main,
     color: 'white'
   };
 
   const disabledButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#d1d5db',
-    color: '#9ca3af',
+    backgroundColor: colors.special.button.disabledBg,
+    color: colors.special.button.disabledText,
     cursor: 'not-allowed'
   };
 
@@ -207,14 +208,14 @@ export function CardReplacementModal({
           <h2 style={{
             fontSize: '24px',
             fontWeight: 'bold',
-            color: '#1e293b',
+            color: colors.text.darkSlate,
             margin: 0,
             marginBottom: '8px'
           }}>
             Replace {getCardTypeName(cardType)} Cards
           </h2>
           <p style={{
-            color: '#64748b',
+            color: colors.text.slate[500],
             margin: 0,
             fontSize: '16px'
           }}>
@@ -228,7 +229,7 @@ export function CardReplacementModal({
             <div style={{
               textAlign: 'center',
               padding: '40px',
-              color: '#64748b'
+              color: colors.text.slate[500]
             }}>
               <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>🃏</span>
               <p style={{ fontSize: '18px', margin: 0 }}>
@@ -249,14 +250,14 @@ export function CardReplacementModal({
                       onClick={() => handleCardToggle(cardId)}
                       onMouseEnter={(e) => {
                         if (!isSelected) {
-                          e.currentTarget.style.borderColor = '#cbd5e1';
-                          e.currentTarget.style.backgroundColor = '#f8fafc';
+                          e.currentTarget.style.borderColor = colors.border.slate;
+                          e.currentTarget.style.backgroundColor = colors.neutral.gray[50];
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isSelected) {
-                          e.currentTarget.style.borderColor = '#e2e8f0';
-                          e.currentTarget.style.backgroundColor = '#fff';
+                          e.currentTarget.style.borderColor = colors.secondary.light;
+                          e.currentTarget.style.backgroundColor = colors.white;
                         }
                       }}
                     >
@@ -276,7 +277,7 @@ export function CardReplacementModal({
                           <h4 style={{
                             fontSize: '16px',
                             fontWeight: 'bold',
-                            color: '#1e293b',
+                            color: colors.text.darkSlate,
                             margin: 0,
                             marginBottom: '4px'
                           }}>
@@ -284,7 +285,7 @@ export function CardReplacementModal({
                           </h4>
                           <div style={{
                             fontSize: '12px',
-                            color: '#64748b',
+                            color: colors.text.slate[500],
                             marginBottom: '8px'
                           }}>
                             Cost: {card ? FormatUtils.formatCardCost(card.cost || 0) : 'Unknown'}
@@ -292,7 +293,7 @@ export function CardReplacementModal({
                         </div>
                         {isSelected && (
                           <div style={{
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: colors.primary.main,
                             color: 'white',
                             borderRadius: '50%',
                             width: '24px',
@@ -311,7 +312,7 @@ export function CardReplacementModal({
                       {card?.description && (
                         <p style={{
                           fontSize: '14px',
-                          color: '#475569',
+                          color: colors.text.slate[600],
                           margin: 0,
                           lineHeight: '1.4'
                         }}>
@@ -329,14 +330,14 @@ export function CardReplacementModal({
               <div style={{
                 marginTop: '24px',
                 padding: '20px',
-                backgroundColor: '#f1f5f9',
+                backgroundColor: colors.neutral.gray[100],
                 borderRadius: '12px',
-                border: '2px solid #e2e8f0'
+                border: `2px solid ${colors.secondary.light}`
               }}>
                 <h4 style={{
                   fontSize: '16px',
                   fontWeight: 'bold',
-                  color: '#1e293b',
+                  color: colors.text.darkSlate,
                   margin: 0,
                   marginBottom: '12px'
                 }}>
@@ -354,19 +355,19 @@ export function CardReplacementModal({
                       onClick={() => setReplacementCardType(type)}
                       style={{
                         ...buttonStyle,
-                        backgroundColor: replacementCardType === type ? getCardTypeColor(type) : '#fff',
-                        color: replacementCardType === type ? '#fff' : '#374151',
+                        backgroundColor: replacementCardType === type ? getCardTypeColor(type) : colors.white,
+                        color: replacementCardType === type ? colors.white : colors.text.mediumGray,
                         border: `2px solid ${getCardTypeColor(type)}`,
                         minWidth: '80px'
                       }}
                       onMouseEnter={(e) => {
                         if (replacementCardType !== type) {
-                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          e.currentTarget.style.backgroundColor = colors.special.button.hoverBg;
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (replacementCardType !== type) {
-                          e.currentTarget.style.backgroundColor = '#fff';
+                          e.currentTarget.style.backgroundColor = colors.white;
                         }
                       }}
                     >
@@ -381,7 +382,7 @@ export function CardReplacementModal({
 
         {/* Footer */}
         <div style={footerStyle}>
-          <div style={{ fontSize: '14px', color: '#64748b' }}>
+          <div style={{ fontSize: '14px', color: colors.text.slate[500] }}>
             {selectedCardIds.length} of {maxReplacements} cards selected
           </div>
           

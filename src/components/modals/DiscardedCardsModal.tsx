@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
 
@@ -18,11 +19,11 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
   if (!isVisible) return null;
 
   const cardTypeColors = {
-    W: '#dc3545', // Red for Work cards
-    B: '#007bff', // Blue for Bank Loan cards
-    I: '#28a745', // Green for Investor Loan cards
-    L: '#ffc107', // Yellow for Life Events cards
-    E: '#6f42c1'  // Purple for Expeditor cards
+    W: colors.danger.main, // Red for Work cards
+    B: colors.primary.main, // Blue for Bank Loan cards
+    I: colors.success.main, // Green for Investor Loan cards
+    L: colors.warning.main, // Yellow for Life Events cards
+    E: colors.purple.main  // Purple for Expeditor cards
   };
 
   const modalOverlayStyle = {
@@ -39,13 +40,13 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
   };
 
   const modalContentStyle = {
-    background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
+    background: `linear-gradient(135deg, ${colors.secondary.bg}, ${colors.secondary.light})`,
     borderRadius: '16px',
     padding: '24px',
     maxWidth: '600px',
     maxHeight: '80vh',
     overflowY: 'auto' as const,
-    border: '3px solid #ffc107',
+    border: `3px solid ${colors.warning.main}`,
     boxShadow: '0 8px 32px rgba(255, 193, 7, 0.3)',
     position: 'relative' as const
   };
@@ -55,14 +56,14 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: '20px',
-    borderBottom: '2px solid #dee2e6',
+    borderBottom: `2px solid ${colors.secondary.border}`,
     paddingBottom: '12px'
   };
 
   const titleStyle = {
     fontSize: '1.2rem',
     fontWeight: 'bold' as const,
-    color: '#495057',
+    color: colors.secondary.dark,
     display: 'flex',
     alignItems: 'center',
     gap: '8px'
@@ -73,18 +74,18 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
     border: 'none',
     fontSize: '1.5rem',
     cursor: 'pointer',
-    color: '#6c757d',
+    color: colors.secondary.main,
     padding: '4px',
     borderRadius: '4px',
     transition: 'all 0.2s ease'
   };
 
   const sectionStyle = {
-    background: '#ffffff',
+    background: colors.white,
     borderRadius: '8px',
     padding: '16px',
     marginBottom: '16px',
-    border: '1px solid #e9ecef'
+    border: `1px solid ${colors.secondary.light}`
   };
 
   return (
@@ -99,12 +100,12 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
             onClick={onClose}
             style={closeButtonStyle}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f8f9fa';
-              e.currentTarget.style.color = '#495057';
+              e.currentTarget.style.backgroundColor = colors.secondary.bg;
+              e.currentTarget.style.color = colors.secondary.dark;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#6c757d';
+              e.currentTarget.style.color = colors.secondary.main;
             }}
             title="Close"
           >
@@ -143,8 +144,8 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          background: '#f8f9fa',
-                          border: '2px solid #dee2e6',
+                          background: colors.secondary.bg,
+                          border: `2px solid ${colors.secondary.border}`,
                           borderRadius: '8px',
                           padding: '8px 12px',
                           fontSize: '0.8rem',
@@ -181,7 +182,7 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
                         <div style={{ flex: 1 }}>
                           <div style={{
                             fontWeight: 'bold',
-                            color: '#495057',
+                            color: colors.secondary.dark,
                             marginBottom: '2px',
                             fontSize: '0.85rem'
                           }}>
@@ -189,7 +190,7 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
                           </div>
                           {cardData?.description && (
                             <div style={{
-                              color: '#6c757d',
+                              color: colors.secondary.main,
                               fontSize: '0.75rem',
                               lineHeight: '1.2'
                             }}>
@@ -211,7 +212,7 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
           {Object.values(player.discardedCards || {}).every(cards => !cards || cards.length === 0) && (
             <div style={{
               textAlign: 'center',
-              color: '#6c757d',
+              color: colors.secondary.main,
               fontSize: '1rem',
               fontStyle: 'italic',
               padding: '24px'

@@ -1,6 +1,7 @@
 // src/components/modals/CardActions.tsx
 
 import React from 'react';
+import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 
 interface CardActionsProps {
@@ -88,8 +89,8 @@ export function CardActions({
    */
   const primaryButtonStyle: React.CSSProperties = {
     ...buttonBaseStyle,
-    backgroundColor: canPlay ? '#007bff' : '#6c757d',
-    color: 'white',
+    backgroundColor: canPlay ? colors.primary.main : colors.secondary.main,
+    color: colors.white,
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   };
 
@@ -98,8 +99,8 @@ export function CardActions({
    */
   const secondaryButtonStyle: React.CSSProperties = {
     ...buttonBaseStyle,
-    backgroundColor: '#6c757d',
-    color: 'white',
+    backgroundColor: colors.secondary.main,
+    color: colors.white,
     opacity: 0.8
   };
 
@@ -108,8 +109,8 @@ export function CardActions({
    */
   const flipButtonStyle: React.CSSProperties = {
     ...buttonBaseStyle,
-    backgroundColor: '#28a745',
-    color: 'white',
+    backgroundColor: colors.success.main,
+    color: colors.white,
     opacity: 0.9
   };
 
@@ -121,11 +122,11 @@ export function CardActions({
     const currentBg = button.style.backgroundColor;
     
     if (currentBg.includes('007bff')) {
-      button.style.backgroundColor = '#0056b3';
+      button.style.backgroundColor = colors.primary.dark;
     } else if (currentBg.includes('28a745')) {
-      button.style.backgroundColor = '#218838';
+      button.style.backgroundColor = colors.success.dark;
     } else if (currentBg.includes('6c757d')) {
-      button.style.backgroundColor = '#545b62';
+      button.style.backgroundColor = colors.secondary.dark;
     }
     
     button.style.transform = 'translateY(-1px)';
@@ -137,11 +138,11 @@ export function CardActions({
     const currentBg = button.style.backgroundColor;
     
     if (currentBg.includes('0056b3')) {
-      button.style.backgroundColor = canPlay ? '#007bff' : '#6c757d';
+      button.style.backgroundColor = canPlay ? colors.primary.main : colors.secondary.main;
     } else if (currentBg.includes('218838')) {
-      button.style.backgroundColor = '#28a745';
+      button.style.backgroundColor = colors.success.main;
     } else if (currentBg.includes('545b62')) {
-      button.style.backgroundColor = '#6c757d';
+      button.style.backgroundColor = colors.secondary.main;
     }
     
     button.style.transform = 'translateY(0)';
@@ -154,8 +155,8 @@ export function CardActions({
       justifyContent: 'center',
       alignItems: 'center',
       padding: '20px',
-      backgroundColor: '#f8f9fa',
-      borderTop: '1px solid #dee2e6',
+      backgroundColor: colors.secondary.bg,
+      borderTop: `1px solid ${colors.secondary.border}`,
       borderRadius: '0 0 8px 8px',
       gap: '12px'
     }}>

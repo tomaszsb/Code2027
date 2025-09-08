@@ -221,6 +221,7 @@ export interface ITurnService {
   triggerManualEffectWithFeedback(playerId: string, effectType: string): import('./StateTypes').TurnEffectResult;
   performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
   tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }>;
+  handleAutomaticFunding(playerId: string): import('./StateTypes').TurnEffectResult;
 }
 
 export interface ICardService {
