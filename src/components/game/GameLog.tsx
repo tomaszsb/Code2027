@@ -31,8 +31,15 @@ export function GameLog(): JSX.Element {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
-  // Group actions by player for better readability
-  const getPlayerColor = (playerId: string): string => {
+  // Get color for entry based on type and player
+  const getEntryColor = (entry: ActionLogEntry): string => {
+    if (entry.type === 'error_event') {
+      return colors.danger.main; // Red for errors
+    }
+    if (entry.type === 'system_log' || entry.type === 'game_start' || entry.type === 'game_end') {
+      return colors.secondary.main; // Grey for system events
+    }
+
     const playerColors = {
       player_1: colors.primary.main,  // Blue
       player_2: colors.success.main,  // Green
@@ -40,9 +47,9 @@ export function GameLog(): JSX.Element {
       player_4: colors.game.player8,  // Orange
     };
     // Fallback colors based on player ID hash
-    const hash = playerId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    const hash = entry.playerId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     const colorArray = [colors.purple.main, colors.game.pink, colors.game.teal, colors.warning.main];
-    return playerColors[playerId as keyof typeof playerColors] || colorArray[hash % colorArray.length];
+    return playerColors[entry.playerId as keyof typeof playerColors] || colorArray[hash % colorArray.length];
   };
 
   return (
@@ -90,8 +97,8 @@ export function GameLog(): JSX.Element {
                 style={{
                   padding: '8px 10px',
                   backgroundColor: colors.white,
-                  border: `1px solid ${getPlayerColor(entry.playerId)}20`,
-                  borderLeft: `4px solid ${getPlayerColor(entry.playerId)}`,
+                  border: `1px solid ${getEntryColor(entry)}20`,
+                  borderLeft: `4px solid ${getEntryColor(entry)}`,
                   borderRadius: '4px',
                   fontSize: '11px',
                   lineHeight: '1.3'
@@ -104,13 +111,15 @@ export function GameLog(): JSX.Element {
                   alignItems: 'center',
                   marginBottom: '4px'
                 }}>
-                  <span style={{
-                    fontWeight: 'bold',
-                    color: getPlayerColor(entry.playerId),
-                    fontSize: '10px'
-                  }}>
-                    {entry.playerName}
-                  </span>
+                  {entry.playerId !== 'SYSTEM' && (
+                    <span style={{
+                      fontWeight: 'bold',
+                      color: getEntryColor(entry),
+                      fontSize: '10px'
+                    }}>
+                      {entry.playerName}
+                    </span>
+                  )}
                   <span style={{
                     color: colors.secondary.main,
                     fontSize: '9px'

@@ -7,7 +7,8 @@ import {
   IStateService, 
   IMovementService,
   ITurnService,
-  IGameRulesService
+  IGameRulesService,
+  ITargetingService
 } from '../types/ServiceContracts';
 import { 
   Effect, 
@@ -25,7 +26,8 @@ import {
   isEffectGroupTargetedEffect,
   isConditionalEffect,
   isChoiceOfEffectsEffect,
-  isPlayCardEffect
+  isPlayCardEffect,
+  isDurationStoredEffect
 } from '../types/EffectTypes';
 
 /**
@@ -47,6 +49,18 @@ export interface IEffectEngineService {
   processEffects(effects: Effect[], context: EffectContext): Promise<BatchEffectResult>;
   processEffect(effect: Effect, context: EffectContext): Promise<EffectResult>;
   
+  // Comprehensive card effect processing (targeting + duration)
+  processCardEffects(effects: Effect[], context: EffectContext, cardData?: any): Promise<BatchEffectResult>;
+  
+  // Multi-player targeting methods
+  processEffectsWithTargeting(effects: Effect[], context: EffectContext, targetRule?: string): Promise<BatchEffectResult>;
+  
+  // Duration-based effect methods
+  processEffectsWithDuration(effects: Effect[], context: EffectContext, cardData?: any): Promise<BatchEffectResult>;
+  applyActiveEffects(playerId: string): Promise<void>;
+  addActiveEffect(playerId: string, effect: Effect, sourceCardId: string, duration: number): void;
+  processActiveEffectsForAllPlayers(): Promise<void>;
+  
   // Validation methods
   validateEffect(effect: Effect, context: EffectContext): boolean;
   validateEffects(effects: Effect[], context: EffectContext): boolean;
@@ -60,6 +74,7 @@ export class EffectEngineService implements IEffectEngineService {
   private movementService: IMovementService;
   private turnService: ITurnService;
   private gameRulesService: IGameRulesService;
+  private targetingService: ITargetingService;
 
   constructor(
     resourceService: IResourceService,
@@ -68,7 +83,8 @@ export class EffectEngineService implements IEffectEngineService {
     stateService: IStateService,
     movementService: IMovementService,
     turnService: ITurnService,
-    gameRulesService: IGameRulesService
+    gameRulesService: IGameRulesService,
+    targetingService: ITargetingService
   ) {
     this.resourceService = resourceService;
     this.cardService = cardService;
@@ -77,6 +93,7 @@ export class EffectEngineService implements IEffectEngineService {
     this.movementService = movementService;
     this.turnService = turnService;
     this.gameRulesService = gameRulesService;
+    this.targetingService = targetingService;
   }
 
   public setTurnService(turnService: ITurnService): void {
@@ -670,14 +687,20 @@ export class EffectEngineService implements IEffectEngineService {
           if (isPlayCardEffect(effect)) {
             const { payload } = effect;
             try {
-              console.log(`🎴 EFFECT_ENGINE: Playing card ${payload.cardId} for player ${payload.playerId}`);
-              await this.cardService.playCard(payload.playerId, payload.cardId);
+              console.log(`🎴 EFFECT_ENGINE: Finalizing play for card ${payload.cardId}`);
+              this.cardService.finalizePlayedCard(payload.playerId, payload.cardId);
               success = true;
             } catch (error) {
-              console.error(`❌ Error playing card ${payload.cardId} from effect:`, error);
-              // We will not return an error here to avoid halting the effect chain
+              console.error(`❌ Error finalizing play for card ${payload.cardId}:`, error);
               success = false;
             }
+          }
+          break;
+
+        case 'DURATION_STORED':
+          if (isDurationStoredEffect(effect)) {
+            console.log(`⏳ EFFECT_ENGINE: Duration effect stored for processing`);
+            success = true;
           }
           break;
 
@@ -976,5 +999,312 @@ export class EffectEngineService implements IEffectEngineService {
     }
     
     return clonedEffect;
+  }
+
+  /**
+   * Process effects with multi-player targeting support
+   */
+  async processEffectsWithTargeting(effects: Effect[], context: EffectContext, targetRule?: string): Promise<BatchEffectResult> {
+    console.log(`🎯 EFFECT_ENGINE: Processing ${effects.length} effects with targeting rule: ${targetRule || 'None'}`);
+
+    // If no target rule specified, default to current player
+    if (!targetRule || targetRule.trim() === 'Self' || targetRule.trim() === '') {
+      console.log(`   🎯 No multi-targeting needed, processing normally`);
+      return this.processEffects(effects, context);
+    }
+
+    // Resolve target players
+    const sourcePlayerId = context.playerId;
+    if (!sourcePlayerId) {
+      console.error(`   🎯 No source player ID in context for targeting`);
+      return { success: false, totalEffects: 0, successfulEffects: 0, failedEffects: 0, results: [], errors: ['No source player ID'] };
+    }
+
+    const targetPlayerIds = await this.targetingService.resolveTargets(sourcePlayerId, targetRule);
+    const targetDescription = this.targetingService.getTargetDescription(targetPlayerIds);
+    
+    console.log(`   🎯 Resolved targets: ${targetDescription} (${targetPlayerIds.length} players)`);
+
+    if (targetPlayerIds.length === 0) {
+      console.log(`   🎯 No valid targets found, skipping effects`);
+      return { success: true, totalEffects: effects.length, successfulEffects: 0, failedEffects: 0, results: [], errors: [] };
+    }
+
+    // Apply effects to each target player
+    let totalSuccessfulEffects = 0;
+    const allResults: EffectResult[] = [];
+    const allErrors: string[] = [];
+
+    for (const targetPlayerId of targetPlayerIds) {
+      console.log(`   🎯 Applying effects to target: ${targetPlayerId}`);
+      
+      // Clone effects with the correct target player ID
+      const targetedEffects = effects.map(effect => this.cloneEffectWithNewPlayerId(effect, targetPlayerId));
+      
+      // Create targeted context
+      const targetedContext: EffectContext = {
+        ...context,
+        playerId: targetPlayerId,
+        source: `${context.source}:targeting:${targetRule}`,
+        metadata: {
+          ...context.metadata,
+          originalSource: sourcePlayerId,
+          targetRule: targetRule,
+          targetDescription: targetDescription
+        }
+      };
+
+      // Apply effects to this target using the cloned effects with correct player IDs
+      const targetResult = await this.processEffects(targetedEffects, targetedContext);
+      totalSuccessfulEffects += targetResult.successfulEffects;
+      allResults.push(...targetResult.results);
+      
+      if (targetResult.errors) {
+        allErrors.push(...targetResult.errors);
+      }
+    }
+
+    const totalExpected = effects.length * targetPlayerIds.length;
+    const success = totalSuccessfulEffects === totalExpected;
+
+    console.log(`🎯 Multi-target effects complete: ${totalSuccessfulEffects}/${totalExpected} successful across ${targetPlayerIds.length} players`);
+
+    return {
+      success: success,
+      totalEffects: totalExpected,
+      successfulEffects: totalSuccessfulEffects,
+      failedEffects: totalExpected - totalSuccessfulEffects,
+      results: allResults,
+      errors: allErrors
+    };
+  }
+
+  /**
+   * Process effects considering both duration and targeting - comprehensive effect processing
+   */
+  async processCardEffects(effects: Effect[], context: EffectContext, cardData?: any): Promise<BatchEffectResult> {
+    console.log(`🎯🕒 EFFECT_ENGINE: Processing ${effects.length} card effects with full targeting and duration support`);
+    
+    const cardId = cardData?.card_id || 'unknown';
+    const targetRule = cardData?.target || 'Self';
+    const hasDuration = cardData && cardData.duration === 'Turns' && cardData.duration_count && parseInt(cardData.duration_count) > 0;
+    const duration = hasDuration ? parseInt(cardData.duration_count) : 0;
+
+    console.log(`   Card: ${cardId}, Target: ${targetRule}, Duration: ${hasDuration ? `${duration} turns` : 'Immediate'}`);
+
+    // First resolve targeting
+    const sourcePlayerId = context.playerId;
+    if (!sourcePlayerId) {
+      console.error(`   No source player ID in context`);
+      return { success: false, totalEffects: 0, successfulEffects: 0, failedEffects: 0, results: [], errors: ['No source player ID'] };
+    }
+
+    let targetPlayerIds: string[];
+    if (!targetRule || targetRule.trim() === 'Self' || targetRule.trim() === '') {
+      targetPlayerIds = [sourcePlayerId];
+    } else {
+      targetPlayerIds = await this.targetingService.resolveTargets(sourcePlayerId, targetRule);
+      const targetDescription = this.targetingService.getTargetDescription(targetPlayerIds);
+      console.log(`   Resolved targets: ${targetDescription} (${targetPlayerIds.length} players)`);
+    }
+
+    if (targetPlayerIds.length === 0) {
+      console.log(`   No valid targets found, skipping effects`);
+      return { success: true, totalEffects: effects.length, successfulEffects: 0, failedEffects: 0, results: [], errors: [] };
+    }
+
+    // Handle duration-based effects
+    if (hasDuration) {
+      console.log(`   Storing effects as active for ${duration} turns on ${targetPlayerIds.length} players`);
+      
+      for (const targetPlayerId of targetPlayerIds) {
+        for (const effect of effects) {
+          // Create targeted version of the effect
+          const targetedEffect = { ...effect };
+          if (targetedEffect.payload && typeof targetedEffect.payload === 'object') {
+            targetedEffect.payload = { ...targetedEffect.payload, playerId: targetPlayerId };
+          }
+          
+          this.addActiveEffect(targetPlayerId, targetedEffect, cardId, duration);
+        }
+      }
+
+      const totalStored = effects.length * targetPlayerIds.length;
+      return {
+        success: true,
+        totalEffects: totalStored,
+        successfulEffects: totalStored,
+        failedEffects: 0,
+        results: Array(totalStored).fill(null).map(() => ({
+          success: true,
+          effectType: 'DURATION_STORED',
+          message: `Effect stored as active for ${duration} turns`
+        })),
+        errors: []
+      };
+    } else {
+      // Immediate effects with targeting
+      console.log(`   Applying immediate effects to ${targetPlayerIds.length} players`);
+      return this.processEffectsWithTargeting(effects, context, targetRule);
+    }
+  }
+
+  /**
+   * Process effects considering duration - if card has duration, store effects as active rather than applying immediately
+   */
+  async processEffectsWithDuration(effects: Effect[], context: EffectContext, cardData?: any): Promise<BatchEffectResult> {
+    console.log(`🕒 EFFECT_ENGINE: Processing ${effects.length} effects with duration consideration`);
+    console.log(`🕒 Card data:`, cardData ? `${cardData.card_id} - duration: ${cardData.duration}, count: ${cardData.duration_count}` : 'No card data');
+
+    // Check if this card should have duration-based effects
+    const shouldUseDuration = cardData && 
+      cardData.duration === 'Turns' && 
+      cardData.duration_count && 
+      parseInt(cardData.duration_count) > 0;
+
+    if (shouldUseDuration) {
+      const duration = parseInt(cardData.duration_count);
+      console.log(`🕒 Storing ${effects.length} effects as active for ${duration} turns`);
+      
+      // Store effects as active rather than applying immediately
+      for (const effect of effects) {
+        if (context.playerId) {
+          this.addActiveEffect(context.playerId, effect, cardData.card_id, duration);
+        } else if (effect.payload && 'playerId' in effect.payload) {
+          // Effect specifies its own target player
+          this.addActiveEffect(effect.payload.playerId as string, effect, cardData.card_id, duration);
+        }
+      }
+
+      return {
+        success: true,
+        totalEffects: effects.length,
+        successfulEffects: effects.length,
+        failedEffects: 0,
+        results: effects.map(effect => ({
+          success: true,
+          effectType: effect.effectType,
+          message: `Effect stored as active for ${duration} turns`
+        })),
+        errors: []
+      };
+    } else {
+      // No duration, process effects immediately as before
+      console.log(`🕒 No duration detected, processing effects immediately`);
+      return this.processEffects(effects, context);
+    }
+  }
+
+  /**
+   * Add an active effect to a player's activeEffects list
+   */
+  addActiveEffect(playerId: string, effect: Effect, sourceCardId: string, duration: number): void {
+    console.log(`🕒 Adding active effect to player ${playerId} for ${duration} turns`);
+    
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.error(`Player ${playerId} not found when adding active effect`);
+      return;
+    }
+
+    const gameState = this.stateService.getGameState();
+    const activeEffect = {
+      effectId: `${sourceCardId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      sourceCardId: sourceCardId,
+      effectData: effect,
+      remainingDuration: duration,
+      startTurn: gameState.turn,
+      effectType: effect.effectType,
+      description: `Effect from ${sourceCardId} (${duration} turns remaining)`
+    };
+
+    const updatedActiveEffects = [...player.activeEffects, activeEffect];
+    
+    this.stateService.updatePlayer({
+      id: playerId,
+      activeEffects: updatedActiveEffects
+    });
+
+    console.log(`✅ Added active effect ${activeEffect.effectId} to player ${playerId}`);
+  }
+
+  /**
+   * Apply all active effects for a specific player and decrement their duration
+   */
+  async applyActiveEffects(playerId: string): Promise<void> {
+    console.log(`🔄 Applying active effects for player ${playerId}`);
+    
+    const player = this.stateService.getPlayer(playerId);
+    if (!player || !player.activeEffects || player.activeEffects.length === 0) {
+      console.log(`   No active effects for player ${playerId}`);
+      return;
+    }
+
+    console.log(`   Processing ${player.activeEffects.length} active effects`);
+    const remainingEffects = [];
+
+    for (const activeEffect of player.activeEffects) {
+      console.log(`   Applying effect ${activeEffect.effectId} (${activeEffect.remainingDuration} turns remaining)`);
+      
+      try {
+        // Create a copy of the effect with updated source for active processing
+        const activeEffectData = { ...activeEffect.effectData };
+        if (activeEffectData.payload && typeof activeEffectData.payload === 'object') {
+          activeEffectData.payload = { 
+            ...activeEffectData.payload, 
+            source: `active:${activeEffect.sourceCardId}` 
+          };
+        }
+
+        // Apply the effect with updated source
+        await this.processEffect(activeEffectData, {
+          source: `active:${activeEffect.sourceCardId}`,
+          playerId: playerId,
+          triggerEvent: 'ACTIVE_EFFECT'
+        });
+
+        // Decrement duration
+        activeEffect.remainingDuration -= 1;
+
+        // Keep effect if it still has duration remaining
+        if (activeEffect.remainingDuration > 0) {
+          remainingEffects.push({
+            ...activeEffect,
+            description: `Effect from ${activeEffect.sourceCardId} (${activeEffect.remainingDuration} turns remaining)`
+          });
+          console.log(`   Effect ${activeEffect.effectId} continues for ${activeEffect.remainingDuration} more turns`);
+        } else {
+          console.log(`   Effect ${activeEffect.effectId} expired and removed`);
+        }
+      } catch (error) {
+        console.error(`   Error applying active effect ${activeEffect.effectId}:`, error);
+        // Keep the effect to retry next turn
+        remainingEffects.push(activeEffect);
+      }
+    }
+
+    // Update player's active effects
+    this.stateService.updatePlayer({
+      id: playerId,
+      activeEffects: remainingEffects
+    });
+
+    console.log(`✅ Active effects processed for ${playerId}: ${remainingEffects.length} effects remaining`);
+  }
+
+  /**
+   * Process active effects for all players (called at turn transitions)
+   */
+  async processActiveEffectsForAllPlayers(): Promise<void> {
+    console.log(`🌍 Processing active effects for all players`);
+    
+    const gameState = this.stateService.getGameState();
+    const players = gameState.players;
+
+    for (const player of players) {
+      await this.applyActiveEffects(player.id);
+    }
+
+    console.log(`✅ Completed processing active effects for all ${players.length} players`);
   }
 }

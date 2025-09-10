@@ -1,6 +1,7 @@
 import { useGameContext } from '../../../src/context/GameContext';
 import { IPlayerActionService, IStateService } from '../../../src/types/ServiceContracts';
 import { GameState } from '../../../src/types/StateTypes';
+import { createMockStateService } from '../../mocks/mockServices';
 
 // Mock the useGameContext hook
 jest.mock('../../../src/context/GameContext', () => ({
@@ -37,7 +38,21 @@ describe('CardActions Service Integration', () => {
     hasCompletedManualActions: false,
     activeNegotiation: null,
     globalActionLog: [],
-    preSpaceEffectState: null
+    preSpaceEffectState: null,
+    decks: {
+      W: [],
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    },
+    discardPiles: {
+      W: [],
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    }
   };
 
   beforeEach(() => {
@@ -51,49 +66,8 @@ describe('CardActions Service Integration', () => {
       endTurn: jest.fn(),
     };
 
-    mockStateService = {
-      getGameState: jest.fn().mockReturnValue(mockGameState),
-      getGameStateDeepCopy: jest.fn(),
-      isStateLoaded: jest.fn(),
-      subscribe: jest.fn(),
-      addPlayer: jest.fn(),
-      updatePlayer: jest.fn(),
-      removePlayer: jest.fn(),
-      getPlayer: jest.fn(),
-      getAllPlayers: jest.fn(),
-      setCurrentPlayer: jest.fn(),
-      setGamePhase: jest.fn(),
-      advanceTurn: jest.fn(),
-      nextPlayer: jest.fn(),
-      initializeGame: jest.fn(),
-      startGame: jest.fn(),
-      endGame: jest.fn(),
-      resetGame: jest.fn(),
-      updateNegotiationState: jest.fn(),
-      fixPlayerStartingSpaces: jest.fn(),
-      forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-      setAwaitingChoice: jest.fn(),
-      clearAwaitingChoice: jest.fn(),
-      setPlayerHasMoved: jest.fn(),
-      clearPlayerHasMoved: jest.fn(),
-      setPlayerCompletedManualAction: jest.fn(),
-      setPlayerHasRolledDice: jest.fn(),
-      clearPlayerCompletedManualActions: jest.fn(),
-      clearPlayerHasRolledDice: jest.fn(),
-      updateActionCounts: jest.fn(),
-      showCardModal: jest.fn(),
-      dismissModal: jest.fn(),
-      createPlayerSnapshot: jest.fn(),
-      restorePlayerSnapshot: jest.fn(),
-      validatePlayerAction: jest.fn(),
-      canStartGame: jest.fn(),
-      logToActionHistory: jest.fn(),
-      savePreSpaceEffectSnapshot: jest.fn(),
-      clearPreSpaceEffectSnapshot: jest.fn(),
-      hasPreSpaceEffectSnapshot: jest.fn(),
-      getPreSpaceEffectSnapshot: jest.fn(),
-      setGameState: jest.fn(),
-    };
+    mockStateService = createMockStateService();
+    mockStateService.getGameState.mockReturnValue(mockGameState);
 
     mockUseGameContext = useGameContext as jest.MockedFunction<typeof useGameContext>;
     mockUseGameContext.mockReturnValue({
@@ -108,6 +82,7 @@ describe('CardActions Service Integration', () => {
       choiceService: {} as any,
       effectEngineService: {} as any,
       negotiationService: {} as any,
+      loggingService: {} as any,
     });
   });
 

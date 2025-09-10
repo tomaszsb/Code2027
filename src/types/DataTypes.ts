@@ -22,6 +22,11 @@ export interface Movement {
   destination_3?: string;
   destination_4?: string;
   destination_5?: string;
+  condition_1?: string;
+  condition_2?: string;
+  condition_3?: string;
+  condition_4?: string;
+  condition_5?: string;
 }
 
 export interface DiceOutcome {
@@ -85,6 +90,13 @@ export interface Space {
   diceOutcomes: DiceOutcome[];
 }
 
+export interface Loan {
+  id: string;
+  principal: number;
+  interestRate: number; // e.g., 0.05 for 5%
+  startTurn: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -95,21 +107,8 @@ export interface Player {
   projectScope: number;
   color?: string;
   avatar?: string;
-  availableCards: {
-    W: string[];
-    B: string[];
-    E: string[];
-    L: string[];
-    I: string[];
-  };
+  hand: string[]; // All cards the player currently possesses
   activeCards: ActiveCard[];
-  discardedCards: {
-    W: string[];
-    B: string[];
-    E: string[];
-    L: string[];
-    I: string[];
-  };
   lastDiceRoll?: {
     roll1: number;
     roll2: number;
@@ -120,26 +119,16 @@ export interface Player {
     visitType: 'First' | 'Subsequent';
     money: number;
     timeSpent: number;
-    availableCards: {
-      W: string[];
-      B: string[];
-      E: string[];
-      L: string[];
-      I: string[];
-    };
+    hand: string[];
     activeCards: ActiveCard[];
-    discardedCards: {
-      W: string[];
-      B: string[];
-      E: string[];
-      L: string[];
-      I: string[];
-    };
   };
   turnModifiers?: {
     skipTurns: number;
     canReRoll?: boolean; // Allow re-roll if player doesn't like dice outcome
   };
+  activeEffects: ActiveEffect[]; // Duration-based effects that persist across turns
+  loans: Loan[]; // Player's outstanding loans with interest
+  score: number; // Player's calculated final score
 }
 
 export interface GameState {
@@ -189,6 +178,16 @@ export interface Card {
 export interface ActiveCard {
   cardId: string;
   expirationTurn: number;
+}
+
+export interface ActiveEffect {
+  effectId: string;           // Unique identifier for tracking
+  sourceCardId: string;       // The card that created this effect
+  effectData: any;           // The original effect object to be executed
+  remainingDuration: number;  // Number of turns remaining
+  startTurn: number;         // Turn when effect was applied
+  effectType: string;        // Type of effect for easier categorization
+  description?: string;      // Human-readable description
 }
 
 export type VisitType = 'First' | 'Subsequent';

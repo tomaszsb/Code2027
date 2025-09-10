@@ -1,8 +1,8 @@
 import { PlayerActionService } from '../../src/services/PlayerActionService';
-import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService, ILoggingService } from '../../src/types/ServiceContracts';
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
-import { createMockDataService, createMockStateService, createMockGameRulesService, createMockMovementService, createMockTurnService, createMockEffectEngineService } from '../mocks/mockServices';
+import { createMockDataService, createMockStateService, createMockGameRulesService, createMockMovementService, createMockTurnService, createMockEffectEngineService, createMockLoggingService } from '../mocks/mockServices';
 
 // Mock EffectFactory to prevent real logic execution
 jest.mock('../../src/utils/EffectFactory', () => ({
@@ -32,6 +32,7 @@ const mockGameRulesService: jest.Mocked<IGameRulesService> = createMockGameRules
 const mockMovementService: jest.Mocked<IMovementService> = createMockMovementService();
 const mockTurnService: jest.Mocked<ITurnService> = createMockTurnService();
 const mockEffectEngineService: jest.Mocked<IEffectEngineService> = createMockEffectEngineService();
+const mockLoggingService: jest.Mocked<ILoggingService> = createMockLoggingService();
 
 describe('PlayerActionService', () => {
   let playerActionService: PlayerActionService;
@@ -45,23 +46,14 @@ describe('PlayerActionService', () => {
     money: 1000,
     timeSpent: 5,
     projectScope: 0,
+    score: 0,
     color: '#007bff',
     avatar: '👤',
-    availableCards: {
-      W: ['W001', 'W002'],
-      B: ['B001'],
-      E: ['E001'],
-      L: [],
-      I: []
-    },
+    hand: ['W001', 'W002', 'B001', 'E001'], // New hand structure - player owns these cards
     activeCards: [],
-    discardedCards: {
-      W: [],
-      B: [],
-      E: [],
-      L: [],
-      I: []
-    }
+    turnModifiers: { skipTurns: 0 },
+    activeEffects: [],
+    loans: []
   };
 
   const mockGameState: GameState = {
@@ -80,7 +72,22 @@ describe('PlayerActionService', () => {
     hasCompletedManualActions: false,
     activeNegotiation: null,
     globalActionLog: [],
-    preSpaceEffectState: null
+    preSpaceEffectState: null,
+    // New stateful deck properties
+    decks: {
+      W: ['W003', 'W004', 'W005'],
+      B: ['B002', 'B003'],
+      E: ['E002', 'E003', 'E004'],
+      L: ['L001', 'L002'],
+      I: ['I001', 'I002']
+    },
+    discardPiles: {
+      W: [],
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    }
   };
 
   const mockCard: Card = {
@@ -127,7 +134,8 @@ describe('PlayerActionService', () => {
       mockGameRulesService,
       mockMovementService,
       mockTurnService,
-      mockEffectEngineService
+      mockEffectEngineService,
+      mockLoggingService
     );
 
     // Setup default EffectEngineService mock - return immediately
@@ -142,6 +150,14 @@ describe('PlayerActionService', () => {
     mockEffectEngineService.processEffect.mockResolvedValue({
       success: true,
       effectType: 'RESOURCE_CHANGE'
+    });
+    mockEffectEngineService.processEffects.mockResolvedValue({
+      success: true,
+      totalEffects: 0,
+      successfulEffects: 0,
+      failedEffects: 0,
+      results: [],
+      errors: []
     });
     mockEffectEngineService.validateEffect.mockReturnValue(true);
     mockEffectEngineService.validateEffects.mockReturnValue(true);
@@ -177,7 +193,21 @@ describe('PlayerActionService', () => {
       hasCompletedManualActions: false,
       activeNegotiation: null,
       globalActionLog: [],
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      decks: {
+        W: ['W003', 'W004', 'W005'],
+        B: ['B002', 'B003'],
+        E: ['E002', 'E003', 'E004'],
+        L: ['L001', 'L002'],
+        I: ['I001', 'I002']
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     });
     mockTurnService.rollDiceWithFeedback.mockResolvedValue({
       diceValue: 3,
@@ -203,33 +233,60 @@ describe('PlayerActionService', () => {
       mockDataService.getCardById.mockReturnValue(mockCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
       await playerActionService.playCard('player1', 'W001');
 
-      // Assert
+      // Assert - PlayerActionService should orchestrate, not directly manipulate state
       expect(mockDataService.getCardById).toHaveBeenCalledWith('W001');
       expect(mockGameRulesService.canPlayCard).toHaveBeenCalledWith('player1', 'W001');
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 100);
       
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        availableCards: {
-          W: ['W002'], // W001 removed
-          B: ['B001'],
-          E: ['E001'],
-          L: [],
-          I: []
+      // Most important: Verify EffectEngineService orchestration
+      // Current implementation uses processEffects() with effects from EffectFactory
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        [], // Effects from EffectFactory.createEffectsFromCard
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'W001',
+            cardName: 'Strategic Planning',
+            cardType: 'W',
+            playerName: 'Test Player'
+          }
         }
-      });
+      );
+      
+      // Verify final PLAY_CARD effect is processed for card lifecycle
+      expect(mockEffectEngineService.processEffect).toHaveBeenCalledWith(
+        {
+          effectType: 'PLAY_CARD',
+          payload: {
+            playerId: 'player1',
+            cardId: 'W001',
+            source: 'card_lifecycle:W001'
+          }
+        },
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'W001',
+            cardName: 'Strategic Planning',
+            cardType: 'W',
+            playerName: 'Test Player'
+          }
+        }
+      );
     });
 
     it('should successfully play a free card (cost 0)', async () => {
       // Arrange
       mockDataService.getCardById.mockReturnValue(mockFreeCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
       await playerActionService.playCard('player1', 'W002');
@@ -237,16 +294,21 @@ describe('PlayerActionService', () => {
       // Assert
       expect(mockGameRulesService.canPlayerAfford).not.toHaveBeenCalled(); // Should not check affordability for free cards
       
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        availableCards: {
-          W: ['W001'], // W002 removed
-          B: ['B001'],
-          E: ['E001'],
-          L: [],
-          I: []
+      // Verify orchestration through EffectEngineService
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        [], // Effects from EffectFactory.createEffectsFromCard
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'W002',
+            cardName: 'Free Action',
+            cardType: 'W',
+            playerName: 'Test Player'
+          }
         }
-      });
+      );
     });
 
     it('should successfully play a card with undefined cost', async () => {
@@ -257,7 +319,6 @@ describe('PlayerActionService', () => {
       };
       mockDataService.getCardById.mockReturnValue(cardWithoutCost);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
       await playerActionService.playCard('player1', 'W001');
@@ -265,16 +326,21 @@ describe('PlayerActionService', () => {
       // Assert
       expect(mockGameRulesService.canPlayerAfford).not.toHaveBeenCalled(); // Should not check affordability for undefined cost
       
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        availableCards: {
-          W: ['W002'], // W001 removed
-          B: ['B001'],
-          E: ['E001'],
-          L: [],
-          I: []
+      // Verify orchestration
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        [],
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'W001',
+            cardName: 'Strategic Planning',
+            cardType: 'W',
+            playerName: 'Test Player'
+          }
         }
-      });
+      );
     });
 
     it('should throw error when player not found', async () => {
@@ -326,12 +392,19 @@ describe('PlayerActionService', () => {
         cost: 0
       };
       
+      // Set up player without the card in their hand
+      const playerWithoutCard: Player = {
+        ...mockPlayer,
+        hand: ['W001', 'W002', 'B001', 'E001'] // W999 not in hand
+      };
+      mockStateService.getPlayer.mockReturnValue(playerWithoutCard);
+      
       mockDataService.getCardById.mockReturnValue(cardNotInHand);
-      mockGameRulesService.canPlayCard.mockReturnValue(true);
+      mockGameRulesService.canPlayCard.mockReturnValue(false); // Should return false for card not in hand
 
       // Act & Assert
       await expect(playerActionService.playCard('player1', 'W999'))
-        .rejects.toThrow("Failed to play card: Player 'Test Player' does not have card 'Not Owned Card' in their W hand");
+        .rejects.toThrow("Failed to play card: Player 'Test Player' cannot play card 'Not Owned Card'. Validation failed.");
     });
 
     it('should handle cards from different types correctly', async () => {
@@ -347,26 +420,29 @@ describe('PlayerActionService', () => {
       mockDataService.getCardById.mockReturnValue(bCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
       await playerActionService.playCard('player1', 'B001');
 
-      // Assert
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        availableCards: {
-          W: ['W001', 'W002'],
-          B: [], // B001 removed
-          E: ['E001'],
-          L: [],
-          I: []
+      // Assert - Focus on orchestration
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        [],
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'B001',
+            cardName: 'Budget Card',
+            cardType: 'B',
+            playerName: 'Test Player'
+          }
         }
-      });
+      );
     });
 
-    it('should handle empty card hands correctly', async () => {
-      // Arrange - Player tries to play from empty L hand
+    it('should handle cards not in player hand correctly', async () => {
+      // Arrange - Player tries to play a card not in their hand
       const lCard: Card = {
         card_id: 'L001',
         card_name: 'Life Events Card',
@@ -376,11 +452,11 @@ describe('PlayerActionService', () => {
       };
       
       mockDataService.getCardById.mockReturnValue(lCard);
-      mockGameRulesService.canPlayCard.mockReturnValue(true);
+      mockGameRulesService.canPlayCard.mockReturnValue(false); // Should return false for card not in hand
 
       // Act & Assert
       await expect(playerActionService.playCard('player1', 'L001'))
-        .rejects.toThrow("Failed to play card: Player 'Test Player' does not have card 'Life Events Card' in their L hand");
+        .rejects.toThrow("Failed to play card: Player 'Test Player' cannot play card 'Life Events Card'. Validation failed.");
     });
 
     it('should handle cards without effects gracefully', async () => {
@@ -397,41 +473,44 @@ describe('PlayerActionService', () => {
       mockDataService.getCardById.mockReturnValue(cardWithoutEffects);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockStateService.updatePlayer.mockReturnValue(mockGameState);
 
       // Act
       await playerActionService.playCard('player1', 'W001');
 
-      // Assert - verify the card was played successfully by checking service calls
+      // Assert - verify the card was played successfully through orchestration
       expect(mockDataService.getCardById).toHaveBeenCalledWith('W001');
       expect(mockGameRulesService.canPlayCard).toHaveBeenCalledWith('player1', 'W001');
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 10);
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
-        id: 'player1',
-        availableCards: {
-          W: ['W002'], // W001 removed
-          B: ['B001'],
-          E: ['E001'],
-          L: [],
-          I: []
+      
+      // Should still process through EffectEngineService even without effects
+      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+        [],
+        {
+          source: 'player_action:card_play',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY',
+          metadata: {
+            cardId: 'W001',
+            cardName: 'Simple Card',
+            cardType: 'W',
+            playerName: 'Test Player'
+          }
         }
-      });
+      );
     });
 
-    it('should preserve other services state when updatePlayer fails', async () => {
+    it('should handle EffectEngineService errors gracefully', async () => {
       // Arrange
       mockDataService.getCardById.mockReturnValue(mockCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockStateService.updatePlayer.mockImplementation(() => {
-        throw new Error('State update failed');
-      });
+      mockEffectEngineService.processEffects.mockRejectedValue(new Error('Effect processing failed'));
 
       // Act & Assert
       await expect(playerActionService.playCard('player1', 'W001'))
-        .rejects.toThrow('Failed to play card: State update failed');
+        .rejects.toThrow('Failed to play card: Effect processing failed');
 
-      // Verify that validation methods were still called
+      // Verify that validation methods were still called before the error
       expect(mockDataService.getCardById).toHaveBeenCalledWith('W001');
       expect(mockGameRulesService.canPlayCard).toHaveBeenCalledWith('player1', 'W001');
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 100);
@@ -439,7 +518,7 @@ describe('PlayerActionService', () => {
   });
 
   describe('service integration', () => {
-    it('should call services in the correct order', async () => {
+    it('should call services in the correct order for orchestration', async () => {
       // Arrange
       const callOrder: string[] = [];
       
@@ -468,26 +547,42 @@ describe('PlayerActionService', () => {
         return true;
       });
       
-      mockStateService.updatePlayer.mockImplementation(() => {
-        callOrder.push('updatePlayer');
-        return mockGameState;
+      mockEffectEngineService.processEffects.mockImplementation(async () => {
+        callOrder.push('processEffects');
+        return {
+          success: true,
+          totalEffects: 0,
+          successfulEffects: 0,
+          failedEffects: 0,
+          results: [],
+          errors: []
+        };
+      });
+
+      mockEffectEngineService.processEffect.mockImplementation(async () => {
+        callOrder.push('processEffect');
+        return {
+          success: true,
+          effectType: 'PLAY_CARD'
+        };
       });
 
       // Act
       await playerActionService.playCard('player1', 'W001');
 
-      // Assert
+      // Assert - New orchestration pattern
       expect(callOrder).toEqual([
         'getGameState',
         'getPlayer',
         'getCardById',
         'canPlayCard',
         'canPlayerAfford',
-        'updatePlayer'
+        'processEffects', // Card effects processing
+        'processEffect'   // Card lifecycle processing
       ]);
     });
 
-    it('should not call updatePlayer if validation fails early', async () => {
+    it('should not call EffectEngineService if validation fails early', async () => {
       // Arrange
       mockStateService.getPlayer.mockReturnValue(undefined);
 
@@ -495,8 +590,9 @@ describe('PlayerActionService', () => {
       await expect(playerActionService.playCard('player1', 'W001'))
         .rejects.toThrow();
 
-      // Verify updatePlayer was not called
-      expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+      // Verify EffectEngineService was not called when validation fails
+      expect(mockEffectEngineService.processEffects).not.toHaveBeenCalled();
+      expect(mockEffectEngineService.processEffect).not.toHaveBeenCalled();
     });
   });
 

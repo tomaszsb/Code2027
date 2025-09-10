@@ -49,8 +49,8 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
     const cardType = cardService.getCardType(card.card_id);
     if (!cardType || !isCardTransferable(cardType)) return false;
     
-    const availableCards = currentPlayer.availableCards[cardType] || [];
-    return availableCards.includes(card.card_id);
+    // Check if the card is in the player's hand
+    return currentPlayer.hand?.includes(card.card_id) || false;
   };
 
   // Handle transfer card

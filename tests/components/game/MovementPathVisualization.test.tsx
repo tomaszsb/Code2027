@@ -42,23 +42,14 @@ describe('MovementPathVisualization', () => {
     money: 100000,
     timeSpent: 45,
     projectScope: 0,
+    score: 0,
     currentSpace: 'OFFICE-SETUP',
     visitType: 'First',
-    availableCards: {
-      'W': [],
-      'B': [],
-      'E': [],
-      'L': [],
-      'I': []
-    },
+    hand: [],
     activeCards: [],
-    discardedCards: {
-      'W': [],
-      'B': [],
-      'E': [],
-      'L': [],
-      'I': []
-    }
+    turnModifiers: { skipTurns: 0 },
+    activeEffects: [],
+    loans: []
   };
 
   const mockGameState = {

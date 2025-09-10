@@ -15,11 +15,17 @@ interface FinancialStatusDisplayProps {
  * scope cost calculations, and surplus/deficit analysis.
  */
 export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps): JSX.Element {
-  const { dataService } = useGameContext();
+  const { dataService, cardService } = useGameContext();
+
+  // Get cards from player's hand and filter by type
+  const hand = player.hand || [];
+  const wCards = hand.filter(cardId => cardService.getCardType(cardId) === 'W');
+  const bCards = hand.filter(cardId => cardService.getCardType(cardId) === 'B');
+  const iCards = hand.filter(cardId => cardService.getCardType(cardId) === 'I');
 
   // Calculate financial status
   const calculateFinancialStatus = () => {
-    const wCards = player.availableCards?.W || [];
+    // wCards is already filtered from player.hand above
     
     // Use the calculated project scope from the player state, or fallback to manual calculation
     const totalScopeCost = player.projectScope || 0;
@@ -89,14 +95,12 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
     color: colors.secondary.dark
   };
 
-  const wCards = player.availableCards?.W || [];
-  const bCards = player.availableCards?.B || [];
-  const iCards = player.availableCards?.I || [];
+  // Card arrays are already defined above from player.hand filtering
 
   // Group W cards by work type
   const groupedWCards = wCards.reduce((groups, cardId) => {
-    const baseCardId = cardId.split('_')[0];
-    const card = dataService.getCardById(baseCardId);
+    // Use the full cardId since player.hand contains the complete card IDs
+    const card = dataService.getCardById(cardId);
     if (!card) return groups;
     
     const workType = card.work_type_restriction || 'General Construction';

@@ -246,47 +246,20 @@ export class EffectFactory {
     }
 
     // === TARGETING LOGIC ===
-    // If the card has a target property, wrap appropriate effects in EFFECT_GROUP_TARGETED
-    if (card.target && card.target !== '' && card.target !== 'self') {
-      const targetableEffects = this.extractTargetableEffects(effects);
+    // Note: Target handling is now done by EffectEngineService.processCardEffects()
+    // The EffectFactory just creates the base effects and passes target info via card data
+    if (card.target && card.target !== '' && card.target.toLowerCase() !== 'self') {
+      console.log(`   Card has target: ${card.target} - target resolution will be handled by EffectEngineService`);
       
-      if (targetableEffects.length > 0) {
-        console.log(`   Card has target: ${card.target} - wrapping ${targetableEffects.length} effects for targeting`);
-        
-        // Remove targetable effects from the main effects array
-        const nonTargetableEffects = effects.filter(effect => 
-          !this.isTargetableEffectType(effect.effectType)
-        );
-        
-        // Create targeting effects for each targetable effect
-        for (const targetableEffect of targetableEffects) {
-          const targetType = this.parseTargetType(card.target);
-          const prompt = this.generateTargetPrompt(card.target, cardName, targetableEffect);
-          
-          nonTargetableEffects.push({
-            effectType: 'EFFECT_GROUP_TARGETED',
-            payload: {
-              targetType: targetType,
-              templateEffect: targetableEffect,
-              prompt: prompt,
-              source: cardSource
-            }
-          });
+      // Add log effect for targeted card
+      effects.push({
+        effectType: 'LOG',
+        payload: {
+          message: `Targeted card played: ${cardName} by player ${playerId} (target: ${card.target})`,
+          level: 'INFO',
+          source: cardSource
         }
-        
-        // === LOG EFFECT (Always add for tracking) ===
-        nonTargetableEffects.push({
-          effectType: 'LOG',
-          payload: {
-            message: `Targeted card played: ${cardName} by player ${playerId} (target: ${card.target})`,
-            level: 'INFO',
-            source: cardSource
-          }
-        });
-
-        console.log(`🏭 EFFECT_FACTORY: Generated ${nonTargetableEffects.length} effects from targeted card ${cardName}`);
-        return nonTargetableEffects;
-      }
+      });
     }
 
     // === LOG EFFECT (Always add for tracking) ===
@@ -818,74 +791,9 @@ export class EffectFactory {
   }
 
   // === TARGETING HELPER METHODS ===
-
-  /**
-   * Extract effects that can be targeted at other players
-   */
-  private static extractTargetableEffects(effects: Effect[]): Effect[] {
-    return effects.filter(effect => this.isTargetableEffectType(effect.effectType));
-  }
-
-  /**
-   * Check if an effect type can be targeted at other players
-   */
-  private static isTargetableEffectType(effectType: Effect['effectType']): boolean {
-    return ['RESOURCE_CHANGE', 'CARD_DRAW', 'CARD_DISCARD', 'TURN_CONTROL', 'CONDITIONAL_EFFECT'].includes(effectType);
-  }
-
-  /**
-   * Parse target string into targetType enum
-   */
-  private static parseTargetType(target: string): 'OTHER_PLAYER_CHOICE' | 'ALL_OTHER_PLAYERS' | 'ALL_PLAYERS' {
-    const targetLower = target.toLowerCase().trim().replace(/\s+/g, '_');
-    
-    if (targetLower.includes('other_player') || targetLower.includes('choose') || targetLower === 'opponent') {
-      return 'OTHER_PLAYER_CHOICE';
-    } else if (targetLower.includes('all_other') || targetLower.includes('other_players')) {
-      return 'ALL_OTHER_PLAYERS';
-    } else if (targetLower.includes('all_players') || targetLower === 'everyone') {
-      return 'ALL_PLAYERS';
-    } else {
-      // Default to single player choice for unknown formats
-      return 'OTHER_PLAYER_CHOICE';
-    }
-  }
-
-  /**
-   * Generate a user-friendly prompt for target selection
-   */
-  private static generateTargetPrompt(target: string, cardName: string, effect: Effect): string {
-    const targetType = this.parseTargetType(target);
-    
-    // Generate effect description for prompt
-    let effectDescription = 'apply effect';
-    if (effect.effectType === 'RESOURCE_CHANGE' && 'payload' in effect) {
-      const payload = effect.payload as any;
-      if (payload.resource === 'MONEY') {
-        effectDescription = payload.amount > 0 
-          ? `give $${Math.abs(payload.amount)}` 
-          : `take $${Math.abs(payload.amount)}`;
-      } else if (payload.resource === 'TIME') {
-        effectDescription = payload.amount > 0 
-          ? `add ${Math.abs(payload.amount)} time units` 
-          : `remove ${Math.abs(payload.amount)} time units`;
-      }
-    } else if (effect.effectType === 'CARD_DRAW' && 'payload' in effect) {
-      const payload = effect.payload as any;
-      effectDescription = `draw ${payload.count} ${payload.cardType} card${payload.count > 1 ? 's' : ''}`;
-    }
-    
-    switch (targetType) {
-      case 'OTHER_PLAYER_CHOICE':
-        return `${cardName}: Choose a player to ${effectDescription}`;
-      case 'ALL_OTHER_PLAYERS':
-        return `${cardName}: ${effectDescription} for all other players`;
-      case 'ALL_PLAYERS':
-        return `${cardName}: ${effectDescription} for all players`;
-      default:
-        return `${cardName}: Choose target for effect`;
-    }
-  }
+  // Note: Targeting is now handled by EffectEngineService.processCardEffects()
+  // These helper methods are no longer needed as the EffectFactory creates base effects
+  // and the EffectEngineService handles target resolution using TargetingService
 
   /**
    * Parse choice-of-effects from card description

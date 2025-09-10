@@ -58,7 +58,18 @@ describe('PlayerActionService Fast', () => {
       failedEffects: 0,
       results: [],
       errors: []
+    })),
+    processEffect: jest.fn(() => Promise.resolve({
+      success: true,
+      error: null
     }))
+  } as any;
+  
+  const mockLoggingService = {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn()
   } as any;
 
   beforeEach(() => {
@@ -70,7 +81,8 @@ describe('PlayerActionService Fast', () => {
       mockGameRulesService,
       mockMovementService,
       mockTurnService,
-      mockEffectEngineService
+      mockEffectEngineService,
+      mockLoggingService
     );
   });
 
@@ -83,16 +95,14 @@ describe('PlayerActionService Fast', () => {
       money: 1000,
       timeSpent: 5,
       projectScope: 0,
+    score: 0,
       color: '#007bff',
       avatar: '👤',
-      availableCards: {
-        W: ['W001'],
-        B: [], E: [], L: [], I: []
-      },
+      hand: ['W001'],
       activeCards: [],
-      discardedCards: {
-        W: [], B: [], E: [], L: [], I: []
-      }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     const mockCard: Card = {
@@ -118,7 +128,8 @@ describe('PlayerActionService Fast', () => {
       expect(mockGameRulesService.canPlayCard).toHaveBeenCalledWith('player1', 'W001');
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 100);
       expect(mockEffectEngineService.processEffects).toHaveBeenCalled();
-      expect(mockStateService.updatePlayer).toHaveBeenCalled();
+      expect(mockEffectEngineService.processEffect).toHaveBeenCalled();
+      expect(mockLoggingService.info).toHaveBeenCalled();
     });
 
     it('should throw error when player not found', async () => {
@@ -146,11 +157,14 @@ describe('PlayerActionService Fast', () => {
       money: 1000,
       timeSpent: 5,
       projectScope: 0,
+    score: 0,
       color: '#007bff',
       avatar: '👤',
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     it('should roll dice and return valid result', async () => {

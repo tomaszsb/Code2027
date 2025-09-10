@@ -3,56 +3,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { EndGameModal } from '../../../src/components/modals/EndGameModal';
 import { IStateService } from '../../../src/types/ServiceContracts';
-import { GameState, Player } from '../../../src/types/StateTypes';
+import { GameState } from '../../../src/types/StateTypes';
+import { Player } from '../../../src/types/DataTypes';
+import { createMockStateService } from '../../mocks/mockServices';
 
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation(jest.fn());
 });
 
 // Create mock outside of describe block
-const mockStateService: jest.Mocked<IStateService> = {
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  subscribe: jest.fn(),
-  isStateLoaded: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn(),
-};
+const mockStateService: jest.Mocked<IStateService> = createMockStateService();
 
 // Mock the useGameContext hook
 jest.mock('../../../src/context/GameContext', () => ({
@@ -76,23 +36,14 @@ describe('EndGameModal', () => {
       money: 1000,
       timeSpent: 100,
       projectScope: 0,
+      score: 0,
       color: '#007bff',
       avatar: '👤',
-      availableCards: {
-        W: ['W_001', 'W_002'],
-        B: ['B_001'],
-        E: [],
-        L: ['L_001'],
-        I: []
-      },
+      hand: ['W_001', 'W_002', 'B_001', 'L_001'],
       activeCards: [],
-      discardedCards: {
-        W: [],
-        B: [],
-        E: [],
-        L: [],
-        I: []
-      }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     // Default state - game not over
@@ -112,7 +63,21 @@ describe('EndGameModal', () => {
       hasCompletedManualActions: false,
       activeNegotiation: null,
       globalActionLog: [],
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      decks: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     };
 
     mockStateService.getGameState.mockReturnValue(mockGameState);

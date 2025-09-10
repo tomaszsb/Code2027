@@ -1,4 +1,4 @@
-import { Player, ActiveCard } from './DataTypes';
+import { Player, ActiveCard, ActiveEffect } from './DataTypes';
 import { Effect } from './EffectTypes';
 import { Choice } from './CommonTypes';
 
@@ -6,7 +6,7 @@ export type GamePhase = 'SETUP' | 'PLAY' | 'END';
 
 export interface ActionLogEntry {
   id: string;
-  type: 'space_entry' | 'space_effect' | 'time_effect' | 'dice_roll' | 'card_draw' | 'resource_change' | 'manual_action' | 'turn_start' | 'turn_end' | 'card_play' | 'card_transfer' | 'card_discard' | 'player_movement';
+  type: 'space_entry' | 'space_effect' | 'time_effect' | 'dice_roll' | 'card_draw' | 'resource_change' | 'manual_action' | 'turn_start' | 'turn_end' | 'card_play' | 'card_transfer' | 'card_discard' | 'player_movement' | 'card_activate' | 'card_expire' | 'deck_reshuffle' | 'game_start' | 'game_end' | 'error_event' | 'choice_made' | 'negotiation_resolved' | 'system_log';
   timestamp: Date;
   playerId: string;
   playerName: string;
@@ -80,6 +80,21 @@ export interface GameState {
   globalActionLog: ActionLogEntry[];
   // Try Again state snapshotting
   preSpaceEffectState: GameState | null;
+  // Stateful decks and discard piles
+  decks: {
+    W: string[];
+    B: string[];
+    E: string[];
+    L: string[];
+    I: string[];
+  };
+  discardPiles: {
+    W: string[];
+    B: string[];
+    E: string[];
+    L: string[];
+    I: string[];
+  };
 }
 
 export interface PlayerAction {
@@ -109,28 +124,8 @@ export interface PlayerUpdateData {
   money?: number;
   timeSpent?: number;
   projectScope?: number;
-  cards?: {
-    W?: string[];
-    B?: string[];
-    E?: string[];
-    L?: string[];
-    I?: string[];
-  };
-  availableCards?: {
-    W?: string[];
-    B?: string[];
-    E?: string[];
-    L?: string[];
-    I?: string[];
-  };
+  hand?: string[]; // Replaces availableCards and discardedCards
   activeCards?: ActiveCard[];
-  discardedCards?: {
-    W?: string[];
-    B?: string[];
-    E?: string[];
-    L?: string[];
-    I?: string[];
-  };
   lastDiceRoll?: {
     roll1: number;
     roll2: number;
@@ -141,26 +136,16 @@ export interface PlayerUpdateData {
     visitType: 'First' | 'Subsequent';
     money: number;
     timeSpent: number;
-    availableCards: {
-      W: string[];
-      B: string[];
-      E: string[];
-      L: string[];
-      I: string[];
-    };
+    hand: string[];
     activeCards: ActiveCard[];
-    discardedCards: {
-      W: string[];
-      B: string[];
-      E: string[];
-      L: string[];
-      I: string[];
-    };
   };
   turnModifiers?: {
     skipTurns: number;
     canReRoll?: boolean;
   };
+  activeEffects?: ActiveEffect[];
+  loans?: import('./DataTypes').Loan[];
+  score?: number;
 }
 
 export type PlayerCards = {
@@ -171,7 +156,7 @@ export type PlayerCards = {
   I: string[];
 };
 
-export type { Player, ActiveCard } from './DataTypes';
+export type { Player, ActiveCard, ActiveEffect } from './DataTypes';
 
 // Dice result feedback types
 export interface DiceResultEffect {

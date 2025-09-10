@@ -167,7 +167,7 @@ export class NegotiationService {
         // Create player snapshot for potential rollback
         const playerSnapshot = {
           id: playerId,
-          availableCards: { ...player.availableCards },
+          hand: [...player.hand],
           negotiationOffer: offer.cards
         };
         
@@ -364,13 +364,7 @@ export class NegotiationService {
    * @returns True if player has the card
    */
   private playerHasCard(player: any, cardId: string): boolean {
-    const cards = player.availableCards || {};
-    for (const cardType of Object.keys(cards)) {
-      if (cards[cardType]?.includes(cardId)) {
-        return true;
-      }
-    }
-    return false;
+    return player.hand?.includes(cardId) || false;
   }
 
   /**
@@ -382,20 +376,11 @@ export class NegotiationService {
    * @returns Updated player data
    */
   private removeCardsFromPlayer(player: any, cardIds: string[]): any {
-    const updatedCards = { ...player.availableCards };
-    
-    for (const cardId of cardIds) {
-      for (const cardType of Object.keys(updatedCards)) {
-        if (updatedCards[cardType]?.includes(cardId)) {
-          updatedCards[cardType] = updatedCards[cardType].filter((id: string) => id !== cardId);
-          break;
-        }
-      }
-    }
+    const updatedHand = player.hand.filter((id: string) => !cardIds.includes(id));
     
     return {
       id: player.id,
-      availableCards: updatedCards
+      hand: updatedHand
     };
   }
 
@@ -408,23 +393,18 @@ export class NegotiationService {
    * @returns Updated player data
    */
   private addCardsToPlayer(player: any, cardIds: string[]): any {
-    const updatedCards = { ...player.availableCards };
+    const updatedHand = [...player.hand];
     
-    // We need to determine card type for each card to add it back properly
-    // For now, we'll iterate through types and add to the first matching type
+    // Add cards back to hand if they're not already there
     for (const cardId of cardIds) {
-      // Extract card type from card ID (assuming format like W001, B002, etc.)
-      const cardType = cardId.charAt(0);
-      if (updatedCards[cardType]) {
-        if (!updatedCards[cardType].includes(cardId)) {
-          updatedCards[cardType].push(cardId);
-        }
+      if (!updatedHand.includes(cardId)) {
+        updatedHand.push(cardId);
       }
     }
     
     return {
       id: player.id,
-      availableCards: updatedCards
+      hand: updatedHand
     };
   }
 

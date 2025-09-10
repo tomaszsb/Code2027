@@ -1,6 +1,7 @@
 import { StateService } from '../src/services/StateService';
 import { DataService } from '../src/services/DataService';
 import { CardService } from '../src/services/CardService';
+import { LoggingService } from '../src/services/LoggingService';
 import { ChoiceService } from '../src/services/ChoiceService';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { GameRulesService } from '../src/services/GameRulesService';
@@ -53,16 +54,17 @@ describe('E2E-04: Space Try Again Logic', () => {
     // Initialize services
     dataService = new NodeDataService();
     stateService = new StateService(dataService);
+    const loggingService = new LoggingService(stateService);
     const resourceService = new ResourceService(stateService);
     const choiceService = new ChoiceService(stateService);
     const gameRulesService = new GameRulesService(dataService, stateService);
-    const cardService = new CardService(dataService, stateService, resourceService);
-    const movementService = new MovementService(dataService, stateService, choiceService);
+    const cardService = new CardService(dataService, stateService, resourceService, loggingService);
+    const movementService = new MovementService(dataService, stateService, choiceService, loggingService);
     
     // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
-    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    const effectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService, {} as any); // targetingService
     const negotiationService = new NegotiationService(stateService, effectEngine);
-    const turnServiceInstance = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+    const turnServiceInstance = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService);
 
     // Complete the circular dependency wiring
     turnServiceInstance.setEffectEngineService(effectEngine);

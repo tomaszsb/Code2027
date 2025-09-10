@@ -28,6 +28,24 @@ export const formatActionDescription = (entry: ActionLogEntry): string => {
 
     case 'space_entry':
       return `📍 ${entry.description}`;
+
+    case 'game_start':
+      return `🏁 ${entry.description}`;
+
+    case 'game_end':
+      return `🏆 ${entry.description}`;
+
+    case 'error_event':
+      return `❌ ${entry.description}`;
+
+    case 'choice_made':
+      return `👉 ${entry.description}`;
+
+    case 'negotiation_resolved':
+      return `🤝 ${entry.description}`;
+
+    case 'system_log':
+      return `⚙️ ${entry.description}`;
       
     default:
       return entry.description;

@@ -34,7 +34,7 @@ export function CardReplacementModal({
     return null;
   }
 
-  const availableCards = player.availableCards[cardType] || [];
+  const availableCards = player.hand.filter(cardId => cardId.startsWith(cardType));
   const canReplace = selectedCardIds.length > 0 && selectedCardIds.length <= maxReplacements;
 
   const handleCardToggle = (cardId: string) => {

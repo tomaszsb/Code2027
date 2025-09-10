@@ -21,25 +21,33 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | ''>('');
 
-
-  // Calculate card portfolio distribution
+  // Calculate card portfolio distribution using new stateful deck architecture
   const calculateCardPortfolio = () => {
-    return {
-      available: {
-        W: player.availableCards?.W?.length || 0,
-        B: player.availableCards?.B?.length || 0,
-        I: player.availableCards?.I?.length || 0,
-        L: player.availableCards?.L?.length || 0,
-        E: player.availableCards?.E?.length || 0
-      },
-      active: player.activeCards?.length || 0,
-      discarded: {
-        W: player.discardedCards?.W?.length || 0,
-        B: player.discardedCards?.B?.length || 0,
-        I: player.discardedCards?.I?.length || 0,
-        L: player.discardedCards?.L?.length || 0,
-        E: player.discardedCards?.E?.length || 0
+    const gameState = stateService.getGameState();
+    const hand = player.hand || [];
+    
+    // Count available cards by type from player.hand
+    const availableCounts = { W: 0, B: 0, I: 0, L: 0, E: 0 };
+    hand.forEach(cardId => {
+      const cardType = cardService.getCardType(cardId) as keyof typeof availableCounts;
+      if (cardType && availableCounts.hasOwnProperty(cardType)) {
+        availableCounts[cardType]++;
       }
+    });
+    
+    // Count discarded cards from gameState.discardPiles
+    const discardedCounts = {
+      W: gameState.discardPiles.W.length || 0,
+      B: gameState.discardPiles.B.length || 0,
+      I: gameState.discardPiles.I.length || 0,
+      L: gameState.discardPiles.L.length || 0,
+      E: gameState.discardPiles.E.length || 0
+    };
+    
+    return {
+      available: availableCounts,
+      active: player.activeCards?.length || 0,
+      discarded: discardedCounts
     };
   };
 
@@ -168,7 +176,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
           </div>
           
           {/* Info about W, B, I cards */}
-          {((player.availableCards?.W?.length || 0) > 0 || (player.availableCards?.B?.length || 0) > 0 || (player.availableCards?.I?.length || 0) > 0) && (
+          {(cardPortfolio.available.W > 0 || cardPortfolio.available.B > 0 || cardPortfolio.available.I > 0) && (
             <div style={{
               fontSize: '0.7rem',
               color: colors.secondary.main,
@@ -186,8 +194,23 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
             flexDirection: 'column' as const,
             gap: '6px'
           }}>
-            {Object.entries(player.availableCards || {}).filter(([cardType]) => !['W', 'B', 'I'].includes(cardType)).map(([cardType, cardIds]) => 
-              cardIds && cardIds.length > 0 ? (
+            {/* Group cards from player.hand by type, excluding W, B, I */}
+            {(() => {
+              const hand = player.hand || [];
+              const cardsByType: Record<string, string[]> = {};
+              
+              // Group cards by type
+              hand.forEach(cardId => {
+                const cardType = cardService.getCardType(cardId);
+                if (cardType && !['W', 'B', 'I'].includes(cardType)) {
+                  if (!cardsByType[cardType]) {
+                    cardsByType[cardType] = [];
+                  }
+                  cardsByType[cardType].push(cardId);
+                }
+              });
+              
+              return Object.entries(cardsByType).map(([cardType, cardIds]) => (
                 <div key={`available-${cardType}`} style={{ marginBottom: '8px' }}>
                   <div style={{
                     fontSize: '0.7rem',
@@ -291,20 +314,28 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                     })}
                   </div>
                 </div>
-              ) : null
-            )}
+              ));
+            })()}
             {/* Show message if no cards available */}
-            {Object.values(player.availableCards || {}).every(cards => !cards || cards.length === 0) && (
-              <div style={{
-                textAlign: 'center',
-                color: colors.secondary.main,
-                fontSize: '0.75rem',
-                fontStyle: 'italic',
-                padding: '12px'
-              }}>
-                No cards available to play
-              </div>
-            )}
+            {(() => {
+              const hand = player.hand || [];
+              const nonWBICards = hand.filter(cardId => {
+                const cardType = cardService.getCardType(cardId);
+                return cardType && !['W', 'B', 'I'].includes(cardType);
+              });
+              
+              return nonWBICards.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  color: colors.secondary.main,
+                  fontSize: '0.75rem',
+                  fontStyle: 'italic',
+                  padding: '12px'
+                }}>
+                  No cards available to play
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
 

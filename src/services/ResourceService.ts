@@ -265,6 +265,138 @@ export class ResourceService implements IResourceService {
     return description;
   }
 
+  // === LOAN OPERATIONS ===
+
+  /**
+   * Take out a loan for a player
+   * @param playerId - Player taking the loan
+   * @param amount - Principal amount of the loan
+   * @param interestRate - Interest rate per turn (e.g., 0.05 for 5%)
+   * @returns True if loan was successfully taken
+   */
+  takeOutLoan(playerId: string, amount: number, interestRate: number): boolean {
+    if (amount <= 0) {
+      console.warn(`ResourceService.takeOutLoan: Invalid amount ${amount} for player ${playerId}`);
+      return false;
+    }
+
+    if (interestRate < 0) {
+      console.warn(`ResourceService.takeOutLoan: Invalid interest rate ${interestRate} for player ${playerId}`);
+      return false;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.warn(`ResourceService.takeOutLoan: Player ${playerId} not found`);
+      return false;
+    }
+
+    const gameState = this.stateService.getGameState();
+    
+    try {
+      // Generate unique loan ID
+      const loanId = `loan_${playerId}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      
+      // Create new loan object
+      const newLoan = {
+        id: loanId,
+        principal: amount,
+        interestRate: interestRate,
+        startTurn: gameState.turn
+      };
+
+      // Add loan to player's loans array
+      const updatedLoans = [...player.loans, newLoan];
+      
+      // Update player with new loan
+      this.stateService.updatePlayer({
+        id: playerId,
+        loans: updatedLoans
+      });
+
+      // Add the loan amount to player's money
+      const success = this.addMoney(playerId, amount, 'loan', `Loan ${loanId}: $${amount.toLocaleString()} at ${(interestRate * 100).toFixed(1)}%`);
+      
+      if (success) {
+        console.log(`💰 LOAN: Player ${player.name} took loan ${loanId} for $${amount.toLocaleString()} at ${(interestRate * 100).toFixed(1)}% interest`);
+        return true;
+      } else {
+        // Rollback loan if money addition failed
+        this.stateService.updatePlayer({
+          id: playerId,
+          loans: player.loans
+        });
+        return false;
+      }
+      
+    } catch (error) {
+      console.error(`ResourceService.takeOutLoan: Error taking loan for player ${playerId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Apply interest to all of a player's active loans
+   * @param playerId - Player to apply interest to
+   */
+  applyInterest(playerId: string): void {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.warn(`ResourceService.applyInterest: Player ${playerId} not found`);
+      return;
+    }
+
+    if (!player.loans || player.loans.length === 0) {
+      // No loans, nothing to do
+      return;
+    }
+
+    let totalInterest = 0;
+    const interestDetails: string[] = [];
+
+    // Calculate total interest from all loans
+    for (const loan of player.loans) {
+      const interest = loan.principal * loan.interestRate;
+      totalInterest += interest;
+      interestDetails.push(`${loan.id}: $${interest.toLocaleString()}`);
+    }
+
+    if (totalInterest <= 0) {
+      return;
+    }
+
+    console.log(`💸 INTEREST: Player ${player.name} owes $${totalInterest.toLocaleString()} in loan interest`);
+    console.log(`   Breakdown: ${interestDetails.join(', ')}`);
+
+    // Check if player can afford the interest
+    if (player.money < totalInterest) {
+      console.warn(`⚠️ INTEREST: Player ${player.name} cannot afford $${totalInterest.toLocaleString()} interest (has $${player.money.toLocaleString()})`);
+      
+      // Handle insufficient funds - for now, we'll deduct what they can afford and log the shortfall
+      const affordableAmount = player.money;
+      const shortfall = totalInterest - affordableAmount;
+      
+      if (affordableAmount > 0) {
+        this.spendMoney(playerId, affordableAmount, 'interest', `Partial interest payment (shortfall: $${shortfall.toLocaleString()})`);
+      }
+      
+      console.warn(`💸 INTEREST SHORTFALL: Player ${player.name} owes additional $${shortfall.toLocaleString()} in unpaid interest`);
+      
+      // TODO: In a full implementation, you might want to:
+      // - Add the unpaid interest to loan principal
+      // - Apply penalties for missed payments
+      // - Track payment history
+      
+    } else {
+      // Player can afford full interest payment
+      const success = this.spendMoney(playerId, totalInterest, 'interest', `Interest payment on ${player.loans.length} loan(s)`);
+      
+      if (success) {
+        console.log(`✅ INTEREST: Player ${player.name} paid $${totalInterest.toLocaleString()} in loan interest`);
+      }
+    }
+  }
+
   // === DEBUG HELPERS ===
 
   /**

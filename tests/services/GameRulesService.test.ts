@@ -3,7 +3,7 @@
 import { GameRulesService } from '../../src/services/GameRulesService';
 import { IDataService, IStateService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
-import { Movement, DiceOutcome, CardType } from '../../src/types/DataTypes';
+import { Movement, DiceOutcome, CardType, GameConfig } from '../../src/types/DataTypes';
 import { createMockDataService, createMockStateService } from '../mocks/mockServices';
 
 // Mock implementations using centralized creators
@@ -28,15 +28,12 @@ describe('GameRulesService', () => {
       money: 1000,
       timeSpent: 100,
       projectScope: 0,
-      availableCards: {
-        W: ['W_001', 'W_002'],
-        B: ['B_001'],
-        E: [],
-        L: ['L_001'],
-        I: []
-      },
+    score: 0,
+      hand: ['W_001', 'W_002', 'B_001', 'L_001'], // Combined cards from old availableCards
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     mockGameState = {
@@ -55,7 +52,22 @@ describe('GameRulesService', () => {
       hasCompletedManualActions: false,
       activeNegotiation: null,
       globalActionLog: [],
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      // New stateful deck properties
+      decks: {
+        W: ['W_003', 'W_004', 'W_005'],
+        B: ['B_002', 'B_003'],
+        E: ['E_001', 'E_002', 'E_003'],
+        L: ['L_002', 'L_003'],
+        I: ['I_001', 'I_002']
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     };
   });
 
@@ -277,17 +289,17 @@ describe('GameRulesService', () => {
       expect(result).toBe(false);
     });
 
-    it('should return false when player has max cards of type', () => {
-      const playerWithMaxCards = {
-        ...mockPlayer,
-        availableCards: {
-          ...mockPlayer.availableCards,
-          W: new Array(10).fill('W_').map((prefix, i) => `${prefix}${i.toString().padStart(3, '0')}`)
+    it('should return false when the deck for a card type is empty', () => {
+      const gameStateWithEmptyWDeck = {
+        ...mockGameState,
+        decks: {
+          ...mockGameState.decks,
+          W: [] // Empty W deck
         }
       };
 
-      mockStateService.getGameState.mockReturnValue(mockGameState);
-      mockStateService.getPlayer.mockReturnValue(playerWithMaxCards);
+      mockStateService.getGameState.mockReturnValue(gameStateWithEmptyWDeck);
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
 
       const result = gameRulesService.canDrawCard('player1', 'W');
 
@@ -617,6 +629,273 @@ describe('GameRulesService', () => {
 
       // Assert
       expect(result).toBe(false);
+    });
+  });
+
+  describe('Scoring System', () => {
+    describe('calculatePlayerScore', () => {
+      it('should calculate score based on money, project scope, loans, and time', () => {
+        // Arrange
+        const playerWithAssets: Player = {
+          ...mockPlayer,
+          money: 10000,
+          timeSpent: 5,
+          loans: [
+            { id: 'loan1', principal: 5000, interestRate: 0.1, startTurn: 1 },
+            { id: 'loan2', principal: 3000, interestRate: 0.15, startTurn: 2 }
+          ]
+        };
+
+        mockStateService.getPlayer.mockReturnValue(playerWithAssets);
+        
+        // Mock calculateProjectScope to return a known value
+        jest.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(15000);
+
+        // Act
+        const score = gameRulesService.calculatePlayerScore('player1');
+
+        // Assert
+        // Score = Money(10000) + ProjectScope(15000) - Loans(2*5000) - Time(5*1000)
+        // Score = 10000 + 15000 - 10000 - 5000 = 10000
+        expect(score).toBe(10000);
+      });
+
+      it('should return 0 for non-existent player', () => {
+        // Arrange
+        mockStateService.getPlayer.mockReturnValue(undefined);
+
+        // Act
+        const score = gameRulesService.calculatePlayerScore('nonexistent');
+
+        // Assert
+        expect(score).toBe(0);
+      });
+
+      it('should ensure score does not go negative', () => {
+        // Arrange
+        const playerWithDebts: Player = {
+          ...mockPlayer,
+          money: 1000,
+          timeSpent: 10,
+          loans: [
+            { id: 'loan1', principal: 5000, interestRate: 0.1, startTurn: 1 },
+            { id: 'loan2', principal: 5000, interestRate: 0.1, startTurn: 2 },
+            { id: 'loan3', principal: 5000, interestRate: 0.1, startTurn: 3 }
+          ]
+        };
+
+        mockStateService.getPlayer.mockReturnValue(playerWithDebts);
+        jest.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(2000);
+
+        // Act
+        const score = gameRulesService.calculatePlayerScore('player1');
+
+        // Assert
+        // Score = Money(1000) + ProjectScope(2000) - Loans(3*5000) - Time(10*1000)
+        // Score = 1000 + 2000 - 15000 - 10000 = -22000, but clamped to 0
+        expect(score).toBe(0);
+      });
+    });
+
+    describe('determineWinner', () => {
+      it('should determine winner by highest score', () => {
+        // Arrange
+        const player1: Player = { ...mockPlayer, id: 'player1', name: 'Alice', score: 0 };
+        const player2: Player = { ...mockPlayer, id: 'player2', name: 'Bob', score: 0 };
+        const player3: Player = { ...mockPlayer, id: 'player3', name: 'Charlie', score: 0 };
+
+        const mockGameStateWithPlayers = {
+          ...mockGameState,
+          players: [player1, player2, player3]
+        };
+
+        mockStateService.getGameState.mockReturnValue(mockGameStateWithPlayers);
+
+        // Mock calculatePlayerScore to return different scores
+        jest.spyOn(gameRulesService, 'calculatePlayerScore')
+          .mockReturnValueOnce(5000)  // player1
+          .mockReturnValueOnce(15000) // player2 (highest)
+          .mockReturnValueOnce(8000); // player3
+
+        // Act
+        const winnerId = gameRulesService.determineWinner();
+
+        // Assert
+        expect(winnerId).toBe('player2');
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith({ id: 'player1', score: 5000 });
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith({ id: 'player2', score: 15000 });
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith({ id: 'player3', score: 8000 });
+      });
+
+      it('should return null when no players exist', () => {
+        // Arrange
+        const emptyGameState = { ...mockGameState, players: [] };
+        mockStateService.getGameState.mockReturnValue(emptyGameState);
+
+        // Act
+        const winnerId = gameRulesService.determineWinner();
+
+        // Assert
+        expect(winnerId).toBeNull();
+      });
+    });
+  });
+
+  describe('Enhanced Win Conditions', () => {
+    describe('checkTurnLimit', () => {
+      it('should return true when turn limit is reached', () => {
+        // Arrange
+        const gameStateAtLimit = { ...mockGameState, turn: 50 };
+        mockStateService.getGameState.mockReturnValue(gameStateAtLimit);
+
+        // Act
+        const result = gameRulesService.checkTurnLimit(50);
+
+        // Assert
+        expect(result).toBe(true);
+      });
+
+      it('should return true when turn exceeds limit', () => {
+        // Arrange
+        const gameStateBeyondLimit = { ...mockGameState, turn: 55 };
+        mockStateService.getGameState.mockReturnValue(gameStateBeyondLimit);
+
+        // Act
+        const result = gameRulesService.checkTurnLimit(50);
+
+        // Assert
+        expect(result).toBe(true);
+      });
+
+      it('should return false when turn is below limit', () => {
+        // Arrange
+        const gameStateBelowLimit = { ...mockGameState, turn: 30 };
+        mockStateService.getGameState.mockReturnValue(gameStateBelowLimit);
+
+        // Act
+        const result = gameRulesService.checkTurnLimit(50);
+
+        // Assert
+        expect(result).toBe(false);
+      });
+
+      it('should use default turn limit of 50', () => {
+        // Arrange
+        const gameStateAtDefaultLimit = { ...mockGameState, turn: 50 };
+        mockStateService.getGameState.mockReturnValue(gameStateAtDefaultLimit);
+
+        // Act
+        const result = gameRulesService.checkTurnLimit();
+
+        // Assert
+        expect(result).toBe(true);
+      });
+    });
+
+    describe('checkGameEndConditions', () => {
+      it('should return win condition when player reaches ending space', async () => {
+        // Arrange
+        const endingSpaceConfig: GameConfig = {
+          space_name: 'ENDING-SPACE',
+          phase: 'play',
+          is_starting_space: false,
+          is_ending_space: true,
+          path_type: 'linear',
+          min_players: 1,
+          max_players: 4,
+          requires_dice_roll: true
+        };
+
+        mockStateService.getPlayer.mockReturnValue(mockPlayer);
+        mockDataService.getGameConfigBySpace.mockReturnValue(endingSpaceConfig);
+        mockStateService.getGameState.mockReturnValue({ ...mockGameState, turn: 10 });
+
+        // Act
+        const result = await gameRulesService.checkGameEndConditions('player1', 50);
+
+        // Assert
+        expect(result.shouldEnd).toBe(true);
+        expect(result.reason).toBe('win');
+        expect(result.winnerId).toBe('player1');
+      });
+
+      it('should return turn limit condition when limit is reached', async () => {
+        // Arrange
+        const nonEndingSpaceConfig: GameConfig = {
+          space_name: 'REGULAR-SPACE',
+          phase: 'play',
+          is_starting_space: false,
+          is_ending_space: false,
+          path_type: 'linear',
+          min_players: 1,
+          max_players: 4,
+          requires_dice_roll: true
+        };
+
+        mockStateService.getPlayer.mockReturnValue(mockPlayer);
+        mockDataService.getGameConfigBySpace.mockReturnValue(nonEndingSpaceConfig);
+        mockStateService.getGameState.mockReturnValue({ ...mockGameState, turn: 50 });
+
+        // Act
+        const result = await gameRulesService.checkGameEndConditions('player1', 50);
+
+        // Assert
+        expect(result.shouldEnd).toBe(true);
+        expect(result.reason).toBe('turn_limit');
+        expect(result.winnerId).toBeUndefined();
+      });
+
+      it('should return no end condition when game should continue', async () => {
+        // Arrange
+        const nonEndingSpaceConfig: GameConfig = {
+          space_name: 'REGULAR-SPACE',
+          phase: 'play',
+          is_starting_space: false,
+          is_ending_space: false,
+          path_type: 'linear',
+          min_players: 1,
+          max_players: 4,
+          requires_dice_roll: true
+        };
+
+        mockStateService.getPlayer.mockReturnValue(mockPlayer);
+        mockDataService.getGameConfigBySpace.mockReturnValue(nonEndingSpaceConfig);
+        mockStateService.getGameState.mockReturnValue({ ...mockGameState, turn: 25 });
+
+        // Act
+        const result = await gameRulesService.checkGameEndConditions('player1', 50);
+
+        // Assert
+        expect(result.shouldEnd).toBe(false);
+        expect(result.reason).toBeNull();
+        expect(result.winnerId).toBeUndefined();
+      });
+
+      it('should prioritize win condition over turn limit', async () => {
+        // Arrange - Player wins on the exact turn limit
+        const endingSpaceConfig: GameConfig = {
+          space_name: 'ENDING-SPACE',
+          phase: 'play',
+          is_starting_space: false,
+          is_ending_space: true,
+          path_type: 'linear',
+          min_players: 1,
+          max_players: 4,
+          requires_dice_roll: true
+        };
+
+        mockStateService.getPlayer.mockReturnValue(mockPlayer);
+        mockDataService.getGameConfigBySpace.mockReturnValue(endingSpaceConfig);
+        mockStateService.getGameState.mockReturnValue({ ...mockGameState, turn: 50 });
+
+        // Act
+        const result = await gameRulesService.checkGameEndConditions('player1', 50);
+
+        // Assert
+        expect(result.shouldEnd).toBe(true);
+        expect(result.reason).toBe('win');
+        expect(result.winnerId).toBe('player1');
+      });
     });
   });
 });

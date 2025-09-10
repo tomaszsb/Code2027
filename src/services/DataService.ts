@@ -241,7 +241,12 @@ export class DataService implements IDataService {
         destination_2: values[4] || undefined,
         destination_3: values[5] || undefined,
         destination_4: values[6] || undefined,
-        destination_5: values[7] || undefined
+        destination_5: values[7] || undefined,
+        condition_1: values[8] || undefined,
+        condition_2: values[9] || undefined,
+        condition_3: values[10] || undefined,
+        condition_4: values[11] || undefined,
+        condition_5: values[12] || undefined
       };
     });
   }

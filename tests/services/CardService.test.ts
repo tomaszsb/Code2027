@@ -1,14 +1,15 @@
 import { CardService } from '../../src/services/CardService';
-import { IDataService, IStateService, IResourceService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IResourceService, ILoggingService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { CardType } from '../../src/types/DataTypes';
-import { createMockDataService, createMockStateService, createMockResourceService } from '../mocks/mockServices';
+import { createMockDataService, createMockStateService, createMockResourceService, createMockLoggingService } from '../mocks/mockServices';
 
 describe('CardService - Enhanced Coverage', () => {
   let cardService: CardService;
   let mockDataService: jest.Mocked<IDataService>;
   let mockStateService: jest.Mocked<IStateService>;
   let mockResourceService: jest.Mocked<IResourceService>;
+  let mockLoggingService: jest.Mocked<ILoggingService>;
 
   const mockPlayer: Player = {
     id: 'player1',
@@ -18,26 +19,17 @@ describe('CardService - Enhanced Coverage', () => {
     money: 100,
     timeSpent: 5,
     projectScope: 0,
+    score: 0,
     color: '#007bff',
     avatar: '👤',
-    availableCards: {
-      W: ['W_active_001'],
-      B: [],
-      E: [],
-      L: [],
-      I: []
-    },
+    hand: ['W_active_001'], // Player now has a simple hand array
     activeCards: [
       { cardId: 'W_expired_001', expirationTurn: 2 },  // Should expire
       { cardId: 'B_active_001', expirationTurn: 5 }    // Should remain active
     ],
-    discardedCards: {
-      W: [],
-      B: [],
-      E: [],
-      L: [],
-      I: []
-    }
+    turnModifiers: { skipTurns: 0 },
+    activeEffects: [],
+    loans: []
   };
 
   const mockGameState: GameState = {
@@ -56,7 +48,21 @@ describe('CardService - Enhanced Coverage', () => {
     hasCompletedManualActions: false,
     activeNegotiation: null,
     globalActionLog: [],
-    preSpaceEffectState: null
+    preSpaceEffectState: null,
+    decks: {
+      W: ['W001', 'W002', 'W003'], // Mock deck with sample cards
+      B: ['B001', 'B002'],
+      E: ['E001', 'E002', 'E003'],
+      L: ['L001'],
+      I: ['I001', 'I002']
+    },
+    discardPiles: {
+      W: [], // Empty discard piles
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    }
   };
 
   beforeEach(() => {
@@ -64,12 +70,14 @@ describe('CardService - Enhanced Coverage', () => {
     mockDataService = createMockDataService();
     mockStateService = createMockStateService();
     mockResourceService = createMockResourceService();
+    mockLoggingService = createMockLoggingService();
 
     // Setup default mock responses
     mockStateService.getGameState.mockReturnValue(mockGameState);
     mockStateService.getPlayer.mockReturnValue(mockPlayer);
     mockStateService.getAllPlayers.mockReturnValue([mockPlayer]);
     mockStateService.updatePlayer.mockReturnValue(mockGameState);
+    mockStateService.updateGameState.mockReturnValue(mockGameState);
 
     // Setup card data
     mockDataService.getCardById.mockImplementation((cardId: string) => {
@@ -114,7 +122,7 @@ describe('CardService - Enhanced Coverage', () => {
       return sampleCards[cardType] || [];
     });
 
-    cardService = new CardService(mockDataService, mockStateService, mockResourceService);
+    cardService = new CardService(mockDataService, mockStateService, mockResourceService, mockLoggingService);
   });
 
   describe('Card Expiration System', () => {
@@ -133,17 +141,32 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should process multiple players during endOfTurn', () => {
+      // Clear previous mock calls to ensure accurate count
+      jest.clearAllMocks();
+      
       const player2: Player = {
         ...mockPlayer,
         id: 'player2',
-        activeCards: [{ cardId: 'B_expired_002', expirationTurn: 1 }]
+        name: 'Player2',
+        activeCards: [{ cardId: 'B_expired_002', expirationTurn: 1 }],
+        hand: [] // Ensure player2 has the new hand structure
       };
       
+      // Create a modified game state with both players
+      const gameStateWithTwoPlayers = {
+        ...mockGameState,
+        players: [mockPlayer, player2]
+      };
+      
+      // Re-setup mocks for this test
+      mockStateService.getGameState.mockReturnValue(gameStateWithTwoPlayers);
       mockStateService.getAllPlayers.mockReturnValue([mockPlayer, player2]);
+      mockStateService.updatePlayer.mockReturnValue(gameStateWithTwoPlayers);
+      mockStateService.updateGameState.mockReturnValue(gameStateWithTwoPlayers);
       
       cardService.endOfTurn();
 
-      // Should update both players
+      // Should update both players (both have expired cards)
       expect(mockStateService.updatePlayer).toHaveBeenCalledTimes(2);
     });
 
@@ -169,18 +192,21 @@ describe('CardService - Enhanced Coverage', () => {
         money: 50,
         timeSpent: 3,
         projectScope: 0,
+        score: 0,
         color: '#28a745',
         avatar: '🧑',
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+        turnModifiers: { skipTurns: 0 },
+        activeEffects: [],
+        loans: []
       };
 
       mockStateService.getAllPlayers.mockReturnValue([mockPlayer, targetPlayer]);
       // Use a transferable card type (E and L cards are transferable)
       const transferablePlayer: Player = {
         ...mockPlayer,
-        availableCards: { W: [], B: [], E: ['E_transferable_001'], L: [], I: [] }
+        hand: ['E_transferable_001'] // E cards are transferable
       };
       
       // Mock getPlayer to return the correct players for the transfer operation
@@ -194,23 +220,19 @@ describe('CardService - Enhanced Coverage', () => {
 
       expect(result).toEqual(mockGameState);
       
-      // Should update source player to remove card
+      // Should update source player to remove card from hand
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'player1',
-          availableCards: expect.objectContaining({
-            E: []  // Card removed
-          })
+          hand: []  // Card removed from hand
         })
       );
 
-      // Should update target player to add card
+      // Should update target player to add card to hand
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'player2',
-          availableCards: expect.objectContaining({
-            E: ['E_transferable_001']  // Card added
-          })
+          hand: ['E_transferable_001']  // Card added to hand
         })
       );
     });
@@ -263,21 +285,35 @@ describe('CardService - Enhanced Coverage', () => {
       expect(cardService.playerOwnsCard('nonexistent', 'W_active_001')).toBe(false);
     });
 
-    it('should generate unique card IDs when drawing cards', () => {
+    it('should draw cards from stateful decks and update player hand', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-      // Arrange: Ensure getPlayer returns the mock player who starts with 1 'W' card
+      // Arrange: Ensure getPlayer returns the mock player with initial hand
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
 
-      // Act: Draw 3 more 'W' cards
-      cardService.drawCards('player1', 'W', 3);
+      // Act: Draw 2 'W' cards from the deck
+      const drawnCards = cardService.drawCards('player1', 'W', 2);
 
-      // Assert: Check that the player now has 4 'W' cards (the original 1 + 3 new ones)
-      const updatePlayerCall = mockStateService.updatePlayer.mock.calls[0][0];
-      const finalWCards = updatePlayerCall.availableCards?.W || [];
+      // Assert: Should return the drawn card IDs
+      expect(drawnCards).toHaveLength(2);
+      expect(drawnCards).toEqual(['W003', 'W002']); // Cards drawn from top of deck (LIFO)
 
-      expect(finalWCards).toHaveLength(4);
-      expect(finalWCards).toContain('W_active_001'); // Verify the original card is still there
+      // Assert: Should update player's hand
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'player1',
+          hand: ['W_active_001', 'W003', 'W002'] // Original card + 2 new cards
+        })
+      );
+
+      // Assert: Should update global deck state
+      expect(mockStateService.updateGameState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decks: expect.objectContaining({
+            W: ['W001'] // Deck should have 1 card remaining (original 3 - 2 drawn)
+          })
+        })
+      );
 
       consoleSpy.mockRestore();
     });
@@ -308,6 +344,301 @@ describe('CardService - Enhanced Coverage', () => {
       expect(cardType).toBeNull();
       
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('Phase Restriction System', () => {
+    const mockConstructionCard = {
+      card_id: 'L001',
+      card_name: 'Construction Card',
+      card_type: 'L' as const,
+      description: 'Test construction card',
+      phase_restriction: 'CONSTRUCTION',
+      cost: 0
+    };
+
+    const mockDesignCard = {
+      card_id: 'E001',
+      card_name: 'Design Card',
+      card_type: 'E' as const,
+      description: 'Test design card',
+      phase_restriction: 'DESIGN',
+      cost: 0
+    };
+
+    const mockFundingCard = {
+      card_id: 'E066',
+      card_name: 'Funding Card',
+      card_type: 'E' as const,
+      description: 'Test funding card',
+      phase_restriction: 'FUNDING',
+      cost: 0
+    };
+
+    const mockRegulatoryCard = {
+      card_id: 'E005',
+      card_name: 'Regulatory Card',
+      card_type: 'E' as const,
+      description: 'Test regulatory card',
+      phase_restriction: 'REGULATORY_REVIEW',
+      cost: 0
+    };
+
+    const mockAnyPhaseCard = {
+      card_id: 'B001',
+      card_name: 'Any Phase Card',
+      card_type: 'B' as const,
+      description: 'Test any phase card',
+      phase_restriction: 'Any',
+      cost: 0
+    };
+
+    const mockNoPhaseRestrictionCard = {
+      card_id: 'W001',
+      card_name: 'No Phase Card',
+      card_type: 'W' as const,
+      description: 'Test no phase restriction card',
+      cost: 0
+    };
+
+    beforeEach(() => {
+      // Set up player with cards in hand
+      const playerWithCards = {
+        ...mockPlayer,
+        hand: ['W001', 'B001', 'E001', 'E066', 'E005', 'L001'] // All cards now in hand
+      };
+      mockStateService.getPlayer.mockReturnValue(playerWithCards);
+
+      // Mock card data responses
+      mockDataService.getCardById.mockImplementation((cardId: string) => {
+        switch (cardId) {
+          case 'L001': return mockConstructionCard;
+          case 'E001': return mockDesignCard;
+          case 'E066': return mockFundingCard;
+          case 'E005': return mockRegulatoryCard;
+          case 'B001': return mockAnyPhaseCard;
+          case 'W001': return mockNoPhaseRestrictionCard;
+          default: return undefined;
+        }
+      });
+    });
+
+    it('should allow construction cards only on construction spaces', () => {
+      // Setup: Player on construction space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'CON-INITIATION',
+        phase: 'CONSTRUCTION',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: Can play construction card
+      expect(cardService.canPlayCard('player1', 'L001')).toBe(true);
+
+      // Test: Construction card validates properly
+      const validation = (cardService as any).validateCardPlay('player1', 'L001');
+      expect(validation.isValid).toBe(true);
+    });
+
+    it('should prevent construction cards on non-construction spaces', () => {
+      // Setup: Player on design space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'ARCH-INITIATION',
+        phase: 'DESIGN',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: Cannot play construction card
+      expect(cardService.canPlayCard('player1', 'L001')).toBe(false);
+
+      // Test: Construction card validation fails with proper message
+      const validation = (cardService as any).validateCardPlay('player1', 'L001');
+      expect(validation.isValid).toBe(false);
+      expect(validation.errorMessage).toContain('Card can only be played during CONSTRUCTION phase');
+      expect(validation.errorMessage).toContain('Current activity: DESIGN');
+    });
+
+    it('should allow design cards only on design spaces', () => {
+      // Setup: Player on design space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'ARCH-INITIATION',
+        phase: 'DESIGN',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: Can play design card
+      expect(cardService.canPlayCard('player1', 'E001')).toBe(true);
+
+      // Test: Design card validates properly
+      const validation = (cardService as any).validateCardPlay('player1', 'E001');
+      expect(validation.isValid).toBe(true);
+    });
+
+    it('should allow funding cards only on funding spaces', () => {
+      // Setup: Player on funding space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'BANK-FUND-REVIEW',
+        phase: 'FUNDING',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: Can play funding card
+      expect(cardService.canPlayCard('player1', 'E066')).toBe(true);
+
+      // Test: Funding card validates properly
+      const validation = (cardService as any).validateCardPlay('player1', 'E066');
+      expect(validation.isValid).toBe(true);
+    });
+
+    it('should allow regulatory cards only on regulatory spaces', () => {
+      // Setup: Player on regulatory space  
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'REG-DOB-FEE-REVIEW',
+        phase: 'REGULATORY',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: Can play regulatory card
+      expect(cardService.canPlayCard('player1', 'E005')).toBe(true);
+
+      // Test: Regulatory card validates properly
+      const validation = (cardService as any).validateCardPlay('player1', 'E005');
+      expect(validation.isValid).toBe(true);
+    });
+
+    it('should allow "Any" phase cards on any space', () => {
+      // Test on construction space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'CON-INITIATION',
+        phase: 'CONSTRUCTION',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      expect(cardService.canPlayCard('player1', 'B001')).toBe(true);
+
+      // Test on design space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'ARCH-INITIATION',
+        phase: 'DESIGN',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      expect(cardService.canPlayCard('player1', 'B001')).toBe(true);
+    });
+
+    it('should allow cards with no phase restriction on any space', () => {
+      // Test on construction space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'CON-INITIATION',
+        phase: 'CONSTRUCTION',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      expect(cardService.canPlayCard('player1', 'W001')).toBe(true);
+
+      // Test on design space
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'ARCH-INITIATION',
+        phase: 'DESIGN',
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      expect(cardService.canPlayCard('player1', 'W001')).toBe(true);
+    });
+
+    it('should allow any card when player is on a space without a phase', () => {
+      // Setup: Player on a space with no phase (like START or generic spaces)
+      mockDataService.getGameConfigBySpace.mockReturnValue({
+        space_name: 'GENERIC-SPACE',
+        phase: '', // No phase
+        path_type: 'main',
+        is_starting_space: false,
+        is_ending_space: false,
+        min_players: 1,
+        max_players: 4,
+        requires_dice_roll: false,
+        space_order: 1
+      });
+
+      // Test: All restricted cards should be allowed
+      expect(cardService.canPlayCard('player1', 'L001')).toBe(true); // Construction card
+      expect(cardService.canPlayCard('player1', 'E001')).toBe(true); // Design card
+      expect(cardService.canPlayCard('player1', 'E066')).toBe(true); // Funding card
+      expect(cardService.canPlayCard('player1', 'E005')).toBe(true); // Regulatory card
+    });
+
+    it('should allow any card when space config is not found', () => {
+      // Setup: Player on unknown space
+      mockDataService.getGameConfigBySpace.mockReturnValue(undefined);
+
+      // Test: All restricted cards should be allowed due to no space config
+      expect(cardService.canPlayCard('player1', 'L001')).toBe(true); // Construction card
+      expect(cardService.canPlayCard('player1', 'E001')).toBe(true); // Design card
+      expect(cardService.canPlayCard('player1', 'E066')).toBe(true); // Funding card
+      expect(cardService.canPlayCard('player1', 'E005')).toBe(true); // Regulatory card
+    });
+
+    it('should handle player not found gracefully', () => {
+      mockStateService.getPlayer.mockReturnValue(undefined);
+
+      expect(cardService.canPlayCard('nonexistent', 'L001')).toBe(false);
+
+      const validation = (cardService as any).validateCardPlay('nonexistent', 'L001');
+      expect(validation.isValid).toBe(false);
+      expect(validation.errorMessage).toContain('Player nonexistent not found');
     });
   });
 });

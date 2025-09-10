@@ -151,6 +151,15 @@ export type Effect =
         cardId: string;
         source?: string;
       };
+    }
+  | {
+      effectType: 'DURATION_STORED';
+      payload: {
+        playerId: string;
+        cardId: string;
+        source?: string;
+        message: string;
+      };
     };
 
 /**
@@ -162,7 +171,7 @@ export type Effect =
 export interface EffectContext {
   source: string;
   playerId?: string;
-  triggerEvent?: 'CARD_PLAY' | 'SPACE_ENTRY' | 'DICE_ROLL' | 'TURN_START' | 'TURN_END';
+  triggerEvent?: 'CARD_PLAY' | 'SPACE_ENTRY' | 'DICE_ROLL' | 'TURN_START' | 'TURN_END' | 'ACTIVE_EFFECT';
   diceRoll?: number; // Required for CONDITIONAL_EFFECT processing
   metadata?: Record<string, any>;
 }
@@ -249,4 +258,8 @@ export function isChoiceOfEffectsEffect(effect: Effect): effect is Extract<Effec
 
 export function isPlayCardEffect(effect: Effect): effect is Extract<Effect, { effectType: 'PLAY_CARD' }> {
   return effect.effectType === 'PLAY_CARD';
+}
+
+export function isDurationStoredEffect(effect: Effect): effect is Extract<Effect, { effectType: 'DURATION_STORED' }> {
+  return effect.effectType === 'DURATION_STORED';
 }

@@ -12,51 +12,8 @@ import {
 } from '../src/types/ServiceContracts';
 import { Effect, EffectContext, isTurnControlEffect } from '../src/types/EffectTypes';
 import { Player, Card } from '../src/types/DataTypes';
+import { createMockStateService } from './mocks/mockServices';
 
-// Simple mock services for focused testing
-const createMockStateService = (): jest.Mocked<IStateService> => ({
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
-  subscribe: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn()
-});
 
 describe('E066 Card - Core Re-roll Functionality', () => {
   it('should parse E066 card and create GRANT_REROLL effect', () => {
@@ -92,7 +49,8 @@ describe('E066 Card - Core Re-roll Functionality', () => {
       mockStateService,
       {} as IMovementService,
       {} as ITurnService,
-      {} as IGameRulesService
+      {} as IGameRulesService,
+      {} as any // targetingService
     );
 
     const grantRerollEffect: Effect = {
@@ -113,10 +71,12 @@ describe('E066 Card - Core Re-roll Functionality', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0 }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     mockStateService.getPlayer.mockReturnValue(mockPlayer);
@@ -167,13 +127,15 @@ describe('E066 Card - Core Re-roll Functionality', () => {
       money: 0,
       timeSpent: 0,
       projectScope: 0,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
       turnModifiers: {
         skipTurns: 0,
         canReRoll: true // This should not cause a TypeScript error
-      }
+      },
+      activeEffects: [],
+      loans: []
     };
 
     expect(playerWithReroll.turnModifiers?.canReRoll).toBe(true);

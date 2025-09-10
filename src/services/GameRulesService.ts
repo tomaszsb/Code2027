@@ -109,11 +109,9 @@ export class GameRulesService implements IGameRulesService {
       return false;
     }
 
-    // Check if player has space for more cards (optional business rule)
-    const currentCardCount = this.getPlayerCardCount(playerId, cardType);
-    const maxCardsPerType = 10; // Business rule: max 10 cards per type
-    
-    if (currentCardCount >= maxCardsPerType) {
+    // Check if deck has cards available (stateful deck system)
+    const gameState = this.stateService.getGameState();
+    if (!gameState.decks || !gameState.decks[cardType] || gameState.decks[cardType].length === 0) {
       return false;
     }
 
@@ -230,16 +228,8 @@ export class GameRulesService implements IGameRulesService {
       return false;
     }
 
-    // Check all available card types
-    const allCards = [
-      ...(player.availableCards?.W || []),
-      ...(player.availableCards?.B || []),
-      ...(player.availableCards?.E || []),
-      ...(player.availableCards?.L || []),
-      ...(player.availableCards?.I || [])
-    ];
-
-    return allCards.includes(cardId);
+    // Check if card is in player's hand
+    return player.hand ? player.hand.includes(cardId) : false;
   }
 
   /**
@@ -277,16 +267,20 @@ export class GameRulesService implements IGameRulesService {
    */
   private getPlayerCardCount(playerId: string, cardType?: CardType): number {
     const player = this.stateService.getPlayer(playerId);
-    if (!player) {
+    if (!player || !player.hand) {
       return 0;
     }
 
     if (cardType) {
-      return player.availableCards[cardType].length;
+      // Count cards of specific type in player's hand
+      return player.hand.filter(cardId => {
+        const type = this.getCardType(cardId);
+        return type === cardType;
+      }).length;
     }
 
-    // Return total card count across all types
-    return Object.values(player.availableCards).reduce((total, cards) => total + cards.length, 0);
+    // Return total card count
+    return player.hand.length;
   }
 
   /**
@@ -317,6 +311,72 @@ export class GameRulesService implements IGameRulesService {
   }
 
   /**
+   * Check if the game should end due to turn limit being reached
+   * @param turnLimit - Maximum number of turns before game ends (default 50)
+   * @returns true if the turn limit has been reached
+   */
+  checkTurnLimit(turnLimit: number = 50): boolean {
+    try {
+      const gameState = this.stateService.getGameState();
+      const currentTurn = gameState.turn || 0;
+      
+      if (currentTurn >= turnLimit) {
+        console.log(`Turn limit reached: Turn ${currentTurn} >= ${turnLimit}`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking turn limit:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if the game should end for any reason (win condition or turn limit)
+   * @param playerId - The ID of the player to check for win condition
+   * @param turnLimit - Maximum number of turns before game ends (default 50)
+   * @returns Object indicating if game should end and why
+   */
+  async checkGameEndConditions(playerId: string, turnLimit: number = 50): Promise<{
+    shouldEnd: boolean;
+    reason: 'win' | 'turn_limit' | null;
+    winnerId?: string;
+  }> {
+    try {
+      // Check if player won by reaching ending space
+      const playerWon = await this.checkWinCondition(playerId);
+      if (playerWon) {
+        return {
+          shouldEnd: true,
+          reason: 'win',
+          winnerId: playerId
+        };
+      }
+
+      // Check if turn limit reached
+      const turnLimitReached = this.checkTurnLimit(turnLimit);
+      if (turnLimitReached) {
+        return {
+          shouldEnd: true,
+          reason: 'turn_limit'
+        };
+      }
+
+      return {
+        shouldEnd: false,
+        reason: null
+      };
+    } catch (error) {
+      console.error('Error checking game end conditions:', error);
+      return {
+        shouldEnd: false,
+        reason: null
+      };
+    }
+  }
+
+  /**
    * Calculates the total project scope for a player based on their Work (W) cards
    * @param playerId - The ID of the player
    * @returns The total cost/value of all W cards owned by the player
@@ -332,7 +392,7 @@ export class GameRulesService implements IGameRulesService {
       let totalScope = 0;
 
       // Get all W cards for this player
-      const workCards = player.availableCards?.W || [];
+      const workCards = player.hand.filter(cardId => cardId.startsWith('W'));
 
       // Calculate total scope by summing up card costs
       for (const cardId of workCards) {
@@ -353,6 +413,88 @@ export class GameRulesService implements IGameRulesService {
     } catch (error) {
       console.error(`Error calculating project scope for player ${playerId}:`, error);
       return 0;
+    }
+  }
+
+  /**
+   * Calculate a player's final score based on their assets and liabilities
+   * @param playerId - The ID of the player
+   * @returns The calculated score
+   */
+  calculatePlayerScore(playerId: string): number {
+    try {
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        console.error(`Player ${playerId} not found when calculating score`);
+        return 0;
+      }
+
+      let score = 0;
+
+      // Add player's final money
+      score += player.money;
+
+      // Add player's project scope (using existing calculateProjectScope method)
+      score += this.calculateProjectScope(playerId);
+
+      // Subtract penalty for loans (each loan costs 5000 points)
+      score -= player.loans.length * 5000;
+
+      // Subtract penalty for time spent (each time unit costs 1000 points)
+      score -= player.timeSpent * 1000;
+
+      console.log(`Score calculation for ${player.name}:`);
+      console.log(`  Money: +$${player.money.toLocaleString()}`);
+      console.log(`  Project Scope: +$${this.calculateProjectScope(playerId).toLocaleString()}`);
+      console.log(`  Loan Penalty: -$${(player.loans.length * 5000).toLocaleString()} (${player.loans.length} loans)`);
+      console.log(`  Time Penalty: -$${(player.timeSpent * 1000).toLocaleString()} (${player.timeSpent} time units)`);
+      console.log(`  Final Score: $${score.toLocaleString()}`);
+
+      return Math.max(0, score); // Ensure score doesn't go negative
+    } catch (error) {
+      console.error(`Error calculating score for player ${playerId}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Determine the winner of the game based on highest score
+   * @returns The player ID of the winner, or null if no winner can be determined
+   */
+  determineWinner(): string | null {
+    try {
+      const gameState = this.stateService.getGameState();
+      const players = gameState.players;
+
+      if (players.length === 0) {
+        return null;
+      }
+
+      let highestScore = -1;
+      let winnerId: string | null = null;
+
+      // Calculate scores for all players and update their score property
+      for (const player of players) {
+        const playerScore = this.calculatePlayerScore(player.id);
+        
+        // Update the player's score in the game state
+        this.stateService.updatePlayer({
+          id: player.id,
+          score: playerScore
+        });
+
+        // Track the highest score
+        if (playerScore > highestScore) {
+          highestScore = playerScore;
+          winnerId = player.id;
+        }
+      }
+
+      console.log(`Winner determined: Player ${winnerId} with score $${highestScore.toLocaleString()}`);
+      return winnerId;
+    } catch (error) {
+      console.error('Error determining winner:', error);
+      return null;
     }
   }
 }

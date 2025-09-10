@@ -1,6 +1,6 @@
 // src/services/MovementService.ts
 
-import { IMovementService, IDataService, IStateService, IChoiceService } from '../types/ServiceContracts';
+import { IMovementService, IDataService, IStateService, IChoiceService, ILoggingService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { Movement, VisitType } from '../types/DataTypes';
 
@@ -12,7 +12,8 @@ export class MovementService implements IMovementService {
   constructor(
     private dataService: IDataService,
     private stateService: IStateService,
-    private choiceService: IChoiceService
+    private choiceService: IChoiceService,
+    private loggingService: ILoggingService
   ) {}
 
   /**
@@ -34,6 +35,10 @@ export class MovementService implements IMovementService {
 
     if (movement.movement_type === 'dice') {
       return this.getDiceDestinations(player.currentSpace, player.visitType);
+    }
+
+    if (movement.movement_type === 'logic') {
+      return this.getLogicDestinations(playerId, movement);
     }
 
     return this.extractDestinationsFromMovement(movement);
@@ -74,16 +79,13 @@ export class MovementService implements IMovementService {
     });
 
     // Log the movement
-    this.stateService.logToActionHistory({
-      type: 'player_movement',
+    this.loggingService.info(`Moved from ${sourceSpace} to ${destinationSpace}`, {
       playerId: playerId,
       playerName: player.name,
-      description: `Moved from ${sourceSpace} to ${destinationSpace}`,
-      details: {
-        sourceSpace: sourceSpace,
-        destinationSpace: destinationSpace,
-        visitType: newVisitType
-      }
+      action: 'movePlayer',
+      sourceSpace: sourceSpace,
+      destinationSpace: destinationSpace,
+      visitType: newVisitType
     });
 
     return updatedState;
@@ -242,5 +244,149 @@ export class MovementService implements IMovementService {
     // For any other case, assume it's a subsequent visit
     // In a full implementation, we'd maintain a visited spaces history for each player
     return true;
+  }
+
+  /**
+   * Gets valid destinations for logic-based movement by evaluating conditions
+   * @private
+   */
+  private getLogicDestinations(playerId: string, movement: Movement): string[] {
+    const validDestinations: string[] = [];
+    
+    // Check each destination and its corresponding condition
+    const destinationConditionPairs = [
+      { destination: movement.destination_1, condition: movement.condition_1 },
+      { destination: movement.destination_2, condition: movement.condition_2 },
+      { destination: movement.destination_3, condition: movement.condition_3 },
+      { destination: movement.destination_4, condition: movement.condition_4 },
+      { destination: movement.destination_5, condition: movement.condition_5 }
+    ];
+
+    for (const pair of destinationConditionPairs) {
+      if (pair.destination && this.evaluateCondition(playerId, pair.condition)) {
+        validDestinations.push(pair.destination);
+      }
+    }
+
+    console.log(`🧠 Logic-based movement for player ${playerId}: ${validDestinations.length} valid destinations`);
+    return validDestinations;
+  }
+
+  /**
+   * Evaluates a movement condition against the current player's state
+   * @private
+   */
+  private evaluateCondition(playerId: string, condition: string | undefined): boolean {
+    // If no condition is specified, assume it should always apply
+    if (!condition || condition.trim() === '') {
+      return true;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.warn(`Player ${playerId} not found for condition evaluation`);
+      return false;
+    }
+
+    const conditionLower = condition.toLowerCase().trim();
+
+    try {
+      // Always apply conditions
+      if (conditionLower === 'always') {
+        return true;
+      }
+
+      // Project scope conditions
+      if (conditionLower === 'scope_le_4m') {
+        const projectScope = this.calculateProjectScope(player);
+        return projectScope <= 4000000; // $4M
+      }
+      
+      if (conditionLower === 'scope_gt_4m') {
+        const projectScope = this.calculateProjectScope(player);
+        return projectScope > 4000000; // $4M
+      }
+
+      // Money-based conditions
+      if (conditionLower.startsWith('money_')) {
+        const playerMoney = player.money || 0;
+        
+        if (conditionLower === 'money_le_1m') {
+          return playerMoney <= 1000000; // $1M
+        }
+        if (conditionLower === 'money_gt_1m') {
+          return playerMoney > 1000000; // $1M
+        }
+        if (conditionLower === 'money_le_2m') {
+          return playerMoney <= 2000000; // $2M
+        }
+        if (conditionLower === 'money_gt_2m') {
+          return playerMoney > 2000000; // $2M
+        }
+      }
+
+      // Time-based conditions
+      if (conditionLower.startsWith('time_')) {
+        const timeSpent = player.timeSpent || 0;
+        
+        if (conditionLower === 'time_le_5') {
+          return timeSpent <= 5;
+        }
+        if (conditionLower === 'time_gt_5') {
+          return timeSpent > 5;
+        }
+        if (conditionLower === 'time_le_10') {
+          return timeSpent <= 10;
+        }
+        if (conditionLower === 'time_gt_10') {
+          return timeSpent > 10;
+        }
+      }
+
+      // Card count conditions
+      if (conditionLower.startsWith('cards_')) {
+        const handSize = player.hand?.length || 0;
+        
+        if (conditionLower === 'cards_le_3') {
+          return handSize <= 3;
+        }
+        if (conditionLower === 'cards_gt_3') {
+          return handSize > 3;
+        }
+        if (conditionLower === 'cards_le_5') {
+          return handSize <= 5;
+        }
+        if (conditionLower === 'cards_gt_5') {
+          return handSize > 5;
+        }
+      }
+
+      console.warn(`🧠 Unknown movement condition: ${condition}`);
+      return false;
+      
+    } catch (error) {
+      console.error(`🧠 Error evaluating movement condition "${condition}":`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Calculate the player's current project scope based on Work cards
+   * @private
+   */
+  private calculateProjectScope(player: Player): number {
+    // This mirrors the logic from TurnService.calculateProjectScope
+    // We need to count the Work cards in the player's hand
+    let projectScope = 0;
+    const hand = player.hand || [];
+    
+    // Count W cards to determine scope
+    const workCards = hand.filter(cardId => cardId.startsWith('W'));
+    
+    // Each Work card represents a certain amount of project scope
+    // Using simplified logic: each W card = $500K scope
+    projectScope = workCards.length * 500000;
+    
+    return projectScope;
   }
 }

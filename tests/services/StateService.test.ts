@@ -75,9 +75,7 @@ describe('StateService', () => {
       expect(newState.players[0].visitType).toBe('First');
       expect(newState.players[0].money).toBe(0);
       expect(newState.players[0].timeSpent).toBe(0);
-      expect(newState.players[0].availableCards).toEqual({
-        W: [], B: [], E: [], L: [], I: []
-      });
+      expect(newState.players[0].hand).toEqual([]);
     });
 
     it('should add multiple players', () => {
@@ -124,12 +122,11 @@ describe('StateService', () => {
       
       const updatedState = stateService.updatePlayer({
         id: playerId,
-        availableCards: { W: ['card1', 'card2'] }
+        hand: ['card1', 'card2']
       });
       
       const updatedPlayer = updatedState.players[0];
-      expect(updatedPlayer.availableCards.W).toEqual(['card1', 'card2']);
-      expect(updatedPlayer.availableCards.B).toEqual([]); // Other card types unchanged
+      expect(updatedPlayer.hand).toEqual(['card1', 'card2']);
     });
 
     it('should throw error when updating non-existent player', () => {
@@ -522,11 +519,14 @@ describe('StateService', () => {
         money: 0,
         timeSpent: 0,
         projectScope: 0,
+        score: 0,
         color: '#000000',
         avatar: '👤',
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+        turnModifiers: { skipTurns: 0 },
+        activeEffects: [],
+        loans: []
       });
       
       const currentPlayers = stateService.getAllPlayers();

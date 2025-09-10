@@ -1,6 +1,7 @@
 import { StateService } from '../src/services/StateService';
 import { DataService } from '../src/services/DataService';
 import { CardService } from '../src/services/CardService';
+import { LoggingService } from '../src/services/LoggingService';
 import { ChoiceService } from '../src/services/ChoiceService';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { GameRulesService } from '../src/services/GameRulesService';
@@ -66,22 +67,23 @@ describe('E2E-03: Complex Space Features Test', () => {
     // Initialize services
     dataService = new NodeDataService();
     stateService = new StateService(dataService);
+    const loggingService = new LoggingService(stateService);
     resourceService = new ResourceService(stateService);
     choiceService = new ChoiceService(stateService);
     gameRulesService = new GameRulesService(dataService, stateService);
-    cardService = new CardService(dataService, stateService, resourceService);
-    movementService = new MovementService(dataService, stateService, choiceService);
+    cardService = new CardService(dataService, stateService, resourceService, loggingService);
+    movementService = new MovementService(dataService, stateService, choiceService, loggingService);
 
     // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
-    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService, {} as any); // targetingService
     negotiationService = new NegotiationService(stateService, effectEngineService);
-    turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+    turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService);
 
     // Complete the circular dependency wiring
     turnService.setEffectEngineService(effectEngineService);
     effectEngineService.setTurnService(turnService);
 
-    playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+    playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);
 
     // Load game data
     await dataService.loadData();
@@ -170,7 +172,8 @@ describe('E2E-03: Complex Space Features Test', () => {
 
     const initialTime = player.timeSpent || 0;
 
-    // 2. Action: Try to try again (should fail)
+    // 2. Action: Simulate dice roll first, then try to try again (should fail)
+    await turnService.rollDiceWithFeedback(player.id);
     const result = await turnService.tryAgainOnSpace(player.id);
     
     expect(result.success).toBe(false);

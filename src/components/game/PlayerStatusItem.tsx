@@ -78,14 +78,15 @@ export function PlayerStatusItem({
   playerId,
   playerName
 }: PlayerStatusItemProps): JSX.Element {
-  const { stateService, dataService } = useGameContext();
+  const { stateService, dataService, cardService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
   const [showDiscardedCards, setShowDiscardedCards] = useState(false);
 
   // Calculate financial status for display
   const calculateFinancialStatus = () => {
-    const wCards = player.availableCards?.W || [];
+    const hand = player.hand || [];
+    const wCards = hand.filter(cardId => cardService.getCardType(cardId) === 'W');
     const totalScopeCost = player.projectScope || 0;
     const surplus = player.money - totalScopeCost;
     

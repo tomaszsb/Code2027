@@ -46,12 +46,10 @@ export function PlayerDebug(): JSX.Element {
           <div><strong>Color:</strong> {player.color}</div>
           <div><strong>Avatar:</strong> {player.avatar}</div>
           
-          <div><strong>Available Cards:</strong></div>
-          {Object.entries(player.availableCards).map(([type, cards]) => (
-            <div key={type} style={{ marginLeft: '10px' }}>
-              {type}: {Array.isArray(cards) ? cards.length : 0} cards
-            </div>
-          ))}
+          <div><strong>Hand:</strong> {player.hand?.length || 0} cards</div>
+          <div style={{ marginLeft: '10px', fontSize: '10px' }}>
+            {player.hand?.join(', ') || 'No cards'}
+          </div>
         </div>
       ))}
     </div>

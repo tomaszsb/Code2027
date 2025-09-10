@@ -1,15 +1,16 @@
 // tests/services/MovementService.test.ts
 
 import { MovementService } from '../../src/services/MovementService';
-import { IDataService, IStateService, IChoiceService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IChoiceService, ILoggingService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTypes';
-import { createMockDataService, createMockStateService, createMockChoiceService } from '../mocks/mockServices';
+import { createMockDataService, createMockStateService, createMockChoiceService, createMockLoggingService } from '../mocks/mockServices';
 
 // Mock implementations using centralized creators
 const mockDataService: jest.Mocked<IDataService> = createMockDataService();
 const mockStateService: jest.Mocked<IStateService> = createMockStateService();
 const mockChoiceService: jest.Mocked<IChoiceService> = createMockChoiceService();
+const mockLoggingService: jest.Mocked<ILoggingService> = createMockLoggingService();
 
 describe('MovementService', () => {
   let movementService: MovementService;
@@ -20,7 +21,7 @@ describe('MovementService', () => {
     // Reset all mocks
     jest.clearAllMocks();
     
-    movementService = new MovementService(mockDataService, mockStateService, mockChoiceService);
+    movementService = new MovementService(mockDataService, mockStateService, mockChoiceService, mockLoggingService);
     
     mockPlayer = {
       id: 'player1',
@@ -30,11 +31,14 @@ describe('MovementService', () => {
       money: 1000,
       timeSpent: 100,
       projectScope: 0,
+    score: 0,
       color: '#007bff',
       avatar: '👤',
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      hand: [], // Player starts with no cards
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     mockGameState = {
@@ -53,7 +57,22 @@ describe('MovementService', () => {
       hasCompletedManualActions: false,
       activeNegotiation: null,
       globalActionLog: [],
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      // New stateful deck properties
+      decks: {
+        W: ['W_001', 'W_002', 'W_003'],
+        B: ['B_001', 'B_002'],
+        E: ['E_001', 'E_002', 'E_003'],
+        L: ['L_001', 'L_002'],
+        I: ['I_001', 'I_002']
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     };
   });
 
@@ -537,6 +556,179 @@ describe('MovementService', () => {
       const result = movementService.getValidMoves('player1');
 
       expect(result).toEqual(['DEST-A', 'DEST-B']);
+    });
+  });
+
+  describe('logic movement type', () => {
+    it('should return valid moves for logic movement type with condition evaluation', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'LOW-SCOPE-PATH',
+        destination_2: 'HIGH-SCOPE-PATH',
+        condition_1: 'scope_le_4m',
+        condition_2: 'scope_gt_4m'
+      };
+
+      // Set up player with low scope project (2 W cards = 1M scope)
+      const lowScopePlayer = {
+        ...mockPlayer,
+        currentSpace: 'LOGIC-TEST-SPACE',
+        hand: ['W001', 'W002']  // 2 Work cards = $1M scope
+      };
+
+      mockStateService.getPlayer.mockReturnValue(lowScopePlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['LOW-SCOPE-PATH']); // Only low scope path should be valid
+      expect(mockStateService.getPlayer).toHaveBeenCalledWith('player1');
+      expect(mockDataService.getMovement).toHaveBeenCalledWith('LOGIC-TEST-SPACE', 'First');
+    });
+
+    it('should return high scope path for high scope projects', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'LOW-SCOPE-PATH',
+        destination_2: 'HIGH-SCOPE-PATH',
+        condition_1: 'scope_le_4m',
+        condition_2: 'scope_gt_4m'
+      };
+
+      // Set up player with high scope project (10 W cards = 5M scope)
+      const highScopePlayer = {
+        ...mockPlayer,
+        hand: ['W001', 'W002', 'W003', 'W004', 'W005', 'W006', 'W007', 'W008', 'W009', 'W010']
+      };
+
+      mockStateService.getPlayer.mockReturnValue(highScopePlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['HIGH-SCOPE-PATH']); // Only high scope path should be valid
+    });
+
+    it('should return multiple destinations when multiple conditions are met', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'MONEY-PATH',
+        destination_2: 'TIME-PATH',
+        destination_3: 'CARD-PATH',
+        condition_1: 'money_le_2m',
+        condition_2: 'time_le_10',
+        condition_3: 'cards_le_5'
+      };
+
+      // Set up player with low money, low time, and few cards
+      const multiConditionPlayer = {
+        ...mockPlayer,
+        money: 1500000, // $1.5M
+        timeSpent: 5,
+        hand: ['W001', 'E001', 'L001'] // 3 cards
+      };
+
+      mockStateService.getPlayer.mockReturnValue(multiConditionPlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['MONEY-PATH', 'TIME-PATH', 'CARD-PATH']); // All conditions met
+    });
+
+    it('should return empty array when no conditions are met', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'RICH-PATH',
+        destination_2: 'TIME-HEAVY-PATH',
+        condition_1: 'money_gt_2m',
+        condition_2: 'time_gt_10'
+      };
+
+      // Set up player with low money and low time
+      const poorPlayer = {
+        ...mockPlayer,
+        money: 500000, // $0.5M
+        timeSpent: 2
+      };
+
+      mockStateService.getPlayer.mockReturnValue(poorPlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual([]); // No conditions met
+    });
+
+    it('should handle destinations with empty conditions as always valid', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'ALWAYS-PATH',
+        destination_2: 'CONDITIONAL-PATH',
+        condition_1: '', // Empty condition should be treated as 'always'
+        condition_2: 'money_gt_2m'
+      };
+
+      // Set up player with low money
+      const poorPlayer = {
+        ...mockPlayer,
+        money: 500000 // $0.5M
+      };
+
+      mockStateService.getPlayer.mockReturnValue(poorPlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['ALWAYS-PATH']); // Only empty condition path available
+    });
+
+    it('should handle undefined conditions as always valid', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'ALWAYS-PATH',
+        destination_2: 'NEVER-PATH',
+        condition_1: undefined, // Undefined condition should be treated as 'always'
+        condition_2: 'unknown_condition'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['ALWAYS-PATH']); // Only undefined condition path available
+    });
+
+    it('should handle unknown conditions by returning false', () => {
+      const mockMovement: Movement = {
+        space_name: 'LOGIC-TEST-SPACE',
+        visit_type: 'First',
+        movement_type: 'logic',
+        destination_1: 'VALID-PATH',
+        destination_2: 'INVALID-PATH',
+        condition_1: 'always',
+        condition_2: 'unknown_condition_type'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      expect(result).toEqual(['VALID-PATH']); // Only 'always' condition path available
     });
   });
 });

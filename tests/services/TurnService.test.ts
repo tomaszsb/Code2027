@@ -1,5 +1,5 @@
 import { TurnService } from '../../src/services/TurnService';
-import { IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IMovementService, IEffectEngineService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IMovementService, IEffectEngineService, ILoggingService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 
 // Mock implementations
@@ -69,6 +69,7 @@ const mockStateService: jest.Mocked<IStateService> = {
   hasPreSpaceEffectSnapshot: jest.fn(),
   getPreSpaceEffectSnapshot: jest.fn(),
   setGameState: jest.fn(),
+  updateGameState: jest.fn(),
 };
 
 const mockGameRulesService: jest.Mocked<IGameRulesService> = {
@@ -81,6 +82,10 @@ const mockGameRulesService: jest.Mocked<IGameRulesService> = {
   canPlayerTakeAction: jest.fn(),
   checkWinCondition: jest.fn(),
   calculateProjectScope: jest.fn(),
+  calculatePlayerScore: jest.fn(),
+  determineWinner: jest.fn(),
+  checkTurnLimit: jest.fn(),
+  checkGameEndConditions: jest.fn(),
 };
 
 const mockCardService: jest.Mocked<ICardService> = {
@@ -89,6 +94,7 @@ const mockCardService: jest.Mocked<ICardService> = {
   playerOwnsCard: jest.fn(),
   playCard: jest.fn(),
   drawCards: jest.fn(),
+  drawAndApplyCard: jest.fn(),
   discardCards: jest.fn(),
   removeCard: jest.fn(),
   replaceCard: jest.fn(),
@@ -100,9 +106,12 @@ const mockCardService: jest.Mocked<ICardService> = {
   getPlayerCardCount: jest.fn(),
   getCardToDiscard: jest.fn(),
   applyCardEffects: jest.fn(),
+  finalizePlayedCard: jest.fn(),
+  discardPlayedCard: jest.fn(),
   effectEngineService: {
     processEffects: jest.fn(),
     processEffect: jest.fn(),
+    processActiveEffectsForAllPlayers: jest.fn(),
     validateEffect: jest.fn(),
     validateEffects: jest.fn(),
   } as jest.Mocked<IEffectEngineService>,
@@ -117,6 +126,8 @@ const mockResourceService: jest.Mocked<IResourceService> = {
   updateResources: jest.fn(),
   getResourceHistory: jest.fn(),
   validateResourceChange: jest.fn(),
+  takeOutLoan: jest.fn(),
+  applyInterest: jest.fn(),
 };
 
 const mockMovementService: jest.Mocked<IMovementService> = {
@@ -138,8 +149,19 @@ const mockNegotiationService = {
 const mockEffectEngineService: jest.Mocked<IEffectEngineService> = {
   processEffects: jest.fn(),
   processEffect: jest.fn(),
+  processActiveEffectsForAllPlayers: jest.fn(),
   validateEffect: jest.fn(),
   validateEffects: jest.fn(),
+};
+
+const mockLoggingService: jest.Mocked<ILoggingService> = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  startPerformanceTimer: jest.fn(),
+  endPerformanceTimer: jest.fn(),
 };
 
 describe('TurnService', () => {
@@ -154,9 +176,12 @@ describe('TurnService', () => {
       money: 1000,
       timeSpent: 5,
       projectScope: 0,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     },
     {
       id: 'player2', 
@@ -166,9 +191,12 @@ describe('TurnService', () => {
       money: 1000,
       timeSpent: 5,
       projectScope: 0,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     },
     {
       id: 'player3',
@@ -178,9 +206,12 @@ describe('TurnService', () => {
       money: 1000,
       timeSpent: 5,
       projectScope: 0,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     }
   ];
 
@@ -200,7 +231,21 @@ describe('TurnService', () => {
     hasCompletedManualActions: false,
     activeNegotiation: null,
     globalActionLog: [],
-    preSpaceEffectState: null
+    preSpaceEffectState: null,
+    decks: {
+      W: [],
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    },
+    discardPiles: {
+      W: [],
+      B: [],
+      E: [],
+      L: [],
+      I: []
+    }
   };
 
   const mockPlayer: Player = mockPlayers[0];
@@ -209,7 +254,7 @@ describe('TurnService', () => {
     jest.clearAllMocks();
     
     // Create TurnService first without EffectEngineService to avoid circular dependency
-    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService, mockCardService, mockResourceService, mockMovementService, mockNegotiationService as any);
+    turnService = new TurnService(mockDataService, mockStateService, mockGameRulesService, mockCardService, mockResourceService, mockMovementService, mockNegotiationService as any, mockLoggingService);
     
     // Set EffectEngineService using setter injection to complete the circular dependency
     turnService.setEffectEngineService(mockEffectEngineService);
@@ -232,6 +277,9 @@ describe('TurnService', () => {
       results: [],
       errors: []
     });
+    
+    // Setup default for active effects processing
+    mockEffectEngineService.processActiveEffectsForAllPlayers.mockResolvedValue();
   });
 
   describe('endTurn', () => {
@@ -477,7 +525,7 @@ describe('TurnService', () => {
       // Arrange
       const playerWithCards = {
         ...mockPlayer,
-        cards: { W: [], B: [], E: ['E_old_1', 'E_old_2'], L: [], I: [] }
+        hand: ['E_old_1', 'E_old_2'] // Use hand property instead of cards
       };
       mockStateService.getPlayer.mockReturnValue(playerWithCards);
       
@@ -499,12 +547,11 @@ describe('TurnService', () => {
         const player = mockStateService.getPlayer('player1');
         if (player) {
           // Simulate the card replacement by calling the StateService
+          // Remove one old E card and add one new E card
+          const oldCards = player.hand.filter(card => card !== 'E_old_1'); // Remove one old card
           mockStateService.updatePlayer({
             id: 'player1',
-            availableCards: {
-              ...player.availableCards,
-              E: ['E_001_TestCard'], // Simulate one new card matching expected pattern
-            },
+            hand: [...oldCards, 'E_001_TestCard'], // Add one new card in hand
           });
         }
         // Return a successful result
@@ -525,9 +572,7 @@ describe('TurnService', () => {
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'player1',
-          availableCards: expect.objectContaining({
-            E: expect.arrayContaining([expect.stringMatching(/^E_\d+_/)]) // Should have 1 new E card
-          })
+          hand: expect.arrayContaining([expect.stringMatching(/^E_\d+_/)]) // Should have 1 new E card in hand
         })
       );
     });
@@ -535,8 +580,8 @@ describe('TurnService', () => {
     it('should handle transfer action', () => {
       // Arrange
       const mockPlayersWithCards = [
-        { ...mockPlayer, id: 'player1', name: 'Player 1', availableCards: { W: ['W_1'], B: [], E: [], L: [], I: [] } },
-        { ...mockPlayer, id: 'player2', name: 'Player 2', availableCards: { W: [], B: [], E: [], L: [], I: [] } }
+        { ...mockPlayer, id: 'player1', name: 'Player 1', hand: ['W_1'] },
+        { ...mockPlayer, id: 'player2', name: 'Player 2', hand: [] }
       ];
       
       mockStateService.getGameState.mockReturnValue({
@@ -564,25 +609,19 @@ describe('TurnService', () => {
         const sourcePlayer = mockStateService.getPlayer('player1');
         const targetPlayer = mockStateService.getPlayer('player2');
         
-        if (sourcePlayer && targetPlayer && sourcePlayer.availableCards.W.length > 0) {
-          const cardToTransfer = sourcePlayer.availableCards.W[0];
+        if (sourcePlayer && targetPlayer && sourcePlayer.hand.length > 0) {
+          const cardToTransfer = sourcePlayer.hand[0];
           
-          // Update player1 (remove card)
+          // Update player1 (remove card from hand)
           mockStateService.updatePlayer({
             id: 'player1',
-            availableCards: {
-              ...sourcePlayer.availableCards,
-              W: [],
-            },
+            hand: sourcePlayer.hand.filter(card => card !== cardToTransfer),
           });
           
-          // Update player2 (add card)
+          // Update player2 (add card to hand)
           mockStateService.updatePlayer({
             id: 'player2',
-            availableCards: {
-              ...targetPlayer.availableCards,
-              W: [cardToTransfer],
-            },
+            hand: [...targetPlayer.hand, cardToTransfer],
           });
         }
         
@@ -720,11 +759,14 @@ describe('TurnService', () => {
         money: 1000,
         timeSpent: 0,
         projectScope: 2000000, // $2M - should get B card
+        score: 0,
         color: '#ff0000',
         avatar: '👤',
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+        turnModifiers: { skipTurns: 0 },
+        activeEffects: [],
+        loans: []
       };
 
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
@@ -775,11 +817,14 @@ describe('TurnService', () => {
         money: 1000,
         timeSpent: 0,
         projectScope: 6000000, // $6M - should get I card
+        score: 0,
         color: '#ff0000',
         avatar: '👤',
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+        turnModifiers: { skipTurns: 0 },
+        activeEffects: [],
+        loans: []
       };
 
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
@@ -830,11 +875,14 @@ describe('TurnService', () => {
         money: 1000,
         timeSpent: 0,
         projectScope: 4000000, // Exactly $4M - should get B card (≤ condition)
+        score: 0,
         color: '#ff0000',
         avatar: '👤',
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] }
+        turnModifiers: { skipTurns: 0 },
+        activeEffects: [],
+        loans: []
       };
 
       mockStateService.getPlayer.mockReturnValue(mockPlayer);

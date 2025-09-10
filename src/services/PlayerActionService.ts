@@ -1,6 +1,6 @@
-import { IPlayerActionService, IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../types/ServiceContracts';
+import { IPlayerActionService, IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService, ILoggingService } from '../types/ServiceContracts';
 import { EffectFactory } from '../utils/EffectFactory';
-import { EffectContext } from '../types/EffectTypes';
+import { EffectContext, Effect } from '../types/EffectTypes';
 
 /**
  * PlayerActionService handles player actions and orchestrates interactions between multiple services.
@@ -13,7 +13,8 @@ export class PlayerActionService implements IPlayerActionService {
     private gameRulesService: IGameRulesService,
     private movementService: IMovementService,
     private turnService: ITurnService,
-    private effectEngineService: IEffectEngineService
+    private effectEngineService: IEffectEngineService,
+    private loggingService: ILoggingService
   ) {}
 
   /**
@@ -25,8 +26,7 @@ export class PlayerActionService implements IPlayerActionService {
    */
   public async playCard(playerId: string, cardId: string): Promise<void> {
     try {
-      console.log('SERVICE: playCard function has started.');
-      console.log(`🎮 PLAYER_ACTION: Player ${playerId} attempting to play card ${cardId}`);
+      // Card play attempt now logged to action history
 
       // 1. Get current game state and player
       const gameState = this.stateService.getGameState();
@@ -37,12 +37,11 @@ export class PlayerActionService implements IPlayerActionService {
       }
 
       // Log the card play attempt
-      this.stateService.logToActionHistory({
-        type: 'manual_action',
+      this.loggingService.info(`Attempting to play card: ${cardId}`, {
         playerId: playerId,
-        playerName: player.name,
-        description: `Attempting to play card: ${cardId}`,
-        details: { action: 'playCard', cardId: cardId, status: 'attempt' }
+        action: 'playCard',
+        cardId: cardId,
+        status: 'attempt'
       });
 
       // 2. Get card data from DataService
@@ -52,7 +51,7 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Card with ID '${cardId}' not found`);
       }
 
-      console.log(`🎴 Card being played: ${card.card_name} (${card.card_id})`);
+      // Card details available in action history
 
       // 3. Validate the action using GameRulesService
       const canPlayCard = this.gameRulesService.canPlayCard(playerId, cardId);
@@ -63,9 +62,9 @@ export class PlayerActionService implements IPlayerActionService {
 
       // 3.5. Validate player owns the card in their hand
       const playerCardType = card.card_type;
-      const playerCards = player.availableCards[playerCardType] || [];
       
-      if (!playerCards.includes(cardId)) {
+      // Check if card is in player's hand
+      if (!player.hand || !player.hand.includes(cardId)) {
         throw new Error(`Player '${player.name}' does not have card '${card.card_name}' in their ${playerCardType} hand`);
       }
 
@@ -95,8 +94,8 @@ export class PlayerActionService implements IPlayerActionService {
         }
       };
 
-      // 7. Process all effects through the Effect Engine
-      console.log(`🔧 Processing card effects through Effect Engine...`);
+      // 7. Process all effects through the Effect Engine (with targeting and duration awareness)
+      console.log(`🔧 Processing card effects through Effect Engine with targeting support...`);
       console.log('SERVICE: About to wait for Effect Engine...');
       const processingResult = await this.effectEngineService.processEffects(effects, effectContext);
       console.log('SERVICE: Effect Engine has finished.');
@@ -109,37 +108,38 @@ export class PlayerActionService implements IPlayerActionService {
 
       // 8. The Effect Engine has now handled all card effects including:
       //    - Card cost deduction (via RESOURCE_CHANGE effects from EffectFactory)
-      //    - Money/time changes (via card-specific effects)
+      //    - Money/time changes (via card-specific effects)  
       //    - Drawing additional cards (via CARD_DRAW effects)
       //    - Loan amounts (via expanded card mechanics)
+      //    - Multi-player targeting (All Players, Choose Opponent, etc.)
+      //    - Duration-based effects that persist across turns
       //    - Any other card-specific effects
 
-      // TODO: We still need to handle card removal from hand
-      // This should probably be done after successful effect processing
-      // For now, let's remove the card manually since the EffectFactory doesn't include this
-      const updatedCards = { ...player.availableCards };
-      const cardType = card.card_type;
-      
-      if (updatedCards[cardType] && updatedCards[cardType].includes(cardId)) {
-        updatedCards[cardType] = updatedCards[cardType].filter(id => id !== cardId);
-        
-        this.stateService.updatePlayer({
-          id: playerId,
-          availableCards: updatedCards
-        });
-        
-        console.log(`🗂️ Removed card ${cardId} from player's ${cardType} collection`);
+      // 9. Handle card lifecycle (move from hand to discard/active) - this only affects the source player
+      console.log(`🔧 Processing card lifecycle for source player...`);
+      const playCardEffect: Effect = {
+        effectType: 'PLAY_CARD',
+        payload: {
+          playerId: playerId,
+          cardId: cardId,
+          source: `card_lifecycle:${cardId}`
+        }
+      };
+
+      const lifecycleResult = await this.effectEngineService.processEffect(playCardEffect, effectContext);
+      if (!lifecycleResult.success) {
+        throw new Error(`Failed to process card lifecycle: ${lifecycleResult.error || 'Unknown error'}`);
       }
 
-      console.log(`🎉 Card play complete for ${card.card_name}`);
+      // Card play completion logged to action history
 
       // Log successful card play
-      this.stateService.logToActionHistory({
-        type: 'manual_action',
+      this.loggingService.info(`Successfully played card: ${card.card_name}`, {
         playerId: playerId,
-        playerName: player.name,
-        description: `Successfully played card: ${card.card_name}`,
-        details: { action: 'playCard', cardId: cardId, cardName: card.card_name, success: true }
+        action: 'playCard',
+        cardId: cardId,
+        cardName: card.card_name,
+        success: true
       });
 
     } catch (error) {
@@ -149,13 +149,16 @@ export class PlayerActionService implements IPlayerActionService {
       const player = this.stateService.getPlayer(playerId);
       
       if (player) {
-        this.stateService.logToActionHistory({
-          type: 'manual_action',
-          playerId: playerId,
-          playerName: player.name,
-          description: `Failed to play card: ${cardId}`,
-          details: { action: 'playCard', cardId: cardId, success: false, error: errorMessage }
-        });
+        this.loggingService.error(
+          `Failed to play card: ${cardId}`,
+          new Error(errorMessage),
+          {
+            playerId: playerId,
+            action: 'playCard',
+            cardId: cardId,
+            success: false
+          }
+        );
       }
       
       // Re-throw with additional context
@@ -179,6 +182,13 @@ export class PlayerActionService implements IPlayerActionService {
       if (!player) {
         throw new Error(`Player with ID '${playerId}' not found`);
       }
+
+      // Log the dice roll attempt
+      this.loggingService.info(`Attempting to roll dice`, {
+        playerId: playerId,
+        action: 'rollDice',
+        status: 'attempt'
+      });
 
       // 2. Generate single die roll (1-6) - matching CSV data expectations
       const diceRoll = Math.floor(Math.random() * 6) + 1;
@@ -210,10 +220,32 @@ export class PlayerActionService implements IPlayerActionService {
 
       // 7. Dice roll and movement complete - turn ending is now handled separately
 
+      // Log the successful dice roll
+      this.loggingService.info(`Rolled a ${diceResult.total}`, {
+        playerId: playerId,
+        action: 'rollDice',
+        ...diceResult,
+        success: true
+      });
+
       // 8. Return the dice roll result
       return diceResult;
 
     } catch (error) {
+      // Log the dice roll failure
+      const player = this.stateService.getPlayer(playerId);
+      if (player) {
+        this.loggingService.error(
+          `Failed to roll dice`,
+          error instanceof Error ? error : new Error(error as string),
+          {
+            playerId: playerId,
+            action: 'rollDice',
+            success: false
+          }
+        );
+      }
+
       // Re-throw with additional context
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`Failed to roll dice: ${errorMessage}`);
@@ -276,17 +308,43 @@ export class PlayerActionService implements IPlayerActionService {
       
       if (currentPlayer) {
         // Log the end turn attempt
-        this.stateService.logToActionHistory({
-          type: 'manual_action',
+        this.loggingService.info(`Ending turn ${gameState.turn}`, {
           playerId: currentPlayer.id,
-          playerName: currentPlayer.name,
-          description: `Ending turn ${gameState.turn}`,
-          details: { action: 'endTurn', turn: gameState.turn, status: 'attempt' }
+          action: 'endTurn',
+          turn: gameState.turn,
+          status: 'attempt'
         });
       }
       
       await this.turnService.endTurn();
+
+      // Log successful turn ending
+      if (currentPlayer) {
+        this.loggingService.info(`Successfully ended turn ${gameState.turn}`, {
+          playerId: currentPlayer.id,
+          action: 'endTurn',
+          turn: gameState.turn,
+          success: true
+        });
+      }
+
     } catch (error) {
+      // Log turn ending failure
+      const gameState = this.stateService.getGameState();
+      const currentPlayer = gameState.currentPlayerId ? this.stateService.getPlayer(gameState.currentPlayerId) : null;
+      
+      if (currentPlayer) {
+        this.loggingService.error(
+          `Failed to end turn ${gameState.turn}`,
+          error instanceof Error ? error : new Error(error as string),
+          {
+            playerId: currentPlayer.id,
+            action: 'endTurn',
+            turn: gameState.turn,
+            success: false
+          }
+        );
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`Failed to end turn: ${errorMessage}`);
     }

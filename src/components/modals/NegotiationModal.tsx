@@ -27,7 +27,7 @@ interface NegotiationModalProps {
  * Supports partner selection, offer creation, and offer response handling.
  */
 export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JSX.Element | null {
-  const { stateService, dataService, negotiationService } = useGameContext();
+  const { stateService, dataService, negotiationService, cardService } = useGameContext();
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [availableCards, setAvailableCards] = useState<Card[]>([]);
@@ -153,7 +153,8 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
   };
 
   const getPlayerCardsByType = (player: Player, cardType: CardType): string[] => {
-    return player.availableCards[cardType] || [];
+    const hand = player.hand || [];
+    return hand.filter(cardId => cardService.getCardType(cardId) === cardType);
   };
 
   const getCardName = (cardId: string): string => {

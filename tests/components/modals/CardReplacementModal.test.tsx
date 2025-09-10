@@ -41,23 +41,14 @@ describe('CardReplacementModal', () => {
     money: 100000,
     timeSpent: 45,
     projectScope: 0,
+    score: 0,
     currentSpace: 'START',
     visitType: 'First',
-    availableCards: {
-      'W': ['W1', 'W2'],
-      'B': [],
-      'E': [],
-      'L': [],
-      'I': []
-    },
+    hand: ['W1', 'W2'],
     activeCards: [],
-    discardedCards: {
-      'W': [],
-      'B': [],
-      'E': [],
-      'L': [],
-      'I': []
-    }
+    turnModifiers: { skipTurns: 0 },
+    activeEffects: [],
+    loans: []
   };
 
   const mockOnReplace = jest.fn();
@@ -123,7 +114,7 @@ describe('CardReplacementModal', () => {
   it('should display message when no cards available', () => {
     const emptyPlayer: Player = {
       ...mockPlayer,
-      availableCards: { ...mockPlayer.availableCards, 'W': [] }
+      hand: []
     };
 
     render(
@@ -364,11 +355,7 @@ describe('CardReplacementModal', () => {
   it('should handle different card types correctly', () => {
     const businessPlayer: Player = {
       ...mockPlayer,
-      availableCards: {
-        ...mockPlayer.availableCards,
-        'B': ['B1'],
-        'W': []
-      }
+      hand: ['B1']
     };
 
     (mockDataService.getCardById as jest.Mock).mockReturnValue({
@@ -407,10 +394,7 @@ describe('CardReplacementModal', () => {
 
     const playerWithLongCard: Player = {
       ...mockPlayer,
-      availableCards: {
-        ...mockPlayer.availableCards,
-        'W': ['W3']
-      }
+      hand: ['W3']
     };
 
     render(

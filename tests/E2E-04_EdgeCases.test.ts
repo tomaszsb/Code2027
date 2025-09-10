@@ -22,6 +22,7 @@ import { DataService } from '../src/services/DataService';
 import { StateService } from '../src/services/StateService';
 import { TurnService } from '../src/services/TurnService';
 import { CardService } from '../src/services/CardService';
+import { LoggingService } from '../src/services/LoggingService';
 import { PlayerActionService } from '../src/services/PlayerActionService';
 import { MovementService } from '../src/services/MovementService';
 import { GameRulesService } from '../src/services/GameRulesService';
@@ -88,22 +89,23 @@ async function initializeServices(): Promise<void> {
   await dataService.loadData(); // Load data early
 
   const stateService = new StateService(dataService);
-  const resourceService = new ResourceService(stateService);
+  const loggingService = new LoggingService(stateService);
+    const resourceService = new ResourceService(stateService);
   const choiceService = new ChoiceService(stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
-  const cardService = new CardService(dataService, stateService, resourceService);
-  const movementService = new MovementService(dataService, stateService, choiceService);
+  const cardService = new CardService(dataService, stateService, resourceService, loggingService);
+  const movementService = new MovementService(dataService, stateService, choiceService, loggingService);
 
   // Handle circular dependency: EffectEngine -> Turn -> Negotiation -> EffectEngine
-  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService);
+  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, {} as ITurnService, gameRulesService, {} as any); // targetingService
   const negotiationService = new NegotiationService(stateService, effectEngineService);
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService);
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService);
 
   // Complete the circular dependency wiring
   turnService.setEffectEngineService(effectEngineService);
   effectEngineService.setTurnService(turnService);
 
-  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService);
+  const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);
 
   services = {
     dataService,

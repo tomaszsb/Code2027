@@ -58,7 +58,7 @@ export class StateService implements IStateService {
   getGameStateDeepCopy(): GameState {
     return {
       ...this.currentState,
-      players: this.currentState.players.map(player => ({ ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } }))
+      players: this.currentState.players.map(player => ({ ...player, hand: [...player.hand] }))
     };
   }
 
@@ -108,17 +108,7 @@ export class StateService implements IStateService {
       ...currentPlayer,
       ...playerData,
       timeSpent: playerData.timeSpent !== undefined ? playerData.timeSpent : currentPlayer.timeSpent,
-      availableCards: playerData.availableCards ? {
-        ...currentPlayer.availableCards,
-        ...playerData.availableCards
-      } : (playerData.cards ? {
-        ...currentPlayer.availableCards,
-        ...playerData.cards
-      } : currentPlayer.availableCards),
-      discardedCards: playerData.discardedCards ? {
-        ...currentPlayer.discardedCards,
-        ...playerData.discardedCards
-      } : currentPlayer.discardedCards
+      hand: playerData.hand ? [...playerData.hand] : currentPlayer.hand
     };
 
     let newPlayers = [...this.currentState.players];
@@ -167,11 +157,11 @@ export class StateService implements IStateService {
 
   getPlayer(playerId: string): Player | undefined {
     const player = this.currentState.players.find(p => p.id === playerId);
-    return player ? { ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } } : undefined;
+    return player ? { ...player, hand: [...player.hand] } : undefined;
   }
 
   getAllPlayers(): Player[] {
-    return this.currentState.players.map(player => ({ ...player, availableCards: { ...player.availableCards }, discardedCards: { ...player.discardedCards } }));
+    return this.currentState.players.map(player => ({ ...player, hand: [...player.hand] }));
   }
 
   // Game flow methods
@@ -263,17 +253,39 @@ export class StateService implements IStateService {
       throw new Error('Cannot start game: requirements not met');
     }
 
+    // Initialize shuffled decks for each card type
+    const decks = {
+      W: this.shuffleArray([...this.dataService.getCardsByType('W').map(card => card.card_id)]),
+      B: this.shuffleArray([...this.dataService.getCardsByType('B').map(card => card.card_id)]),
+      E: this.shuffleArray([...this.dataService.getCardsByType('E').map(card => card.card_id)]),
+      L: this.shuffleArray([...this.dataService.getCardsByType('L').map(card => card.card_id)]),
+      I: this.shuffleArray([...this.dataService.getCardsByType('I').map(card => card.card_id)])
+    };
+
+    // Initialize empty discard piles
+    const discardPiles = {
+      W: [] as string[],
+      B: [] as string[],
+      E: [] as string[],
+      L: [] as string[],
+      I: [] as string[]
+    };
+
     const newState: GameState = {
       ...this.currentState,
       gamePhase: 'PLAY',
       gameStartTime: new Date(),
-      currentPlayerId: this.currentState.players.length > 0 ? this.currentState.players[0].id : null
+      currentPlayerId: this.currentState.players.length > 0 ? this.currentState.players[0].id : null,
+      decks,
+      discardPiles
     };
 
     this.currentState = newState;
     
     // Initialize action counts for the first player
     this.updateActionCounts();
+    
+    console.log(`🎴 DECK_INIT: Created shuffled decks - W:${decks.W.length}, B:${decks.B.length}, E:${decks.E.length}, L:${decks.L.length}, I:${decks.I.length}`);
     
     return { ...this.currentState };
   }
@@ -639,20 +651,7 @@ export class StateService implements IStateService {
       visitType: player.visitType,
       money: player.money,
       timeSpent: player.timeSpent,
-      availableCards: {
-        W: [...player.availableCards.W],
-        B: [...player.availableCards.B],
-        E: [...player.availableCards.E],
-        L: [...player.availableCards.L],
-        I: [...player.availableCards.I],
-      },
-      discardedCards: {
-        W: [...player.discardedCards.W],
-        B: [...player.discardedCards.B],
-        E: [...player.discardedCards.E],
-        L: [...player.discardedCards.L],
-        I: [...player.discardedCards.I],
-      },
+      hand: [...player.hand],
       activeCards: [...player.activeCards]
     };
 
@@ -684,20 +683,7 @@ export class StateService implements IStateService {
       visitType: snapshot.visitType,
       money: snapshot.money,
       timeSpent: snapshot.timeSpent,
-      availableCards: {
-        W: [...snapshot.availableCards.W],
-        B: [...snapshot.availableCards.B],
-        E: [...snapshot.availableCards.E],
-        L: [...snapshot.availableCards.L],
-        I: [...snapshot.availableCards.I],
-      },
-      discardedCards: {
-        W: [...snapshot.discardedCards.W],
-        B: [...snapshot.discardedCards.B],
-        E: [...snapshot.discardedCards.E],
-        L: [...snapshot.discardedCards.L],
-        I: [...snapshot.discardedCards.I],
-      },
+      hand: [...snapshot.hand],
       activeCards: [...snapshot.activeCards],
       spaceEntrySnapshot: undefined // Clear snapshot after restoring
     });
@@ -781,6 +767,13 @@ export class StateService implements IStateService {
     return this.currentState;
   }
 
+  updateGameState(stateChanges: Partial<GameState>): GameState {
+    console.log('🔧 Updating game state with partial changes');
+    this.currentState = { ...this.currentState, ...stateChanges };
+    this.notifyListeners();
+    return this.currentState;
+  }
+
   // Private helper methods
   private createInitialState(): GameState {
     const startingSpace = this.getStartingSpace();
@@ -805,7 +798,22 @@ export class StateService implements IStateService {
       // Initialize global action log
       globalActionLog: [],
       // Initialize Try Again snapshot
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      // Initialize empty decks and discard piles (will be populated in startGame)
+      decks: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     };
   }
 
@@ -824,22 +832,12 @@ export class StateService implements IStateService {
       projectScope: 0, // Players start with no project scope, calculated from W cards
       color: defaultColor,
       avatar: defaultAvatar,
-      availableCards: {
-        W: [],
-        B: [],
-        E: [],
-        L: [],
-        I: []
-      },
+      hand: [], // Start with empty hand - cards drawn from centralized decks
       activeCards: [],
-      discardedCards: {
-        W: [],
-        B: [],
-        E: [],
-        L: [],
-        I: []
-      },
-      turnModifiers: { skipTurns: 0 }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: [], // Start with no loans
+      score: 0 // Initialize score to 0
     };
   }
 
@@ -937,6 +935,16 @@ export class StateService implements IStateService {
     this.currentState = newState;
     this.notifyListeners();
     return { ...this.currentState };
+  }
+
+  // Utility method to shuffle an array (Fisher-Yates shuffle)
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 
   // Action logging methods

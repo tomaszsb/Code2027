@@ -17,6 +17,11 @@ import {
   Card
 } from './DataTypes';
 
+import { ILoggingService } from '../services/LoggingService';
+
+// Re-export ILoggingService for convenience
+export type { ILoggingService };
+
 import { 
   GameState, 
   Player, 
@@ -73,6 +78,10 @@ export interface IResourceService {
   
   // Validation
   validateResourceChange(playerId: string, changes: ResourceChange): ResourceValidation;
+  
+  // Loan operations
+  takeOutLoan(playerId: string, amount: number, interestRate: number): boolean;
+  applyInterest(playerId: string): void;
 }
 
 // Phase 1 Services
@@ -188,6 +197,7 @@ export interface IStateService {
   
   // State management methods
   setGameState(newState: GameState): GameState;
+  updateGameState(stateChanges: Partial<GameState>): GameState;
 }
 
 export interface TurnResult {
@@ -233,6 +243,7 @@ export interface ICardService {
   // Card management methods with source tracking
   playCard(playerId: string, cardId: string): GameState;
   drawCards(playerId: string, cardType: CardType, count: number, source?: string, reason?: string): string[];
+  drawAndApplyCard(playerId: string, cardType: CardType, source: string, reason: string): { drawnCardId: string | null; success: boolean };
   discardCards(playerId: string, cardIds: string[], source?: string, reason?: string): boolean;
   removeCard(playerId: string, cardId: string): GameState;
   replaceCard(playerId: string, oldCardId: string, newCardType: CardType): GameState;
@@ -240,6 +251,8 @@ export interface ICardService {
   // Turn-based card lifecycle methods
   endOfTurn(): void;
   activateCard(playerId: string, cardId: string, duration: number): void;
+  finalizePlayedCard(playerId: string, cardId: string): void;
+  discardPlayedCard(playerId: string, cardId: string): void;
   
   // Card transfer methods with source tracking
   transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string, source?: string, reason?: string): GameState;
@@ -301,6 +314,18 @@ export interface IGameRulesService {
   
   // Project scope calculation methods
   calculateProjectScope(playerId: string): number;
+  
+  // Scoring and winner determination methods
+  calculatePlayerScore(playerId: string): number;
+  determineWinner(): string | null;
+  
+  // Enhanced win condition methods
+  checkTurnLimit(turnLimit?: number): boolean;
+  checkGameEndConditions(playerId: string, turnLimit?: number): Promise<{
+    shouldEnd: boolean;
+    reason: 'win' | 'turn_limit' | null;
+    winnerId?: string;
+  }>;
 }
 
 export interface IChoiceService {
@@ -317,10 +342,17 @@ export interface IEffectEngineService {
   // Core processing methods
   processEffects(effects: Effect[], context: EffectContext): Promise<BatchEffectResult>;
   processEffect(effect: Effect, context: EffectContext): Promise<EffectResult>;
+  processActiveEffectsForAllPlayers(): Promise<void>;
   
   // Validation methods
   validateEffect(effect: Effect, context: EffectContext): boolean;
   validateEffects(effects: Effect[], context: EffectContext): boolean;
+}
+
+export interface ITargetingService {
+  resolveTargets(sourcePlayerId: string, targetRule: string): Promise<string[]>;
+  isInteractiveTargeting(targetRule: string): boolean;
+  getTargetDescription(targetIds: string[]): string;
 }
 
 export interface INegotiationService {
@@ -342,6 +374,7 @@ export interface INegotiationService {
 export interface IServiceContainer {
   dataService: IDataService;
   stateService: IStateService;
+  loggingService: ILoggingService;
   turnService: ITurnService;
   cardService: ICardService;
   playerActionService: IPlayerActionService;

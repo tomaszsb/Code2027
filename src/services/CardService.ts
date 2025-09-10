@@ -1,4 +1,4 @@
-import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService } from '../types/ServiceContracts';
+import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService, ILoggingService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
 
@@ -6,12 +6,14 @@ export class CardService implements ICardService {
   private readonly dataService: IDataService;
   private readonly stateService: IStateService;
   private readonly resourceService: IResourceService;
+  private readonly loggingService: ILoggingService;
   public effectEngineService!: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService) {
+  constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService, loggingService: ILoggingService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.resourceService = resourceService;
+    this.loggingService = loggingService;
   }
 
   // Card validation methods
@@ -42,6 +44,16 @@ export class CardService implements ICardService {
       }
     }
 
+    // Check phase restrictions
+    const card = this.dataService.getCardById(cardId);
+    if (card && card.phase_restriction && card.phase_restriction !== 'Any') {
+      const currentActivityPhase = this.getCurrentActivityPhase(playerId);
+      if (currentActivityPhase && card.phase_restriction !== currentActivityPhase) {
+        return false;
+      }
+      // If currentActivityPhase is null (player not on a phased space), allow any cards to be played
+    }
+
     return true;
   }
 
@@ -56,7 +68,7 @@ export class CardService implements ICardService {
 
 
   /**
-   * Draw cards for a player with source tracking
+   * Draw cards for a player from stateful decks
    * @param playerId - Player to draw cards for
    * @param cardType - Type of cards to draw (W, B, E, L, I)
    * @param count - Number of cards to draw
@@ -78,56 +90,136 @@ export class CardService implements ICardService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    // Generate new card IDs that reference actual CSV cards
-    const availableCards = this.dataService.getCardsByType(cardType);
-    if (availableCards.length === 0) {
-      console.warn(`No cards of type ${cardType} found in CSV data`);
-      return [];
-    }
+    const gameState = this.stateService.getGameState();
+    let availableDeck = [...gameState.decks[cardType]];
+    let discardPile = [...gameState.discardPiles[cardType]];
+    const drawnCards: string[] = [];
 
-    const newCardIds: string[] = [];
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substr(2, 9);
-
+    // Draw cards from the deck
     for (let i = 0; i < count; i++) {
-      // Randomly select a card from available cards of this type
-      const randomCard = availableCards[Math.floor(Math.random() * availableCards.length)];
-      // Create dynamic ID that starts with the static card ID
-      const dynamicId = `${randomCard.card_id}_${timestamp}_${randomString}_${i}`;
-      newCardIds.push(dynamicId);
+      // If deck is empty, reshuffle discard pile back into deck
+      if (availableDeck.length === 0) {
+        if (discardPile.length === 0) {
+          console.warn(`No more ${cardType} cards available (deck and discard pile both empty)`);
+          break; // Cannot draw any more cards
+        }
+        
+        // Reshuffle discard pile into deck
+        availableDeck = this.shuffleArray([...discardPile]);
+        discardPile = [];
+        
+        // Log deck reshuffle to action history
+        this.loggingService.info(`Deck for ${cardType} cards was empty. Discard pile reshuffled.`, {
+          playerId: player.id,
+          cardType: cardType,
+          reshuffledCount: availableDeck.length
+        });
+      }
+
+      // Draw the top card from the deck
+      const drawnCard = availableDeck.pop()!;
+      drawnCards.push(drawnCard);
     }
 
-    // Update player's available cards
-    const updatedAvailableCards = {
-      ...player.availableCards,
-      [cardType]: [...(player.availableCards[cardType] || []), ...newCardIds]
+    // Update global game state with new deck and discard pile state
+    const updatedDecks = {
+      ...gameState.decks,
+      [cardType]: availableDeck
     };
+    
+    const updatedDiscardPiles = {
+      ...gameState.discardPiles,
+      [cardType]: discardPile
+    };
+
+    // Update player's hand with drawn cards
+    const updatedHand = [...player.hand, ...drawnCards];
+
+    // Apply updates atomically
+    this.stateService.updateGameState({
+      decks: updatedDecks,
+      discardPiles: updatedDiscardPiles
+    });
 
     this.stateService.updatePlayer({
       id: playerId,
-      availableCards: updatedAvailableCards
+      hand: updatedHand
     });
 
     // Log the card draw with source tracking
     const sourceInfo = source || 'unknown';
     const reasonInfo = reason || `Drew ${count} ${cardType} cards`;
-    console.log(`🎴 Card Draw [${playerId}]: ${reasonInfo} (Source: ${sourceInfo})`);
-    console.log(`   Cards: ${newCardIds.join(', ')}`);
+    // Card draw already logged to action history by core system
+    // Card details logged in action history
+    // Deck status logged internally
 
     // Log to action history
-    this.stateService.logToActionHistory({
-      type: 'card_draw',
+    this.loggingService.info(`Drew ${drawnCards.length} ${cardType} card${drawnCards.length > 1 ? 's' : ''}`, {
       playerId: playerId,
-      playerName: player.name,
-      description: `Drew ${count} ${cardType} card${count > 1 ? 's' : ''}`,
-      details: {
-        cardType: cardType,
-        cardCount: count,
-        cards: newCardIds
-      }
+      cardType: cardType,
+      cardCount: drawnCards.length,
+      cards: drawnCards
     });
 
-    return newCardIds;
+    return drawnCards;
+  }
+
+  /**
+   * Fisher-Yates shuffle algorithm for array randomization
+   * @param array - Array to shuffle (creates a copy, does not mutate original)
+   * @returns Shuffled copy of the array
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  /**
+   * Draw and automatically apply a card in a single atomic operation.
+   * This method is designed for scenarios like automatic funding where we need to
+   * draw a card and immediately apply its effects without user interaction.
+   * 
+   * @param playerId - The player who will receive and apply the card
+   * @param cardType - The type of card to draw (B, I, E, L, W)
+   * @param source - The source of this action for tracking
+   * @param reason - Human-readable reason for this action
+   * @returns Object with drawnCardId and success status
+   */
+  drawAndApplyCard(playerId: string, cardType: CardType, source: string, reason: string): { drawnCardId: string | null; success: boolean } {
+    console.log(`🎴 CARD_SERVICE: drawAndApplyCard - Drawing and applying ${cardType} card for player ${playerId}`);
+    
+    try {
+      // Step 1: Draw the card
+      const drawnCards = this.drawCards(playerId, cardType, 1, source, reason);
+      
+      if (drawnCards.length === 0) {
+        console.warn(`No ${cardType} cards available to draw for player ${playerId}`);
+        return { drawnCardId: null, success: false };
+      }
+      
+      const drawnCardId = drawnCards[0];
+      console.log(`🎴 Successfully drew card: ${drawnCardId}`);
+      
+      // Step 2: Apply card effects using the EffectEngineService through playCard
+      // We use the existing playCard method which handles all the complexity including:
+      // - Effect processing through EffectEngineService
+      // - Duration-based effects
+      // - Card removal from hand
+      // - Moving to discarded pile
+      this.playCard(playerId, drawnCardId);
+      
+      console.log(`🎴 Successfully applied and processed card: ${drawnCardId}`);
+      
+      return { drawnCardId, success: true };
+      
+    } catch (error) {
+      console.error(`❌ Error in drawAndApplyCard for player ${playerId}:`, error);
+      return { drawnCardId: null, success: false };
+    }
   }
 
   removeCard(playerId: string, cardId: string): GameState {
@@ -140,30 +232,22 @@ export class CardService implements ICardService {
       throw new Error(`Player ${playerId} does not own card ${cardId}`);
     }
 
-    // Find which card collection and type the card belongs to and remove it
-    const updatedAvailableCards = { ...player.availableCards };
-    let updatedActiveCards = [...player.activeCards];
-    const updatedDiscardedCards = { ...player.discardedCards };
-    
     let cardRemoved = false;
+    let updatedHand = [...player.hand];
+    let updatedActiveCards = [...player.activeCards];
 
-    // Check available cards first
-    if (!cardRemoved) {
-      for (const cardType of Object.keys(updatedAvailableCards) as CardType[]) {
-        const cards = updatedAvailableCards[cardType] || [];
-        const cardIndex = cards.indexOf(cardId);
-        if (cardIndex !== -1) {
-          updatedAvailableCards[cardType] = [
-            ...cards.slice(0, cardIndex),
-            ...cards.slice(cardIndex + 1)
-          ];
-          cardRemoved = true;
-          break;
-        }
-      }
+    // Check hand first
+    const handIndex = updatedHand.indexOf(cardId);
+    if (handIndex !== -1) {
+      updatedHand = [
+        ...updatedHand.slice(0, handIndex),
+        ...updatedHand.slice(handIndex + 1)
+      ];
+      cardRemoved = true;
+      console.log(`Removed card ${cardId} from ${playerId} hand`);
     }
 
-    // Check active cards if not found in available
+    // Check active cards if not found in hand
     if (!cardRemoved) {
       const activeCardIndex = updatedActiveCards.findIndex(activeCard => activeCard.cardId === cardId);
       if (activeCardIndex !== -1) {
@@ -172,30 +256,21 @@ export class CardService implements ICardService {
           ...updatedActiveCards.slice(activeCardIndex + 1)
         ];
         cardRemoved = true;
+        console.log(`Removed card ${cardId} from ${playerId} active cards`);
       }
     }
 
-    // Check discarded cards if not found elsewhere
+    // Note: We don't remove from discard piles as those are managed centrally
+    // and cards shouldn't be removed once discarded (except for reshuffling)
+
     if (!cardRemoved) {
-      for (const cardType of Object.keys(updatedDiscardedCards) as CardType[]) {
-        const cards = updatedDiscardedCards[cardType] || [];
-        const cardIndex = cards.indexOf(cardId);
-        if (cardIndex !== -1) {
-          updatedDiscardedCards[cardType] = [
-            ...cards.slice(0, cardIndex),
-            ...cards.slice(cardIndex + 1)
-          ];
-          cardRemoved = true;
-          break;
-        }
-      }
+      console.warn(`Could not find card ${cardId} in player ${playerId}'s collections`);
     }
 
     return this.stateService.updatePlayer({
       id: playerId,
-      availableCards: updatedAvailableCards,
-      activeCards: updatedActiveCards,
-      discardedCards: updatedDiscardedCards
+      hand: updatedHand,
+      activeCards: updatedActiveCards
     });
   }
 
@@ -213,9 +288,23 @@ export class CardService implements ICardService {
       throw new Error(`Player ${playerId} does not own card ${oldCardId}`);
     }
 
+    // Get old card details before removal
+    const oldCard = this.dataService.getCardById(oldCardId);
+    
     // Remove the old card and add a new one
     this.removeCard(playerId, oldCardId);
-    this.drawCards(playerId, newCardType, 1);
+    const drawnCards = this.drawCards(playerId, newCardType, 1);
+    
+    // Log card replacement to action history
+    const newCardId = drawnCards.length > 0 ? drawnCards[0] : null;
+    const newCard = newCardId ? this.dataService.getCardById(newCardId) : null;
+    
+    this.loggingService.info(`Replaced "${oldCard?.card_name}" with "${newCard?.card_name}".`, {
+      playerId: playerId,
+      oldCardId: oldCardId,
+      newCardId: newCardId,
+      newCardType: newCardType
+    });
 
     return this.stateService.getGameState();
   }
@@ -248,17 +337,17 @@ export class CardService implements ICardService {
     // Combine all card collections
     const allPlayerCards: string[] = [];
     
-    // Add available cards
-    if (player.availableCards) {
-      for (const type of Object.keys(player.availableCards) as CardType[]) {
-        const cards = player.availableCards[type] || [];
-        if (cardType) {
-          if (type === cardType) {
-            allPlayerCards.push(...cards);
-          }
-        } else {
-          allPlayerCards.push(...cards);
-        }
+    // Add cards from hand
+    if (player.hand) {
+      if (cardType) {
+        // Filter hand by card type if specified
+        const filteredCards = player.hand.filter(cardId => {
+          const type = this.getCardType(cardId);
+          return type === cardType;
+        });
+        allPlayerCards.push(...filteredCards);
+      } else {
+        allPlayerCards.push(...player.hand);
       }
     }
     
@@ -276,19 +365,9 @@ export class CardService implements ICardService {
       }
     }
     
-    // Add discarded cards
-    if (player.discardedCards) {
-      for (const type of Object.keys(player.discardedCards) as CardType[]) {
-        const cards = player.discardedCards[type] || [];
-        if (cardType) {
-          if (type === cardType) {
-            allPlayerCards.push(...cards);
-          }
-        } else {
-          allPlayerCards.push(...cards);
-        }
-      }
-    }
+    // Note: Discarded cards are now in global discard piles and not tracked per player
+    // If needed to include discarded cards, they would need to be filtered by player history
+    // For now, we only return cards currently in player's hand and active cards
 
     return allPlayerCards;
   }
@@ -311,11 +390,14 @@ export class CardService implements ICardService {
       return null;
     }
 
-    // First, try to get from available cards (preferred for discarding)
-    if (player.availableCards && player.availableCards[cardType]) {
-      const availableCards = player.availableCards[cardType];
-      if (availableCards.length > 0) {
-        return availableCards[0]; // Return the first available card
+    // First, try to get from hand (preferred for discarding)
+    if (player.hand) {
+      const cardInHand = player.hand.find(cardId => {
+        const type = this.getCardType(cardId);
+        return type === cardType;
+      });
+      if (cardInHand) {
+        return cardInHand; // Return the first card of this type in hand
       }
     }
 
@@ -390,17 +472,12 @@ export class CardService implements ICardService {
       // Log card play to action history
       const player = this.stateService.getPlayer(playerId);
       if (player) {
-        this.stateService.logToActionHistory({
-          type: 'card_play',
+        this.loggingService.info(`Played ${card.card_name || cardId}`, {
           playerId: playerId,
-          playerName: player.name,
-          description: `Played ${card.card_name || cardId}`,
-          details: {
-            cardId: cardId,
-            cardName: card.card_name,
-            cardType: card.card_type,
-            cost: card.cost || 0
-          }
+          cardId: cardId,
+          cardName: card.card_name,
+          cardType: card.card_type,
+          cost: card.cost || 0
         });
       }
       
@@ -455,31 +532,45 @@ export class CardService implements ICardService {
     
     // Check phase restrictions for all card types
     if (card.phase_restriction && card.phase_restriction !== 'Any') {
-      // Map game phases to card phase restrictions
-      const currentPhase = this.mapGamePhaseToCardPhase(gameState.gamePhase);
-      if (card.phase_restriction !== currentPhase) {
+      const currentActivityPhase = this.getCurrentActivityPhase(playerId);
+      if (currentActivityPhase && card.phase_restriction !== currentActivityPhase) {
         return { 
           isValid: false, 
-          errorMessage: `Card can only be played during ${card.phase_restriction} phase. Current phase: ${currentPhase}` 
+          errorMessage: `Card can only be played during ${card.phase_restriction} phase. Current activity: ${currentActivityPhase}` 
         };
       }
+      // If currentActivityPhase is null (player not on a phased space), allow any cards to be played
     }
     
     return { isValid: true };
   }
 
-  // Helper method to map game phases to card phase restrictions
-  private mapGamePhaseToCardPhase(gamePhase: string): string {
-    // Map the game's internal phases to card phase restriction names
-    switch (gamePhase.toUpperCase()) {
-      case 'SETUP':
-        return 'Planning';
-      case 'PLAY':
-        return 'Development';
-      case 'END':
-        return 'Marketing';
+  // Helper method to get current activity phase based on player's current space
+  private getCurrentActivityPhase(playerId: string): string | null {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      return null;
+    }
+    
+    // Get the game config for the player's current space to determine its phase
+    const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
+    if (!spaceConfig || !spaceConfig.phase) {
+      return null; // Space has no specific phase, allow any cards
+    }
+    
+    // Map the space's phase to card phase restrictions
+    // The CSV phases in GAME_CONFIG match the card phase_restriction values
+    switch (spaceConfig.phase.toUpperCase()) {
+      case 'CONSTRUCTION':
+        return 'CONSTRUCTION';
+      case 'DESIGN':
+        return 'DESIGN';
+      case 'FUNDING':
+        return 'FUNDING';
+      case 'REGULATORY':
+        return 'REGULATORY_REVIEW';
       default:
-        return 'Any';
+        return null; // Unknown phase, allow any cards
     }
   }
 
@@ -504,12 +595,19 @@ export class CardService implements ICardService {
       activeCards: updatedActiveCards
     });
 
-    console.log(`Card ${cardId} activated for player ${playerId}, expires on turn ${expirationTurn}`);
+    // Log card activation to action history
+    const card = this.dataService.getCardById(cardId);
+    this.loggingService.info(`Activated "${card?.card_name}" for ${duration} turns.`, {
+      playerId: playerId,
+      cardId: cardId,
+      duration: duration,
+      expirationTurn: expirationTurn
+    });
   }
 
   // Card transfer method
   transferCard(sourcePlayerId: string, targetPlayerId: string, cardId: string): GameState {
-    console.log(`Transferring card [${cardId}] from player [${sourcePlayerId}] to player [${targetPlayerId}]`);
+    // Transfer logged to action history below
     
     try {
       // Validate source player
@@ -529,8 +627,8 @@ export class CardService implements ICardService {
         throw new Error('Cannot transfer card to yourself');
       }
       
-      // Check if source player owns the card (only in available cards for transfer)
-      if (!this.playerOwnsCardInCollection(sourcePlayerId, cardId, 'available')) {
+      // Check if source player owns the card (only in hand for transfer)
+      if (!this.playerOwnsCardInCollection(sourcePlayerId, cardId, 'hand')) {
         throw new Error('You do not own this card or it is not available for transfer');
       }
       
@@ -543,35 +641,27 @@ export class CardService implements ICardService {
       // Remove card from source player's available cards
       this.removeCard(sourcePlayerId, cardId);
       
-      // Add card to target player's available cards
-      const updatedTargetAvailableCards = {
-        ...targetPlayer.availableCards,
-        [cardType]: [...(targetPlayer.availableCards[cardType] || []), cardId]
-      };
+      // Add card to target player's hand
+      const updatedTargetHand = [...targetPlayer.hand, cardId];
       
       this.stateService.updatePlayer({
         id: targetPlayerId,
-        availableCards: updatedTargetAvailableCards
+        hand: updatedTargetHand
       });
       
-      console.log(`Successfully transferred card [${cardId}] from ${sourcePlayer.name} to ${targetPlayer.name}`);
+      // Transfer success logged to action history below
       
       // Log card transfer to action history
       const card = this.dataService.getCardById(cardId);
-      this.stateService.logToActionHistory({
-        type: 'card_transfer',
+      this.loggingService.info(`Transferred ${card?.card_name || cardId} to ${targetPlayer.name}`, {
         playerId: sourcePlayerId,
-        playerName: sourcePlayer.name,
-        description: `Transferred ${card?.card_name || cardId} to ${targetPlayer.name}`,
-        details: {
-          cardId: cardId,
-          cardName: card?.card_name,
-          cardType: cardType,
-          sourcePlayer: sourcePlayer.name,
-          targetPlayer: targetPlayer.name,
-          sourcePlayerId: sourcePlayerId,
-          targetPlayerId: targetPlayerId
-        }
+        cardId: cardId,
+        cardName: card?.card_name,
+        cardType: cardType,
+        sourcePlayer: sourcePlayer.name,
+        targetPlayer: targetPlayer.name,
+        sourcePlayerId: sourcePlayerId,
+        targetPlayerId: targetPlayerId
       });
       
       return this.stateService.getGameState();
@@ -593,21 +683,17 @@ export class CardService implements ICardService {
   private playerOwnsCardInCollection(
     playerId: string, 
     cardId: string, 
-    collection: 'available' | 'active' | 'discarded' | 'all' = 'all'
+    collection: 'hand' | 'active' | 'discarded' | 'all' = 'all'
   ): boolean {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       return false;
     }
 
-    // Check available cards
-    if (collection === 'available' || collection === 'all') {
-      const availableCards = player.availableCards || {};
-      for (const cardType of Object.keys(availableCards) as CardType[]) {
-        const cards = availableCards[cardType];
-        if (cards && cards.includes(cardId)) {
-          return true;
-        }
+    // Check hand (previously available cards)
+    if (collection === 'hand' || collection === 'all') {
+      if (player.hand && player.hand.includes(cardId)) {
+        return true;
       }
     }
 
@@ -618,12 +704,12 @@ export class CardService implements ICardService {
       }
     }
 
-    // Check discarded cards
+    // Check discarded cards (now in global discard piles)
     if (collection === 'discarded' || collection === 'all') {
-      const discardedCards = player.discardedCards || {};
-      for (const cardType of Object.keys(discardedCards) as CardType[]) {
-        const cards = discardedCards[cardType];
-        if (cards && cards.includes(cardId)) {
+      const gameState = this.stateService.getGameState();
+      for (const cardType of ['W', 'B', 'E', 'L', 'I'] as CardType[]) {
+        const discardPile = gameState.discardPiles[cardType];
+        if (discardPile && discardPile.includes(cardId)) {
           return true;
         }
       }
@@ -638,7 +724,7 @@ export class CardService implements ICardService {
     const gameState = this.stateService.getGameState();
     const currentTurn = gameState.turn;
 
-    console.log(`Processing card expirations for turn ${currentTurn}`);
+    // Processing card expirations
 
     // Check each player's active cards for expiration
     for (const player of gameState.players) {
@@ -653,10 +739,15 @@ export class CardService implements ICardService {
 
       // If there are expired cards, update the player
       if (expiredCards.length > 0) {
-        console.log(`Player ${player.id}: ${expiredCards.length} cards expired`);
-        
-        // Move expired cards to discarded collection
+        // Move expired cards to discarded collection and log each expiration
         for (const expiredCardId of expiredCards) {
+          // Log card expiration to action history
+          const card = this.dataService.getCardById(expiredCardId);
+          this.loggingService.info(`"${card?.card_name}" expired.`, {
+            playerId: player.id,
+            cardId: expiredCardId
+          });
+          
           this.moveExpiredCardToDiscarded(player.id, expiredCardId);
         }
 
@@ -683,18 +774,18 @@ export class CardService implements ICardService {
       return;
     }
 
-    // Add to discarded cards (immutable)
-    const discardedCards = {
-      ...player.discardedCards,
-      [cardType]: [...(player.discardedCards[cardType] || []), cardId]
+    // Add expired card to global discard pile
+    const gameState = this.stateService.getGameState();
+    const updatedDiscardPiles = {
+      ...gameState.discardPiles,
+      [cardType]: [...gameState.discardPiles[cardType], cardId]
     };
 
-    this.stateService.updatePlayer({
-      id: playerId,
-      discardedCards
+    this.stateService.updateGameState({
+      discardPiles: updatedDiscardPiles
     });
 
-    console.log(`Expired card ${cardId} moved to discarded pile for player ${playerId}`);
+    console.log(`Expired card ${cardId} moved to ${cardType} discard pile for player ${playerId}`);
   }
 
   // Card discard helper method
@@ -709,35 +800,72 @@ export class CardService implements ICardService {
       throw new Error(`Cannot determine card type for ${cardId}`);
     }
     
-    // Verify card exists in available cards
-    const availableCardsForType = player.availableCards[cardType] || [];
-    const cardIndex = availableCardsForType.indexOf(cardId);
-    if (cardIndex === -1) {
-      throw new Error(`Card ${cardId} not found in player's available cards`);
+    // Verify card exists in player's hand
+    const handIndex = player.hand.indexOf(cardId);
+    if (handIndex === -1) {
+      throw new Error(`Card ${cardId} not found in player's hand`);
     }
     
-    // Atomic operation: remove from available cards and add to discarded cards
-    const availableCards = {
-      ...player.availableCards,
-      [cardType]: [
-        ...availableCardsForType.slice(0, cardIndex),
-        ...availableCardsForType.slice(cardIndex + 1)
-      ]
+    // Remove from player's hand
+    const updatedHand = [
+      ...player.hand.slice(0, handIndex),
+      ...player.hand.slice(handIndex + 1)
+    ];
+    
+    // Add to global discard pile
+    const gameState = this.stateService.getGameState();
+    const updatedDiscardPiles = {
+      ...gameState.discardPiles,
+      [cardType]: [...gameState.discardPiles[cardType], cardId]
     };
     
-    const discardedCards = {
-      ...player.discardedCards,
-      [cardType]: [...(player.discardedCards[cardType] || []), cardId]
-    };
-    
-    // Single state update
-    this.stateService.updatePlayer({
-      id: playerId,
-      availableCards,
-      discardedCards
+    // Update game state and player state atomically
+    this.stateService.updateGameState({
+      discardPiles: updatedDiscardPiles
     });
     
-    console.log(`Moved card ${cardId} from available to discarded for player ${playerId}`);
+    this.stateService.updatePlayer({
+      id: playerId,
+      hand: updatedHand
+    });
+    
+    console.log(`Moved card ${cardId} from hand to ${cardType} discard pile for player ${playerId}`);
+  }
+
+  /**
+   * Public method to discard a played card (move from available to discarded)
+   * Used by EffectEngine for PLAY_CARD effects when card has no duration
+   */
+  public discardPlayedCard(playerId: string, cardId: string): void {
+    console.log(`🗑️ Discarding played card ${cardId} for player ${playerId}`);
+    this.moveCardToDiscarded(playerId, cardId);
+  }
+
+  /**
+   * Public method to finalize a played card's lifecycle
+   * Determines if card should be activated (has duration) or discarded (immediate effect)
+   * Used by EffectEngine for PLAY_CARD effects
+   */
+  public finalizePlayedCard(playerId: string, cardId: string): void {
+    console.log(`🎴 Finalizing played card ${cardId} for player ${playerId}`);
+    
+    const card = this.dataService.getCardById(cardId);
+    if (!card) {
+      throw new Error(`Card ${cardId} not found`);
+    }
+    
+    // Check if card has duration
+    const duration = card.duration_count && parseInt(card.duration_count, 10) > 0 
+      ? parseInt(card.duration_count, 10) 
+      : 0;
+
+    if (duration > 0) {
+      console.log(`🎴 Card ${cardId} has duration ${duration}, activating...`);
+      this.activateCard(playerId, cardId, duration);
+    } else {
+      console.log(`🎴 Card ${cardId} has no duration, discarding...`);
+      this.discardPlayedCard(playerId, cardId);
+    }
   }
 
   // Card effect methods
@@ -1145,21 +1273,18 @@ export class CardService implements ICardService {
       }
     }
 
-    // Copy current player card collections
-    const updatedAvailableCards = { ...player.availableCards };
-    const updatedActiveCards = [...player.activeCards];
-    const updatedDiscardedCards = { ...player.discardedCards };
+    // Copy current player card collections  
+    let updatedHand = [...player.hand];
+    let updatedActiveCards = [...player.activeCards];
+    const gameState = this.stateService.getGameState();
+    const updatedDiscardPiles = { ...gameState.discardPiles };
 
     // Process each card type
     for (const [cardType, cards] of Object.entries(cardsByType)) {
       const typedCardType = cardType as CardType;
       
-      // Remove from available cards
-      if (updatedAvailableCards[typedCardType]) {
-        updatedAvailableCards[typedCardType] = updatedAvailableCards[typedCardType]!.filter(
-          cardId => !cards.includes(cardId)
-        );
-      }
+      // Remove from hand
+      updatedHand = updatedHand.filter(cardId => !cards.includes(cardId));
 
       // Remove from active cards
       for (const cardId of cards) {
@@ -1169,23 +1294,26 @@ export class CardService implements ICardService {
         }
       }
 
-      // Add to discarded cards
-      if (!updatedDiscardedCards[typedCardType]) {
-        updatedDiscardedCards[typedCardType] = [];
+      // Add to global discard pile
+      if (!updatedDiscardPiles[typedCardType]) {
+        updatedDiscardPiles[typedCardType] = [];
       }
-      updatedDiscardedCards[typedCardType] = [
-        ...updatedDiscardedCards[typedCardType]!,
+      updatedDiscardPiles[typedCardType] = [
+        ...updatedDiscardPiles[typedCardType],
         ...cards
       ];
     }
 
-    // Update player state
+    // Update game state and player state
     try {
+      this.stateService.updateGameState({
+        discardPiles: updatedDiscardPiles
+      });
+      
       this.stateService.updatePlayer({
         id: playerId,
-        availableCards: updatedAvailableCards,
-        activeCards: updatedActiveCards,
-        discardedCards: updatedDiscardedCards
+        hand: updatedHand,
+        activeCards: updatedActiveCards
       });
 
       // Log the transaction
@@ -1201,17 +1329,12 @@ export class CardService implements ICardService {
       console.log(`   Card IDs: ${cardIds.join(', ')}`);
 
       // Log card discard to action history
-      this.stateService.logToActionHistory({
-        type: 'card_discard',
+      this.loggingService.info(`Discarded ${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`, {
         playerId: playerId,
-        playerName: player.name,
-        description: `Discarded ${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`,
-        details: {
-          cardIds: cardIds,
-          cardsByType: cardsByType,
-          source: sourceInfo,
-          reason: reasonInfo
-        }
+        cardIds: cardIds,
+        cardsByType: cardsByType,
+        source: sourceInfo,
+        reason: reasonInfo
       });
 
       return true;

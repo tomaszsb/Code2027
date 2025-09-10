@@ -11,10 +11,11 @@ interface DiscardedCardsModalProps {
 }
 
 /**
- * DiscardedCardsModal displays all discarded cards for a player in a modal overlay
+ * DiscardedCardsModal displays all discarded cards from the global discard piles in a modal overlay.
+ * Uses gameState.discardPiles to show all discarded cards across the game.
  */
 export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDetailsModal }: DiscardedCardsModalProps): JSX.Element | null {
-  const { dataService } = useGameContext();
+  const { dataService, stateService } = useGameContext();
 
   if (!isVisible) return null;
 
@@ -94,7 +95,7 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
         {/* Header */}
         <div style={headerStyle}>
           <div style={titleStyle}>
-            🗂️ {player.name}'s Discarded Cards
+            🗂️ All Discarded Cards
           </div>
           <button
             onClick={onClose}
@@ -115,111 +116,122 @@ export function DiscardedCardsModal({ player, isVisible, onClose, onOpenCardDeta
 
         {/* Discarded Cards Content */}
         <div style={sectionStyle}>
-          {Object.entries(player.discardedCards || {}).map(([cardType, cardIds]) => 
-            cardIds && cardIds.length > 0 ? (
-              <div key={`discarded-${cardType}`} style={{ marginBottom: '16px' }}>
-                <div style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  color: cardTypeColors[cardType as keyof typeof cardTypeColors],
-                  marginBottom: '8px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  {cardType} Cards ({cardIds.length})
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '8px'
-                }}>
-                  {cardIds.map((cardId, index) => {
-                    const cardData = dataService.getCardById(cardId);
-                    const cardDisplayName = cardData?.card_name || `${cardType} Card ${index + 1}`;
-                    
-                    return (
-                      <div
-                        key={cardId}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          background: colors.secondary.bg,
-                          border: `2px solid ${colors.secondary.border}`,
-                          borderRadius: '8px',
-                          padding: '8px 12px',
-                          fontSize: '0.8rem',
-                          opacity: 0.8,
-                          transition: 'all 0.2s ease',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => onOpenCardDetailsModal(cardId)}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.opacity = '1';
-                          e.currentTarget.style.transform = 'scale(1.02)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.opacity = '0.8';
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }}
-                        title={`Click to view details: ${cardDisplayName}`}
-                      >
-                        <span 
+          {(() => {
+            const gameState = stateService.getGameState();
+            const discardPiles = gameState.discardPiles || {};
+            
+            return Object.entries(discardPiles).map(([cardType, cardIds]) => 
+              cardIds && cardIds.length > 0 ? (
+                <div key={`discarded-${cardType}`} style={{ marginBottom: '16px' }}>
+                  <div style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    color: cardTypeColors[cardType as keyof typeof cardTypeColors],
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {cardType} Cards ({cardIds.length})
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '8px'
+                  }}>
+                    {cardIds.map((cardId, index) => {
+                      const cardData = dataService.getCardById(cardId);
+                      const cardDisplayName = cardData?.card_name || `${cardType} Card ${index + 1}`;
+                      
+                      return (
+                        <div
+                          key={cardId}
                           style={{
-                            display: 'inline-block',
-                            minWidth: '30px',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold' as const,
-                            textAlign: 'center' as const,
-                            color: 'white',
-                            backgroundColor: cardTypeColors[cardType as keyof typeof cardTypeColors]
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: colors.secondary.bg,
+                            border: `2px solid ${colors.secondary.border}`,
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            fontSize: '0.8rem',
+                            opacity: 0.8,
+                            transition: 'all 0.2s ease',
+                            cursor: 'pointer'
                           }}
+                          onClick={() => onOpenCardDetailsModal(cardId)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.opacity = '1';
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.opacity = '0.8';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                          title={`Click to view details: ${cardDisplayName}`}
                         >
-                          {cardType}
-                        </span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{
-                            fontWeight: 'bold',
-                            color: colors.secondary.dark,
-                            marginBottom: '2px',
-                            fontSize: '0.85rem'
-                          }}>
-                            {cardDisplayName}
-                          </div>
-                          {cardData?.description && (
-                            <div style={{
-                              color: colors.secondary.main,
+                          <span 
+                            style={{
+                              display: 'inline-block',
+                              minWidth: '30px',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
                               fontSize: '0.75rem',
-                              lineHeight: '1.2'
+                              fontWeight: 'bold' as const,
+                              textAlign: 'center' as const,
+                              color: 'white',
+                              backgroundColor: cardTypeColors[cardType as keyof typeof cardTypeColors]
+                            }}
+                          >
+                            {cardType}
+                          </span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{
+                              fontWeight: 'bold',
+                              color: colors.secondary.dark,
+                              marginBottom: '2px',
+                              fontSize: '0.85rem'
                             }}>
-                              {cardData.description.length > 80 
-                                ? cardData.description.substring(0, 80) + '...' 
-                                : cardData.description}
+                              {cardDisplayName}
                             </div>
-                          )}
+                            {cardData?.description && (
+                              <div style={{
+                                color: colors.secondary.main,
+                                fontSize: '0.75rem',
+                                lineHeight: '1.2'
+                              }}>
+                                {cardData.description.length > 80 
+                                  ? cardData.description.substring(0, 80) + '...' 
+                                  : cardData.description}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ) : null
-          )}
+              ) : null
+            );
+          })()}
           
           {/* Show message if no discarded cards */}
-          {Object.values(player.discardedCards || {}).every(cards => !cards || cards.length === 0) && (
-            <div style={{
-              textAlign: 'center',
-              color: colors.secondary.main,
-              fontSize: '1rem',
-              fontStyle: 'italic',
-              padding: '24px'
-            }}>
-              No discarded cards yet
-            </div>
-          )}
+          {(() => {
+            const gameState = stateService.getGameState();
+            const discardPiles = gameState.discardPiles || {};
+            const hasDiscardedCards = Object.values(discardPiles).some(cards => cards && cards.length > 0);
+            
+            return !hasDiscardedCards ? (
+              <div style={{
+                textAlign: 'center',
+                color: colors.secondary.main,
+                fontSize: '1rem',
+                fontStyle: 'italic',
+                padding: '24px'
+              }}>
+                No discarded cards yet
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
     </div>

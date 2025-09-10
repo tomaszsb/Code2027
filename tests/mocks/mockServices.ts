@@ -22,8 +22,11 @@ import {
   INegotiationService,
   IEffectEngineService,
   IChoiceService,
-  ITurnService
+  ITurnService,
+  IPlayerActionService
 } from '../../src/types/ServiceContracts';
+
+import { ILoggingService } from '../../src/services/LoggingService';
 
 export const createMockDataService = (): jest.Mocked<IDataService> => ({
   // Configuration methods
@@ -136,7 +139,8 @@ export const createMockStateService = (): jest.Mocked<IStateService> => ({
   getPreSpaceEffectSnapshot: jest.fn(),
   
   // State management methods
-  setGameState: jest.fn()
+  setGameState: jest.fn(),
+  updateGameState: jest.fn()
 });
 
 export const createMockGameRulesService = (): jest.Mocked<IGameRulesService> => ({
@@ -162,7 +166,13 @@ export const createMockGameRulesService = (): jest.Mocked<IGameRulesService> => 
   canPlayerTakeAction: jest.fn(),
   
   // Project scope calculation methods
-  calculateProjectScope: jest.fn()
+  calculateProjectScope: jest.fn(),
+  
+  // Scoring methods
+  calculatePlayerScore: jest.fn(),
+  determineWinner: jest.fn(),
+  checkTurnLimit: jest.fn(),
+  checkGameEndConditions: jest.fn()
 });
 
 export const createMockCardService = (): jest.Mocked<ICardService> => ({
@@ -174,6 +184,7 @@ export const createMockCardService = (): jest.Mocked<ICardService> => ({
   // Card management methods with source tracking
   playCard: jest.fn(),
   drawCards: jest.fn(),
+  drawAndApplyCard: jest.fn(),
   discardCards: jest.fn(),
   removeCard: jest.fn(),
   replaceCard: jest.fn(),
@@ -181,6 +192,8 @@ export const createMockCardService = (): jest.Mocked<ICardService> => ({
   // Turn-based card lifecycle methods
   endOfTurn: jest.fn(),
   activateCard: jest.fn(),
+  finalizePlayedCard: jest.fn(),
+  discardPlayedCard: jest.fn(),
   
   // Card transfer methods with source tracking
   transferCard: jest.fn(),
@@ -211,7 +224,11 @@ export const createMockResourceService = (): jest.Mocked<IResourceService> => ({
   getResourceHistory: jest.fn(),
   
   // Validation
-  validateResourceChange: jest.fn()
+  validateResourceChange: jest.fn(),
+  
+  // Loan operations
+  takeOutLoan: jest.fn(),
+  applyInterest: jest.fn()
 });
 
 export const createMockMovementService = (): jest.Mocked<IMovementService> => ({
@@ -244,6 +261,7 @@ export const createMockEffectEngineService = (): jest.Mocked<IEffectEngineServic
   // Core processing methods
   processEffects: jest.fn(),
   processEffect: jest.fn(),
+  processActiveEffectsForAllPlayers: jest.fn(),
   
   // Validation methods
   validateEffect: jest.fn(),
@@ -290,9 +308,29 @@ export const createMockTurnService = (): jest.Mocked<ITurnService> => ({
 });
 
 // Convenience function to create all mocks at once
+export const createMockPlayerActionService = (): jest.Mocked<IPlayerActionService> => ({
+  // Methods for handling player commands and orchestrating actions
+  playCard: jest.fn(),
+  rollDice: jest.fn(),
+  endTurn: jest.fn()
+});
+
+export const createMockLoggingService = (): jest.Mocked<ILoggingService> => ({
+  // Logging methods
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  // Performance timing methods
+  startPerformanceTimer: jest.fn(),
+  endPerformanceTimer: jest.fn()
+});
+
 export const createAllMockServices = () => ({
   dataService: createMockDataService(),
   stateService: createMockStateService(),
+  loggingService: createMockLoggingService(),
   gameRulesService: createMockGameRulesService(),
   cardService: createMockCardService(),
   resourceService: createMockResourceService(),
@@ -300,5 +338,6 @@ export const createAllMockServices = () => ({
   negotiationService: createMockNegotiationService(),
   effectEngineService: createMockEffectEngineService(),
   choiceService: createMockChoiceService(),
-  turnService: createMockTurnService()
+  turnService: createMockTurnService(),
+  playerActionService: createMockPlayerActionService()
 });

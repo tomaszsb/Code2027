@@ -18,116 +18,28 @@ import { Player, Card } from '../src/types/DataTypes';
 import { GameState } from '../src/types/StateTypes';
 import { TurnEffectResult } from '../src/types/StateTypes';
 import { NegotiationService } from '../src/services/NegotiationService';
-
-// Mock services
-const createMockDataService = (): jest.Mocked<IDataService> => ({
-  getGameConfig: jest.fn(),
-  getGameConfigBySpace: jest.fn(),
-  getPhaseOrder: jest.fn(),
-  getAllSpaces: jest.fn(),
-  getSpaceByName: jest.fn(),
-  getMovement: jest.fn().mockReturnValue(null),
-  getAllMovements: jest.fn(),
-  getDiceOutcome: jest.fn(),
-  getAllDiceOutcomes: jest.fn(),
-  getSpaceEffects: jest.fn().mockReturnValue([]),
-  getAllSpaceEffects: jest.fn(),
-  getDiceEffects: jest.fn().mockReturnValue([]),
-  getAllDiceEffects: jest.fn(),
-  getSpaceContent: jest.fn(),
-  getAllSpaceContent: jest.fn(),
-  getCards: jest.fn(),
-  getCardById: jest.fn(),
-  getCardsByType: jest.fn(),
-  getAllCardTypes: jest.fn(),
-  isLoaded: jest.fn().mockReturnValue(true),
-  loadData: jest.fn()
-});
-
-const createMockStateService = (): jest.Mocked<IStateService> => ({
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
-  subscribe: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn()
-});
-
-const createMockResourceService = (): jest.Mocked<IResourceService> => ({
-  addMoney: jest.fn().mockReturnValue(true),
-  spendMoney: jest.fn().mockReturnValue(true),
-  canAfford: jest.fn(),
-  addTime: jest.fn(),
-  spendTime: jest.fn(),
-  updateResources: jest.fn(),
-  getResourceHistory: jest.fn(),
-  validateResourceChange: jest.fn()
-});
-
-const createMockCardService = (): jest.Mocked<ICardService> => ({
-  canPlayCard: jest.fn(),
-  isValidCardType: jest.fn(),
-  playerOwnsCard: jest.fn(),
-  playCard: jest.fn(),
-  drawCards: jest.fn(),
-  discardCards: jest.fn().mockReturnValue(true),
-  removeCard: jest.fn(),
-  replaceCard: jest.fn(),
-  endOfTurn: jest.fn(),
-  activateCard: jest.fn(),
-  transferCard: jest.fn(),
-  getCardType: jest.fn(),
-  getPlayerCards: jest.fn(),
-  getPlayerCardCount: jest.fn(),
-  getCardToDiscard: jest.fn(),
-  applyCardEffects: jest.fn(),
-  effectEngineService: {} as jest.Mocked<IEffectEngineService>
-});
+import {
+  createMockDataService,
+  createMockStateService,
+  createMockResourceService,
+  createMockCardService,
+  createMockChoiceService,
+  createMockMovementService,
+  createMockGameRulesService,
+  createMockNegotiationService,
+  createMockLoggingService
+} from './mocks/mockServices';
 
 const createMockServices = () => ({
   dataService: createMockDataService(),
   resourceService: createMockResourceService(),
   cardService: createMockCardService(),
-  choiceService: {} as jest.Mocked<IChoiceService>,
+  choiceService: createMockChoiceService(),
   stateService: createMockStateService(),
-  movementService: {} as jest.Mocked<IMovementService>,
-  gameRulesService: {} as jest.Mocked<IGameRulesService>,
-  negotiationService: {} as jest.Mocked<NegotiationService>
+  movementService: createMockMovementService(),
+  gameRulesService: createMockGameRulesService(),
+  negotiationService: createMockNegotiationService(),
+  loggingService: createMockLoggingService()
 });
 
 describe('E066 Card - Re-roll Mechanics Integration', () => {
@@ -145,7 +57,8 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       mockServices.stateService,
       mockServices.movementService,
       {} as ITurnService,
-      mockServices.gameRulesService
+      mockServices.gameRulesService,
+      {} as any // targetingService
     );
 
     turnService = new TurnService(
@@ -155,7 +68,8 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       mockServices.cardService,
       mockServices.resourceService,
       mockServices.movementService,
-      mockServices.negotiationService,
+      mockServices.negotiationService as any,
+      mockServices.loggingService,
       effectEngineService
     );
 
@@ -208,10 +122,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0 }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     };
 
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
@@ -243,10 +159,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0, canReRoll: true }
+      turnModifiers: { skipTurns: 0, canReRoll: true },
+      activeEffects: [],
+      loans: []
     };
 
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
@@ -271,10 +189,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0, canReRoll: false }
+      turnModifiers: { skipTurns: 0, canReRoll: false },
+      activeEffects: [],
+      loans: []
     };
 
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
@@ -299,10 +219,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0, canReRoll: true }
+      turnModifiers: { skipTurns: 0, canReRoll: true },
+      activeEffects: [],
+      loans: []
     };
 
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
@@ -336,10 +258,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       money: 100,
       timeSpent: 10,
       projectScope: 50,
-      availableCards: { W: [], B: [], E: [], L: [], I: [] },
+      score: 0,
+      hand: [],
       activeCards: [],
-      discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-      turnModifiers: { skipTurns: 0, canReRoll: false }
+      turnModifiers: { skipTurns: 0, canReRoll: false },
+      activeEffects: [],
+      loans: []
     };
 
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
@@ -359,10 +283,12 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
         money: 100,
         timeSpent: 10,
         projectScope: 50,
-        availableCards: { W: [], B: [], E: [], L: [], I: [] },
+        score: 0,
+        hand: [],
         activeCards: [],
-        discardedCards: { W: [], B: [], E: [], L: [], I: [] },
-        turnModifiers: { skipTurns: 0, canReRoll: true }
+        turnModifiers: { skipTurns: 0, canReRoll: true },
+        activeEffects: [],
+        loans: []
       }],
       currentPlayerId: 'player1',
       gamePhase: 'PLAY',
@@ -378,7 +304,21 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       hasCompletedManualActions: false,
       activeNegotiation: null,
       globalActionLog: [],
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      decks: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      },
+      discardPiles: {
+        W: [],
+        B: [],
+        E: [],
+        L: [],
+        I: []
+      }
     };
 
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);

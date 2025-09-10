@@ -1,110 +1,27 @@
 // E012 Card Choice Integration Test
 import { EffectFactory } from '../src/utils/EffectFactory';
 import { EffectEngineService } from '../src/services/EffectEngineService';
-import { 
-  IResourceService, 
-  ICardService, 
-  IChoiceService, 
-  IStateService, 
-  IMovementService,
-  ITurnService,
-  IGameRulesService,
-  IEffectEngineService
-} from '../src/types/ServiceContracts';
 import { Effect, EffectContext, isChoiceOfEffectsEffect } from '../src/types/EffectTypes';
 import { Player, Card } from '../src/types/DataTypes';
-
-// Mock services
-const createMockChoiceService = (): jest.Mocked<IChoiceService> => ({
-  createChoice: jest.fn(),
-  resolveChoice: jest.fn(),
-  getActiveChoice: jest.fn(),
-  hasActiveChoice: jest.fn()
-});
-
-const createMockCardService = (): jest.Mocked<ICardService> => ({
-  canPlayCard: jest.fn(),
-  isValidCardType: jest.fn(),
-  playerOwnsCard: jest.fn(),
-  playCard: jest.fn(),
-  drawCards: jest.fn(),
-  discardCards: jest.fn().mockReturnValue(true),
-  removeCard: jest.fn(),
-  replaceCard: jest.fn(),
-  endOfTurn: jest.fn(),
-  activateCard: jest.fn(),
-  transferCard: jest.fn(),
-  getCardType: jest.fn(),
-  getPlayerCards: jest.fn(),
-  getPlayerCardCount: jest.fn(),
-  getCardToDiscard: jest.fn(),
-  applyCardEffects: jest.fn(),
-  effectEngineService: {} as jest.Mocked<IEffectEngineService>
-});
-
-const createMockStateService = (): jest.Mocked<IStateService> => ({
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
-  subscribe: jest.fn(),
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
-  updateNegotiationState: jest.fn(),
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
-  logToActionHistory: jest.fn(),
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
-  setGameState: jest.fn()
-});
-
-const createMockResourceService = (): jest.Mocked<IResourceService> => ({
-  addMoney: jest.fn().mockReturnValue(true),
-  spendMoney: jest.fn().mockReturnValue(true),
-  canAfford: jest.fn(),
-  addTime: jest.fn(),
-  spendTime: jest.fn(),
-  updateResources: jest.fn(),
-  getResourceHistory: jest.fn(),
-  validateResourceChange: jest.fn()
-});
+import { GameState } from '../src/types/StateTypes';
+import {
+  createMockResourceService,
+  createMockCardService,
+  createMockChoiceService,
+  createMockStateService,
+  createMockMovementService,
+  createMockTurnService,
+  createMockGameRulesService
+} from './mocks/mockServices';
 
 const createMockServices = () => ({
   resourceService: createMockResourceService(),
   cardService: createMockCardService(),
   choiceService: createMockChoiceService(),
   stateService: createMockStateService(),
-  movementService: {} as jest.Mocked<IMovementService>,
-  turnService: {} as jest.Mocked<ITurnService>,
-  gameRulesService: {} as jest.Mocked<IGameRulesService>
+  movementService: createMockMovementService(),
+  turnService: createMockTurnService(),
+  gameRulesService: createMockGameRulesService()
 });
 
 describe('E012 Card - Choice of Effects Integration', () => {
@@ -113,6 +30,17 @@ describe('E012 Card - Choice of Effects Integration', () => {
 
   beforeEach(() => {
     mockServices = createMockServices();
+    
+    // Set up default mock behaviors
+    jest.clearAllMocks();
+    
+    // Default mock returns for services
+    mockServices.cardService.discardCards.mockReturnValue(true);
+    mockServices.resourceService.addMoney.mockReturnValue(true);
+    mockServices.resourceService.spendMoney.mockReturnValue(true);
+    mockServices.resourceService.addTime.mockReturnValue(undefined);
+    mockServices.resourceService.spendTime.mockReturnValue(undefined);
+    
     effectEngineService = new EffectEngineService(
       mockServices.resourceService,
       mockServices.cardService,
@@ -120,7 +48,8 @@ describe('E012 Card - Choice of Effects Integration', () => {
       mockServices.stateService,
       mockServices.movementService,
       mockServices.turnService,
-      mockServices.gameRulesService
+      mockServices.gameRulesService,
+      {} as any // targetingService
     );
   });
 
@@ -211,15 +140,41 @@ describe('E012 Card - Choice of Effects Integration', () => {
       money: 100,
       timeSpent: 0,
       projectScope: 0,
-      availableCards: {
-        W: [],
-        B: [],
-        E: ['E001', 'E002'],
-        L: [],
-        I: []
-      },
+      score: 0,
+      color: '#007bff',
+      avatar: '👤',
+      hand: ['E001', 'E002'], // New hand structure - player has 2 E cards
       activeCards: [],
-      discardedCards: {
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
+    };
+
+    const mockGameState: GameState = {
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY',
+      turn: 1,
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      isGameOver: false,
+      requiredActions: 1,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      activeNegotiation: null,
+      globalActionLog: [],
+      preSpaceEffectState: null,
+      decks: {
+        W: ['W003', 'W004'],
+        B: ['B003', 'B004'],
+        E: ['E003', 'E004'], // Additional E cards in deck
+        L: ['L001', 'L002'],
+        I: ['I001', 'I002']
+      },
+      discardPiles: {
         W: [],
         B: [],
         E: [],
@@ -229,6 +184,7 @@ describe('E012 Card - Choice of Effects Integration', () => {
     };
     
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
+    mockServices.stateService.getGameState.mockReturnValue(mockGameState);
     mockServices.cardService.getPlayerCards.mockReturnValue(['E001', 'E002']);
 
     const result = await effectEngineService.processEffect(choiceEffect, context);

@@ -1,7 +1,7 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, ILoggingService, TurnResult } from '../types/ServiceContracts';
 import { NegotiationService } from './NegotiationService';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
-import { DiceEffect, SpaceEffect, Movement } from '../types/DataTypes';
+import { DiceEffect, SpaceEffect, Movement, CardType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
 import { EffectContext } from '../types/EffectTypes';
 
@@ -13,9 +13,10 @@ export class TurnService implements ITurnService {
   private readonly resourceService: IResourceService;
   private readonly movementService: IMovementService;
   private readonly negotiationService: NegotiationService;
+  private readonly loggingService: ILoggingService;
   private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, effectEngineService?: IEffectEngineService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, loggingService: ILoggingService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
@@ -23,6 +24,7 @@ export class TurnService implements ITurnService {
     this.resourceService = resourceService;
     this.movementService = movementService;
     this.negotiationService = negotiationService;
+    this.loggingService = loggingService;
     this.effectEngineService = effectEngineService;
   }
 
@@ -60,7 +62,7 @@ export class TurnService implements ITurnService {
   }
 
   async takeTurn(playerId: string): Promise<TurnResult> {
-    console.log(`🎮 TurnService.takeTurn - Starting turn for player ${playerId}`);
+    // Turn start is logged in nextPlayer() method
     
     try {
       // Validation: Check if it's the player's turn
@@ -70,7 +72,7 @@ export class TurnService implements ITurnService {
 
       // Check if player has already moved this turn
       const gameState = this.stateService.getGameState();
-      console.log(`🎮 TurnService.takeTurn - State check: hasPlayerMovedThisTurn=${gameState.hasPlayerMovedThisTurn}, currentPlayerId=${gameState.currentPlayerId}`);
+      // State validation check
       if (gameState.hasPlayerMovedThisTurn) {
         console.warn(`🎮 TurnService.takeTurn - Player ${playerId} has already moved, clearing flag and continuing (AI turn recovery)`);
         this.stateService.clearPlayerHasMoved();
@@ -82,11 +84,19 @@ export class TurnService implements ITurnService {
         throw new Error(`Player ${playerId} not found`);
       }
 
-      console.log(`🎮 TurnService.takeTurn - Player ${currentPlayer.name} on space ${currentPlayer.currentSpace}`);
+      // Player position logged in turn start/end
 
       // Roll dice
       const diceRoll = this.rollDice();
-      console.log(`🎮 TurnService.takeTurn - Rolled dice: ${diceRoll}`);
+      
+      // Log dice roll to action history
+      this.loggingService.info(`Rolled a ${diceRoll}`, {
+        playerId: currentPlayer.id,
+        playerName: currentPlayer.name,
+        action: 'rollDice',
+        roll: diceRoll,
+        space: currentPlayer.currentSpace
+      });
 
       // Process turn effects based on dice roll
       console.log(`🎮 TurnService.takeTurn - Processing turn effects...`);
@@ -117,7 +127,7 @@ export class TurnService implements ITurnService {
    * This is for the "Roll Dice" button
    */
   async rollDiceAndProcessEffects(playerId: string): Promise<{ diceRoll: number }> {
-    console.log(`🎲 TurnService.rollDiceAndProcessEffects - Starting for player ${playerId}`);
+    // Dice action start
     
     try {
       // Validation: Check if it's the player's turn
@@ -137,11 +147,19 @@ export class TurnService implements ITurnService {
         throw new Error(`Player ${playerId} not found`);
       }
 
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Player ${currentPlayer.name} on space ${currentPlayer.currentSpace}`);
+      // Player position for dice roll
 
       // Roll dice
       const diceRoll = this.rollDice();
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Rolled dice: ${diceRoll}`);
+      
+      // Log dice roll to action history
+      this.loggingService.info(`Rolled a ${diceRoll}`, {
+        playerId: currentPlayer.id,
+        playerName: currentPlayer.name,
+        action: 'rollDice',
+        roll: diceRoll,
+        space: currentPlayer.currentSpace
+      });
 
       // Process turn effects based on dice roll (but NO movement)
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Processing turn effects...`);
@@ -155,7 +173,7 @@ export class TurnService implements ITurnService {
       console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking player action taken`);
       this.stateService.setPlayerHasMoved();
 
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Dice roll completed successfully`);
+      // Dice roll processing complete
       return { diceRoll };
     } catch (error) {
       console.error(`🎲 TurnService.rollDiceAndProcessEffects - Error:`, error);
@@ -208,7 +226,7 @@ export class TurnService implements ITurnService {
       }
 
       // Advance to next player
-      const nextPlayerResult = this.nextPlayer();
+      const nextPlayerResult = await this.nextPlayer();
       console.log(`🏁 TurnService.endTurnWithMovement - Advanced to next player: ${nextPlayerResult.nextPlayerId}`);
       
       return nextPlayerResult;
@@ -231,21 +249,47 @@ export class TurnService implements ITurnService {
       throw new Error('No current player to end turn for');
     }
 
-    // Check for win condition before ending turn
-    const hasWon = await this.gameRulesService.checkWinCondition(gameState.currentPlayerId);
-    if (hasWon) {
-      // Player has won - end the game
-      this.stateService.endGame(gameState.currentPlayerId);
-      return { nextPlayerId: gameState.currentPlayerId }; // Winner remains current player
+    // Check for game end conditions (win or turn limit) before ending turn
+    const endConditions = await this.gameRulesService.checkGameEndConditions(gameState.currentPlayerId);
+    if (endConditions.shouldEnd) {
+      let winnerId: string | null = null;
+      
+      if (endConditions.reason === 'win' && endConditions.winnerId) {
+        // Player won by reaching ending space
+        winnerId = endConditions.winnerId;
+        // Log game end victory
+        this.loggingService.info('Won the game by reaching the ending space!', {
+          playerId: winnerId,
+          playerName: this.stateService.getPlayer(winnerId)?.name || 'Unknown',
+          action: 'gameEnd',
+          winCondition: 'space_victory',
+          finalSpace: this.stateService.getPlayer(winnerId)?.currentSpace
+        });
+      } else if (endConditions.reason === 'turn_limit') {
+        // Game ended due to turn limit - determine winner by score
+        winnerId = this.gameRulesService.determineWinner();
+        // Log game end by turn limit
+        this.loggingService.info(`Game ended: Turn limit reached. Winner determined by score.`, {
+          playerId: winnerId || gameState.currentPlayerId,
+          playerName: this.stateService.getPlayer(winnerId || gameState.currentPlayerId)?.name || 'Unknown',
+          action: 'gameEnd',
+          winCondition: 'turn_limit',
+          finalTurn: gameState.turn
+        });
+      }
+      
+      // End the game with the determined winner
+      this.stateService.endGame(winnerId || gameState.currentPlayerId);
+      return { nextPlayerId: winnerId || gameState.currentPlayerId };
     }
 
     // Use the common nextPlayer method
-    return this.nextPlayer();
+    return await this.nextPlayer();
   }
 
-  private nextPlayer(): { nextPlayerId: string } {
+  private async nextPlayer(): Promise<{ nextPlayerId: string }> {
     // Clear any existing snapshot when advancing to next player
-    console.log(`🗑️ TurnService.nextPlayer - Clearing pre-space-effect snapshot`);
+    // Clearing snapshot for next player
     this.stateService.clearPreSpaceEffectSnapshot();
     
     const gameState = this.stateService.getGameState();
@@ -262,13 +306,19 @@ export class TurnService implements ITurnService {
     }
 
     // Process card expirations before ending turn
-    console.log(`🃏 Processing card expirations at end of turn ${gameState.turn}`);
+    // Processing card expirations
     this.cardService.endOfTurn();
+
+    // Process active effects for all players at turn end
+    console.log(`🕒 Processing active effects for all players at end of turn ${gameState.turn}`);
+    if (this.effectEngineService) {
+      await this.effectEngineService.processActiveEffectsForAllPlayers();
+    }
 
     // Reset re-roll flag for the current player ending their turn
     const currentPlayer = allPlayers[currentPlayerIndex];
     if (currentPlayer.turnModifiers?.canReRoll) {
-      console.log(`🎲 Resetting re-roll flag for ${currentPlayer.name} at turn end`);
+      // Re-roll flag reset
       this.stateService.updatePlayer({
         id: currentPlayer.id,
         turnModifiers: {
@@ -279,16 +329,17 @@ export class TurnService implements ITurnService {
     }
 
     // Log turn end for current player
-    this.stateService.logToActionHistory({
-      type: 'turn_end',
+    this.loggingService.info(`Turn ${gameState.turn} ended`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
-      description: `Turn ${gameState.turn} ended`,
-      details: {
-        turn: gameState.turn,
-        space: currentPlayer.currentSpace
-      }
+      action: 'endTurn',
+      turn: gameState.turn,
+      space: currentPlayer.currentSpace
     });
+
+    // Apply loan interest for the player ending their turn
+    // Applying loan interest
+    this.resourceService.applyInterest(currentPlayer.id);
 
     // Determine next player (wrap around to first player if at end)
     let nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
@@ -297,7 +348,14 @@ export class TurnService implements ITurnService {
     // Check if the next player has turn modifiers (turn skips)
     const turnModifiers = nextPlayer.turnModifiers;
     if (turnModifiers && turnModifiers.skipTurns > 0) {
-      console.log(`🔄 Player ${nextPlayer.name} has ${turnModifiers.skipTurns} turn(s) to skip - skipping their turn`);
+      // Log turn skip
+      this.loggingService.info(`Turn skipped (${turnModifiers.skipTurns} remaining)`, {
+        playerId: nextPlayer.id,
+        playerName: nextPlayer.name,
+        action: 'skipTurn',
+        skipCount: turnModifiers.skipTurns,
+        reason: 'effect_modifier'
+      });
       
       // Decrement skip count
       const newModifiers = { ...turnModifiers, skipTurns: turnModifiers.skipTurns - 1 };
@@ -307,15 +365,15 @@ export class TurnService implements ITurnService {
       if (newModifiers.skipTurns <= 0) {
         const restoredModifiers = { ...newModifiers, skipTurns: 0 };
         this.stateService.updatePlayer({ id: nextPlayer.id, turnModifiers: restoredModifiers });
-        console.log(`✅ Player ${nextPlayer.name} skip turns cleared`);
+        // Skip turns cleared
       }
       
       // Recursively call nextPlayer to skip to the following player
       // But first update current player to the skipped player so the recursion works correctly
       this.stateService.setCurrentPlayer(nextPlayer.id);
-      console.log(`⏭️ Skipping to next player after ${nextPlayer.name}`);
+      // Advancing to next player
       
-      return this.nextPlayer();
+      return await this.nextPlayer();
     }
 
     // Update the current player in the game state
@@ -329,15 +387,12 @@ export class TurnService implements ITurnService {
 
     // Log turn start for new player
     const newGameState = this.stateService.getGameState();
-    this.stateService.logToActionHistory({
-      type: 'turn_start',
+    this.loggingService.info(`Turn ${newGameState.turn} started`, {
       playerId: nextPlayer.id,
       playerName: nextPlayer.name,
-      description: `Turn ${newGameState.turn} started`,
-      details: {
-        turn: newGameState.turn,
-        space: nextPlayer.currentSpace
-      }
+      action: 'startTurn',
+      turn: newGameState.turn,
+      space: nextPlayer.currentSpace
     });
 
     return { nextPlayerId: nextPlayer.id };
@@ -629,8 +684,6 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    const cardTypeKey = cardType as keyof typeof player.availableCards;
-
     if (effect.includes('Draw')) {
       const drawCount = this.parseNumericValue(effect);
       if (drawCount > 0) {
@@ -647,7 +700,7 @@ export class TurnService implements ITurnService {
     } else if (effect.includes('Remove') || effect.includes('Discard')) {
       const removeCount = this.parseNumericValue(effect);
       if (removeCount > 0) {
-        const currentCards = player.availableCards[cardTypeKey] || [];
+        const currentCards = this.cardService.getPlayerCards(playerId, cardType as CardType);
         const cardsToRemove = currentCards.slice(0, removeCount);
         if (cardsToRemove.length > 0) {
           // Use unified CardService.discardCards with source tracking
@@ -661,7 +714,7 @@ export class TurnService implements ITurnService {
       }
     } else if (effect.includes('Replace')) {
       const replaceCount = this.parseNumericValue(effect);
-      const currentCards = player.availableCards[cardTypeKey] || [];
+      const currentCards = this.cardService.getPlayerCards(playerId, cardType as CardType);
       if (replaceCount > 0 && currentCards.length > 0) {
         // Remove old cards using discardCards
         const cardsToRemove = currentCards.slice(0, replaceCount);
@@ -805,13 +858,14 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'replace_e') {
       // Replace E cards using CardService (includes action logging)
-      const replaceCount = Math.min(value, player.availableCards.E?.length || 0);
+      const currentECards = this.cardService.getPlayerCards(playerId, 'E');
+      const replaceCount = Math.min(value, currentECards.length);
       
       if (replaceCount > 0) {
         // Use CardService for replacement (discard old + draw new)
         this.cardService.discardCards(
           playerId,
-          player.availableCards.E.slice(0, replaceCount),
+          currentECards.slice(0, replaceCount),
           'manual_effect',
           `Manual action: Replace ${replaceCount} E cards - removing old cards`
         );
@@ -829,13 +883,14 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'replace_l') {
       // Replace L cards using CardService (includes action logging)
-      const replaceCount = Math.min(value, player.availableCards.L?.length || 0);
+      const currentLCards = this.cardService.getPlayerCards(playerId, 'L');
+      const replaceCount = Math.min(value, currentLCards.length);
       
       if (replaceCount > 0) {
         // Use CardService for replacement (discard old + draw new)
         this.cardService.discardCards(
           playerId,
-          player.availableCards.L.slice(0, replaceCount),
+          currentLCards.slice(0, replaceCount),
           'manual_effect',
           `Manual action: Replace ${replaceCount} L cards - removing old cards`
         );
@@ -853,12 +908,13 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'return_e') {
       // Return E cards using CardService (includes action logging)
-      const returnCount = Math.min(value, player.availableCards.E?.length || 0);
+      const currentECards = this.cardService.getPlayerCards(playerId, 'E');
+      const returnCount = Math.min(value, currentECards.length);
       
       if (returnCount > 0) {
         this.cardService.discardCards(
           playerId,
-          player.availableCards.E.slice(0, returnCount),
+          currentECards.slice(0, returnCount),
           'manual_effect',
           `Manual action: Return ${returnCount} E cards`
         );
@@ -869,12 +925,13 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'return_l') {
       // Return L cards using CardService (includes action logging)
-      const returnCount = Math.min(value, player.availableCards.L?.length || 0);
+      const currentLCards = this.cardService.getPlayerCards(playerId, 'L');
+      const returnCount = Math.min(value, currentLCards.length);
       
       if (returnCount > 0) {
         this.cardService.discardCards(
           playerId,
-          player.availableCards.L.slice(0, returnCount),
+          currentLCards.slice(0, returnCount),
           'manual_effect',
           `Manual action: Return ${returnCount} L cards`
         );
@@ -892,51 +949,29 @@ export class TurnService implements ITurnService {
         return this.stateService.getGameState();
       }
 
-      // For now, transfer a random card from player's hand to target
+      // Transfer a card from player's hand to target
       // Priority order: W, B, E, L, I (transfer most valuable first)
-      const cardTypes: (keyof typeof player.availableCards)[] = ['W', 'B', 'E', 'L', 'I'];
+      const cardTypes: CardType[] = ['W', 'B', 'E', 'L', 'I'];
       let transferredCard: string | null = null;
-      let transferredType: string | null = null;
 
       for (const cardType of cardTypes) {
-        if (player.availableCards[cardType].length > 0) {
-          transferredCard = player.availableCards[cardType][0];
-          transferredType = cardType;
+        const playerCards = this.cardService.getPlayerCards(playerId, cardType);
+        if (playerCards.length > 0) {
+          transferredCard = playerCards[0];
           break;
         }
       }
 
-      if (transferredCard && transferredType) {
-        // Remove card from current player
-        const currentPlayerCards = { ...player.availableCards };
-        // Ensure current player's card array exists before modifying
-        if (!currentPlayerCards[transferredType as keyof typeof currentPlayerCards]) {
-          currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = [];
-        }
-        currentPlayerCards[transferredType as keyof typeof currentPlayerCards] = 
-          currentPlayerCards[transferredType as keyof typeof currentPlayerCards].slice(1);
-
-        // Add card to target player with defensive initialization
-        const targetPlayerCards = { ...targetPlayer.availableCards };
-        // Ensure target player's card array exists before modifying
-        if (!targetPlayerCards[transferredType as keyof typeof targetPlayerCards]) {
-          targetPlayerCards[transferredType as keyof typeof targetPlayerCards] = [];
-        }
-        targetPlayerCards[transferredType as keyof typeof targetPlayerCards] = 
-          [...targetPlayerCards[transferredType as keyof typeof targetPlayerCards], transferredCard];
-
-        // Update both players
-        this.stateService.updatePlayer({
-          id: playerId,
-          availableCards: currentPlayerCards
-        });
-
-        this.stateService.updatePlayer({
-          id: targetPlayer.id,
-          availableCards: targetPlayerCards
-        });
-
-        console.log(`Player ${player.name} transfers ${transferredType} card to ${targetPlayer.name}`);
+      if (transferredCard) {
+        // Use CardService for transfer (includes action logging)
+        this.cardService.transferCard(
+          playerId,
+          targetPlayer.id,
+          transferredCard,
+          'manual_effect',
+          'Manual action: Transfer card'
+        );
+        console.log(`Player ${player.name} transfers card ${transferredCard} to ${targetPlayer.name}`);
       } else {
         console.log(`Player ${player.name} has no cards to transfer`);
       }
@@ -1321,19 +1356,25 @@ export class TurnService implements ITurnService {
    * Consumes the re-roll ability and returns new dice result
    */
   async rerollDice(playerId: string): Promise<TurnEffectResult> {
-    console.log(`🎲 TurnService.rerollDice - Attempting re-roll for player ${playerId}`);
-    
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
     }
+    
+    // Log re-roll attempt
+    this.loggingService.info('Used re-roll ability', {
+      playerId: playerId,
+      playerName: currentPlayer.name,
+      action: 'reroll',
+      space: currentPlayer.currentSpace
+    });
     
     // Validate player can re-roll
     if (!currentPlayer.turnModifiers?.canReRoll) {
       throw new Error(`Player ${playerId} does not have re-roll ability`);
     }
     
-    console.log(`🎲 Player ${currentPlayer.name} is using their re-roll ability`);
+    // Re-roll ability usage is logged above
     
     // Consume the re-roll ability
     this.stateService.updatePlayer({
@@ -1350,7 +1391,16 @@ export class TurnService implements ITurnService {
     
     // Roll new dice
     const newDiceRoll = this.rollDice();
-    console.log(`🎲 Re-rolled: ${newDiceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
+    
+    // Log re-roll to action history
+    this.loggingService.info(`Re-rolled a ${newDiceRoll}`, {
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      action: 'rollDice',
+      roll: newDiceRoll,
+      space: currentPlayer.currentSpace,
+      isReroll: true
+    });
     
     // Process effects for new dice roll
     const effects: DiceResultEffect[] = [];
@@ -1375,11 +1425,11 @@ export class TurnService implements ITurnService {
    * Returns comprehensive information about the dice roll and its effects
    */
   async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
-    console.log(`🎲 TurnService.rollDiceWithFeedback - Starting for player ${playerId}`);
+    // Starting dice roll with feedback
     
     // CRITICAL: Save state snapshot BEFORE any dice roll or effects
     // This enables the "Try Again" feature to revert to this exact state
-    console.log(`📸 TurnService.rollDiceWithFeedback - Saving pre-dice-roll snapshot for Try Again`);
+    // Saving snapshot for Try Again feature
     this.stateService.savePreSpaceEffectSnapshot();
     
     const currentPlayer = this.stateService.getPlayer(playerId);
@@ -1392,21 +1442,17 @@ export class TurnService implements ITurnService {
 
     // Roll dice
     const diceRoll = this.rollDice();
-    console.log(`🎲 Rolled: ${diceRoll} for ${currentPlayer.name} on ${currentPlayer.currentSpace}`);
     
     // Log dice roll to action history
-    this.stateService.logToActionHistory({
-      type: 'dice_roll',
+    this.loggingService.info(`Rolled a ${diceRoll}`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
-      description: `Rolled a ${diceRoll}`,
-      details: {
-        roll: diceRoll,
-        space: currentPlayer.currentSpace
-      }
+      action: 'rollDice',
+      roll: diceRoll,
+      space: currentPlayer.currentSpace
     });
     
-    // Note: Dice roll logging now handled by TurnControlsWithActions to create unified entries
+    // Note: Dice roll logging now handled above in rollDice action
 
     // Process effects and track changes
     const effects: DiceResultEffect[] = [];
@@ -1442,7 +1488,14 @@ export class TurnService implements ITurnService {
 
     const beforeMoney = currentPlayer.money;
     const beforeTime = currentPlayer.timeSpent;
-    const beforeCards = { ...currentPlayer.availableCards };
+    // Track card counts by type before processing
+    const beforeCards: Record<string, number> = {
+      W: this.cardService.getPlayerCardCount(playerId, 'W'),
+      B: this.cardService.getPlayerCardCount(playerId, 'B'),
+      E: this.cardService.getPlayerCardCount(playerId, 'E'),
+      L: this.cardService.getPlayerCardCount(playerId, 'L'),
+      I: this.cardService.getPlayerCardCount(playerId, 'I')
+    };
 
     // Process effects using the dice-only method (not space effects)
     await this.processDiceRollEffects(playerId, diceRoll);
@@ -1473,23 +1526,22 @@ export class TurnService implements ITurnService {
 
     // Track card changes
     Object.keys(beforeCards).forEach(cardType => {
-      const typedCardType = cardType as keyof typeof beforeCards;
-      const before = beforeCards[typedCardType].length;
-      const after = afterPlayer.availableCards[typedCardType].length;
+      const before = beforeCards[cardType];
+      const after = this.cardService.getPlayerCardCount(playerId, cardType as CardType);
       const cardChange = after - before;
       
       if (cardChange > 0) {
         effects.push({
           type: 'cards',
-          description: `Drew ${this.getCardTypeName(typedCardType)} cards`,
-          cardType: typedCardType,
+          description: `Drew ${this.getCardTypeName(cardType)} cards`,
+          cardType: cardType,
           cardCount: cardChange
         });
       } else if (cardChange < 0) {
         effects.push({
           type: 'cards',
-          description: `Used ${this.getCardTypeName(typedCardType)} cards`,
-          cardType: typedCardType,
+          description: `Used ${this.getCardTypeName(cardType)} cards`,
+          cardType: cardType,
           cardCount: Math.abs(cardChange)
         });
       }
@@ -1680,7 +1732,7 @@ export class TurnService implements ITurnService {
     let totalScope = 0;
 
     // Sum up all work cards (W cards represent project scope)
-    const workCards = player.availableCards?.W || [];
+    const workCards = this.cardService.getPlayerCards(player.id, 'W');
     for (const cardId of workCards) {
       const cardData = this.dataService.getCardById(cardId);
       if (cardData && cardData.cost && cardData.cost > 0) {
@@ -1801,22 +1853,20 @@ export class TurnService implements ITurnService {
 
     console.log(`💰 Project scope: $${projectScope.toLocaleString()}, awarding ${fundingCardType} card`);
 
-    // Draw and automatically play the funding card
+    // Draw and automatically play the funding card using atomic method
     try {
-      const drawnCards = this.cardService.drawCards(
+      const result = this.cardService.drawAndApplyCard(
         playerId,
         fundingCardType,
-        1,
         'auto_funding',
-        `Automatic funding for OWNER-FUND-INITIATION space`
+        'Automatic funding for OWNER-FUND-INITIATION space'
       );
 
-      if (drawnCards.length > 0) {
-        // Auto-play the funding card
-        this.cardService.playCard(playerId, drawnCards[0]);
-
-        console.log(`💰 Automatically awarded and played ${fundingCardType} card: ${drawnCards[0]}`);
+      if (!result.success) {
+        throw new Error('Failed to draw and apply funding card.');
       }
+
+      console.log(`💰 Automatically awarded and played ${fundingCardType} card: ${result.drawnCardId}`);
 
       // Mark that player has "rolled dice" to continue turn flow
       this.stateService.setPlayerHasRolledDice();

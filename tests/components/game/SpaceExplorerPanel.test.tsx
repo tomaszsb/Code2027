@@ -83,11 +83,14 @@ describe('SpaceExplorerPanel', () => {
       money: 100000,
       timeSpent: 45,
       projectScope: 0,
+      score: 0,
       currentSpace: 'OFFICE-SETUP',
       visitType: 'First',
-      availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
+      hand: [],
       activeCards: [],
-      discardedCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     },
     {
       id: 'player2',
@@ -97,11 +100,14 @@ describe('SpaceExplorerPanel', () => {
       money: 75000,
       timeSpent: 30,
       projectScope: 0,
+      score: 0,
       currentSpace: 'OFFICE-SETUP',
       visitType: 'First',
-      availableCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] },
+      hand: [],
       activeCards: [],
-      discardedCards: { 'W': [], 'B': [], 'E': [], 'L': [], 'I': [] }
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: []
     }
   ];
 
