@@ -950,6 +950,11 @@ export class EffectEngineService implements IEffectEngineService {
         console.log(`🎯 Targeting all players: ${targetPlayers.length} players`);
         break;
         
+      case 'Self':
+        targetPlayers = [currentPlayerId];
+        console.log(`🎯 Targeting self: ${currentPlayerId}`);
+        break;
+        
       default:
         console.error(`Unknown target type: ${payload.targetType}`);
         return false;

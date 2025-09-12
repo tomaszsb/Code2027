@@ -117,28 +117,69 @@ export function TurnControlsWithActions({
     // Get dice effects for current space to determine roll context
     const diceEffects = dataService.getDiceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
     
-    if (diceEffects.length === 0) return "Roll Dice";
-
-    const firstEffect = diceEffects[0];
-    
-    switch (firstEffect.effect_type) {
-      case 'cards':
-        const cardType = firstEffect.card_type?.toUpperCase() || 'Cards';
-        return `Roll for ${cardType} Cards`;
-        
-      case 'money':
-        return firstEffect.card_type === 'fee' ? "Roll for Fee Amount" : "Roll for Money";
-        
-      case 'time':
-        return "Roll for Time Penalty";
-        
-      case 'quality':
-        return "Roll for Quality";
-        
-      default:
-        // If diceEffects exist but don't match known types, default to generic text
-        return "Roll Dice";
+    // If there are dice effects, show what the dice roll will affect
+    if (diceEffects.length > 0) {
+      const firstEffect = diceEffects[0];
+      
+      switch (firstEffect.effect_type) {
+        case 'cards':
+          const cardType = firstEffect.card_type?.toUpperCase() || 'Cards';
+          return `Roll for ${cardType} Cards`;
+          
+        case 'money':
+          return firstEffect.card_type === 'fee' ? "Roll for Fee Amount" : "Roll for Money";
+          
+        case 'time':
+          return "Roll for Time Penalty";
+          
+        case 'quality':
+          return "Roll for Quality";
+          
+        default:
+          return "Roll for Effects";
+      }
     }
+
+    // Check if space effects use dice roll conditions
+    const spaceEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
+    const diceConditionEffects = spaceEffects.filter(effect => 
+      effect.condition && effect.condition.includes('dice_roll')
+    );
+    
+    if (diceConditionEffects.length > 0) {
+      const effectTypes = diceConditionEffects.map(effect => effect.effect_type);
+      if (effectTypes.includes('cards')) {
+        return "Roll for Bonus Cards";
+      } else if (effectTypes.includes('money')) {
+        return "Roll for Bonus Money";
+      } else {
+        return "Roll for Bonus Effects";
+      }
+    }
+
+    // If no dice effects, check if dice are used for movement
+    const diceOutcome = dataService.getDiceOutcome(currentPlayer.currentSpace, currentPlayer.visitType);
+    
+    if (diceOutcome) {
+      // Check if movement is based on dice (different destinations per roll)
+      const destinations = [
+        diceOutcome.roll_1,
+        diceOutcome.roll_2,
+        diceOutcome.roll_3,
+        diceOutcome.roll_4,
+        diceOutcome.roll_5,
+        diceOutcome.roll_6
+      ].filter(dest => dest && dest.trim() !== '');
+      
+      const uniqueDestinations = new Set(destinations);
+      
+      if (uniqueDestinations.size > 1) {
+        return "Roll for Next Location";
+      }
+    }
+
+    // Default fallback
+    return "Roll Dice";
   };
 
   // Format action description now handled by shared utility

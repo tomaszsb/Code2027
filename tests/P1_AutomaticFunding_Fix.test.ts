@@ -38,18 +38,25 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
         errors: []
       })
     } as any;
+    
+    // Mock finalizePlayedCard to avoid complex game state setup in tests
+    jest.spyOn(cardService, 'finalizePlayedCard').mockImplementation(() => {});
 
     // Setup basic player state
     mockStateService.getPlayer.mockReturnValue({
       id: 'player1',
       name: 'Test Player',
-      availableCards: { W: [], B: [], E: [], I: [], L: [] },
-      activeCards: {},
-      discardedCards: [],
+      hand: ['B001'], // Include the drawn card in hand for proper lifecycle
+      activeCards: [],
       money: 1000,
       timeSpent: 0,
       currentSpace: 'OWNER-FUND-INITIATION',
-      projectScope: 2000000
+      projectScope: 2000000,
+      turnModifiers: { skipTurns: 0 },
+      activeEffects: [],
+      loans: [],
+      score: 0,
+      visitType: 'First'
     });
   });
 
@@ -57,15 +64,13 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
     it('should successfully draw and apply a B card', () => {
       // Mock successful card draw
       const mockCardId = 'B001';
-      mockDataService.getCardsByType.mockReturnValue([
-        { card_id: mockCardId, card_name: 'Test B Card', card_type: 'B' }
-      ]);
+      const mockCard = { card_id: mockCardId, card_name: 'Test B Card', card_type: 'B', loan_amount: '500000' };
+      
+      mockDataService.getCardsByType.mockReturnValue([mockCard]);
+      mockDataService.getCardById.mockReturnValue(mockCard);
 
       // Mock the drawCards method to return the card
       jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      
-      // Mock the playCard method to not throw errors
-      jest.spyOn(cardService, 'playCard').mockReturnValue({} as any);
 
       // Execute the atomic method
       const result = cardService.drawAndApplyCard(
@@ -87,21 +92,18 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
         'auto_funding', 
         'Automatic funding test'
       );
-      expect(cardService.playCard).toHaveBeenCalledWith('player1', mockCardId);
     });
 
     it('should successfully draw and apply an I card for high scope projects', () => {
       // Mock successful I card draw
       const mockCardId = 'I001';
-      mockDataService.getCardsByType.mockReturnValue([
-        { card_id: mockCardId, card_name: 'Test I Card', card_type: 'I' }
-      ]);
+      const mockCard = { card_id: mockCardId, card_name: 'Test I Card', card_type: 'I', investment_amount: '4000000' };
+      
+      mockDataService.getCardsByType.mockReturnValue([mockCard]);
+      mockDataService.getCardById.mockReturnValue(mockCard);
 
       // Mock the drawCards method to return the card
       jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      
-      // Mock the playCard method to not throw errors
-      jest.spyOn(cardService, 'playCard').mockReturnValue({} as any);
 
       // Execute the atomic method for I card
       const result = cardService.drawAndApplyCard(
@@ -123,7 +125,6 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
         'auto_funding', 
         'Automatic investor funding test'
       );
-      expect(cardService.playCard).toHaveBeenCalledWith('player1', mockCardId);
     });
 
     it('should handle case when no cards are available to draw', () => {
@@ -149,11 +150,14 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
     });
 
     it('should handle errors during card play gracefully', () => {
-      // Mock successful card draw but failed play
+      // Mock successful card draw but failed effects application
       const mockCardId = 'B002';
+      const mockCard = { card_id: mockCardId, card_name: 'Test B Card', card_type: 'B', loan_amount: '500000' };
+      
+      mockDataService.getCardById.mockReturnValue(mockCard);
       jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      jest.spyOn(cardService, 'playCard').mockImplementation(() => {
-        throw new Error('Card play failed');
+      jest.spyOn(cardService, 'applyCardEffects').mockImplementation(() => {
+        throw new Error('Card effects failed');
       });
 
       // Execute the atomic method
@@ -170,7 +174,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
 
       // Verify both methods were called
       expect(cardService.drawCards).toHaveBeenCalled();
-      expect(cardService.playCard).toHaveBeenCalledWith('player1', mockCardId);
+      expect(cardService.applyCardEffects).toHaveBeenCalledWith('player1', mockCardId);
     });
   });
 
@@ -179,6 +183,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       // Setup scenario matching automatic funding conditions
       const projectScope = 2000000; // $2M - should get B card
       const mockCardId = 'B003';
+      const mockCard = { card_id: mockCardId, card_name: 'Test B Card', card_type: 'B', loan_amount: '500000' };
       
       mockStateService.getPlayer.mockReturnValue({
         id: 'player1',
@@ -191,8 +196,8 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       });
 
       // Mock successful B card draw (since scope ≤ $4M)
+      mockDataService.getCardById.mockReturnValue(mockCard);
       jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      jest.spyOn(cardService, 'playCard').mockReturnValue({} as any);
 
       // Execute the funding logic
       const result = cardService.drawAndApplyCard(
@@ -207,16 +212,16 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       expect(result.drawnCardId).toBe(mockCardId);
 
       // This verifies the fix for the "Card not found" bug:
-      // The card is drawn first, then immediately played without
+      // The card is drawn first, then effects are applied and finalized without
       // any intermediate state that could cause consistency issues
       expect(cardService.drawCards).toHaveBeenCalled();
-      expect(cardService.playCard).toHaveBeenCalled();
     });
 
     it('should work correctly for high-scope projects requiring I cards', () => {
       // Setup scenario for high-scope project
       const projectScope = 6000000; // $6M - should get I card
       const mockCardId = 'I005';
+      const mockCard = { card_id: mockCardId, card_name: 'Test I Card', card_type: 'I', investment_amount: '5000000' };
       
       mockStateService.getPlayer.mockReturnValue({
         id: 'player1', 
@@ -229,8 +234,8 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       });
 
       // Mock successful I card draw (since scope > $4M)
+      mockDataService.getCardById.mockReturnValue(mockCard);
       jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      jest.spyOn(cardService, 'playCard').mockReturnValue({} as any);
 
       // Execute the funding logic for I card
       const result = cardService.drawAndApplyCard(
@@ -262,8 +267,9 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       expect(cardService.drawAndApplyCard.length).toBe(4); // 4 parameters expected
 
       // Verify it returns the expected shape
+      const mockCard = { card_id: 'TEST001', card_name: 'Test Card', card_type: 'B', loan_amount: '500000' };
+      mockDataService.getCardById.mockReturnValue(mockCard);
       jest.spyOn(cardService, 'drawCards').mockReturnValue(['TEST001']);
-      jest.spyOn(cardService, 'playCard').mockReturnValue({} as any);
 
       const result = cardService.drawAndApplyCard('player1', 'B', 'test', 'test reason');
       

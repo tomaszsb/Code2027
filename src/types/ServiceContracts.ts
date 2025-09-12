@@ -266,6 +266,9 @@ export interface ICardService {
   // Card effect methods
   applyCardEffects(playerId: string, cardId: string): GameState;
   effectEngineService: IEffectEngineService;
+  
+  // Circular dependency resolution methods
+  setEffectEngineService(effectEngineService: IEffectEngineService): void;
 }
 
 export interface IPlayerActionService {

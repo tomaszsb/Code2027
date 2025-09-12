@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Load Performance Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .metric {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007acc;
+        }
+        .error {
+            background: #ffe6e6;
+            border-left-color: #cc0000;
+        }
+        .success {
+            background: #e6f7e6;
+            border-left-color: #00cc00;
+        }
+        #iframe-container {
+            border: 1px solid #ccc;
+            height: 400px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game Load Performance Analysis</h1>
+    
+    <h2>Performance Metrics</h2>
+    <div id="metrics">
+        <div class="metric">Click "Run Test" to measure load performance</div>
+    </div>
+    
+    <button onclick="runPerformanceTest()">Run Test</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <h2>Test Environment</h2>
+    <div id="iframe-container">
+        <iframe id="game-frame" src="about:blank" width="100%" height="100%" style="border: none;"></iframe>
+    </div>
+
+    <script>
+        let startTime;
+        let loadStartTime;
+        
+        function runPerformanceTest() {
+            const metricsDiv = document.getElementById('metrics');
+            metricsDiv.innerHTML = '<div class="metric">🔄 Starting performance test...</div>';
+            
+            startTime = performance.now();
+            loadStartTime = performance.now();
+            
+            // Measure initial load time
+            const iframe = document.getElementById('game-frame');
+            iframe.onload = function() {
+                const loadEndTime = performance.now();
+                const loadTime = (loadEndTime - loadStartTime) / 1000;
+                
+                addMetric(`📄 Initial HTML Load Time: ${loadTime.toFixed(2)}s`, 'success');
+                
+                // Try to access the game's performance data if available
+                try {
+                    setTimeout(() => {
+                        measureGameLoadTime();
+                    }, 100);
+                } catch (e) {
+                    addMetric(`⚠️ Cannot access game performance: ${e.message}`, 'error');
+                }
+            };
+            
+            // Load the game
+            iframe.src = 'http://localhost:3001/';
+        }
+        
+        function measureGameLoadTime() {
+            const iframe = document.getElementById('game-frame');
+            
+            // Check if the game is loaded by looking for the loading screen or game content
+            const checkGameLoaded = () => {
+                try {
+                    const doc = iframe.contentDocument;
+                    if (!doc) {
+                        addMetric('⚠️ Cannot access iframe content (CORS)', 'error');
+                        return;
+                    }
+                    
+                    const loadingScreen = doc.querySelector('[style*="Loading Game Data"]');
+                    const gameContent = doc.querySelector('[style*="grid-template-columns"]');
+                    
+                    if (loadingScreen) {
+                        addMetric('🔄 Game is still loading data...', 'metric');
+                        setTimeout(checkGameLoaded, 500);
+                    } else if (gameContent) {
+                        const totalTime = (performance.now() - startTime) / 1000;
+                        addMetric(`✅ Game fully loaded! Total time: ${totalTime.toFixed(2)}s`, 'success');
+                    } else {
+                        setTimeout(checkGameLoaded, 500);
+                    }
+                } catch (e) {
+                    addMetric(`⚠️ Error checking game state: ${e.message}`, 'error');
+                }
+            };
+            
+            checkGameLoaded();
+        }
+        
+        function addMetric(text, className = 'metric') {
+            const metricsDiv = document.getElementById('metrics');
+            const metricDiv = document.createElement('div');
+            metricDiv.className = className;
+            metricDiv.innerHTML = text;
+            metricsDiv.appendChild(metricDiv);
+        }
+        
+        function clearResults() {
+            const metricsDiv = document.getElementById('metrics');
+            metricsDiv.innerHTML = '<div class="metric">Results cleared. Click "Run Test" to measure load performance</div>';
+            
+            const iframe = document.getElementById('game-frame');
+            iframe.src = 'about:blank';
+        }
+        
+        // Add navigation timing metrics
+        window.onload = function() {
+            if (performance.timing) {
+                const timing = performance.timing;
+                const pageLoadTime = (timing.loadEventEnd - timing.navigationStart) / 1000;
+                addMetric(`📊 This test page loaded in: ${pageLoadTime.toFixed(2)}s`, 'success');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -105,7 +105,7 @@ export type Effect =
   | {
       effectType: 'EFFECT_GROUP_TARGETED';
       payload: {
-        targetType: 'OTHER_PLAYER_CHOICE' | 'ALL_OTHER_PLAYERS' | 'ALL_PLAYERS';
+        targetType: 'OTHER_PLAYER_CHOICE' | 'ALL_OTHER_PLAYERS' | 'ALL_PLAYERS' | 'Self';
         templateEffect: Effect;
         prompt: string;
         source?: string;

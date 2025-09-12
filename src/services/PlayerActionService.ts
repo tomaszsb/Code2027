@@ -97,7 +97,7 @@ export class PlayerActionService implements IPlayerActionService {
       // 7. Process all effects through the Effect Engine (with targeting and duration awareness)
       console.log(`🔧 Processing card effects through Effect Engine with targeting support...`);
       console.log('SERVICE: About to wait for Effect Engine...');
-      const processingResult = await this.effectEngineService.processEffects(effects, effectContext);
+      const processingResult = await this.effectEngineService.processCardEffects(effects, effectContext, card);
       console.log('SERVICE: Effect Engine has finished.');
       
       if (!processingResult.success) {

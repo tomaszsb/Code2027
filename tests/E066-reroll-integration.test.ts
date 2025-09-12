@@ -50,6 +50,13 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
   beforeEach(() => {
     mockServices = createMockServices();
     
+    // Setup essential GameRulesService mocks
+    mockServices.gameRulesService.checkGameEndConditions.mockResolvedValue({
+      shouldEnd: false,
+      reason: null,
+      winnerId: null
+    });
+    
     effectEngineService = new EffectEngineService(
       mockServices.resourceService,
       mockServices.cardService,
@@ -167,6 +174,15 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       loans: []
     };
 
+    // Mock game state with the test player
+    const mockGameState = {
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY' as const,
+      turn: 1
+    };
+    
+    mockServices.stateService.getGameState.mockReturnValue(mockGameState as any);
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]);
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
@@ -197,6 +213,15 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       loans: []
     };
 
+    // Mock game state with the test player
+    const mockGameState = {
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY' as const,
+      turn: 1
+    };
+    
+    mockServices.stateService.getGameState.mockReturnValue(mockGameState as any);
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]);
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
@@ -227,6 +252,15 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       loans: []
     };
 
+    // Mock game state with the test player
+    const mockGameState = {
+      players: [mockPlayer],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY' as const,
+      turn: 1
+    };
+    
+    mockServices.stateService.getGameState.mockReturnValue(mockGameState as any);
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]);
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
@@ -273,7 +307,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     );
   });
 
-  it('should reset canReRoll flag at end of turn', () => {
+  it('should reset canReRoll flag at end of turn', async () => {
     const mockGameState: GameState = {
       players: [{
         id: 'player1',
@@ -326,7 +360,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
 
     // Execute nextPlayer (which is called by endTurn)
     const nextPlayerMethod = (turnService as any).nextPlayer.bind(turnService);
-    const result = nextPlayerMethod();
+    const result = await nextPlayerMethod();
 
     expect(mockServices.stateService.updatePlayer).toHaveBeenCalledWith({
       id: 'player1',

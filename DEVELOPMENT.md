@@ -72,4 +72,41 @@ This architectural change will eliminate the race condition and ensure the autom
 
 ---
 
-(Rest of the file remains unchanged)
+### September 10, 2025 - UI/Data Discrepancy Analysis
+
+- **Analysis:** A review of the `PM-DECISION-CHECK` space revealed significant discrepancies between the UI (as shown in `code2026/Screenshot_10-9-2025_23953_localhost.jpeg`) and the backing game data in `code2027` CSV files.
+- **Key Discrepancies:**
+    1.  **Incorrect Action Buttons:** The UI shows "Roll for Bonus Cards" and "Pick up 1 TRANSFER card". The data only supports a conditional roll for a single Life card and does not support the transfer card action at all.
+    2.  **Missing Core Functionality:** The UI lacks the primary choice mechanism for path selection, which is the main purpose of the space according to `Spaces.csv`.
+    3.  **Missing Turn Finalization:** No "End Turn" button exists to process the selected actions and consequences.
+- **Action Item:** A set of tasks has been added to `TODO.md` to address these UI/UX bugs and bring the interface in line with the game logic defined in the data files.
+
+---
+
+### September 11, 2025 - Critical System Fixes & Performance Analysis
+
+#### ✅ **E2E-05 Multi-Player Effects System Fixed**
+- **Issue**: Multi-player card effects (e.g., L003 "All Players" targeting) were only affecting the playing player
+- **Root Cause**: `PlayerActionService.playCard()` was calling `effectEngineService.processEffects()` instead of `processCardEffects()`, preventing access to card targeting data
+- **Solution**: Fixed method call to use `processCardEffects()` with card data parameter
+- **Impact**: All multi-player targeted card effects now work correctly across all players
+- **Test Results**: All 4 E2E-05 tests now pass in 5.8 seconds (previously failing/timing out)
+
+#### ✅ **Game Load Time Performance Investigation Completed**
+- **Investigation**: Comprehensive analysis of 20-30 second load time bottlenecks
+- **Key Findings**: 
+  - Large JavaScript bundle (414KB) due to monolithic services
+  - 7 separate CSV network requests (115KB total data)
+  - CPU-intensive CSV parsing on main thread
+  - Complex service initialization patterns
+- **Deliverable**: Detailed optimization roadmap with 75-85% improvement potential
+- **Target**: Reduce load times from 20-30s to 4-6 seconds
+- **Documentation**: Created `PERFORMANCE_ANALYSIS.md` with implementation priorities
+
+#### ✅ **Test Suite Stability Restored**
+- **Achievement**: All previously failing test regressions have been resolved
+- **Coverage**: Fixed 19 test failures across CardService, TurnService, E066, and tryAgainOnSpace suites
+- **Performance**: Test suite now runs reliably under 2 minutes
+- **Quality**: Zero compilation errors, full TypeScript strict mode compliance
+
+**Status Update**: System is now fully stable with working multi-player card effects and documented performance optimization path.

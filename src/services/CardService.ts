@@ -1,6 +1,7 @@
 import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService, ILoggingService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
+import { Effect } from '../types/EffectTypes';
 
 export class CardService implements ICardService {
   private readonly dataService: IDataService;
@@ -14,6 +15,11 @@ export class CardService implements ICardService {
     this.stateService = stateService;
     this.resourceService = resourceService;
     this.loggingService = loggingService;
+  }
+
+  // Circular dependency resolution methods
+  setEffectEngineService(effectEngineService: IEffectEngineService): void {
+    this.effectEngineService = effectEngineService;
   }
 
   // Card validation methods
@@ -135,15 +141,15 @@ export class CardService implements ICardService {
     // Update player's hand with drawn cards
     const updatedHand = [...player.hand, ...drawnCards];
 
-    // Apply updates atomically
+    // Apply updates atomically - single state update to prevent race conditions
     this.stateService.updateGameState({
       decks: updatedDecks,
-      discardPiles: updatedDiscardPiles
-    });
-
-    this.stateService.updatePlayer({
-      id: playerId,
-      hand: updatedHand
+      discardPiles: updatedDiscardPiles,
+      players: gameState.players.map(p => 
+        p.id === playerId 
+          ? { ...p, hand: updatedHand }
+          : p
+      )
     });
 
     // Log the card draw with source tracking
@@ -204,13 +210,12 @@ export class CardService implements ICardService {
       const drawnCardId = drawnCards[0];
       console.log(`🎴 Successfully drew card: ${drawnCardId}`);
       
-      // Step 2: Apply card effects using the EffectEngineService through playCard
-      // We use the existing playCard method which handles all the complexity including:
-      // - Effect processing through EffectEngineService
-      // - Duration-based effects
-      // - Card removal from hand
-      // - Moving to discarded pile
-      this.playCard(playerId, drawnCardId);
+      // Step 2: Apply card effects directly (bypassing cost validation/charging)
+      // For automatic funding, we apply effects without charging costs
+      this.applyCardEffects(playerId, drawnCardId);
+      
+      // Step 3: Handle card lifecycle (move to active or discard based on duration)
+      this.finalizePlayedCard(playerId, drawnCardId);
       
       console.log(`🎴 Successfully applied and processed card: ${drawnCardId}`);
       
@@ -434,16 +439,19 @@ export class CardService implements ICardService {
       
       // Step 3: Pay card cost if any
       if (card.cost && card.cost > 0) {
-        const player = this.stateService.getPlayer(playerId);
-        if (!player) {
-          throw new Error(`Player ${playerId} not found`);
+        // Skip cost charging for funding cards (B = Bank loans, I = Investor funding)
+        if (card.card_type !== 'B' && card.card_type !== 'I') {
+          const player = this.stateService.getPlayer(playerId);
+          if (!player) {
+            throw new Error(`Player ${playerId} not found`);
+          }
+          
+          this.stateService.updatePlayer({
+            id: playerId,
+            money: player.money - card.cost
+          });
+          console.log(`Player ${playerId} paid $${card.cost} to play card ${cardId}`);
         }
-        
-        this.stateService.updatePlayer({
-          id: playerId,
-          money: player.money - card.cost
-        });
-        console.log(`Player ${playerId} paid $${card.cost} to play card ${cardId}`);
       }
       
       // Step 4: Apply card effects
@@ -522,10 +530,15 @@ export class CardService implements ICardService {
     
     // Check if player has enough money to play the card
     if (card.cost) {
-      const numericCost = typeof card.cost === 'string' ? parseInt(card.cost, 10) : card.cost;
-      if (numericCost > 0) {
-        if (player.money < numericCost) {
-          return { isValid: false, errorMessage: `Insufficient funds. Need $${numericCost}, have $${player.money}` };
+      const cardType = this.getCardType(cardId);
+
+      // Skip cost validation for funding cards (B = Bank loans, I = Investor funding)
+      if (cardType !== 'B' && cardType !== 'I') {
+        const numericCost = typeof card.cost === 'string' ? parseInt(card.cost, 10) : card.cost;
+        if (numericCost > 0) {
+          if (player.money < numericCost) {
+            return { isValid: false, errorMessage: `Insufficient funds. Need ${numericCost}, have ${player.money}` };
+          }
         }
       }
     }
@@ -868,7 +881,7 @@ export class CardService implements ICardService {
     }
   }
 
-  // Card effect methods
+  // Card effect methods - Enhanced with UnifiedEffectEngine integration
   applyCardEffects(playerId: string, cardId: string): GameState {
     const card = this.dataService.getCardById(cardId);
     if (!card) {
@@ -881,12 +894,37 @@ export class CardService implements ICardService {
       throw new Error(`Player ${playerId} not found`);
     }
 
-    console.log(`Applying effects for card ${cardId}: "${card.effects_on_play}"`);
+    console.log(`🎴 CARD_SERVICE: Applying effects for card ${cardId}: "${card.card_name}"`);
 
-    // Apply expanded mechanics first (common across all card types)
+    // Step 1: Parse card data into standardized Effect objects
+    const effects = this.parseCardIntoEffects(card, playerId);
+    
+    if (effects.length > 0) {
+      console.log(`🎴 CARD_SERVICE: Parsed ${effects.length} effects from card ${cardId}`);
+      
+      // Step 2: Process effects through UnifiedEffectEngine
+      const context = {
+        source: `card:${cardId}`,
+        playerId: playerId,
+        triggerEvent: 'CARD_PLAY' as const
+      };
+      
+      // Use async processing for complex effects
+      this.effectEngineService.processCardEffects(effects, context, card).then(batchResult => {
+        if (batchResult.success) {
+          console.log(`✅ Successfully processed ${batchResult.successfulEffects}/${batchResult.totalEffects} card effects`);
+        } else {
+          console.error(`❌ Card effect processing failed: ${batchResult.errors.join(', ')}`);
+        }
+      }).catch(error => {
+        console.error(`❌ Error processing card effects:`, error);
+      });
+    }
+
+    // Step 3: Apply legacy expanded mechanics for compatibility
     this.applyExpandedMechanics(playerId, card);
 
-    // Apply effects based on card type and effects_on_play field
+    // Step 4: Apply legacy card type effects for compatibility
     switch (card.card_type) {
       case 'W': // Work cards - Apply Work effects
         return this.applyWorkCardEffect(playerId, card);
@@ -907,6 +945,120 @@ export class CardService implements ICardService {
         console.warn(`Unknown card type: ${card.card_type}`);
         return this.stateService.getGameState();
     }
+  }
+
+  /**
+   * Parse card CSV data into standardized Effect objects for the UnifiedEffectEngine
+   * This bridges the gap between CSV field structure and the Effect system
+   */
+  private parseCardIntoEffects(card: any, playerId: string): Effect[] {
+    const effects: Effect[] = [];
+    const cardSource = `card:${card.card_id}`;
+
+    // MODIFY_RESOURCE effects from money_effect field
+    if (card.money_effect && card.money_effect !== '0') {
+      const moneyAmount = parseInt(card.money_effect, 10);
+      if (!isNaN(moneyAmount) && moneyAmount !== 0) {
+        effects.push({
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: playerId,
+            resource: 'MONEY',
+            amount: moneyAmount,
+            source: cardSource,
+            reason: `${card.card_name}: ${moneyAmount > 0 ? '+' : ''}$${Math.abs(moneyAmount).toLocaleString()}`
+          }
+        });
+        console.log(`   💰 Added MODIFY_RESOURCE effect: ${moneyAmount > 0 ? '+' : ''}$${Math.abs(moneyAmount).toLocaleString()}`);
+      }
+    }
+
+    // MODIFY_RESOURCE effects from tick_modifier field (time effects)
+    if (card.tick_modifier && card.tick_modifier !== '0') {
+      const timeAmount = parseInt(card.tick_modifier, 10);
+      if (!isNaN(timeAmount) && timeAmount !== 0) {
+        effects.push({
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: playerId,
+            resource: 'TIME',
+            amount: timeAmount, // Positive = add time, negative = spend time
+            source: cardSource,
+            reason: `${card.card_name}: ${timeAmount > 0 ? '+' : ''}${timeAmount} time ticks`
+          }
+        });
+        console.log(`   ⏰ Added TIME effect: ${timeAmount > 0 ? '+' : ''}${timeAmount} time ticks`);
+      }
+    }
+
+    // DRAW_CARDS effects from draw_cards field
+    if (card.draw_cards && card.draw_cards.trim() !== '') {
+      const drawMatch = card.draw_cards.match(/(\d+)\s*([WBELIS]?)/);
+      if (drawMatch) {
+        const count = parseInt(drawMatch[1], 10);
+        const cardType = drawMatch[2] || 'W'; // Default to Work cards if no type specified
+        
+        if (count > 0) {
+          effects.push({
+            effectType: 'CARD_DRAW',
+            payload: {
+              playerId: playerId,
+              cardType: cardType as any,
+              count: count,
+              source: cardSource,
+              reason: `${card.card_name}: Draw ${count} ${cardType} card${count > 1 ? 's' : ''}`
+            }
+          });
+          console.log(`   🎴 Added DRAW_CARDS effect: ${count} ${cardType} card${count > 1 ? 's' : ''}`);
+        }
+      }
+    }
+
+    // PLAYER_CHOICE_MOVE effects for movement-related cards
+    if (card.movement_effect && card.movement_effect.trim() !== '') {
+      const movementSpaces = parseInt(card.movement_effect, 10);
+      if (!isNaN(movementSpaces) && movementSpaces > 0) {
+        effects.push({
+          effectType: 'CHOICE',
+          payload: {
+            playerId: playerId,
+            type: 'MOVEMENT',
+            prompt: `Choose where to move (${movementSpaces} spaces)`,
+            options: [
+              { id: 'forward', label: `Move forward ${movementSpaces} spaces` },
+              { id: 'backward', label: `Move backward ${movementSpaces} spaces` }
+            ]
+          }
+        });
+        console.log(`   🚶 Added PLAYER_CHOICE_MOVE effect: ${movementSpaces} spaces`);
+      }
+    }
+
+    // CARD_DISCARD effects from discard_cards field
+    if (card.discard_cards && card.discard_cards.trim() !== '') {
+      const discardMatch = card.discard_cards.match(/(\d+)\s*([WBELIS]?)/);
+      if (discardMatch) {
+        const count = parseInt(discardMatch[1], 10);
+        const cardType = discardMatch[2];
+        
+        if (count > 0) {
+          effects.push({
+            effectType: 'CARD_DISCARD',
+            payload: {
+              playerId: playerId,
+              cardIds: [], // Will be resolved at runtime
+              cardType: cardType as any,
+              count: count,
+              source: cardSource,
+              reason: `${card.card_name}: Discard ${count} ${cardType || 'any'} card${count > 1 ? 's' : ''}`
+            }
+          });
+          console.log(`   🗑️ Added CARD_DISCARD effect: ${count} ${cardType || 'any'} card${count > 1 ? 's' : ''}`);
+        }
+      }
+    }
+
+    return effects;
   }
 
   // Apply expanded mechanics from code2026

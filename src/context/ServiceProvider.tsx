@@ -54,8 +54,9 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   // Create final EffectEngineService with TurnService dependency
   const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService);
   
-  // Set final EffectEngineService on TurnService to complete the circular dependency
+  // Set final EffectEngineService on TurnService and CardService to complete the circular dependencies
   turnService.setEffectEngineService(effectEngineService);
+  cardService.setEffectEngineService(effectEngineService);
   
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);
   

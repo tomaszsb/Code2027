@@ -1,7 +1,8 @@
 import { CardService } from '../../src/services/CardService';
-import { IDataService, IStateService, IResourceService, ILoggingService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IResourceService, ILoggingService, IEffectEngineService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { CardType } from '../../src/types/DataTypes';
+import { Effect } from '../../src/types/EffectTypes';
 import { createMockDataService, createMockStateService, createMockResourceService, createMockLoggingService } from '../mocks/mockServices';
 
 describe('CardService - Enhanced Coverage', () => {
@@ -10,6 +11,7 @@ describe('CardService - Enhanced Coverage', () => {
   let mockStateService: jest.Mocked<IStateService>;
   let mockResourceService: jest.Mocked<IResourceService>;
   let mockLoggingService: jest.Mocked<ILoggingService>;
+  let mockEffectEngineService: jest.Mocked<IEffectEngineService>;
 
   const mockPlayer: Player = {
     id: 'player1',
@@ -71,6 +73,51 @@ describe('CardService - Enhanced Coverage', () => {
     mockStateService = createMockStateService();
     mockResourceService = createMockResourceService();
     mockLoggingService = createMockLoggingService();
+    
+    // Create mock EffectEngineService
+    mockEffectEngineService = {
+      processEffects: jest.fn().mockResolvedValue({
+        success: true,
+        totalEffects: 1,
+        successfulEffects: 1,
+        failedEffects: 0,
+        results: [],
+        errors: []
+      }),
+      processEffect: jest.fn().mockResolvedValue({
+        success: true,
+        effectType: 'RESOURCE_CHANGE'
+      }),
+      processCardEffects: jest.fn().mockResolvedValue({
+        success: true,
+        totalEffects: 1,
+        successfulEffects: 1,
+        failedEffects: 0,
+        results: [],
+        errors: []
+      }),
+      processEffectsWithTargeting: jest.fn().mockResolvedValue({
+        success: true,
+        totalEffects: 1,
+        successfulEffects: 1,
+        failedEffects: 0,
+        results: [],
+        errors: []
+      }),
+      processEffectsWithDuration: jest.fn().mockResolvedValue({
+        success: true,
+        totalEffects: 1,
+        successfulEffects: 1,
+        failedEffects: 0,
+        results: [],
+        errors: []
+      }),
+      applyActiveEffects: jest.fn().mockResolvedValue(undefined),
+      addActiveEffect: jest.fn(),
+      processActiveEffectsForAllPlayers: jest.fn().mockResolvedValue(undefined),
+      validateEffect: jest.fn().mockReturnValue(true),
+      validateEffects: jest.fn().mockReturnValue(true)
+    };
 
     // Setup default mock responses
     mockStateService.getGameState.mockReturnValue(mockGameState);
@@ -123,6 +170,9 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     cardService = new CardService(mockDataService, mockStateService, mockResourceService, mockLoggingService);
+    
+    // Set the effect engine service on the card service
+    cardService.setEffectEngineService(mockEffectEngineService);
   });
 
   describe('Card Expiration System', () => {
@@ -298,11 +348,15 @@ describe('CardService - Enhanced Coverage', () => {
       expect(drawnCards).toHaveLength(2);
       expect(drawnCards).toEqual(['W003', 'W002']); // Cards drawn from top of deck (LIFO)
 
-      // Assert: Should update player's hand
-      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+      // Assert: Should update game state with new player hand
+      expect(mockStateService.updateGameState).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'player1',
-          hand: ['W_active_001', 'W003', 'W002'] // Original card + 2 new cards
+          players: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'player1',
+              hand: ['W_active_001', 'W003', 'W002'] // Original card + 2 new cards
+            })
+          ])
         })
       );
 
@@ -639,6 +693,340 @@ describe('CardService - Enhanced Coverage', () => {
       const validation = (cardService as any).validateCardPlay('nonexistent', 'L001');
       expect(validation.isValid).toBe(false);
       expect(validation.errorMessage).toContain('Player nonexistent not found');
+    });
+  });
+
+  describe('Unified Effect Engine Integration', () => {
+    it('should parse card with money_effect into MODIFY_RESOURCE effect', () => {
+      const testCard = {
+        card_id: 'TEST001',
+        card_name: 'Money Card',
+        card_type: 'B',
+        money_effect: '1000',
+        description: 'Test money card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'TEST001');
+
+      // Verify UnifiedEffectEngine was called with RESOURCE_CHANGE effect
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              playerId: 'player1',
+              resource: 'MONEY',
+              amount: 1000,
+              source: 'card:TEST001',
+              reason: 'Money Card: +$1,000'
+            })
+          })
+        ]),
+        expect.objectContaining({
+          source: 'card:TEST001',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY'
+        }),
+        testCard
+      );
+    });
+
+    it('should parse card with tick_modifier into TIME effect', () => {
+      const testCard = {
+        card_id: 'TIME001',
+        card_name: 'Time Card',
+        card_type: 'E',
+        tick_modifier: '-3',
+        description: 'Test time card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'TIME001');
+
+      // Verify UnifiedEffectEngine was called with TIME RESOURCE_CHANGE effect
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              playerId: 'player1',
+              resource: 'TIME',
+              amount: -3,
+              source: 'card:TIME001',
+              reason: 'Time Card: -3 time ticks'
+            })
+          })
+        ]),
+        expect.anything(),
+        testCard
+      );
+    });
+
+    it('should parse card with draw_cards into DRAW_CARDS effect', () => {
+      const testCard = {
+        card_id: 'DRAW001',
+        card_name: 'Draw Card',
+        card_type: 'E',
+        draw_cards: '2 E',
+        description: 'Test draw card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'DRAW001');
+
+      // Verify UnifiedEffectEngine was called with CARD_DRAW effect
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              playerId: 'player1',
+              cardType: 'E',
+              count: 2,
+              source: 'card:DRAW001',
+              reason: 'Draw Card: Draw 2 E cards'
+            })
+          })
+        ]),
+        expect.anything(),
+        testCard
+      );
+    });
+
+    it('should parse card with movement_effect into PLAYER_CHOICE_MOVE effect', () => {
+      const testCard = {
+        card_id: 'MOVE001',
+        card_name: 'Movement Card',
+        card_type: 'E',
+        movement_effect: '5',
+        description: 'Test movement card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'MOVE001');
+
+      // Verify UnifiedEffectEngine was called with CHOICE effect for movement
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CHOICE',
+            payload: expect.objectContaining({
+              playerId: 'player1',
+              type: 'MOVEMENT',
+              prompt: 'Choose where to move (5 spaces)',
+              options: [
+                { id: 'forward', label: 'Move forward 5 spaces' },
+                { id: 'backward', label: 'Move backward 5 spaces' }
+              ]
+            })
+          })
+        ]),
+        expect.anything(),
+        testCard
+      );
+    });
+
+    it('should parse card with discard_cards into CARD_DISCARD effect', () => {
+      const testCard = {
+        card_id: 'DISCARD001',
+        card_name: 'Discard Card',
+        card_type: 'L',
+        discard_cards: '1 E',
+        description: 'Test discard card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'DISCARD001');
+
+      // Verify UnifiedEffectEngine was called with CARD_DISCARD effect
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'CARD_DISCARD',
+            payload: expect.objectContaining({
+              playerId: 'player1',
+              cardIds: [],
+              cardType: 'E',
+              count: 1,
+              source: 'card:DISCARD001',
+              reason: 'Discard Card: Discard 1 E card'
+            })
+          })
+        ]),
+        expect.anything(),
+        testCard
+      );
+    });
+
+    it('should parse card with multiple effects into multiple Effect objects', () => {
+      const testCard = {
+        card_id: 'MULTI001',
+        card_name: 'Multi Effect Card',
+        card_type: 'E',
+        money_effect: '500',
+        tick_modifier: '-2',
+        draw_cards: '1 W',
+        description: 'Test multi-effect card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'MULTI001');
+
+      // Verify UnifiedEffectEngine was called with all three effects
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          // Money effect
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              resource: 'MONEY',
+              amount: 500
+            })
+          }),
+          // Time effect
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              resource: 'TIME',
+              amount: -2
+            })
+          }),
+          // Draw effect
+          expect.objectContaining({
+            effectType: 'CARD_DRAW',
+            payload: expect.objectContaining({
+              cardType: 'W',
+              count: 1
+            })
+          })
+        ]),
+        expect.anything(),
+        testCard
+      );
+
+      // Should have called with exactly 3 effects
+      const callArgs = mockEffectEngineService.processCardEffects.mock.calls[0];
+      expect(callArgs[0]).toHaveLength(3);
+    });
+
+    it('should handle cards with no parseable effects gracefully', () => {
+      const testCard = {
+        card_id: 'EMPTY001',
+        card_name: 'Empty Card',
+        card_type: 'W',
+        description: 'Test empty card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+
+      const result = cardService.applyCardEffects('player1', 'EMPTY001');
+
+      // Should still call legacy effects but not UnifiedEffectEngine for parsing
+      expect(mockEffectEngineService.processCardEffects).not.toHaveBeenCalled();
+    });
+
+    it('should handle EffectEngine processing failures gracefully', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      const testCard = {
+        card_id: 'FAIL001',
+        card_name: 'Failing Card',
+        card_type: 'E',
+        money_effect: '1000',
+        description: 'Test failing card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+      
+      // Mock EffectEngine to return failure
+      mockEffectEngineService.processCardEffects.mockResolvedValueOnce({
+        success: false,
+        totalEffects: 1,
+        successfulEffects: 0,
+        failedEffects: 1,
+        results: [],
+        errors: ['Effect processing failed']
+      });
+
+      const result = cardService.applyCardEffects('player1', 'FAIL001');
+
+      // Should still return a game state (legacy processing continues)
+      expect(result).toEqual(mockGameState);
+      
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle EffectEngine exceptions gracefully', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      const testCard = {
+        card_id: 'ERROR001',
+        card_name: 'Error Card',
+        card_type: 'E',
+        money_effect: '1000',
+        description: 'Test error card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+      
+      // Mock EffectEngine to throw exception
+      mockEffectEngineService.processCardEffects.mockRejectedValueOnce(new Error('Engine crashed'));
+
+      const result = cardService.applyCardEffects('player1', 'ERROR001');
+
+      // Should still return a game state (legacy processing continues)
+      expect(result).toEqual(mockGameState);
+      
+      consoleSpy.mockRestore();
+    });
+
+    it('should integrate playCard() with UnifiedEffectEngine', () => {
+      const testCard = {
+        card_id: 'PLAY001',
+        card_name: 'Playable Card',
+        card_type: 'E',
+        money_effect: '200',
+        cost: 50,
+        description: 'Test playable card'
+      };
+
+      mockDataService.getCardById.mockReturnValue(testCard);
+      
+      // Mock player with the card in hand
+      const playerWithCard = {
+        ...mockPlayer,
+        hand: ['PLAY001'],
+        money: 100 // Enough money to play the card
+      };
+      mockStateService.getPlayer.mockReturnValue(playerWithCard);
+
+      const result = cardService.playCard('player1', 'PLAY001');
+
+      // Verify that the UnifiedEffectEngine was called as part of playCard
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: 'RESOURCE_CHANGE',
+            payload: expect.objectContaining({
+              resource: 'MONEY',
+              amount: 200
+            })
+          })
+        ]),
+        expect.objectContaining({
+          source: 'card:PLAY001',
+          playerId: 'player1',
+          triggerEvent: 'CARD_PLAY'
+        }),
+        testCard
+      );
     });
   });
 });

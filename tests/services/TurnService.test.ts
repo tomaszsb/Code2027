@@ -115,6 +115,7 @@ const mockCardService: jest.Mocked<ICardService> = {
     validateEffect: jest.fn(),
     validateEffects: jest.fn(),
   } as jest.Mocked<IEffectEngineService>,
+  setEffectEngineService: jest.fn(),
 };
 
 const mockResourceService: jest.Mocked<IResourceService> = {
@@ -267,6 +268,11 @@ describe('TurnService', () => {
     
     // Setup default GameRulesService mock - no win by default
     mockGameRulesService.checkWinCondition.mockResolvedValue(false);
+    mockGameRulesService.checkGameEndConditions.mockResolvedValue({ 
+      shouldEnd: false, 
+      reason: null, 
+      winnerId: null 
+    });
     
     // Setup default EffectEngineService mock - return successful BatchEffectResult
     mockEffectEngineService.processEffects.mockResolvedValue({
@@ -519,6 +525,11 @@ describe('TurnService', () => {
       mockStateService.getGameState.mockReturnValue(mockGameState);
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
       mockGameRulesService.checkWinCondition.mockResolvedValue(false);
+      mockGameRulesService.checkGameEndConditions.mockResolvedValue({ 
+        shouldEnd: false, 
+        reason: null, 
+        winnerId: null 
+      });
     });
 
     it('should handle replace_e action', () => {

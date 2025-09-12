@@ -5,9 +5,18 @@ import { Space, Player } from '../../types/DataTypes';
 interface GameSpaceProps {
   space: Space;
   playersOnSpace: Player[];
+  isValidMoveDestination?: boolean;
+  isCurrentPlayerSpace?: boolean;
+  showMovementIndicators?: boolean;
 }
 
-export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Element {
+export function GameSpace({ 
+  space, 
+  playersOnSpace,
+  isValidMoveDestination = false,
+  isCurrentPlayerSpace = false,
+  showMovementIndicators = false
+}: GameSpaceProps): JSX.Element {
   // Add CSS animation styles to document head if not already present
   React.useEffect(() => {
     const styleId = 'player-token-animations';
@@ -38,32 +47,127 @@ export function GameSpace({ space, playersOnSpace }: GameSpaceProps): JSX.Elemen
             transform: scale(1.05);
           }
         }
+        
+        @keyframes pulse {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
       `;
       document.head.appendChild(style);
     }
   }, []);
 
+  // Determine visual styling based on movement state
+  const getBorderColor = () => {
+    if (isCurrentPlayerSpace && showMovementIndicators) return colors.primary.main;
+    if (isValidMoveDestination && showMovementIndicators) return colors.warning.main;
+    if (playersOnSpace.length > 0) return colors.success.main;
+    return colors.secondary.border;
+  };
+
+  const getBackgroundColor = () => {
+    if (isCurrentPlayerSpace && showMovementIndicators) return colors.primary.light;
+    if (isValidMoveDestination && showMovementIndicators) return colors.warning.light;
+    if (playersOnSpace.length > 0) return colors.success.light;
+    return colors.white;
+  };
+
+  const getBorderWidth = () => {
+    if ((isCurrentPlayerSpace || isValidMoveDestination) && showMovementIndicators) return '4px';
+    if (playersOnSpace.length > 0) return '3px';
+    return '2px';
+  };
+
+  // Removed interactive click handling - this is now purely visual
+
   return (
     <div
       style={{
-        border: playersOnSpace.length > 0 ? `3px solid ${colors.success.main}` : `2px solid ${colors.secondary.border}`,
+        border: `${getBorderWidth()} solid ${getBorderColor()}`,
         borderRadius: '8px',
         padding: '12px',
         margin: '4px',
-        background: playersOnSpace.length > 0 ? colors.success.light : colors.white,
+        background: getBackgroundColor(),
         minHeight: '100px',
         minWidth: '120px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        boxShadow: playersOnSpace.length > 0 
-          ? `0 4px 12px ${colors.success.main}30` 
-          : theme.shadows.sm,
+        boxShadow: (isCurrentPlayerSpace || isValidMoveDestination) && showMovementIndicators
+          ? `0 6px 16px ${isCurrentPlayerSpace ? colors.primary.main : colors.warning.main}40`
+          : playersOnSpace.length > 0 
+            ? `0 4px 12px ${colors.success.main}30` 
+            : theme.shadows.sm,
         position: 'relative',
         transition: 'all 0.3s ease-in-out',
+        cursor: 'default', // Always default cursor - no interaction
+        transform: 'scale(1)',
         animation: playersOnSpace.length > 0 ? 'none' : undefined
       }}
     >
+      {/* Movement indicator overlay - Visual aid only */}
+      {showMovementIndicators && isValidMoveDestination && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            backgroundColor: colors.warning.main,
+            color: colors.white,
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: theme.shadows.sm,
+            animation: 'pulse 2s infinite',
+            pointerEvents: 'none' // Ensure no interaction
+          }}
+          title="Valid movement destination"
+        >
+          🎯
+        </div>
+      )}
+
+      {/* Current player indicator - Visual aid only */}
+      {showMovementIndicators && isCurrentPlayerSpace && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            left: '4px',
+            backgroundColor: colors.primary.main,
+            color: colors.white,
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: theme.shadows.sm,
+            pointerEvents: 'none' // Ensure no interaction
+          }}
+          title="Current player position"
+        >
+          📍
+        </div>
+      )}
+
       {/* Space name */}
       <div
         style={{

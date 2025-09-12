@@ -24,7 +24,7 @@ import { Card } from '../../types/DataTypes';
  * This provides the main grid-based layout for the game application.
  */
 export function GameLayout(): JSX.Element {
-  const { stateService, dataService, cardService, turnService } = useGameContext();
+  const { stateService, dataService, cardService, turnService, movementService } = useGameContext();
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
@@ -33,6 +33,7 @@ export function GameLayout(): JSX.Element {
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isMovementPathVisible, setIsMovementPathVisible] = useState<boolean>(false);
+  const [shouldAutoShowMovementPath, setShouldAutoShowMovementPath] = useState<boolean>(false);
   const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   
@@ -130,6 +131,8 @@ export function GameLayout(): JSX.Element {
     return unsubscribe;
   }, [stateService]);
 
+  // NOTE: Auto-show movement path logic disabled - using board-based movement indicators instead
+
   // Handlers for negotiation modal
   const handleOpenNegotiationModal = () => {
     // Close any open side panels when modal opens
@@ -173,7 +176,14 @@ export function GameLayout(): JSX.Element {
 
   // Handlers for movement path visualization
   const handleToggleMovementPath = () => {
-    setIsMovementPathVisible(!isMovementPathVisible);
+    const newVisibility = !isMovementPathVisible;
+    setIsMovementPathVisible(newVisibility);
+    
+    // If user manually toggles, stop auto-showing behavior
+    if (shouldAutoShowMovementPath) {
+      setShouldAutoShowMovementPath(false);
+      console.log(`🎯 MANUAL TOGGLE: User manually ${newVisibility ? 'showed' : 'hid'} movement path, disabling auto-show`);
+    }
   };
 
   // Handlers for space explorer panel
@@ -543,8 +553,8 @@ export function GameLayout(): JSX.Element {
         cardService={cardService}
       />
       
-      {/* MovementPathVisualization - only during PLAY phase and no modals open */}
-      {gamePhase === 'PLAY' && !isAnyModalOpen() && (
+      {/* MovementPathVisualization - DISABLED: Using board-based movement indicators instead */}
+      {false && gamePhase === 'PLAY' && !isAnyModalOpen() && (
         <MovementPathVisualization 
           isVisible={isMovementPathVisible}
           onToggle={handleToggleMovementPath}

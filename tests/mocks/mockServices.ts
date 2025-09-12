@@ -206,7 +206,10 @@ export const createMockCardService = (): jest.Mocked<ICardService> => ({
   
   // Card effect methods
   applyCardEffects: jest.fn(),
-  effectEngineService: {} as IEffectEngineService // Will be mocked separately if needed
+  effectEngineService: {} as IEffectEngineService, // Will be mocked separately if needed
+  
+  // Circular dependency resolution methods
+  setEffectEngineService: jest.fn()
 });
 
 export const createMockResourceService = (): jest.Mocked<IResourceService> => ({

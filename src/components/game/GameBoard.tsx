@@ -5,21 +5,52 @@ import { useGameContext } from '../../context/GameContext';
 import { Space, Player } from '../../types/DataTypes';
 
 export function GameBoard(): JSX.Element {
-  const { dataService, stateService } = useGameContext();
+  const { dataService, stateService, movementService } = useGameContext();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [gamePhase, setGamePhase] = useState<string>('SETUP');
 
   // Subscribe to state changes for live updates
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
       setPlayers(gameState.players);
+      setCurrentPlayerId(gameState.currentPlayerId);
+      setGamePhase(gameState.gamePhase);
+      
+      // Calculate valid moves for current player during PLAY phase
+      if (gameState.gamePhase === 'PLAY' && gameState.currentPlayerId && !gameState.hasPlayerMovedThisTurn) {
+        try {
+          const moves = movementService.getValidMoves(gameState.currentPlayerId);
+          setValidMoves(moves);
+          console.log(`🎯 BOARD: Player ${gameState.currentPlayerId} has ${moves.length} valid moves:`, moves);
+        } catch (error) {
+          console.log(`🎯 BOARD: No valid moves for player ${gameState.currentPlayerId}:`, error);
+          setValidMoves([]);
+        }
+      } else {
+        setValidMoves([]);
+      }
     });
     
     // Initialize with current state
-    setPlayers(stateService.getGameState().players);
+    const gameState = stateService.getGameState();
+    setPlayers(gameState.players);
+    setCurrentPlayerId(gameState.currentPlayerId);
+    setGamePhase(gameState.gamePhase);
+    
+    if (gameState.gamePhase === 'PLAY' && gameState.currentPlayerId && !gameState.hasPlayerMovedThisTurn) {
+      try {
+        const moves = movementService.getValidMoves(gameState.currentPlayerId);
+        setValidMoves(moves);
+      } catch (error) {
+        setValidMoves([]);
+      }
+    }
     
     return unsubscribe;
-  }, [stateService]);
+  }, [stateService, movementService]);
 
   // Load all spaces on mount (excluding tutorial spaces)
   useEffect(() => {
@@ -35,6 +66,18 @@ export function GameBoard(): JSX.Element {
   // Helper function to get players on a specific space
   const getPlayersOnSpace = (spaceName: string): Player[] => {
     return players.filter(player => player.currentSpace === spaceName);
+  };
+
+  // Helper function to check if a space is a valid move destination
+  const isValidMoveDestination = (spaceName: string): boolean => {
+    return validMoves.includes(spaceName);
+  };
+
+  // Helper function to check if current player is on this space
+  const isCurrentPlayerSpace = (spaceName: string): boolean => {
+    if (!currentPlayerId) return false;
+    const currentPlayer = players.find(p => p.id === currentPlayerId);
+    return currentPlayer?.currentSpace === spaceName;
   };
 
   return (
@@ -59,12 +102,17 @@ export function GameBoard(): JSX.Element {
       >
         {spaces.map((space) => {
           const playersOnSpace = getPlayersOnSpace(space.name);
+          const isValidMove = isValidMoveDestination(space.name);
+          const isCurrentPlayer = isCurrentPlayerSpace(space.name);
           
           return (
             <GameSpace
               key={space.name}
               space={space}
               playersOnSpace={playersOnSpace}
+              isValidMoveDestination={isValidMove}
+              isCurrentPlayerSpace={isCurrentPlayer}
+              showMovementIndicators={gamePhase === 'PLAY' && validMoves.length > 0}
             />
           );
         })}
