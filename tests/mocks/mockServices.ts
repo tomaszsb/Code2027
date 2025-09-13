@@ -265,6 +265,7 @@ export const createMockEffectEngineService = (): any => ({
   // Core processing methods
   processEffects: vi.fn(),
   processEffect: vi.fn(),
+  processCardEffects: vi.fn(),
   processActiveEffectsForAllPlayers: vi.fn(),
   
   // Validation methods

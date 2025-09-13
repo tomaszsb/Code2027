@@ -103,7 +103,8 @@ export const createLightweightCardService = () => ({
 });
 
 // Lightweight ResourceService mock - only essential methods
-export const createLightweightResourceService = () => ({Resource  addMoney: mockFn(async (playerId: string, amount: number, reason?: string) => Promise.resolve()),
+export const createLightweightResourceService = () => ({
+  addMoney: mockFn(async (playerId: string, amount: number, reason?: string) => Promise.resolve()),
   spendMoney: mockFn(async (playerId: string, amount: number, reason?: string) => Promise.resolve()),
   canAfford: mockFn((playerId: string, amount: number) => true),
   
@@ -117,7 +118,8 @@ export const createLightweightResourceService = () => ({Resource  addMoney: mock
 });
 
 // Lightweight TurnService mock - only essential methods
-export const createLightweightTurnService = () => ({Turn  takeTurn: mockFn(async (playerId: string) => Promise.resolve({ success: true })),
+export const createLightweightTurnService = () => ({
+  takeTurn: mockFn(async (playerId: string) => Promise.resolve({ success: true })),
   endTurn: mockFn(async (playerId: string) => Promise.resolve({ success: true })),
   rollDice: mockFn(async (playerId: string) => Promise.resolve({ diceRoll: 3, success: true })),
   
@@ -129,7 +131,8 @@ export const createLightweightTurnService = () => ({Turn  takeTurn: mockFn(async
 });
 
 // Lightweight PlayerActionService mock - only essential methods
-export const createLightweightPlayerActionService = () => ({PlayerAction  playCard: mockFn(async (playerId: string, cardId: string) => 
+export const createLightweightPlayerActionService = () => ({
+  playCard: mockFn(async (playerId: string, cardId: string) => 
     Promise.resolve({ success: true, message: 'Card played successfully' })),
   
   rollDice: mockFn(async (playerId: string) => 
@@ -140,13 +143,23 @@ export const createLightweightPlayerActionService = () => ({PlayerAction  playCa
 });
 
 // Lightweight EffectEngineService mock - only essential methods
-export const createLightweightEffectEngineService = () => ({EffectEngine  processEffects: mockFn(async (effects, targetPlayerId, triggerEvent, source) => 
+export const createLightweightEffectEngineService = () => ({
+  processEffects: mockFn(async (effects, targetPlayerId, triggerEvent, source) => 
     Promise.resolve({ 
       successful: effects.length, 
       failed: 0, 
       errors: [],
       totalEffects: effects.length,
       successfulEffects: effects.length
+    })),
+  
+  processCardEffects: mockFn(async (playerId, cardId) => 
+    Promise.resolve({ 
+      successful: 1, 
+      failed: 0, 
+      errors: [],
+      totalEffects: 1,
+      successfulEffects: 1
     })),
   
   processEffect: mockFn(async (effect, targetPlayerId) => Promise.resolve()),

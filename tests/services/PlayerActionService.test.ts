@@ -148,6 +148,14 @@ describe('PlayerActionService', () => {
       results: [],
       errors: []
     });
+    mockEffectEngineService.processCardEffects.mockResolvedValue({
+      success: true,
+      totalEffects: 0,
+      successfulEffects: 0,
+      failedEffects: 0,
+      results: [],
+      errors: []
+    });
     mockEffectEngineService.processEffect.mockResolvedValue({
       success: true,
       effectType: 'RESOURCE_CHANGE'
@@ -244,8 +252,8 @@ describe('PlayerActionService', () => {
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 100);
       
       // Most important: Verify EffectEngineService orchestration
-      // Current implementation uses processEffects() with effects from EffectFactory
-      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+      // Current implementation uses processCardEffects() with effects from EffectFactory
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
         [], // Effects from EffectFactory.createEffectsFromCard
         {
           source: 'player_action:card_play',
@@ -257,7 +265,12 @@ describe('PlayerActionService', () => {
             cardType: 'W',
             playerName: 'Test Player'
           }
-        }
+        },
+        expect.objectContaining({
+          card_id: 'W001',
+          card_name: 'Strategic Planning',
+          card_type: 'W'
+        })
       );
       
       // Verify final PLAY_CARD effect is processed for card lifecycle
@@ -296,7 +309,7 @@ describe('PlayerActionService', () => {
       expect(mockGameRulesService.canPlayerAfford).not.toHaveBeenCalled(); // Should not check affordability for free cards
       
       // Verify orchestration through EffectEngineService
-      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
         [], // Effects from EffectFactory.createEffectsFromCard
         {
           source: 'player_action:card_play',
@@ -308,7 +321,8 @@ describe('PlayerActionService', () => {
             cardType: 'W',
             playerName: 'Test Player'
           }
-        }
+        },
+        expect.any(Object)
       );
     });
 
@@ -328,7 +342,7 @@ describe('PlayerActionService', () => {
       expect(mockGameRulesService.canPlayerAfford).not.toHaveBeenCalled(); // Should not check affordability for undefined cost
       
       // Verify orchestration
-      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
         [],
         {
           source: 'player_action:card_play',
@@ -340,7 +354,8 @@ describe('PlayerActionService', () => {
             cardType: 'W',
             playerName: 'Test Player'
           }
-        }
+        },
+        expect.any(Object)
       );
     });
 
@@ -426,7 +441,7 @@ describe('PlayerActionService', () => {
       await playerActionService.playCard('player1', 'B001');
 
       // Assert - Focus on orchestration
-      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
         [],
         {
           source: 'player_action:card_play',
@@ -438,7 +453,8 @@ describe('PlayerActionService', () => {
             cardType: 'B',
             playerName: 'Test Player'
           }
-        }
+        },
+        expect.any(Object)
       );
     });
 
@@ -484,7 +500,7 @@ describe('PlayerActionService', () => {
       expect(mockGameRulesService.canPlayerAfford).toHaveBeenCalledWith('player1', 10);
       
       // Should still process through EffectEngineService even without effects
-      expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
+      expect(mockEffectEngineService.processCardEffects).toHaveBeenCalledWith(
         [],
         {
           source: 'player_action:card_play',
@@ -496,7 +512,8 @@ describe('PlayerActionService', () => {
             cardType: 'W',
             playerName: 'Test Player'
           }
-        }
+        },
+        expect.any(Object)
       );
     });
 
@@ -505,7 +522,7 @@ describe('PlayerActionService', () => {
       mockDataService.getCardById.mockReturnValue(mockCard);
       mockGameRulesService.canPlayCard.mockReturnValue(true);
       mockGameRulesService.canPlayerAfford.mockReturnValue(true);
-      mockEffectEngineService.processEffects.mockRejectedValue(new Error('Effect processing failed'));
+      mockEffectEngineService.processCardEffects.mockRejectedValue(new Error('Effect processing failed'));
 
       // Act & Assert
       await expect(playerActionService.playCard('player1', 'W001'))
@@ -548,8 +565,8 @@ describe('PlayerActionService', () => {
         return true;
       });
       
-      mockEffectEngineService.processEffects.mockImplementation(async () => {
-        callOrder.push('processEffects');
+      mockEffectEngineService.processCardEffects.mockImplementation(async () => {
+        callOrder.push('processCardEffects');
         return {
           success: true,
           totalEffects: 0,
@@ -578,7 +595,7 @@ describe('PlayerActionService', () => {
         'getCardById',
         'canPlayCard',
         'canPlayerAfford',
-        'processEffects', // Card effects processing
+        'processCardEffects', // Card effects processing
         'processEffect'   // Card lifecycle processing
       ]);
     });

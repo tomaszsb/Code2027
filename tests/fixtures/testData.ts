@@ -294,40 +294,40 @@ export const MOCK_DATA_SERVICE_DATA = {
 
 // Fast mock DataService factory
 export const createFastMockDataService = () => ({
-  isLoaded: jest.fn(() => true),
-  loadData: jest.fn(async () => Promise.resolve()),
+  isLoaded: vi.fn(() => true),
+  loadData: vi.fn(async () => Promise.resolve()),
   
   // Card methods
-  getCards: jest.fn(() => TEST_CARDS),
-  getCardById: jest.fn((id: string) => TEST_CARDS.find(card => card.id === id)),
-  getCardsByType: jest.fn((type: string) => TEST_CARDS.filter(card => card.type === type)),
-  getAllCardTypes: jest.fn(() => ['W', 'B', 'E', 'L', 'I']),
+  getCards: vi.fn(() => TEST_CARDS),
+  getCardById: vi.fn((id: string) => TEST_CARDS.find(card => card.id === id)),
+  getCardsByType: vi.fn((type: string) => TEST_CARDS.filter(card => card.type === type)),
+  getAllCardTypes: vi.fn(() => ['W', 'B', 'E', 'L', 'I']),
   
   // Game config methods
-  getGameConfig: jest.fn(() => TEST_GAME_CONFIGS),
-  getGameConfigBySpace: jest.fn((space: string) => TEST_GAME_CONFIGS.find(config => config.space_name === space)),
-  getPhaseOrder: jest.fn(() => ['SETUP', 'Design', 'Construction', 'Funding', 'Regulatory']),
+  getGameConfig: vi.fn(() => TEST_GAME_CONFIGS),
+  getGameConfigBySpace: vi.fn((space: string) => TEST_GAME_CONFIGS.find(config => config.space_name === space)),
+  getPhaseOrder: vi.fn(() => ['SETUP', 'Design', 'Construction', 'Funding', 'Regulatory']),
   
   // Space methods
-  getAllSpaces: jest.fn(() => TEST_GAME_CONFIGS.map(config => config.space_name)),
-  getSpaceByName: jest.fn((name: string) => TEST_GAME_CONFIGS.find(config => config.space_name === name)),
+  getAllSpaces: vi.fn(() => TEST_GAME_CONFIGS.map(config => config.space_name)),
+  getSpaceByName: vi.fn((name: string) => TEST_GAME_CONFIGS.find(config => config.space_name === name)),
   
   // Movement methods
-  getMovement: jest.fn((current: string, destination: string) => 
+  getMovement: vi.fn((current: string, destination: string) => 
     TEST_MOVEMENTS.find(m => m.current_space === current && m.destination === destination)),
-  getAllMovements: jest.fn(() => TEST_MOVEMENTS),
+  getAllMovements: vi.fn(() => TEST_MOVEMENTS),
   
   // Effects methods
-  getSpaceEffects: jest.fn((space: string) => TEST_SPACE_EFFECTS.filter(effect => effect.space_name === space)),
-  getAllSpaceEffects: jest.fn(() => TEST_SPACE_EFFECTS),
-  getDiceEffects: jest.fn((space: string) => TEST_DICE_EFFECTS.filter(effect => effect.space_name === space)),
-  getAllDiceEffects: jest.fn(() => TEST_DICE_EFFECTS),
+  getSpaceEffects: vi.fn((space: string) => TEST_SPACE_EFFECTS.filter(effect => effect.space_name === space)),
+  getAllSpaceEffects: vi.fn(() => TEST_SPACE_EFFECTS),
+  getDiceEffects: vi.fn((space: string) => TEST_DICE_EFFECTS.filter(effect => effect.space_name === space)),
+  getAllDiceEffects: vi.fn(() => TEST_DICE_EFFECTS),
   
   // Content methods
-  getSpaceContent: jest.fn((space: string) => TEST_SPACE_CONTENT.find(content => content.space_name === space)),
-  getAllSpaceContent: jest.fn(() => TEST_SPACE_CONTENT),
+  getSpaceContent: vi.fn((space: string) => TEST_SPACE_CONTENT.find(content => content.space_name === space)),
+  getAllSpaceContent: vi.fn(() => TEST_SPACE_CONTENT),
   
   // Dice outcome methods
-  getDiceOutcome: jest.fn(() => ({ space_name: 'START-SPACE', dice_roll: 3, outcome: 'Move forward 3 spaces' })),
-  getAllDiceOutcomes: jest.fn(() => [])
+  getDiceOutcome: vi.fn(() => ({ space_name: 'START-SPACE', dice_roll: 3, outcome: 'Move forward 3 spaces' })),
+  getAllDiceOutcomes: vi.fn(() => [])
 });
