@@ -1,3 +1,4 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EffectEngineService } from '../../src/services/EffectEngineService';
 import { TurnService } from '../../src/services/TurnService';
 import { StateService } from '../../src/services/StateService';
@@ -12,13 +13,13 @@ describe('Duration-Based Card Effects System', () => {
   let turnService: TurnService;
   let stateService: StateService;
   let playerActionService: PlayerActionService;
-  let mockDataService: jest.Mocked<IDataService>;
-  let mockResourceService: jest.Mocked<IResourceService>;
-  let mockCardService: jest.Mocked<ICardService>;
-  let mockChoiceService: jest.Mocked<IChoiceService>;
-  let mockMovementService: jest.Mocked<IMovementService>;
-  let mockGameRulesService: jest.Mocked<IGameRulesService>;
-  let mockNegotiationService: jest.Mocked<INegotiationService>;
+  let mockDataService: vi.Mocked<IDataService>;
+  let mockResourceService: vi.Mocked<IResourceService>;
+  let mockCardService: vi.Mocked<ICardService>;
+  let mockChoiceService: vi.Mocked<IChoiceService>;
+  let mockMovementService: vi.Mocked<IMovementService>;
+  let mockGameRulesService: vi.Mocked<IGameRulesService>;
+  let mockNegotiationService: vi.Mocked<INegotiationService>;
 
   const mockPlayer: Player = {
     id: 'player1',

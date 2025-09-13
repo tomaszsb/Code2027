@@ -1,4 +1,5 @@
 // E066 Card Re-roll Integration Test
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EffectFactory } from '../src/utils/EffectFactory';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { TurnService } from '../src/services/TurnService';
@@ -188,7 +189,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
 
     // Mock the rollDice method to return a fixed value
-    jest.spyOn(turnService as any, 'rollDice').mockReturnValue(4);
+    vi.spyOn(turnService as any, 'rollDice').mockReturnValue(4);
 
     const result = await turnService.rollDiceWithFeedback('player1');
 
@@ -227,7 +228,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
 
     // Mock the rollDice method to return a fixed value
-    jest.spyOn(turnService as any, 'rollDice').mockReturnValue(3);
+    vi.spyOn(turnService as any, 'rollDice').mockReturnValue(3);
 
     const result = await turnService.rollDiceWithFeedback('player1');
 
@@ -266,7 +267,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     mockServices.dataService.getDiceEffects.mockReturnValue([]);
 
     // Mock the rollDice method to return a different value for re-roll
-    jest.spyOn(turnService as any, 'rollDice').mockReturnValue(6);
+    vi.spyOn(turnService as any, 'rollDice').mockReturnValue(6);
 
     const result = await turnService.rerollDice('player1');
 
@@ -356,7 +357,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     };
 
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
-    mockServices.gameRulesService.checkWinCondition = jest.fn().mockResolvedValue(false);
+    mockServices.gameRulesService.checkWinCondition = vi.fn().mockResolvedValue(false);
 
     // Execute nextPlayer (which is called by endTurn)
     const nextPlayerMethod = (turnService as any).nextPlayer.bind(turnService);

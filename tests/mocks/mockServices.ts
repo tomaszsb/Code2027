@@ -1,10 +1,11 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 // tests/mocks/mockServices.ts
 
 /**
  * Centralized Mock Service Utility
  * 
  * This file provides mock creator functions for all core services used in tests.
- * Each function returns a fully mocked service object where every method is an instance of jest.fn().
+ * Each function returns a fully mocked service object where every method is an instance of vi.fn().
  * 
  * Usage:
  * import { createMockDataService, createMockStateService } from '../mocks/mockServices';
@@ -28,306 +29,306 @@ import {
 
 import { ILoggingService } from '../../src/services/LoggingService';
 
-export const createMockDataService = (): jest.Mocked<IDataService> => ({
+export const createMockDataService = (): any => ({
   // Configuration methods
-  getGameConfig: jest.fn(),
-  getGameConfigBySpace: jest.fn(),
-  getPhaseOrder: jest.fn(),
+  getGameConfig: vi.fn(),
+  getGameConfigBySpace: vi.fn(),
+  getPhaseOrder: vi.fn(),
   
   // Space methods
-  getAllSpaces: jest.fn(),
-  getSpaceByName: jest.fn(),
+  getAllSpaces: vi.fn(),
+  getSpaceByName: vi.fn(),
   
   // Movement methods
-  getMovement: jest.fn(),
-  getAllMovements: jest.fn(),
+  getMovement: vi.fn(),
+  getAllMovements: vi.fn(),
   
   // Dice outcome methods
-  getDiceOutcome: jest.fn(),
-  getAllDiceOutcomes: jest.fn(),
+  getDiceOutcome: vi.fn(),
+  getAllDiceOutcomes: vi.fn(),
   
   // Space effects methods
-  getSpaceEffects: jest.fn(),
-  getAllSpaceEffects: jest.fn(),
+  getSpaceEffects: vi.fn(),
+  getAllSpaceEffects: vi.fn(),
   
   // Dice effects methods
-  getDiceEffects: jest.fn(),
-  getAllDiceEffects: jest.fn(),
+  getDiceEffects: vi.fn(),
+  getAllDiceEffects: vi.fn(),
   
   // Content methods
-  getSpaceContent: jest.fn(),
-  getAllSpaceContent: jest.fn(),
+  getSpaceContent: vi.fn(),
+  getAllSpaceContent: vi.fn(),
   
   // Card methods
-  getCards: jest.fn(),
-  getCardById: jest.fn(),
-  getCardsByType: jest.fn(),
-  getAllCardTypes: jest.fn(),
+  getCards: vi.fn(),
+  getCardById: vi.fn(),
+  getCardsByType: vi.fn(),
+  getAllCardTypes: vi.fn(),
   
   // Data loading
-  isLoaded: jest.fn(),
-  loadData: jest.fn()
+  isLoaded: vi.fn(),
+  loadData: vi.fn()
 });
 
-export const createMockStateService = (): jest.Mocked<IStateService> => ({
+export const createMockStateService = (): any => ({
   // State access methods
-  getGameState: jest.fn(),
-  getGameStateDeepCopy: jest.fn(),
-  isStateLoaded: jest.fn(),
+  getGameState: vi.fn(),
+  getGameStateDeepCopy: vi.fn(),
+  isStateLoaded: vi.fn(),
   
   // Subscription methods
-  subscribe: jest.fn(),
+  subscribe: vi.fn(),
   
   // Player management methods
-  addPlayer: jest.fn(),
-  updatePlayer: jest.fn(),
-  removePlayer: jest.fn(),
-  getPlayer: jest.fn(),
-  getAllPlayers: jest.fn(),
+  addPlayer: vi.fn(),
+  updatePlayer: vi.fn(),
+  removePlayer: vi.fn(),
+  getPlayer: vi.fn(),
+  getAllPlayers: vi.fn(),
   
   // Game flow methods
-  setCurrentPlayer: jest.fn(),
-  setGamePhase: jest.fn(),
-  advanceTurn: jest.fn(),
-  nextPlayer: jest.fn(),
+  setCurrentPlayer: vi.fn(),
+  setGamePhase: vi.fn(),
+  advanceTurn: vi.fn(),
+  nextPlayer: vi.fn(),
   
   // Game lifecycle methods
-  initializeGame: jest.fn(),
-  startGame: jest.fn(),
-  endGame: jest.fn(),
-  resetGame: jest.fn(),
+  initializeGame: vi.fn(),
+  startGame: vi.fn(),
+  endGame: vi.fn(),
+  resetGame: vi.fn(),
   
   // Negotiation management methods
-  updateNegotiationState: jest.fn(),
+  updateNegotiationState: vi.fn(),
   
   // Utility methods
-  fixPlayerStartingSpaces: jest.fn(),
-  forceResetAllPlayersToCorrectStartingSpace: jest.fn(),
+  fixPlayerStartingSpaces: vi.fn(),
+  forceResetAllPlayersToCorrectStartingSpace: vi.fn(),
   
   // Choice management methods
-  setAwaitingChoice: jest.fn(),
-  clearAwaitingChoice: jest.fn(),
+  setAwaitingChoice: vi.fn(),
+  clearAwaitingChoice: vi.fn(),
   
   // Turn state management methods
-  setPlayerHasMoved: jest.fn(),
-  clearPlayerHasMoved: jest.fn(),
-  setPlayerCompletedManualAction: jest.fn(),
-  setPlayerHasRolledDice: jest.fn(),
-  clearPlayerCompletedManualActions: jest.fn(),
-  clearPlayerHasRolledDice: jest.fn(),
-  updateActionCounts: jest.fn(),
+  setPlayerHasMoved: vi.fn(),
+  clearPlayerHasMoved: vi.fn(),
+  setPlayerCompletedManualAction: vi.fn(),
+  setPlayerHasRolledDice: vi.fn(),
+  clearPlayerCompletedManualActions: vi.fn(),
+  clearPlayerHasRolledDice: vi.fn(),
+  updateActionCounts: vi.fn(),
   
   // Modal management methods
-  showCardModal: jest.fn(),
-  dismissModal: jest.fn(),
+  showCardModal: vi.fn(),
+  dismissModal: vi.fn(),
   
   // Snapshot management methods
-  createPlayerSnapshot: jest.fn(),
-  restorePlayerSnapshot: jest.fn(),
+  createPlayerSnapshot: vi.fn(),
+  restorePlayerSnapshot: vi.fn(),
   
   // Validation methods
-  validatePlayerAction: jest.fn(),
-  canStartGame: jest.fn(),
+  validatePlayerAction: vi.fn(),
+  canStartGame: vi.fn(),
   
   // Action logging methods
-  logToActionHistory: jest.fn(),
+  logToActionHistory: vi.fn(),
   
   // Pre-space effect snapshot methods (Try Again feature)
-  savePreSpaceEffectSnapshot: jest.fn(),
-  clearPreSpaceEffectSnapshot: jest.fn(),
-  hasPreSpaceEffectSnapshot: jest.fn(),
-  getPreSpaceEffectSnapshot: jest.fn(),
+  savePreSpaceEffectSnapshot: vi.fn(),
+  clearPreSpaceEffectSnapshot: vi.fn(),
+  hasPreSpaceEffectSnapshot: vi.fn(),
+  getPreSpaceEffectSnapshot: vi.fn(),
   
   // State management methods
-  setGameState: jest.fn(),
-  updateGameState: jest.fn()
+  setGameState: vi.fn(),
+  updateGameState: vi.fn()
 });
 
-export const createMockGameRulesService = (): jest.Mocked<IGameRulesService> => ({
+export const createMockGameRulesService = (): any => ({
   // Movement validation methods
-  isMoveValid: jest.fn(),
+  isMoveValid: vi.fn(),
   
   // Card validation methods
-  canPlayCard: jest.fn(),
-  canDrawCard: jest.fn(),
+  canPlayCard: vi.fn(),
+  canDrawCard: vi.fn(),
   
   // Player resource validation methods
-  canPlayerAfford: jest.fn(),
+  canPlayerAfford: vi.fn(),
   
   // Turn validation methods
-  isPlayerTurn: jest.fn(),
+  isPlayerTurn: vi.fn(),
   
   // Game state validation methods
-  isGameInProgress: jest.fn(),
+  isGameInProgress: vi.fn(),
   
   // Win condition methods
-  checkWinCondition: jest.fn(),
+  checkWinCondition: vi.fn(),
   
-  canPlayerTakeAction: jest.fn(),
+  canPlayerTakeAction: vi.fn(),
   
   // Project scope calculation methods
-  calculateProjectScope: jest.fn(),
+  calculateProjectScope: vi.fn(),
   
   // Scoring methods
-  calculatePlayerScore: jest.fn(),
-  determineWinner: jest.fn(),
-  checkTurnLimit: jest.fn(),
-  checkGameEndConditions: jest.fn()
+  calculatePlayerScore: vi.fn(),
+  determineWinner: vi.fn(),
+  checkTurnLimit: vi.fn(),
+  checkGameEndConditions: vi.fn()
 });
 
-export const createMockCardService = (): jest.Mocked<ICardService> => ({
+export const createMockCardService = (): any => ({
   // Card validation methods
-  canPlayCard: jest.fn(),
-  isValidCardType: jest.fn(),
-  playerOwnsCard: jest.fn(),
+  canPlayCard: vi.fn(),
+  isValidCardType: vi.fn(),
+  playerOwnsCard: vi.fn(),
   
   // Card management methods with source tracking
-  playCard: jest.fn(),
-  drawCards: jest.fn(),
-  drawAndApplyCard: jest.fn(),
-  discardCards: jest.fn(),
-  removeCard: jest.fn(),
-  replaceCard: jest.fn(),
+  playCard: vi.fn(),
+  drawCards: vi.fn(),
+  drawAndApplyCard: vi.fn(),
+  discardCards: vi.fn(),
+  removeCard: vi.fn(),
+  replaceCard: vi.fn(),
   
   // Turn-based card lifecycle methods
-  endOfTurn: jest.fn(),
-  activateCard: jest.fn(),
-  finalizePlayedCard: jest.fn(),
-  discardPlayedCard: jest.fn(),
+  endOfTurn: vi.fn(),
+  activateCard: vi.fn(),
+  finalizePlayedCard: vi.fn(),
+  discardPlayedCard: vi.fn(),
   
   // Card transfer methods with source tracking
-  transferCard: jest.fn(),
+  transferCard: vi.fn(),
   
   // Card information methods
-  getCardType: jest.fn(),
-  getPlayerCards: jest.fn(),
-  getPlayerCardCount: jest.fn(),
-  getCardToDiscard: jest.fn(),
+  getCardType: vi.fn(),
+  getPlayerCards: vi.fn(),
+  getPlayerCardCount: vi.fn(),
+  getCardToDiscard: vi.fn(),
   
   // Card effect methods
-  applyCardEffects: jest.fn(),
+  applyCardEffects: vi.fn(),
   effectEngineService: {} as IEffectEngineService, // Will be mocked separately if needed
   
   // Circular dependency resolution methods
-  setEffectEngineService: jest.fn()
+  setEffectEngineService: vi.fn()
 });
 
-export const createMockResourceService = (): jest.Mocked<IResourceService> => ({
+export const createMockResourceService = (): any => ({
   // Money operations
-  addMoney: jest.fn(),
-  spendMoney: jest.fn(),
-  canAfford: jest.fn(),
+  addMoney: vi.fn(),
+  spendMoney: vi.fn(),
+  canAfford: vi.fn(),
   
   // Time operations  
-  addTime: jest.fn(),
-  spendTime: jest.fn(),
+  addTime: vi.fn(),
+  spendTime: vi.fn(),
   
   // Combined operations
-  updateResources: jest.fn(),
-  getResourceHistory: jest.fn(),
+  updateResources: vi.fn(),
+  getResourceHistory: vi.fn(),
   
   // Validation
-  validateResourceChange: jest.fn(),
+  validateResourceChange: vi.fn(),
   
   // Loan operations
-  takeOutLoan: jest.fn(),
-  applyInterest: jest.fn()
+  takeOutLoan: vi.fn(),
+  applyInterest: vi.fn()
 });
 
-export const createMockMovementService = (): jest.Mocked<IMovementService> => ({
+export const createMockMovementService = (): any => ({
   // Movement validation methods
-  getValidMoves: jest.fn(),
+  getValidMoves: vi.fn(),
   
   // Movement execution methods
-  movePlayer: jest.fn(),
+  movePlayer: vi.fn(),
   
   // Dice-based movement methods
-  getDiceDestination: jest.fn(),
+  getDiceDestination: vi.fn(),
   
   // Choice-based movement methods
-  handleMovementChoice: jest.fn()
+  handleMovementChoice: vi.fn()
 });
 
-export const createMockNegotiationService = (): jest.Mocked<INegotiationService> => ({
+export const createMockNegotiationService = (): any => ({
   // Core negotiation methods
-  initiateNegotiation: jest.fn(),
-  makeOffer: jest.fn(),
-  acceptOffer: jest.fn(),
-  declineOffer: jest.fn(),
+  initiateNegotiation: vi.fn(),
+  makeOffer: vi.fn(),
+  acceptOffer: vi.fn(),
+  declineOffer: vi.fn(),
   
   // Negotiation state methods
-  getActiveNegotiation: jest.fn(),
-  hasActiveNegotiation: jest.fn()
+  getActiveNegotiation: vi.fn(),
+  hasActiveNegotiation: vi.fn()
 });
 
-export const createMockEffectEngineService = (): jest.Mocked<IEffectEngineService> => ({
+export const createMockEffectEngineService = (): any => ({
   // Core processing methods
-  processEffects: jest.fn(),
-  processEffect: jest.fn(),
-  processActiveEffectsForAllPlayers: jest.fn(),
+  processEffects: vi.fn(),
+  processEffect: vi.fn(),
+  processActiveEffectsForAllPlayers: vi.fn(),
   
   // Validation methods
-  validateEffect: jest.fn(),
-  validateEffects: jest.fn()
+  validateEffect: vi.fn(),
+  validateEffects: vi.fn()
 });
 
-export const createMockChoiceService = (): jest.Mocked<IChoiceService> => ({
+export const createMockChoiceService = (): any => ({
   // Choice creation and resolution methods
-  createChoice: jest.fn(),
-  resolveChoice: jest.fn(),
+  createChoice: vi.fn(),
+  resolveChoice: vi.fn(),
   
   // Choice query methods
-  getActiveChoice: jest.fn(),
-  hasActiveChoice: jest.fn()
+  getActiveChoice: vi.fn(),
+  hasActiveChoice: vi.fn()
 });
 
-export const createMockTurnService = (): jest.Mocked<ITurnService> => ({
+export const createMockTurnService = (): any => ({
   // Turn management methods
-  takeTurn: jest.fn(),
-  endTurn: jest.fn(),
-  rollDice: jest.fn(),
+  takeTurn: vi.fn(),
+  endTurn: vi.fn(),
+  rollDice: vi.fn(),
   
   // Separate dice and movement methods
-  rollDiceAndProcessEffects: jest.fn(),
-  endTurnWithMovement: jest.fn(),
+  rollDiceAndProcessEffects: vi.fn(),
+  endTurnWithMovement: vi.fn(),
   
   // Turn validation methods  
-  canPlayerTakeTurn: jest.fn(),
-  getCurrentPlayerTurn: jest.fn(),
+  canPlayerTakeTurn: vi.fn(),
+  getCurrentPlayerTurn: vi.fn(),
   
   // Turn effects processing
-  processTurnEffects: jest.fn(),
+  processTurnEffects: vi.fn(),
   
   // Turn control methods
-  setTurnModifier: jest.fn(),
+  setTurnModifier: vi.fn(),
   
   // Feedback methods for UI components
-  rollDiceWithFeedback: jest.fn(),
-  rerollDice: jest.fn(),
-  triggerManualEffectWithFeedback: jest.fn(),
-  performNegotiation: jest.fn(),
-  tryAgainOnSpace: jest.fn(),
-  handleAutomaticFunding: jest.fn()
+  rollDiceWithFeedback: vi.fn(),
+  rerollDice: vi.fn(),
+  triggerManualEffectWithFeedback: vi.fn(),
+  performNegotiation: vi.fn(),
+  tryAgainOnSpace: vi.fn(),
+  handleAutomaticFunding: vi.fn()
 });
 
 // Convenience function to create all mocks at once
-export const createMockPlayerActionService = (): jest.Mocked<IPlayerActionService> => ({
+export const createMockPlayerActionService = (): any => ({
   // Methods for handling player commands and orchestrating actions
-  playCard: jest.fn(),
-  rollDice: jest.fn(),
-  endTurn: jest.fn()
+  playCard: vi.fn(),
+  rollDice: vi.fn(),
+  endTurn: vi.fn()
 });
 
-export const createMockLoggingService = (): jest.Mocked<ILoggingService> => ({
+export const createMockLoggingService = (): any => ({
   // Logging methods
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  log: jest.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  log: vi.fn(),
   // Performance timing methods
-  startPerformanceTimer: jest.fn(),
-  endPerformanceTimer: jest.fn()
+  startPerformanceTimer: vi.fn(),
+  endPerformanceTimer: vi.fn()
 });
 
 export const createAllMockServices = () => ({

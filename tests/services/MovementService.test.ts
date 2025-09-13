@@ -1,5 +1,6 @@
 // tests/services/MovementService.test.ts
 
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MovementService } from '../../src/services/MovementService';
 import { IDataService, IStateService, IChoiceService, ILoggingService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
@@ -7,10 +8,10 @@ import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTy
 import { createMockDataService, createMockStateService, createMockChoiceService, createMockLoggingService } from '../mocks/mockServices';
 
 // Mock implementations using centralized creators
-const mockDataService: jest.Mocked<IDataService> = createMockDataService();
-const mockStateService: jest.Mocked<IStateService> = createMockStateService();
-const mockChoiceService: jest.Mocked<IChoiceService> = createMockChoiceService();
-const mockLoggingService: jest.Mocked<ILoggingService> = createMockLoggingService();
+const mockDataService: vi.Mocked<IDataService> = createMockDataService();
+const mockStateService: vi.Mocked<IStateService> = createMockStateService();
+const mockChoiceService: vi.Mocked<IChoiceService> = createMockChoiceService();
+const mockLoggingService: vi.Mocked<ILoggingService> = createMockLoggingService();
 
 describe('MovementService', () => {
   let movementService: MovementService;
@@ -19,7 +20,7 @@ describe('MovementService', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     movementService = new MovementService(mockDataService, mockStateService, mockChoiceService, mockLoggingService);
     

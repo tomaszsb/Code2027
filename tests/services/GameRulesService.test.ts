@@ -1,5 +1,6 @@
 // tests/services/GameRulesService.test.ts
 
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameRulesService } from '../../src/services/GameRulesService';
 import { IDataService, IStateService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
@@ -7,8 +8,8 @@ import { Movement, DiceOutcome, CardType, GameConfig } from '../../src/types/Dat
 import { createMockDataService, createMockStateService } from '../mocks/mockServices';
 
 // Mock implementations using centralized creators
-const mockDataService: jest.Mocked<IDataService> = createMockDataService();
-const mockStateService: jest.Mocked<IStateService> = createMockStateService();
+const mockDataService: vi.Mocked<IDataService> = createMockDataService();
+const mockStateService: vi.Mocked<IStateService> = createMockStateService();
 
 describe('GameRulesService', () => {
   let gameRulesService: GameRulesService;
@@ -16,7 +17,7 @@ describe('GameRulesService', () => {
   let mockGameState: GameState;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     gameRulesService = new GameRulesService(mockDataService, mockStateService);
     
@@ -589,7 +590,7 @@ describe('GameRulesService', () => {
 
     it('should return false and log error when an exception occurs', async () => {
       // Arrange
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
       mockStateService.getPlayer.mockImplementation(() => {
         throw new Error('Database error');
       });
@@ -649,7 +650,7 @@ describe('GameRulesService', () => {
         mockStateService.getPlayer.mockReturnValue(playerWithAssets);
         
         // Mock calculateProjectScope to return a known value
-        jest.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(15000);
+        vi.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(15000);
 
         // Act
         const score = gameRulesService.calculatePlayerScore('player1');
@@ -685,7 +686,7 @@ describe('GameRulesService', () => {
         };
 
         mockStateService.getPlayer.mockReturnValue(playerWithDebts);
-        jest.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(2000);
+        vi.spyOn(gameRulesService, 'calculateProjectScope').mockReturnValue(2000);
 
         // Act
         const score = gameRulesService.calculatePlayerScore('player1');
@@ -712,7 +713,7 @@ describe('GameRulesService', () => {
         mockStateService.getGameState.mockReturnValue(mockGameStateWithPlayers);
 
         // Mock calculatePlayerScore to return different scores
-        jest.spyOn(gameRulesService, 'calculatePlayerScore')
+        vi.spyOn(gameRulesService, 'calculatePlayerScore')
           .mockReturnValueOnce(5000)  // player1
           .mockReturnValueOnce(15000) // player2 (highest)
           .mockReturnValueOnce(8000); // player3

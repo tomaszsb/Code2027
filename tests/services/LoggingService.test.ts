@@ -1,25 +1,26 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LoggingService, LogLevel } from '../../src/services/LoggingService';
 import { IStateService } from '../../src/types/ServiceContracts';
 import { createMockStateService } from '../mocks/mockServices';
 
 describe('LoggingService', () => {
   let loggingService: LoggingService;
-  let mockStateService: jest.Mocked<IStateService>;
+  let mockStateService: vi.Mocked<IStateService>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockStateService = createMockStateService();
     loggingService = new LoggingService(mockStateService);
     
     // Mock console methods to avoid spam during tests
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'warn').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
-    jest.spyOn(console, 'debug').mockImplementation();
+    vi.spyOn(console, 'log').mockImplementation();
+    vi.spyOn(console, 'warn').mockImplementation();
+    vi.spyOn(console, 'error').mockImplementation();
+    vi.spyOn(console, 'debug').mockImplementation();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Basic Logging Methods', () => {
@@ -98,7 +99,7 @@ describe('LoggingService', () => {
   describe('Performance Timing', () => {
     beforeEach(() => {
       // Mock performance.now()
-      jest.spyOn(performance, 'now')
+      vi.spyOn(performance, 'now')
         .mockReturnValueOnce(1000) // startPerformanceTimer
         .mockReturnValueOnce(1250); // endPerformanceTimer
     });

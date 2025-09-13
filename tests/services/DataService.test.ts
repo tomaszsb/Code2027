@@ -1,7 +1,8 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DataService } from '../../src/services/DataService';
 
 // Mock fetch globally for tests
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 // Simple mock data that matches expectations
 const mockCardsExpandedCsv = `card_id,card_name,card_type,description,effects_on_play,cost,phase_restriction,duration,duration_count,turn_effect,activation_timing,loan_amount,loan_rate,investment_amount,work_cost,money_effect,tick_modifier,draw_cards,discard_cards,target,scope,work_type_restriction
@@ -36,7 +37,7 @@ const urlMap: { [key: string]: string } = {
   '/data/CLEAN_FILES/CARDS_EXPANDED.csv': mockCardsExpandedCsv,
 };
 
-global.fetch = jest.fn().mockImplementation(url =>
+global.fetch = vi.fn().mockImplementation(url =>
   Promise.resolve({
     ok: true,
     text: () => Promise.resolve(urlMap[url.split('?')[0]] || ''),
@@ -48,7 +49,7 @@ describe('DataService', () => {
 
   beforeEach(() => {
     dataService = new DataService();
-    (global.fetch as jest.Mock).mockClear();
+    (global.fetch as vi.Mock).mockClear();
   });
 
   it('should fetch and parse all CSV files correctly', async () => {

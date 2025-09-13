@@ -1,21 +1,22 @@
 // Fast PlayerActionService test with proper mocking
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PlayerActionService } from '../../src/services/PlayerActionService';
 import { IDataService, IStateService, IGameRulesService, IMovementService, ITurnService, IEffectEngineService } from '../../src/types/ServiceContracts';
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
 
 // Mock EffectFactory completely
-jest.mock('../../src/utils/EffectFactory', () => ({
+vi.mock('../../src/utils/EffectFactory', () => ({
   EffectFactory: {
-    createEffectsFromCard: jest.fn(() => [])
+    createEffectsFromCard: vi.fn(() => [])
   }
 }));
 
 // Suppress console output
 global.console = {
   ...console,
-  log: jest.fn(),
-  error: jest.fn(),
+  log: vi.fn(),
+  error: vi.fn(),
 };
 
 describe('PlayerActionService Fast', () => {
@@ -23,35 +24,35 @@ describe('PlayerActionService Fast', () => {
   
   // Mock services with minimal implementations
   const mockDataService = {
-    getCardById: jest.fn()
+    getCardById: vi.fn()
   } as any;
   
   const mockStateService = {
-    getGameState: jest.fn(() => ({ currentPlayerId: 'player1', turn: 1 })),
-    getPlayer: jest.fn(),
-    updatePlayer: jest.fn(),
-    setPlayerHasMoved: jest.fn(),
-    logToActionHistory: jest.fn()
+    getGameState: vi.fn(() => ({ currentPlayerId: 'player1', turn: 1 })),
+    getPlayer: vi.fn(),
+    updatePlayer: vi.fn(),
+    setPlayerHasMoved: vi.fn(),
+    logToActionHistory: vi.fn()
   } as any;
   
   const mockGameRulesService = {
-    canPlayCard: jest.fn(),
-    canPlayerAfford: jest.fn()
+    canPlayCard: vi.fn(),
+    canPlayerAfford: vi.fn()
   } as any;
   
   const mockMovementService = {
-    getValidMoves: jest.fn(() => []),
-    getDiceDestination: jest.fn(() => null),
-    movePlayer: jest.fn()
+    getValidMoves: vi.fn(() => []),
+    getDiceDestination: vi.fn(() => null),
+    movePlayer: vi.fn()
   } as any;
   
   const mockTurnService = {
-    processTurnEffects: jest.fn(() => Promise.resolve()),
-    endTurn: jest.fn(() => Promise.resolve({ nextPlayerId: 'player2' }))
+    processTurnEffects: vi.fn(() => Promise.resolve()),
+    endTurn: vi.fn(() => Promise.resolve({ nextPlayerId: 'player2' }))
   } as any;
   
   const mockEffectEngineService = {
-    processEffects: jest.fn(() => Promise.resolve({
+    processEffects: vi.fn(() => Promise.resolve({
       success: true,
       totalEffects: 0,
       successfulEffects: 0,
@@ -59,21 +60,21 @@ describe('PlayerActionService Fast', () => {
       results: [],
       errors: []
     })),
-    processEffect: jest.fn(() => Promise.resolve({
+    processEffect: vi.fn(() => Promise.resolve({
       success: true,
       error: null
     }))
   } as any;
   
   const mockLoggingService = {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn()
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn()
   } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     playerActionService = new PlayerActionService(
       mockDataService,

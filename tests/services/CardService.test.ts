@@ -1,3 +1,4 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CardService } from '../../src/services/CardService';
 import { IDataService, IStateService, IResourceService, ILoggingService, IEffectEngineService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
@@ -7,11 +8,11 @@ import { createMockDataService, createMockStateService, createMockResourceServic
 
 describe('CardService - Enhanced Coverage', () => {
   let cardService: CardService;
-  let mockDataService: jest.Mocked<IDataService>;
-  let mockStateService: jest.Mocked<IStateService>;
-  let mockResourceService: jest.Mocked<IResourceService>;
-  let mockLoggingService: jest.Mocked<ILoggingService>;
-  let mockEffectEngineService: jest.Mocked<IEffectEngineService>;
+  let mockDataService: any;
+  let mockStateService: any;
+  let mockResourceService: any;
+  let mockLoggingService: any;
+  let mockEffectEngineService: any;
 
   const mockPlayer: Player = {
     id: 'player1',
@@ -76,7 +77,7 @@ describe('CardService - Enhanced Coverage', () => {
     
     // Create mock EffectEngineService
     mockEffectEngineService = {
-      processEffects: jest.fn().mockResolvedValue({
+      processEffects: vi.fn().mockResolvedValue({
         success: true,
         totalEffects: 1,
         successfulEffects: 1,
@@ -84,11 +85,11 @@ describe('CardService - Enhanced Coverage', () => {
         results: [],
         errors: []
       }),
-      processEffect: jest.fn().mockResolvedValue({
+      processEffect: vi.fn().mockResolvedValue({
         success: true,
         effectType: 'RESOURCE_CHANGE'
       }),
-      processCardEffects: jest.fn().mockResolvedValue({
+      processCardEffects: vi.fn().mockResolvedValue({
         success: true,
         totalEffects: 1,
         successfulEffects: 1,
@@ -96,7 +97,7 @@ describe('CardService - Enhanced Coverage', () => {
         results: [],
         errors: []
       }),
-      processEffectsWithTargeting: jest.fn().mockResolvedValue({
+      processEffectsWithTargeting: vi.fn().mockResolvedValue({
         success: true,
         totalEffects: 1,
         successfulEffects: 1,
@@ -104,7 +105,7 @@ describe('CardService - Enhanced Coverage', () => {
         results: [],
         errors: []
       }),
-      processEffectsWithDuration: jest.fn().mockResolvedValue({
+      processEffectsWithDuration: vi.fn().mockResolvedValue({
         success: true,
         totalEffects: 1,
         successfulEffects: 1,
@@ -112,11 +113,11 @@ describe('CardService - Enhanced Coverage', () => {
         results: [],
         errors: []
       }),
-      applyActiveEffects: jest.fn().mockResolvedValue(undefined),
-      addActiveEffect: jest.fn(),
-      processActiveEffectsForAllPlayers: jest.fn().mockResolvedValue(undefined),
-      validateEffect: jest.fn().mockReturnValue(true),
-      validateEffects: jest.fn().mockReturnValue(true)
+      applyActiveEffects: vi.fn().mockResolvedValue(undefined),
+      addActiveEffect: vi.fn(),
+      processActiveEffectsForAllPlayers: vi.fn().mockResolvedValue(undefined),
+      validateEffect: vi.fn().mockReturnValue(true),
+      validateEffects: vi.fn().mockReturnValue(true)
     };
 
     // Setup default mock responses
@@ -192,7 +193,7 @@ describe('CardService - Enhanced Coverage', () => {
 
     it('should process multiple players during endOfTurn', () => {
       // Clear previous mock calls to ensure accurate count
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       
       const player2: Player = {
         ...mockPlayer,
@@ -336,7 +337,7 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should draw cards from stateful decks and update player hand', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       // Arrange: Ensure getPlayer returns the mock player with initial hand
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
@@ -381,7 +382,7 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should fallback to ID parsing when DataService fails', () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
       mockDataService.getCardById.mockReturnValue(undefined);
 
       const cardType = cardService.getCardType('B_fallback_456');
@@ -391,7 +392,7 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should return null for invalid card ID format', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
       mockDataService.getCardById.mockReturnValue(undefined);
 
       const cardType = cardService.getCardType('invalid');
@@ -933,7 +934,7 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should handle EffectEngine processing failures gracefully', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
       
       const testCard = {
         card_id: 'FAIL001',
@@ -964,7 +965,7 @@ describe('CardService - Enhanced Coverage', () => {
     });
 
     it('should handle EffectEngine exceptions gracefully', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
       
       const testCard = {
         card_id: 'ERROR001',

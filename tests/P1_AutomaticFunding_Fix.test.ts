@@ -8,6 +8,7 @@
  * state consistency issue in handleAutomaticFunding.
  */
 
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CardService } from '../src/services/CardService';
 import { LoggingService } from '../src/services/LoggingService';
 import { StateService } from '../src/services/StateService';
@@ -31,7 +32,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
     
     // Mock the effectEngineService to avoid circular dependency issues in tests
     cardService.effectEngineService = {
-      processCardEffects: jest.fn().mockResolvedValue({
+      processCardEffects: vi.fn().mockResolvedValue({
         success: true,
         successfulEffects: 1,
         totalEffects: 1,
@@ -40,7 +41,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
     } as any;
     
     // Mock finalizePlayedCard to avoid complex game state setup in tests
-    jest.spyOn(cardService, 'finalizePlayedCard').mockImplementation(() => {});
+    vi.spyOn(cardService, 'finalizePlayedCard').mockImplementation(() => {});
 
     // Setup basic player state
     mockStateService.getPlayer.mockReturnValue({
@@ -70,7 +71,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       mockDataService.getCardById.mockReturnValue(mockCard);
 
       // Mock the drawCards method to return the card
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
 
       // Execute the atomic method
       const result = cardService.drawAndApplyCard(
@@ -103,7 +104,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       mockDataService.getCardById.mockReturnValue(mockCard);
 
       // Mock the drawCards method to return the card
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
 
       // Execute the atomic method for I card
       const result = cardService.drawAndApplyCard(
@@ -129,8 +130,8 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
 
     it('should handle case when no cards are available to draw', () => {
       // Mock empty card draw
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([]);
-      const playCardSpy = jest.spyOn(cardService, 'playCard');
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([]);
+      const playCardSpy = vi.spyOn(cardService, 'playCard');
 
       // Execute the atomic method
       const result = cardService.drawAndApplyCard(
@@ -155,8 +156,8 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       const mockCard = { card_id: mockCardId, card_name: 'Test B Card', card_type: 'B', loan_amount: '500000' };
       
       mockDataService.getCardById.mockReturnValue(mockCard);
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
-      jest.spyOn(cardService, 'applyCardEffects').mockImplementation(() => {
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
+      vi.spyOn(cardService, 'applyCardEffects').mockImplementation(() => {
         throw new Error('Card effects failed');
       });
 
@@ -197,7 +198,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
 
       // Mock successful B card draw (since scope ≤ $4M)
       mockDataService.getCardById.mockReturnValue(mockCard);
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
 
       // Execute the funding logic
       const result = cardService.drawAndApplyCard(
@@ -235,7 +236,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
 
       // Mock successful I card draw (since scope > $4M)
       mockDataService.getCardById.mockReturnValue(mockCard);
-      jest.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
+      vi.spyOn(cardService, 'drawCards').mockReturnValue([mockCardId]);
 
       // Execute the funding logic for I card
       const result = cardService.drawAndApplyCard(
@@ -269,7 +270,7 @@ describe('P1-CRITICAL: Automatic Funding Card Bug Fix', () => {
       // Verify it returns the expected shape
       const mockCard = { card_id: 'TEST001', card_name: 'Test Card', card_type: 'B', loan_amount: '500000' };
       mockDataService.getCardById.mockReturnValue(mockCard);
-      jest.spyOn(cardService, 'drawCards').mockReturnValue(['TEST001']);
+      vi.spyOn(cardService, 'drawCards').mockReturnValue(['TEST001']);
 
       const result = cardService.drawAndApplyCard('player1', 'B', 'test', 'test reason');
       

@@ -1,4 +1,5 @@
 // E012 Card Choice Integration Test
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EffectFactory } from '../src/utils/EffectFactory';
 import { EffectEngineService } from '../src/services/EffectEngineService';
 import { Effect, EffectContext, isChoiceOfEffectsEffect } from '../src/types/EffectTypes';
@@ -32,7 +33,7 @@ describe('E012 Card - Choice of Effects Integration', () => {
     mockServices = createMockServices();
     
     // Set up default mock behaviors
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Default mock returns for services
     mockServices.cardService.discardCards.mockReturnValue(true);

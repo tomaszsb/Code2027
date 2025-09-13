@@ -3,22 +3,23 @@ import { IDataService, IStateService, IGameRulesService, IMovementService, ITurn
 import { Player, Card } from '../../src/types/DataTypes';
 import { GameState } from '../../src/types/StateTypes';
 import { createMockDataService, createMockStateService, createMockGameRulesService, createMockMovementService, createMockTurnService, createMockEffectEngineService, createMockLoggingService } from '../mocks/mockServices';
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock EffectFactory to prevent real logic execution
-jest.mock('../../src/utils/EffectFactory', () => ({
+vi.mock('../../src/utils/EffectFactory', () => ({
   EffectFactory: {
-    createEffectsFromCard: jest.fn()
+    createEffectsFromCard: vi.fn()
   }
 }));
 
 // Import the mocked module to get access to the mocked functions
 import { EffectFactory } from '../../src/utils/EffectFactory';
-const mockCreateEffectsFromCard = EffectFactory.createEffectsFromCard as jest.MockedFunction<typeof EffectFactory.createEffectsFromCard>;
+const mockCreateEffectsFromCard = EffectFactory.createEffectsFromCard as vi.MockedFunction<typeof EffectFactory.createEffectsFromCard>;
 
 // Suppress console.log calls from service
 const originalConsoleLog = console.log;
 beforeAll(() => {
-  console.log = jest.fn();
+  console.log = vi.fn();
 });
 
 afterAll(() => {
@@ -26,13 +27,13 @@ afterAll(() => {
 });
 
 // Mock the services using centralized creators
-const mockDataService: jest.Mocked<IDataService> = createMockDataService();
-const mockStateService: jest.Mocked<IStateService> = createMockStateService();
-const mockGameRulesService: jest.Mocked<IGameRulesService> = createMockGameRulesService();
-const mockMovementService: jest.Mocked<IMovementService> = createMockMovementService();
-const mockTurnService: jest.Mocked<ITurnService> = createMockTurnService();
-const mockEffectEngineService: jest.Mocked<IEffectEngineService> = createMockEffectEngineService();
-const mockLoggingService: jest.Mocked<ILoggingService> = createMockLoggingService();
+const mockDataService: any = createMockDataService();
+const mockStateService: any = createMockStateService();
+const mockGameRulesService: any = createMockGameRulesService();
+const mockMovementService: any = createMockMovementService();
+const mockTurnService: any = createMockTurnService();
+const mockEffectEngineService: any = createMockEffectEngineService();
+const mockLoggingService: any = createMockLoggingService();
 
 describe('PlayerActionService', () => {
   let playerActionService: PlayerActionService;
@@ -122,7 +123,7 @@ describe('PlayerActionService', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup default EffectFactory mock
     mockCreateEffectsFromCard.mockReturnValue([]);

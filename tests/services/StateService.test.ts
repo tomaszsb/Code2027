@@ -2,13 +2,14 @@ import { StateService } from '../../src/services/StateService';
 import { IDataService } from '../../src/types/ServiceContracts';
 import { GameState, Player, GamePhase } from '../../src/types/StateTypes';
 import { createMockDataService } from '../mocks/mockServices';
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('StateService', () => {
   let stateService: StateService;
-  let mockDataService: jest.Mocked<IDataService>;
+  let mockDataService: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock using centralized creator, then configure specific return values
     mockDataService = createMockDataService();
@@ -535,34 +536,34 @@ describe('StateService', () => {
   });
 
   describe('Fallback Logic (DataService not available)', () => {
-    let mockDataServiceNotLoaded: jest.Mocked<IDataService>;
+    let mockDataServiceNotLoaded: any;
     let stateServiceWithUnloadedData: StateService;
 
     beforeEach(() => {
       // Create a mock DataService that returns false for isLoaded()
       mockDataServiceNotLoaded = {
-        isLoaded: jest.fn().mockReturnValue(false),
-        getGameConfig: jest.fn().mockReturnValue([]),
-        loadData: jest.fn().mockResolvedValue(undefined),
-        getGameConfigBySpace: jest.fn().mockReturnValue(undefined),
-        getPhaseOrder: jest.fn().mockReturnValue([]),
-        getAllSpaces: jest.fn().mockReturnValue([]),
-        getSpaceByName: jest.fn().mockReturnValue(undefined),
-        getMovement: jest.fn().mockReturnValue(undefined),
-        getAllMovements: jest.fn().mockReturnValue([]),
-        getDiceOutcome: jest.fn().mockReturnValue(undefined),
-        getAllDiceOutcomes: jest.fn().mockReturnValue([]),
-        getSpaceEffects: jest.fn().mockReturnValue([]),
-        getAllSpaceEffects: jest.fn().mockReturnValue([]),
-        getDiceEffects: jest.fn().mockReturnValue([]),
-        getAllDiceEffects: jest.fn().mockReturnValue([]),
-        getSpaceContent: jest.fn().mockReturnValue(undefined),
-        getAllSpaceContent: jest.fn().mockReturnValue([]),
-        getCards: jest.fn().mockReturnValue([]),
-        getCardById: jest.fn().mockReturnValue(undefined),
-        getCardsByType: jest.fn().mockReturnValue([]),
-        getAllCardTypes: jest.fn().mockReturnValue([])
-      } as jest.Mocked<IDataService>;
+        isLoaded: vi.fn().mockReturnValue(false),
+        getGameConfig: vi.fn().mockReturnValue([]),
+        loadData: vi.fn().mockResolvedValue(undefined),
+        getGameConfigBySpace: vi.fn().mockReturnValue(undefined),
+        getPhaseOrder: vi.fn().mockReturnValue([]),
+        getAllSpaces: vi.fn().mockReturnValue([]),
+        getSpaceByName: vi.fn().mockReturnValue(undefined),
+        getMovement: vi.fn().mockReturnValue(undefined),
+        getAllMovements: vi.fn().mockReturnValue([]),
+        getDiceOutcome: vi.fn().mockReturnValue(undefined),
+        getAllDiceOutcomes: vi.fn().mockReturnValue([]),
+        getSpaceEffects: vi.fn().mockReturnValue([]),
+        getAllSpaceEffects: vi.fn().mockReturnValue([]),
+        getDiceEffects: vi.fn().mockReturnValue([]),
+        getAllDiceEffects: vi.fn().mockReturnValue([]),
+        getSpaceContent: vi.fn().mockReturnValue(undefined),
+        getAllSpaceContent: vi.fn().mockReturnValue([]),
+        getCards: vi.fn().mockReturnValue([]),
+        getCardById: vi.fn().mockReturnValue(undefined),
+        getCardsByType: vi.fn().mockReturnValue([]),
+        getAllCardTypes: vi.fn().mockReturnValue([])
+      } as any;
 
       stateServiceWithUnloadedData = new StateService(mockDataServiceNotLoaded);
     });
@@ -600,9 +601,9 @@ describe('StateService', () => {
       // Create a mock where isLoaded returns true but getGameConfig returns empty array
       const mockDataServiceEmptyConfigs = {
         ...mockDataServiceNotLoaded,
-        isLoaded: jest.fn().mockReturnValue(true),
-        getGameConfig: jest.fn().mockReturnValue([])
-      } as jest.Mocked<IDataService>;
+        isLoaded: vi.fn().mockReturnValue(true),
+        getGameConfig: vi.fn().mockReturnValue([])
+      } as any;
 
       const stateServiceEmptyConfigs = new StateService(mockDataServiceEmptyConfigs);
       stateServiceEmptyConfigs.addPlayer('Alice');

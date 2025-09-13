@@ -1,6 +1,7 @@
 // Unit test for the tryAgainOnSpace method
 // This test verifies the state snapshot, revert, and turn progression functionality
 
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TurnService } from '../../src/services/TurnService';
 import { DataService } from '../../src/services/DataService';
 import { StateService } from '../../src/services/StateService';
@@ -22,10 +23,10 @@ describe('TurnService.tryAgainOnSpace', () => {
   beforeEach(() => {
     // Create mock services
     dataService = {
-      getSpaceContent: jest.fn(),
-      getSpaceEffects: jest.fn(),
-      isLoaded: jest.fn().mockReturnValue(true),
-      getGameConfig: jest.fn().mockReturnValue([{
+      getSpaceContent: vi.fn(),
+      getSpaceEffects: vi.fn(),
+      isLoaded: vi.fn().mockReturnValue(true),
+      getGameConfig: vi.fn().mockReturnValue([{
         space_name: 'START',
         is_starting_space: true,
         starting_money: 0,
@@ -33,21 +34,21 @@ describe('TurnService.tryAgainOnSpace', () => {
         min_players: 1,
         max_players: 4,
       }]),
-      getGameConfigBySpace: jest.fn(),
-      getCardsByType: jest.fn().mockReturnValue([]),
-      getSpaceByName: jest.fn(),
-      getAllSpaces: jest.fn().mockReturnValue([]),
-      getDiceOutcome: jest.fn(),
-      getAllDiceOutcomes: jest.fn().mockReturnValue([]),
+      getGameConfigBySpace: vi.fn(),
+      getCardsByType: vi.fn().mockReturnValue([]),
+      getSpaceByName: vi.fn(),
+      getAllSpaces: vi.fn().mockReturnValue([]),
+      getDiceOutcome: vi.fn(),
+      getAllDiceOutcomes: vi.fn().mockReturnValue([]),
     } as any;
 
     stateService = new StateService(dataService);
-    jest.spyOn(stateService, 'setGameState').mockImplementation();
-    jest.spyOn(stateService, 'canStartGame').mockReturnValue(true);
+    vi.spyOn(stateService, 'setGameState').mockImplementation();
+    vi.spyOn(stateService, 'canStartGame').mockReturnValue(true);
 
     gameRulesService = {
-      checkWinCondition: jest.fn(),
-      checkGameEndConditions: jest.fn().mockResolvedValue({
+      checkWinCondition: vi.fn(),
+      checkGameEndConditions: vi.fn().mockResolvedValue({
         shouldEnd: false,
         reason: null,
         winnerId: null
@@ -74,7 +75,7 @@ describe('TurnService.tryAgainOnSpace', () => {
       loggingService,
       effectEngineService
     );
-    (turnService as any).nextPlayer = jest.fn();
+    (turnService as any).nextPlayer = vi.fn();
   });
 
   it('should revert to snapshot, apply penalty, and advance turn', async () => {
@@ -95,12 +96,12 @@ describe('TurnService.tryAgainOnSpace', () => {
       ...initialGameState,
       players: initialGameState.players.map(p => ({ ...p, currentSpace: 'OWNER-SCOPE-INITIATION' }))
     };
-    jest.spyOn(stateService, 'getPreSpaceEffectSnapshot').mockReturnValue(mockSnapshot);
-    jest.spyOn(stateService, 'hasPreSpaceEffectSnapshot').mockReturnValue(true);
+    vi.spyOn(stateService, 'getPreSpaceEffectSnapshot').mockReturnValue(mockSnapshot);
+    vi.spyOn(stateService, 'hasPreSpaceEffectSnapshot').mockReturnValue(true);
 
     // Mock DataService responses for this test
-    (dataService.getSpaceContent as jest.Mock).mockReturnValue({ can_negotiate: true });
-    (dataService.getSpaceEffects as jest.Mock).mockReturnValue([{ 
+    (dataService.getSpaceContent as vi.Mock).mockReturnValue({ can_negotiate: true });
+    (dataService.getSpaceEffects as vi.Mock).mockReturnValue([{ 
       effect_type: 'time', 
       effect_action: 'add', 
       effect_value: 1 
@@ -121,7 +122,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     expect(result.message).toContain('Reverted to OWNER-SCOPE-INITIATION with 1 day penalty');
 
     // Verify that setGameState was called with the correct, reverted state
-    const setGameStateMock = stateService.setGameState as jest.Mock;
+    const setGameStateMock = stateService.setGameState as vi.Mock;
     console.log('setGameState call count:', setGameStateMock.mock.calls.length);
     console.log('setGameState calls:', setGameStateMock.mock.calls.map((call, i) => `Call ${i}: ${JSON.stringify(call[0].players[0]?.currentSpace)}`));
     
@@ -169,7 +170,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     stateService.setGameState(gameState);
 
     // Mock DataService to return a non-negotiable space
-    (dataService.getSpaceContent as jest.Mock).mockReturnValue({ can_negotiate: false });
+    (dataService.getSpaceContent as vi.Mock).mockReturnValue({ can_negotiate: false });
 
     stateService.savePreSpaceEffectSnapshot();
 

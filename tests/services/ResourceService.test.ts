@@ -1,3 +1,4 @@
+import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ResourceService } from '../../src/services/ResourceService';
 import { IStateService, ResourceChange, ResourceValidation } from '../../src/types/ServiceContracts';
 import { Player, GameState } from '../../src/types/StateTypes';
@@ -5,7 +6,7 @@ import { createMockStateService } from '../mocks/mockServices';
 
 describe('ResourceService', () => {
   let resourceService: ResourceService;
-  let mockStateService: jest.Mocked<IStateService>;
+  let mockStateService: any;
   
   const mockPlayer: Player = {
     id: 'player1',
@@ -24,7 +25,7 @@ describe('ResourceService', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     mockStateService = createMockStateService();
     mockStateService.getPlayer.mockReturnValue(mockPlayer);
