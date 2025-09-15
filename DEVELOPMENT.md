@@ -79,7 +79,7 @@ This architectural change will eliminate the race condition and ensure the autom
     1.  **Incorrect Action Buttons:** The UI shows "Roll for Bonus Cards" and "Pick up 1 TRANSFER card". The data only supports a conditional roll for a single Life card and does not support the transfer card action at all.
     2.  **Missing Core Functionality:** The UI lacks the primary choice mechanism for path selection, which is the main purpose of the space according to `Spaces.csv`.
     3.  **Missing Turn Finalization:** No "End Turn" button exists to process the selected actions and consequences.
-- **Action Item:** A set of tasks has been added to `TODO.md` to address these UI/UX bugs and bring the interface in line with the game logic defined in the data files.
+- **Action Item:** A set of tasks has been added to `todo.md` to address these UI/UX bugs and bring the interface in line with the game logic defined in the data files.
 
 ---
 

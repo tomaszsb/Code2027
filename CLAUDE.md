@@ -414,7 +414,7 @@ Gemini (Google's AI) serves as the **Project Manager** for code2027. Follow thes
 // 1. Acknowledge the task assignment
 // 2. Clarify requirements if needed  
 // 3. Provide time estimates
-// 4. Update TODO.md with progress
+// 4. Update todo.md with progress
 // 5. Report completion with details
 
 // Example acknowledgment:
@@ -466,7 +466,7 @@ interface ProductDecision {
 // 1. Document what was implemented
 // 2. Run full test suite  
 // 3. Check TypeScript compliance
-// 4. Update TODO.md status
+// 4. Update todo.md status
 // 5. Notify Gemini with summary
 
 // Example completion report:
@@ -506,7 +506,7 @@ Suggested Options: [2-3 potential solutions]"
 - **Be collaborative**: Recognize Gemini's PM role in decisions
 
 ### **Regular Check-ins**
-- **Daily**: Update TODO.md with progress
+- **Daily**: Update todo.md with progress
 - **Weekly**: Comprehensive status report to Gemini
 - **Ad-hoc**: Escalate blockers immediately
 - **Milestone**: Full completion report with metrics
@@ -515,11 +515,11 @@ Suggested Options: [2-3 potential solutions]"
 
 ## 📚 **REFERENCE DOCUMENTATION**
 
-- **TODO.md** - Current priorities and task tracking
-- **DEVELOPMENT.md** - Project status and work history  
+- **todo.md** - Current priorities and task tracking
+- **development.md** - Project status and work history
 - **TECHNICAL_DEEP_DIVE.md** - Architecture details
 - **src/types/ServiceContracts.ts** - All service interfaces
-- **DATA_STRUCTURE.md** - CSV data specifications
+- **testing-guide.md** - Comprehensive testing documentation
 
 ---
 
@@ -575,7 +575,7 @@ Suggested Options: [2-3 potential solutions]"
 ### 📋 **Deliverables Completed**
 - **Bug Fix**: Multi-player card targeting in `PlayerActionService.playCard()`
 - **Performance Report**: `PERFORMANCE_ANALYSIS.md` with 75-85% improvement roadmap
-- **Documentation**: Updated TODO.md and DEVELOPMENT.md with latest status
+- **Documentation**: Updated todo.md and development.md with latest status
 
 ---
 
