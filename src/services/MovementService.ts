@@ -51,7 +51,7 @@ export class MovementService implements IMovementService {
    * @returns Updated game state after the move
    * @throws Error if move is invalid or player not found
    */
-  movePlayer(playerId: string, destinationSpace: string): GameState {
+  async movePlayer(playerId: string, destinationSpace: string): Promise<GameState> {
     const validMoves = this.getValidMoves(playerId);
     
     if (!validMoves.includes(destinationSpace)) {
@@ -67,15 +67,21 @@ export class MovementService implements IMovementService {
     const sourceSpace = player.currentSpace;
 
     // Determine visit type for destination space
-    const newVisitType: VisitType = this.hasPlayerVisitedSpace(player, destinationSpace) 
-      ? 'Subsequent' 
+    const newVisitType: VisitType = this.hasPlayerVisitedSpace(player, destinationSpace)
+      ? 'Subsequent'
       : 'First';
+
+    // Update visited spaces array if this is a first visit
+    const updatedVisitedSpaces = newVisitType === 'First'
+      ? [...player.visitedSpaces, destinationSpace]
+      : player.visitedSpaces;
 
     // Update player's position
     const updatedState = this.stateService.updatePlayer({
       id: playerId,
       currentSpace: destinationSpace,
-      visitType: newVisitType
+      visitType: newVisitType,
+      visitedSpaces: updatedVisitedSpaces
     });
 
     // Log the movement
@@ -87,6 +93,24 @@ export class MovementService implements IMovementService {
       destinationSpace: destinationSpace,
       visitType: newVisitType
     });
+
+    // Note: Space effects are processed by TurnService.processTurnEffects, not here
+    // MovementService only handles the physical movement of players between spaces
+
+    // Check if the destination space has multiple movement options
+    // If so, proactively create a movement choice for TurnControls integration
+    try {
+      const newValidMoves = this.getValidMoves(playerId);
+      if (newValidMoves.length > 1) {
+        console.log(`🚶 Player ${player.name} arrived at ${destinationSpace} with ${newValidMoves.length} movement options - creating choice`);
+
+        // Create movement choice without awaiting (fire and forget)
+        // This will set awaitingChoice in the game state for TurnControls to detect
+        this.createMovementChoiceAsync(playerId, newValidMoves);
+      }
+    } catch (error) {
+      console.warn(`Warning: Could not check for movement options at ${destinationSpace}:`, error);
+    }
 
     return updatedState;
   }
@@ -188,7 +212,7 @@ export class MovementService implements IMovementService {
     if (validMoves.length === 1) {
       // Only one option - move automatically without presenting a choice
       console.log(`🚶 Auto-moving player ${playerId} to ${validMoves[0]} (only option)`);
-      return this.movePlayer(playerId, validMoves[0]);
+      return await this.movePlayer(playerId, validMoves[0]);
     }
 
     // Multiple options - present choice to player
@@ -217,33 +241,18 @@ export class MovementService implements IMovementService {
     console.log(`✅ Player ${player.name} chose to move to: ${selectedDestination}`);
     
     // Move the player to the selected destination
-    return this.movePlayer(playerId, selectedDestination);
+    return await this.movePlayer(playerId, selectedDestination);
   }
+
+
 
   /**
    * Checks if a player has previously visited a space
    * @private
    */
   private hasPlayerVisitedSpace(player: Player, spaceName: string): boolean {
-    // For now, we'll use a simple heuristic:
-    // If the player is not at their starting position, they've visited other spaces
-    // This is a simplified implementation - in a full game, we'd track visit history
-    
-    // Get starting spaces from game config
-    const allSpaces = this.dataService.getAllSpaces();
-    const startingSpaces = allSpaces
-      .filter(space => space.config.is_starting_space)
-      .map(space => space.name);
-    
-    // If player is currently at a starting space and the destination is different,
-    // it's likely their first visit to the destination
-    if (startingSpaces.includes(player.currentSpace) && player.currentSpace !== spaceName) {
-      return false;
-    }
-    
-    // For any other case, assume it's a subsequent visit
-    // In a full implementation, we'd maintain a visited spaces history for each player
-    return true;
+    // Use the proper visitedSpaces tracking instead of faulty heuristics
+    return player.visitedSpaces.includes(spaceName);
   }
 
   /**
@@ -379,14 +388,53 @@ export class MovementService implements IMovementService {
     // We need to count the Work cards in the player's hand
     let projectScope = 0;
     const hand = player.hand || [];
-    
+
     // Count W cards to determine scope
     const workCards = hand.filter(cardId => cardId.startsWith('W'));
-    
+
     // Each Work card represents a certain amount of project scope
     // Using simplified logic: each W card = $500K scope
     projectScope = workCards.length * 500000;
-    
+
     return projectScope;
+  }
+
+  /**
+   * Creates a movement choice asynchronously for TurnControls integration
+   * @private
+   */
+  private createMovementChoiceAsync(playerId: string, validMoves: string[]): void {
+    // Run asynchronously to avoid blocking the movement operation
+    setTimeout(async () => {
+      try {
+        const player = this.stateService.getPlayer(playerId);
+        if (!player) {
+          console.warn(`Player ${playerId} not found when creating movement choice`);
+          return;
+        }
+
+        const options = validMoves.map(destination => ({
+          id: destination,
+          label: destination
+        }));
+
+        const prompt = `Choose your destination from ${player.currentSpace}:`;
+
+        console.log(`🎯 Creating movement choice for ${player.name}: ${validMoves.length} options`);
+
+        // Set the movement choice in the game state for TurnControls to display
+        // Note: We don't await this since it's meant to be displayed in TurnControls
+        await this.choiceService.createChoice(
+          playerId,
+          'MOVEMENT',
+          prompt,
+          options
+        );
+
+        console.log(`✅ Movement choice created successfully for ${player.name}`);
+      } catch (error) {
+        console.error('Error creating movement choice:', error);
+      }
+    }, 0); // No delay - run immediately on next tick
   }
 }

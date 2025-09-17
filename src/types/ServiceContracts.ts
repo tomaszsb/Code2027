@@ -224,6 +224,9 @@ export interface ITurnService {
   
   // Turn control methods
   setTurnModifier(playerId: string, action: 'SKIP_TURN'): boolean;
+
+  // Starting space effects processing
+  processStartingSpaceEffects(): Promise<void>;
   
   // Feedback methods for UI components
   rollDiceWithFeedback(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
@@ -284,7 +287,7 @@ export interface IMovementService {
   getValidMoves(playerId: string): string[];
   
   // Movement execution methods
-  movePlayer(playerId: string, destinationSpace: string): GameState;
+  movePlayer(playerId: string, destinationSpace: string): Promise<GameState>;
   
   // Dice-based movement methods
   getDiceDestination(spaceName: string, visitType: VisitType, diceRoll: number): string | null;
@@ -346,7 +349,10 @@ export interface IEffectEngineService {
   processEffects(effects: Effect[], context: EffectContext): Promise<BatchEffectResult>;
   processEffect(effect: Effect, context: EffectContext): Promise<EffectResult>;
   processActiveEffectsForAllPlayers(): Promise<void>;
-  
+
+  // Card-specific processing with targeting support
+  processCardEffects(effects: Effect[], context: EffectContext, cardData?: any): Promise<BatchEffectResult>;
+
   // Validation methods
   validateEffect(effect: Effect, context: EffectContext): boolean;
   validateEffects(effects: Effect[], context: EffectContext): boolean;

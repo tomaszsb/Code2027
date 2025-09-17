@@ -49,7 +49,7 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const negotiationService = new NegotiationService(stateService, tempEffectEngine);
   
   // Create TurnService with NegotiationService dependency
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService);
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService, choiceService);
   
   // Create final EffectEngineService with TurnService dependency
   const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService);

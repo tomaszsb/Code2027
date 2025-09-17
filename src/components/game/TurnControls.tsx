@@ -4,13 +4,16 @@ import { useGameContext } from '../../context/GameContext';
 import { DiceResultModal, DiceRollResult } from '../modals/DiceResultModal';
 import { Player } from '../../types/DataTypes';
 import { GamePhase } from '../../types/StateTypes';
+import { Choice } from '../../types/CommonTypes';
+import { formatManualEffectButton, getManualEffectButtonStyle } from '../../utils/buttonFormatting';
 
 interface TurnControlsProps {
   onOpenNegotiationModal: () => void;
 }
 
-export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX.Element {
-  const { stateService, turnService, playerActionService, dataService } = useGameContext();
+export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps): JSX.Element {
+  console.log('🚨 LEGACY TurnControls component mounting - this should not be used!');
+  const { stateService, turnService, playerActionService, dataService, choiceService, movementService } = useGameContext();
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
@@ -21,18 +24,34 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
   const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState(false);
   const [hasCompletedManualActions, setHasCompletedManualActions] = useState(false);
   const [awaitingChoice, setAwaitingChoice] = useState(false);
+  const [currentChoice, setCurrentChoice] = useState<Choice | null>(null);
   const [actionCounts, setActionCounts] = useState({ required: 0, completed: 0 });
   const [diceResult, setDiceResult] = useState<DiceRollResult | null>(null);
   const [showDiceResultModal, setShowDiceResultModal] = useState(false);
 
   // Subscribe to state changes for live updates
   useEffect(() => {
+    console.log('🔌 TurnControls: Setting up state subscription');
     const unsubscribe = stateService.subscribe((gameState) => {
+      console.log('📨 TurnControls: Received state update', {
+        awaitingChoice: gameState.awaitingChoice?.type || null,
+        currentPlayer: gameState.currentPlayerId
+      });
       setGamePhase(gameState.gamePhase);
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
       setHasCompletedManualActions(gameState.hasCompletedManualActions || false);
       setAwaitingChoice(gameState.awaitingChoice !== null);
+      setCurrentChoice(gameState.awaitingChoice);
+
+      // Debug movement choice updates
+      if (gameState.awaitingChoice?.type === 'MOVEMENT') {
+        console.log('🔧 TurnControls: Movement choice detected in state update!', {
+          choice: gameState.awaitingChoice,
+          currentPlayer: gameState.currentPlayerId,
+          humanPlayerId
+        });
+      }
       
       // Update action counts from game state
       console.log(`🎯 TurnControls - Action Counts Update: Required=${gameState.requiredActions}, Completed=${gameState.completedActions}`);
@@ -114,6 +133,54 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       return () => clearTimeout(aiTurnTimer);
     }
   }, [currentPlayer?.id, gamePhase, humanPlayerId, isProcessingTurn, turnService]);
+
+  // Check for movement choices when it's the human player's turn
+  useEffect(() => {
+    console.log('🔍 TurnControls useEffect triggered - Movement choice check', {
+      gamePhase,
+      currentPlayerId: currentPlayer?.id,
+      humanPlayerId,
+      isProcessingTurn,
+      awaitingChoice,
+      currentSpace: currentPlayer?.currentSpace
+    });
+
+    if (gamePhase === 'PLAY' && currentPlayer && currentPlayer.id === humanPlayerId && !isProcessingTurn && !awaitingChoice) {
+      console.log(`🔍 Checking for movement options for ${currentPlayer.name} at ${currentPlayer.currentSpace}`);
+
+      // Check if player has multiple movement options at current location
+      const checkMovementOptions = async () => {
+        try {
+          const validMoves = movementService.getValidMoves(currentPlayer.id);
+
+          if (validMoves.length > 1) {
+            console.log(`🚶 ${currentPlayer.name} has ${validMoves.length} movement options at ${currentPlayer.currentSpace}`);
+
+            // Create movement choice for TurnControls
+            const options = validMoves.map(destination => ({
+              id: destination,
+              label: destination
+            }));
+
+            const prompt = `Choose your destination from ${currentPlayer.currentSpace}:`;
+
+            await choiceService.createChoice(
+              currentPlayer.id,
+              'MOVEMENT',
+              prompt,
+              options
+            );
+          } else {
+            console.log(`🚶 ${currentPlayer.name} has ${validMoves.length} movement options - no choice needed`);
+          }
+        } catch (error) {
+          console.warn(`Warning: Could not check movement options for ${currentPlayer.name}:`, error);
+        }
+      };
+
+      checkMovementOptions();
+    }
+  }, [currentPlayer?.id, gamePhase, humanPlayerId, isProcessingTurn, awaitingChoice, choiceService, movementService]);
 
   const handleRollDice = async () => {
     if (!currentPlayer || isProcessingTurn) return;
@@ -237,9 +304,12 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
 
 
   // Check for available manual effects
-  const manualEffects = currentPlayer ? 
+  // Filter out 'turn' effects since they duplicate the regular End Turn button
+  const manualEffects = currentPlayer ?
     dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType)
-      .filter(effect => effect.trigger_type === 'manual') : [];
+      .filter(effect => effect.trigger_type === 'manual')
+      .filter(effect => effect.effect_type !== 'turn') : []; // Exclude turn effects to avoid duplicate end turn buttons
+
 
   const isHumanPlayerTurn = currentPlayer?.id === humanPlayerId;
   // Hide dice roll button on OWNER-FUND-INITIATION space (funding is automatic)
@@ -248,11 +318,59 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
                      !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice &&
                      !isOnFundingSpace;
   // On OWNER-FUND-INITIATION space, allow ending turn without dice roll (funding is automatic)
-  const canEndTurn = gamePhase === 'PLAY' && isHumanPlayerTurn && 
-                    !isProcessingTurn && 
-                    (hasPlayerRolledDice || isOnFundingSpace) && 
-                    actionCounts.completed >= actionCounts.required;
-  
+  // Disable end turn if there's a pending movement choice
+  const canEndTurn = gamePhase === 'PLAY' && isHumanPlayerTurn &&
+                    !isProcessingTurn &&
+                    (hasPlayerRolledDice || isOnFundingSpace) &&
+                    actionCounts.completed >= actionCounts.required &&
+                    !(currentChoice && currentChoice.type === 'MOVEMENT');
+
+  // MANUAL MOVEMENT CHOICE TEST - Remove this later
+  const testMovementChoice = async () => {
+    if (!currentPlayer) return;
+    console.log('🧪 MANUAL TEST: Checking movement options for', currentPlayer.name, 'at', currentPlayer.currentSpace);
+
+    try {
+      const validMoves = movementService.getValidMoves(currentPlayer.id);
+      console.log('🧪 MANUAL TEST: Valid moves found:', validMoves);
+
+      if (validMoves.length > 1) {
+        console.log('🧪 MANUAL TEST: Creating movement choice');
+        const options = validMoves.map(destination => ({
+          id: destination,
+          label: destination
+        }));
+
+        await choiceService.createChoice(
+          currentPlayer.id,
+          'MOVEMENT',
+          `Choose your destination from ${currentPlayer.currentSpace}:`,
+          options
+        );
+        console.log('🧪 MANUAL TEST: Movement choice created successfully');
+      }
+    } catch (error) {
+      console.error('🧪 MANUAL TEST: Error:', error);
+    }
+  };
+
+  // Handle movement choice selection
+  const handleMovementChoice = async (choiceId: string) => {
+    if (!currentChoice || currentChoice.type !== 'MOVEMENT') {
+      console.error('No valid movement choice available');
+      return;
+    }
+
+    try {
+      setIsProcessingTurn(true);
+      await choiceService.resolveChoice(currentChoice.id, choiceId);
+      setIsProcessingTurn(false);
+    } catch (error) {
+      console.error('Error resolving movement choice:', error);
+      setIsProcessingTurn(false);
+    }
+  };
+
   // Debug End Turn button state
   if (currentPlayer && actionCounts.completed >= actionCounts.required) {
     console.log(`🏁 End Turn Debug for ${currentPlayer.name}:`);
@@ -265,7 +383,7 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
   }
 
   if (gamePhase !== 'PLAY') {
-    const handleStartGame = () => {
+    const handleStartGame = async () => {
       try {
         // Add a test player if no players exist
         const gameState = stateService.getGameState();
@@ -274,6 +392,15 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
         }
         // Start the game
         stateService.startGame();
+
+        // Process starting space effects for all players
+        console.log('🏁 Processing starting space effects...');
+        try {
+          await turnService.processStartingSpaceEffects();
+          console.log('✅ Starting space effects processed successfully');
+        } catch (error) {
+          console.error('❌ Error processing starting space effects:', error);
+        }
       } catch (error) {
         console.error('Error starting game:', error);
       }
@@ -330,9 +457,34 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
       {/* Turn Controls Header */}
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
         <div style={{ fontSize: '12px', fontWeight: 'bold', color: colors.text.primary }}>
-          🎮 Turn Controls
+          🎮 Turn Controls - FORCE UPDATE v2.0 - {Date.now()}
+        </div>
+        <div style={{ fontSize: '8px', color: 'red', fontWeight: 'bold' }}>
+          🔥 CHOICE: {currentChoice?.type || 'NULL'} | SPACE: {currentPlayer?.currentSpace || 'NULL'}
+        </div>
+        <div style={{ fontSize: '8px', color: 'orange', fontWeight: 'bold' }}>
+          🔥 AWAITING: {awaitingChoice ? 'YES' : 'NO'} | HUMAN: {isHumanPlayerTurn ? 'YES' : 'NO'}
         </div>
       </div>
+
+      {/* TEMP TEST BUTTON - Remove after debugging */}
+      {currentPlayer && currentPlayer.currentSpace === 'PM-DECISION-CHECK' && (
+        <button
+          onClick={testMovementChoice}
+          style={{
+            width: '100%',
+            padding: '8px',
+            margin: '4px 0',
+            backgroundColor: '#ff6b35',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}
+        >
+          🧪 TEST: Create Movement Choice
+        </button>
+      )}
 
 
       {/* Status Messages */}
@@ -441,45 +593,78 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
 
         {/* Manual Space Effect Buttons */}
         {isHumanPlayerTurn && manualEffects.length > 0 && manualEffects.map((effect, index) => {
-          const isCardEffect = effect.effect_type === 'cards';
-          const cardType = isCardEffect ? effect.effect_action.replace('draw_', '').toUpperCase() : '';
-          const count = effect.effect_value;
-          const buttonText = isCardEffect ? `Pick up ${count} ${cardType} card${count !== 1 ? 's' : ''}` : 
-                            `${effect.effect_type}: ${effect.effect_action} ${count}`;
-          
+          // Use centralized button formatting
+          const { text: buttonText, icon: buttonIcon } = formatManualEffectButton(effect);
+
           const isButtonDisabled = isProcessingTurn || hasCompletedManualActions;
-          
+
           return (
             <button
               key={index}
               onClick={() => handleManualEffect(effect.effect_type)}
               disabled={isButtonDisabled}
-              title={hasCompletedManualActions ? 'Manual actions already completed' : ''}
-              style={{
-                padding: '4px 8px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                color: !isButtonDisabled ? colors.white : colors.secondary.main,
-                backgroundColor: !isButtonDisabled ? colors.info.main : colors.secondary.bg,
-                border: 'none',
-                borderRadius: '4px',
-                cursor: !isButtonDisabled ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '3px',
-                transition: 'all 0.2s ease',
-                transform: isButtonDisabled ? 'scale(0.95)' : 'scale(1)',
-                opacity: isButtonDisabled ? 0.7 : 1,
-              }}
+              title={isButtonDisabled ? 'Manual action already completed' : ''}
+              style={getManualEffectButtonStyle(isButtonDisabled, colors)}
             >
-              <span>{isCardEffect ? '🃏' : '⚡'}</span>
+              <span>{buttonIcon}</span>
               <span>{buttonText}</span>
             </button>
           );
         })}
+
+        {/* Movement Choice Buttons */}
+        {(() => {
+          console.log('🔍 TurnControls Movement Choice Debug:', {
+            isHumanPlayerTurn,
+            currentChoice,
+            choiceType: currentChoice?.type,
+            shouldShow: isHumanPlayerTurn && currentChoice && currentChoice.type === 'MOVEMENT'
+          });
+          return null;
+        })()}
+        {isHumanPlayerTurn && currentChoice && currentChoice.type === 'MOVEMENT' && (
+          <>
+            <div style={{
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: colors.info.main,
+              textAlign: 'center',
+              marginTop: '6px',
+              marginBottom: '2px'
+            }}>
+              🚶 Choose Destination
+            </div>
+            {currentChoice.options.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => handleMovementChoice(option.id)}
+                disabled={isProcessingTurn}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  color: !isProcessingTurn ? colors.white : colors.secondary.main,
+                  backgroundColor: !isProcessingTurn ? colors.info.main : colors.secondary.bg,
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: !isProcessingTurn ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                  transition: 'all 0.2s ease',
+                  transform: isProcessingTurn ? 'scale(0.95)' : 'scale(1)',
+                  opacity: isProcessingTurn ? 0.7 : 1,
+                }}
+              >
+                <span>🎯</span>
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </>
+        )}
       </div>
-      
+
       {/* Turn-Ending Buttons Container */}
       {isHumanPlayerTurn && (
         <div style={{
@@ -506,7 +691,13 @@ export function TurnControls({ onOpenNegotiationModal }: TurnControlsProps): JSX
           <button
             onClick={handleEndTurn}
             disabled={!canEndTurn}
-            title={canEndTurn ? 'End your turn' : `Complete ${actionCounts.required - actionCounts.completed} more action(s) to end turn`}
+            title={
+              currentChoice && currentChoice.type === 'MOVEMENT'
+                ? 'Select a movement destination before ending turn'
+                : canEndTurn
+                  ? 'End your turn'
+                  : `Complete ${actionCounts.required - actionCounts.completed} more action(s) to end turn`
+            }
             style={{
               padding: '4px 8px',
               fontSize: '10px',

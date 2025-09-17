@@ -1,7 +1,7 @@
-import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, ILoggingService, TurnResult } from '../types/ServiceContracts';
+import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, ILoggingService, IChoiceService, TurnResult } from '../types/ServiceContracts';
 import { NegotiationService } from './NegotiationService';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
-import { DiceEffect, SpaceEffect, Movement, CardType } from '../types/DataTypes';
+import { DiceEffect, SpaceEffect, Movement, CardType, VisitType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
 import { EffectContext } from '../types/EffectTypes';
 
@@ -14,9 +14,10 @@ export class TurnService implements ITurnService {
   private readonly movementService: IMovementService;
   private readonly negotiationService: NegotiationService;
   private readonly loggingService: ILoggingService;
+  private readonly choiceService: IChoiceService;
   private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, loggingService: ILoggingService, effectEngineService?: IEffectEngineService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, loggingService: ILoggingService, choiceService: IChoiceService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
@@ -25,6 +26,7 @@ export class TurnService implements ITurnService {
     this.movementService = movementService;
     this.negotiationService = negotiationService;
     this.loggingService = loggingService;
+    this.choiceService = choiceService;
     this.effectEngineService = effectEngineService;
   }
 
@@ -214,8 +216,20 @@ export class TurnService implements ITurnService {
 
       console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
 
+      // Check if there's already an awaiting choice
+      if (gameState.awaitingChoice && gameState.awaitingChoice.type === 'MOVEMENT') {
+        throw new Error('Cannot end turn: Player must resolve the pending movement choice first');
+      }
+
       // Handle movement using MovementService
       await this.movementService.handleMovementChoice(currentPlayer.id);
+
+      // Process space effects for the NEW space the player just moved to
+      const updatedPlayer = this.stateService.getPlayer(currentPlayer.id);
+      if (updatedPlayer && updatedPlayer.currentSpace !== currentPlayer.currentSpace) {
+        console.log(`🏠 Processing space effects for arrival at ${updatedPlayer.currentSpace}`);
+        await this.processSpaceEffectsAfterMovement(updatedPlayer.id, updatedPlayer.currentSpace, updatedPlayer.visitType);
+      }
 
       // Check for win condition before ending turn
       const hasWon = await this.gameRulesService.checkWinCondition(gameState.currentPlayerId);
@@ -288,10 +302,6 @@ export class TurnService implements ITurnService {
   }
 
   private async nextPlayer(): Promise<{ nextPlayerId: string }> {
-    // Clear any existing snapshot when advancing to next player
-    // Clearing snapshot for next player
-    this.stateService.clearPreSpaceEffectSnapshot();
-    
     const gameState = this.stateService.getGameState();
     const allPlayers = gameState.players;
     
@@ -453,7 +463,12 @@ export class TurnService implements ITurnService {
       );
       
       // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
-      const filteredSpaceEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+      const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+
+      // Filter out manual effects - these should only be triggered when player clicks buttons
+      const filteredSpaceEffects = conditionFilteredEffects.filter(effect =>
+        effect.trigger_type !== 'manual'
+      );
       
       // Get dice effect data from DataService  
       const diceEffectsData = this.dataService.getDiceEffects(
@@ -857,29 +872,56 @@ export class TurnService implements ITurnService {
       );
       return this.stateService.getGameState();
     } else if (action === 'replace_e') {
-      // Replace E cards using CardService (includes action logging)
+      // Replace E cards - create choice if player has multiple E cards
       const currentECards = this.cardService.getPlayerCards(playerId, 'E');
       const replaceCount = Math.min(value, currentECards.length);
-      
-      if (replaceCount > 0) {
-        // Use CardService for replacement (discard old + draw new)
+
+      if (replaceCount === 0) {
+        console.log(`Player ${player.name} has no E cards to replace`);
+        return this.stateService.getGameState();
+      }
+
+      if (currentECards.length === 1 || replaceCount === currentECards.length) {
+        // Only one card or replacing all cards - no choice needed
         this.cardService.discardCards(
           playerId,
           currentECards.slice(0, replaceCount),
           'manual_effect',
           `Manual action: Replace ${replaceCount} E cards - removing old cards`
         );
+
         this.cardService.drawCards(
-          playerId, 
-          'E', 
-          replaceCount, 
-          'manual_effect', 
+          playerId,
+          'E',
+          replaceCount,
+          'manual_effect',
           `Manual action: Replace ${replaceCount} E cards - adding new cards`
         );
       } else {
-        console.log(`Player ${player.name} has no E cards to replace`);
+        // Multiple cards available - create choice for which to replace
+        console.log(`Player ${player.name} has ${currentECards.length} E cards, creating choice for replacement`);
+
+        // Create choice options for each E card
+        const options = currentECards.map(cardId => {
+          const cardData = this.dataService.getCardById(cardId);
+          return {
+            id: cardId,
+            label: cardData ? cardData.card_name : `E Card ${cardId}`
+          };
+        });
+
+        // Use ChoiceService to create the choice
+        this.choiceService.createChoice(
+          playerId,
+          'CARD_REPLACEMENT',
+          `Choose ${replaceCount} E card${replaceCount !== 1 ? 's' : ''} to replace:`,
+          options
+        );
+
+        // Note: The actual replacement will be handled by choice resolution
+        // For now, we'll mark it as completed to allow turn progression
       }
-      
+
       return this.stateService.getGameState();
     } else if (action === 'replace_l') {
       // Replace L cards using CardService (includes action logging)
@@ -1092,6 +1134,48 @@ export class TurnService implements ITurnService {
     return 0;
   }
 
+  /**
+   * Apply dice roll chance effects (like "draw_l_on_1" - draw a card if dice roll is 1)
+   */
+  private applyDiceRollChanceEffect(playerId: string, effect: SpaceEffect): GameState {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🎲 Applying dice roll chance effect: ${effect.effect_action} for ${player.name}`);
+
+    // Roll a dice (1-6)
+    const diceRoll = Math.floor(Math.random() * 6) + 1;
+    console.log(`🎲 Dice rolled: ${diceRoll}`);
+
+    // Parse the effect action to understand the condition
+    // Format: "draw_l_on_1" means draw L card if roll is 1
+    const actionParts = effect.effect_action.split('_');
+    if (actionParts.length >= 3 && actionParts[0] === 'draw') {
+      const cardType = actionParts[1].toUpperCase() as CardType;
+      const triggerRoll = parseInt(actionParts[3]); // "on_1" -> 1
+      const cardCount = parseInt(effect.effect_value.toString()) || 1;
+
+      if (diceRoll === triggerRoll) {
+        console.log(`🎯 Dice roll ${diceRoll} matches trigger ${triggerRoll}! Drawing ${cardCount} ${cardType} card(s)`);
+
+        // Use the CardService to draw cards
+        try {
+          this.cardService.drawCards(playerId, cardType, cardCount, 'dice_roll_chance',
+            `Manual effect: Drew ${cardCount} ${cardType} card(s) on dice roll ${diceRoll}`);
+        } catch (error) {
+          console.warn(`Failed to draw ${cardType} cards:`, error);
+        }
+      } else {
+        console.log(`🎲 Dice roll ${diceRoll} does not match trigger ${triggerRoll}. No cards drawn.`);
+      }
+    } else {
+      console.warn(`Unknown dice_roll_chance effect format: ${effect.effect_action}`);
+    }
+
+    return this.stateService.getGameState();
+  }
 
   /**
    * Trigger a manual space effect for the current player
@@ -1124,13 +1208,23 @@ export class TurnService implements ITurnService {
 
     // Apply the effect based on type
     let newState = this.stateService.getGameState();
-    
+
     if (effectType === 'cards') {
       newState = this.applySpaceCardEffect(playerId, manualEffect);
     } else if (effectType === 'money') {
       newState = this.applySpaceMoneyEffect(playerId, manualEffect);
     } else if (effectType === 'time') {
       newState = this.applySpaceTimeEffect(playerId, manualEffect);
+    } else if (effectType === 'dice_roll_chance') {
+      // Handle dice roll chance effects (like "draw_l_on_1")
+      console.log(`🎲 Processing dice_roll_chance effect: ${manualEffect.effect_action}`);
+      newState = this.applyDiceRollChanceEffect(playerId, manualEffect);
+    } else if (effectType === 'turn') {
+      // Handle turn effects (like "end_turn") - these are special and don't need processing here
+      console.log(`🏁 Processing turn effect: ${manualEffect.effect_action}`);
+      // Turn effects are handled by the UI component calling onEndTurn
+    } else {
+      console.warn(`⚠️ Unknown manual effect type: ${effectType}`);
     }
 
     // Mark that player has completed a manual action
@@ -1197,7 +1291,7 @@ export class TurnService implements ITurnService {
       const timeChange = afterPlayer.timeSpent - beforePlayer.timeSpent;
       effects.push({
         type: 'time',
-        description: `Time ${action === 'add' ? 'spent' : 'saved'}: ${Math.abs(timeChange)} hours`,
+        description: `Time ${action === 'add' ? 'spent' : 'saved'}: ${Math.abs(timeChange)} days`,
         value: timeChange
       });
     }
@@ -1746,8 +1840,102 @@ export class TurnService implements ITurnService {
   }
 
   /**
+   * Process space effects for a player after movement (for arrival effects)
+   * This is separate from processTurnEffects which processes effects before movement
+   */
+  private async processSpaceEffectsAfterMovement(playerId: string, spaceName: string, visitType: VisitType): Promise<void> {
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🏠 Processing arrival space effects for ${currentPlayer.name} at ${spaceName} (${visitType} visit)`);
+
+    try {
+      // Get space effect data from DataService for the arrival space
+      const spaceEffectsData = this.dataService.getSpaceEffects(spaceName, visitType);
+
+      // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
+      const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+
+      // Filter out manual effects - only process automatic effects on arrival
+      const filteredSpaceEffects = conditionFilteredEffects.filter(effect =>
+        effect.trigger_type !== 'manual'
+      );
+
+      if (filteredSpaceEffects.length === 0) {
+        console.log(`ℹ️ No automatic space effects for arrival at ${spaceName}`);
+        return;
+      }
+
+      // Generate effects from space arrival using EffectFactory
+      const spaceEffects = EffectFactory.createEffectsFromSpaceEntry(
+        filteredSpaceEffects,
+        playerId,
+        spaceName,
+        visitType
+      );
+
+      if (spaceEffects.length === 0) {
+        console.log(`ℹ️ No processed space effects for arrival at ${spaceName}`);
+        return;
+      }
+
+      console.log(`⚡ Processing ${spaceEffects.length} space arrival effects for ${spaceName}`);
+
+      // Create effect context for space arrival
+      const effectContext = {
+        source: 'space_arrival',
+        playerId,
+        triggerEvent: 'SPACE_ENTRY' as const,
+        metadata: {
+          spaceName,
+          visitType,
+          playerName: currentPlayer.name
+        }
+      };
+
+      // Process effects using EffectEngine
+      if (this.effectEngineService) {
+        const result = await this.effectEngineService.processEffects(spaceEffects, effectContext);
+        if (result.success) {
+          console.log(`✅ Applied ${result.successfulEffects} space arrival effects for ${spaceName}`);
+        } else {
+          console.warn(`⚠️ Some space arrival effects failed for ${spaceName}:`, result.errors);
+        }
+      } else {
+        console.warn(`⚠️ EffectEngineService not available - skipping space arrival effects for ${spaceName}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error processing space arrival effects for ${spaceName}:`, error);
+    }
+  }
+
+  /**
+   * Process starting space effects for all players when the game begins
+   * This should be called once when the game starts to apply initial space effects
+   */
+  public async processStartingSpaceEffects(): Promise<void> {
+    const gameState = this.stateService.getGameState();
+    const players = gameState.players;
+
+    console.log(`🏁 Processing starting space effects for ${players.length} players`);
+
+    for (const player of players) {
+      console.log(`🏠 Processing starting space effects for ${player.name} at ${player.currentSpace}`);
+      try {
+        await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType);
+      } catch (error) {
+        console.error(`❌ Error processing starting space effects for ${player.name}:`, error);
+      }
+    }
+
+    console.log(`✅ Completed processing starting space effects for all players`);
+  }
+
+  /**
    * Set turn modifier for a player (e.g., skip their next turn)
-   * 
+   *
    * @param playerId - The ID of the player to apply the modifier to
    * @param action - The turn control action to apply ('SKIP_TURN')
    * @returns true if the modifier was successfully applied, false otherwise

@@ -29,10 +29,11 @@ describe('MovementService', () => {
       name: 'Test Player',
       currentSpace: 'START-QUICK-PLAY-GUIDE',
       visitType: 'First',
+      visitedSpaces: ['START-QUICK-PLAY-GUIDE'],
       money: 1000,
       timeSpent: 100,
       projectScope: 0,
-    score: 0,
+      score: 0,
       color: '#007bff',
       avatar: '👤',
       hand: [], // Player starts with no cards
@@ -223,7 +224,7 @@ describe('MovementService', () => {
       mockDataService.getMovement.mockReturnValue(mockMovement);
     });
 
-    it('should successfully move player to valid destination', () => {
+    it('should successfully move player to valid destination', async () => {
       const updatedGameState: GameState = {
         ...mockGameState,
         players: [{
@@ -247,23 +248,25 @@ describe('MovementService', () => {
       }];
       mockDataService.getAllSpaces.mockReturnValue(mockSpaces);
 
-      const result = movementService.movePlayer('player1', 'DESTINATION-A');
+      const result = await movementService.movePlayer('player1', 'DESTINATION-A');
 
       expect(result).toBe(updatedGameState);
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
         id: 'player1',
         currentSpace: 'DESTINATION-A',
-        visitType: 'First'
+        visitType: 'First',
+        visitedSpaces: ['START-QUICK-PLAY-GUIDE', 'DESTINATION-A']
       });
     });
 
-    it('should set visit type to Subsequent for non-starting spaces', () => {
+    it('should set visit type to Subsequent for non-starting spaces', async () => {
       const updatedPlayer = {
         ...mockPlayer,
-        currentSpace: 'NON-STARTING-SPACE'
+        currentSpace: 'NON-STARTING-SPACE',
+        visitedSpaces: ['START-QUICK-PLAY-GUIDE', 'DESTINATION-A'] // Already visited DESTINATION-A
       };
       
-      mockStateService.getPlayer.mockReturnValueOnce(updatedPlayer);
+      mockStateService.getPlayer.mockReturnValue(updatedPlayer);
 
       const mockMovement: Movement = {
         space_name: 'NON-STARTING-SPACE',
@@ -288,33 +291,34 @@ describe('MovementService', () => {
       // Mock no starting spaces
       mockDataService.getAllSpaces.mockReturnValue([]);
 
-      const result = movementService.movePlayer('player1', 'DESTINATION-A');
+      const result = await movementService.movePlayer('player1', 'DESTINATION-A');
 
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
         id: 'player1',
         currentSpace: 'DESTINATION-A',
-        visitType: 'Subsequent'
+        visitType: 'Subsequent',
+        visitedSpaces: ['START-QUICK-PLAY-GUIDE', 'DESTINATION-A'] // No change since already visited
       });
     });
 
-    it('should throw error for invalid destination', () => {
-      expect(() => movementService.movePlayer('player1', 'INVALID-DESTINATION')).toThrow(
+    it('should throw error for invalid destination', async () => {
+      await expect(movementService.movePlayer('player1', 'INVALID-DESTINATION')).rejects.toThrow(
         'Invalid move: INVALID-DESTINATION is not a valid destination from current position'
       );
     });
 
-    it('should throw error if player not found during move', () => {
+    it('should throw error if player not found during move', async () => {
       // First call returns player for getValidMoves, second call returns undefined for move
       mockStateService.getPlayer
         .mockReturnValueOnce(mockPlayer)
         .mockReturnValueOnce(undefined);
 
-      expect(() => movementService.movePlayer('player1', 'DESTINATION-A')).toThrow(
+      await expect(movementService.movePlayer('player1', 'DESTINATION-A')).rejects.toThrow(
         'Player with ID player1 not found'
       );
     });
 
-    it('should handle player moving to same space they are already on', () => {
+    it('should handle player moving to same space they are already on', async () => {
       const mockMovement: Movement = {
         space_name: 'START-QUICK-PLAY-GUIDE',
         visit_type: 'First',
@@ -335,12 +339,13 @@ describe('MovementService', () => {
       mockStateService.updatePlayer.mockReturnValue(updatedGameState);
       mockDataService.getAllSpaces.mockReturnValue([]);
 
-      const result = movementService.movePlayer('player1', 'START-QUICK-PLAY-GUIDE');
+      const result = await movementService.movePlayer('player1', 'START-QUICK-PLAY-GUIDE');
 
       expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
         id: 'player1',
         currentSpace: 'START-QUICK-PLAY-GUIDE',
-        visitType: 'Subsequent'
+        visitType: 'Subsequent',
+        visitedSpaces: ['START-QUICK-PLAY-GUIDE'] // No change since already in visitedSpaces
       });
     });
   });

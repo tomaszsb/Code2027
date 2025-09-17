@@ -347,13 +347,22 @@ export function GameLayout(): JSX.Element {
     }
   };
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     try {
       const gameState = stateService.getGameState();
       if (gameState.players.length === 0) {
         stateService.addPlayer('Test Player');
       }
       stateService.startGame();
+
+      // Process starting space effects for all players
+      console.log('🏁 Processing starting space effects...');
+      try {
+        await turnService.processStartingSpaceEffects();
+        console.log('✅ Starting space effects processed successfully');
+      } catch (error) {
+        console.error('❌ Error processing starting space effects:', error);
+      }
     } catch (error) {
       console.error('Error starting game:', error);
     }
@@ -517,11 +526,20 @@ export function GameLayout(): JSX.Element {
       {/* Conditional rendering based on game phase */}
       {gamePhase === 'SETUP' && (
         <PlayerSetup
-          onStartGame={(players, settings) => {
+          onStartGame={async (players, settings) => {
             console.log('Starting game with players:', players);
             console.log('Game settings:', settings);
             // Actually start the game through StateService
             stateService.startGame();
+
+            // Process starting space effects for all players
+            console.log('🏁 Processing starting space effects...');
+            try {
+              await turnService.processStartingSpaceEffects();
+              console.log('✅ Starting space effects processed successfully');
+            } catch (error) {
+              console.error('❌ Error processing starting space effects:', error);
+            }
           }}
         />
       )}
