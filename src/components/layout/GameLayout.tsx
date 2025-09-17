@@ -16,6 +16,7 @@ import { MovementPathVisualization } from '../game/MovementPathVisualization';
 import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { GameLog } from '../game/GameLog';
 import { useGameContext } from '../../context/GameContext';
+import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
 
@@ -92,18 +93,29 @@ export function GameLayout(): JSX.Element {
   // Subscribe to game state changes to track phase transitions and turn controls state
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
+      const previousPlayerId = currentPlayerId;
+      const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
+      const previousCurrentPlayer = players.find(p => p.id === currentPlayerId);
+
       setGamePhase(gameState.gamePhase);
       setPlayers(gameState.players);
       setCurrentPlayerId(gameState.currentPlayerId);
       // Track active modal state
       setActiveModal(gameState.activeModal?.type || null);
-      
+
+      // Clear completed actions when current player changes (new turn)
+      const playerChanged = previousPlayerId && previousPlayerId !== gameState.currentPlayerId;
+
+      if (playerChanged) {
+        setCompletedActions({ manualActions: {} });
+      }
+
       // Track turn control state for TurnControlsWithActions
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
       setHasCompletedManualActions(gameState.hasCompletedManualActions || false);
       setAwaitingChoice(gameState.awaitingChoice !== null);
-      
+
       // Update action counts from game state
       setActionCounts({
         required: gameState.requiredActions || 1,
@@ -197,37 +209,8 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.rollDiceWithFeedback(currentPlayerId);
-      // Create completion message for immediate UI feedback
-      let unifiedDescription = `Rolled ${result.diceValue}`;
-      const outcomes: string[] = [];
-      
-      result.effects?.forEach(effect => {
-        switch (effect.type) {
-          case 'cards':
-            outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
-            break;
-          case 'money':
-            if (effect.value !== undefined) {
-              const moneyOutcome = effect.value > 0 
-                ? `Gained $${Math.abs(effect.value)}`
-                : `Spent $${Math.abs(effect.value)}`;
-              outcomes.push(moneyOutcome);
-            }
-            break;
-          case 'time':
-            if (effect.value !== undefined) {
-              const timeOutcome = effect.value > 0 
-                ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
-                : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
-              outcomes.push(timeOutcome);
-            }
-            break;
-        }
-      });
-      
-      if (outcomes.length > 0) {
-        unifiedDescription += ` → ${outcomes.join(', ')}`;
-      }
+      // Create completion message using centralized utility
+      const unifiedDescription = formatDiceRollFeedback(result.diceValue, result.effects || []);
       
       // Store completion message for immediate UI feedback
       setCompletedActions(prev => ({
@@ -245,9 +228,9 @@ export function GameLayout(): JSX.Element {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      await turnService.endTurnWithMovement();
-      // Reset completed actions for next turn
+      // Clear completed actions when ending turn
       setCompletedActions({ manualActions: {} });
+      await turnService.endTurnWithMovement();
     } catch (error) {
       console.error("Error ending turn:", error);
     } finally {
@@ -311,8 +294,26 @@ export function GameLayout(): JSX.Element {
       const result = await turnService.handleAutomaticFunding(currentPlayerId);
       // Handle the result similar to dice roll feedback
       if (result.effects) {
-        // Store the effects for modal display if needed
-        console.log('Automatic funding completed:', result.effects);
+        // Create completion message using centralized utility
+        const unifiedDescription = formatDiceRollFeedback(0, result.effects); // 0 dice value for automatic funding
+
+        // Store completion message for immediate UI feedback
+        let fundingMessage = unifiedDescription.replace('Rolled 0 → ', '💰 Funding → ');
+
+        // Special case for OWNER-FUND-INITIATION space - show "owner seed money" instead
+        const currentPlayer = players.find(p => p.id === currentPlayerId);
+        if (currentPlayer?.currentSpace === 'OWNER-FUND-INITIATION') {
+          fundingMessage = '💰 Funding → Owner seed money';
+        }
+
+        setCompletedActions(prev => ({
+          ...prev,
+          diceRoll: undefined, // Clear dice roll message since funding is more specific
+          manualActions: {
+            ...prev.manualActions,
+            funding: fundingMessage
+          }
+        }));
       }
     } catch (error) {
       console.error("Error handling automatic funding:", error);
@@ -327,6 +328,8 @@ export function GameLayout(): JSX.Element {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
+      // Clear completed actions when trying again
+      setCompletedActions({ manualActions: {} });
       const result = await turnService.tryAgainOnSpace(currentPlayerId);
       setFeedbackMessage(result.message);
       // Clear feedback after 4 seconds
@@ -396,40 +399,42 @@ export function GameLayout(): JSX.Element {
           overflow: 'visible'
         }}
       >
-        {gamePhase === 'PLAY' ? (
-          <PlayerStatusPanel 
-            onOpenNegotiationModal={handleOpenNegotiationModal}
-            onOpenRulesModal={handleOpenRulesModal}
-            onOpenCardDetailsModal={handleOpenCardDetailsModal}
-            onToggleSpaceExplorer={handleToggleSpaceExplorer}
-            onToggleMovementPath={handleToggleMovementPath}
-            isSpaceExplorerVisible={isSpaceExplorerVisible}
-            isMovementPathVisible={isMovementPathVisible}
-            // Player data
-            players={players}
-            currentPlayerId={currentPlayerId}
-            // TurnControlsWithActions props
-            currentPlayer={players.find(p => p.id === currentPlayerId) || null}
-            gamePhase={gamePhase}
-            isProcessingTurn={isProcessingTurn}
-            hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
-            hasPlayerRolledDice={hasPlayerRolledDice}
-            hasCompletedManualActions={hasCompletedManualActions}
-            awaitingChoice={awaitingChoice}
-            actionCounts={actionCounts}
-            completedActions={completedActions}
-            feedbackMessage={feedbackMessage}
-            onRollDice={handleRollDice}
-            onEndTurn={handleEndTurn}
-            onManualEffect={handleManualEffect}
-            onNegotiate={handleTryAgain}
-            onAutomaticFunding={handleAutomaticFunding}
-            onStartGame={handleStartGame}
-            // Legacy props for compatibility
-            playerId={currentPlayerId || ''}
-            playerName={players.find(p => p.id === currentPlayerId)?.name || ''}
-          />
-        ) : (
+{gamePhase === 'PLAY' && currentPlayerId ? (() => {
+          const currentPlayer = players.find(p => p.id === currentPlayerId);
+          return currentPlayer ? (
+            <PlayerStatusPanel
+              onOpenNegotiationModal={handleOpenNegotiationModal}
+              onOpenRulesModal={handleOpenRulesModal}
+              onOpenCardDetailsModal={handleOpenCardDetailsModal}
+              onToggleSpaceExplorer={handleToggleSpaceExplorer}
+              onToggleMovementPath={handleToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
+              // Player data
+              players={players}
+              currentPlayerId={currentPlayerId}
+              // TurnControlsWithActions props - guaranteed non-null currentPlayer
+              currentPlayer={currentPlayer}
+              gamePhase={gamePhase}
+              isProcessingTurn={isProcessingTurn}
+              hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
+              hasPlayerRolledDice={hasPlayerRolledDice}
+              hasCompletedManualActions={hasCompletedManualActions}
+              awaitingChoice={awaitingChoice}
+              actionCounts={actionCounts}
+              completedActions={completedActions}
+              feedbackMessage={feedbackMessage}
+              onRollDice={handleRollDice}
+              onEndTurn={handleEndTurn}
+              onManualEffect={handleManualEffect}
+              onNegotiate={handleTryAgain}
+              onAutomaticFunding={handleAutomaticFunding}
+              // Legacy props for compatibility
+              playerId={currentPlayerId}
+              playerName={currentPlayer.name}
+            />
+          ) : null;
+        })() : (
           <>
             <h3>👤 Player Status</h3>
             <div style={{ color: colors.text.secondary }}>

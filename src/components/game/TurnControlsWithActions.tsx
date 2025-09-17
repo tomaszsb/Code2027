@@ -6,11 +6,13 @@ import { useGameContext } from '../../context/GameContext';
 // Modal imports removed - using persistent GameLog instead
 import { Player } from '../../types/DataTypes';
 import { GamePhase, ActionLogEntry } from '../../types/StateTypes';
+import { Choice } from '../../types/CommonTypes';
 import { formatActionDescription } from '../../utils/actionLogFormatting';
+import { formatManualEffectButton, formatDiceRollButton, getManualEffectButtonStyle, formatDiceRollFeedback } from '../../utils/buttonFormatting';
 
 interface TurnControlsWithActionsProps {
-  // Game state data
-  currentPlayer: Player | null;
+  // Game state data - currentPlayer is guaranteed to exist by higher-level architecture
+  currentPlayer: Player;
   gamePhase: GamePhase;
   isProcessingTurn: boolean;
   hasPlayerMovedThisTurn: boolean;
@@ -30,7 +32,6 @@ interface TurnControlsWithActionsProps {
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
   onAutomaticFunding?: () => Promise<void>;
-  onStartGame: () => void;
   
   // Legacy props (can be removed in future cleanup)
   onOpenNegotiationModal: () => void;
@@ -59,13 +60,58 @@ export function TurnControlsWithActions({
   onManualEffect,
   onNegotiate,
   onAutomaticFunding,
-  onStartGame,
   // Legacy props
   onOpenNegotiationModal,
   playerId,
   playerName 
 }: TurnControlsWithActionsProps): JSX.Element {
-  const { dataService } = useGameContext();
+  const { dataService, stateService, choiceService } = useGameContext();
+
+  // Movement choice state
+  const [currentChoice, setCurrentChoice] = useState<Choice | null>(null);
+
+  // Subscribe to state changes for movement choices
+  useEffect(() => {
+    console.log('🔥 TurnControlsWithActions: Setting up movement choice subscription');
+    const unsubscribe = stateService.subscribe((gameState) => {
+      console.log('🔥 TurnControlsWithActions: Received state update', {
+        awaitingChoice: gameState.awaitingChoice?.type || null,
+        currentPlayer: gameState.currentPlayerId
+      });
+
+      // Update movement choice state
+      setCurrentChoice(gameState.awaitingChoice);
+
+      if (gameState.awaitingChoice?.type === 'MOVEMENT') {
+        console.log('🔥 TurnControlsWithActions: Movement choice detected!', {
+          choice: gameState.awaitingChoice,
+          options: gameState.awaitingChoice.options
+        });
+      }
+    });
+
+    // Initialize with current state
+    const gameState = stateService.getGameState();
+    setCurrentChoice(gameState.awaitingChoice);
+
+    return unsubscribe;
+  }, [stateService]);
+
+  // Handle movement choice selection
+  const handleMovementChoice = async (choiceId: string) => {
+    if (!currentChoice || currentChoice.type !== 'MOVEMENT') {
+      console.error('🔥 TurnControlsWithActions: No valid movement choice available');
+      return;
+    }
+
+    try {
+      console.log('🔥 TurnControlsWithActions: Resolving movement choice:', choiceId);
+      await choiceService.resolveChoice(currentChoice.id, choiceId);
+      console.log('🔥 TurnControlsWithActions: Movement choice resolved successfully');
+    } catch (error) {
+      console.error('🔥 TurnControlsWithActions: Error resolving movement choice:', error);
+    }
+  };
 
 
 
@@ -74,7 +120,6 @@ export function TurnControlsWithActions({
   // Helper function to evaluate effect conditions
   const evaluateEffectCondition = (condition: string | undefined): boolean => {
     if (!condition || condition === 'always') return true;
-    if (!currentPlayer) return false;
 
     const conditionLower = condition.toLowerCase();
     
@@ -93,109 +138,41 @@ export function TurnControlsWithActions({
   };
 
   // Check for available manual effects with condition evaluation
-  const manualEffects = currentPlayer ? 
-    dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType)
-      .filter(effect => effect.trigger_type === 'manual')
-      .filter(effect => evaluateEffectCondition(effect.condition)) : [];
+  // Filter out 'turn' effects since they duplicate the regular End Turn button
+  const manualEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType)
+    .filter(effect => effect.trigger_type === 'manual')
+    .filter(effect => effect.effect_type !== 'turn') // Exclude turn effects to avoid duplicate end turn buttons
+    .filter(effect => evaluateEffectCondition(effect.condition));
 
   // Check if negotiation is available on current space
-  const canNegotiate = currentPlayer ? 
-    dataService.getSpaceContent(currentPlayer.currentSpace, currentPlayer.visitType)?.can_negotiate === true : false;
+  const canNegotiate = dataService.getSpaceContent(currentPlayer.currentSpace, currentPlayer.visitType)?.can_negotiate === true;
 
-  // All players can take actions when it's their turn
-  const isCurrentPlayersTurn = currentPlayer != null;
-  const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn && 
+  // All players can take actions when it's their turn - currentPlayer is guaranteed to exist
+  const isCurrentPlayersTurn = true;
+  const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                      !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice &&
-                     currentPlayer?.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
-  const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn && 
-                    !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required;
+                     currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
+  const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
+                    !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
+                    !(currentChoice && currentChoice.type === 'MOVEMENT'); // Disable end turn if movement choice pending
 
-  // Get contextual dice roll button text based on current space
+
+  // Get contextual dice roll button text using centralized utility
   const getDiceRollButtonText = (): string => {
-    if (!currentPlayer) return "Roll Dice";
-
-    // Get dice effects for current space to determine roll context
     const diceEffects = dataService.getDiceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
-    
-    // If there are dice effects, show what the dice roll will affect
-    if (diceEffects.length > 0) {
-      const firstEffect = diceEffects[0];
-      
-      switch (firstEffect.effect_type) {
-        case 'cards':
-          const cardType = firstEffect.card_type?.toUpperCase() || 'Cards';
-          return `Roll for ${cardType} Cards`;
-          
-        case 'money':
-          return firstEffect.card_type === 'fee' ? "Roll for Fee Amount" : "Roll for Money";
-          
-        case 'time':
-          return "Roll for Time Penalty";
-          
-        case 'quality':
-          return "Roll for Quality";
-          
-        default:
-          return "Roll for Effects";
-      }
-    }
-
-    // Check if space effects use dice roll conditions
     const spaceEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
-    const diceConditionEffects = spaceEffects.filter(effect => 
-      effect.condition && effect.condition.includes('dice_roll')
-    );
-    
-    if (diceConditionEffects.length > 0) {
-      const effectTypes = diceConditionEffects.map(effect => effect.effect_type);
-      if (effectTypes.includes('cards')) {
-        return "Roll for Bonus Cards";
-      } else if (effectTypes.includes('money')) {
-        return "Roll for Bonus Money";
-      } else {
-        return "Roll for Bonus Effects";
-      }
-    }
-
-    // If no dice effects, check if dice are used for movement
     const diceOutcome = dataService.getDiceOutcome(currentPlayer.currentSpace, currentPlayer.visitType);
-    
-    if (diceOutcome) {
-      // Check if movement is based on dice (different destinations per roll)
-      const destinations = [
-        diceOutcome.roll_1,
-        diceOutcome.roll_2,
-        diceOutcome.roll_3,
-        diceOutcome.roll_4,
-        diceOutcome.roll_5,
-        diceOutcome.roll_6
-      ].filter(dest => dest && dest.trim() !== '');
-      
-      const uniqueDestinations = new Set(destinations);
-      
-      if (uniqueDestinations.size > 1) {
-        return "Roll for Next Location";
-      }
-    }
 
-    // Default fallback
-    return "Roll Dice";
+    return formatDiceRollButton(
+      currentPlayer.currentSpace,
+      currentPlayer.visitType,
+      diceEffects,
+      spaceEffects,
+      diceOutcome
+    );
   };
 
   // Format action description now handled by shared utility
-
-  if (gamePhase !== 'PLAY') {
-    return (
-      <div style={{ padding: '10px', backgroundColor: colors.secondary.bg, border: `1px solid ${colors.secondary.border}`, borderRadius: '6px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          🎯 Game setup... (Phase: {gamePhase})
-        </div>
-        <button onClick={onStartGame} style={{ padding: '4px 8px', fontSize: '8px', backgroundColor: colors.success.main, color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
-          Start Game
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px', backgroundColor: colors.white, borderRadius: '6px' }}>
@@ -210,6 +187,55 @@ export function TurnControlsWithActions({
       {feedbackMessage && (
         <div style={{ padding: '6px 12px', backgroundColor: colors.info.light, border: `2px solid ${colors.info.main}`, borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', color: colors.info.dark, textAlign: 'center' }}>
           💡 {feedbackMessage}
+        </div>
+      )}
+
+      {/* Movement Choice Buttons */}
+      {currentChoice && currentChoice.type === 'MOVEMENT' && (
+        <div style={{
+          padding: '8px',
+          backgroundColor: colors.primary.bg,
+          border: `2px solid ${colors.primary.main}`,
+          borderRadius: '8px'
+        }}>
+          <div style={{
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: colors.primary.main,
+            textAlign: 'center',
+            marginBottom: '6px'
+          }}>
+            🚶 Choose Your Destination
+          </div>
+          {currentChoice.options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => handleMovementChoice(option.id)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                margin: '2px 0',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                backgroundColor: colors.primary.main,
+                color: colors.white,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = colors.primary.dark;
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = colors.primary.main;
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              🎯 {option.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -243,15 +269,15 @@ export function TurnControlsWithActions({
           <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ {completedActions.diceRoll}
           </div>
-        ) : hasPlayerRolledDice ? (
-          // Fallback if no local message available
+        ) : hasPlayerRolledDice && !completedActions.manualActions.funding ? (
+          // Fallback if no local message available and no funding message
           <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ Dice rolled - check game log
           </div>
         ) : null}
 
         {/* Automatic Funding for OWNER-FUND-INITIATION space */}
-        {currentPlayer?.currentSpace === 'OWNER-FUND-INITIATION' && isCurrentPlayersTurn && !hasPlayerRolledDice && !isProcessingTurn && (
+        {currentPlayer.currentSpace === 'OWNER-FUND-INITIATION' && isCurrentPlayersTurn && !hasPlayerRolledDice && !isProcessingTurn && (
           <button
             onClick={() => onAutomaticFunding && onAutomaticFunding()}
             style={{
@@ -276,13 +302,12 @@ export function TurnControlsWithActions({
 
         {/* Manual Effect Buttons - show if available, replace with actions when completed */}
         {isCurrentPlayersTurn && manualEffects.map((effect, index) => {
-          const isCardEffect = effect.effect_type === 'cards';
-          const cardType = isCardEffect ? effect.effect_action.replace('draw_', '').toUpperCase() : '';
-          const count = effect.effect_value;
-          const buttonText = isCardEffect ? `Pick up ${count} ${cardType} card${count !== 1 ? 's' : ''}` : 
-                            `${effect.effect_type}: ${effect.effect_action} ${count}`;
-          
-          const isButtonDisabled = isProcessingTurn || hasCompletedManualActions;
+          // Use centralized button formatting
+          const { text: buttonText, icon: buttonIcon } = formatManualEffectButton(effect);
+
+          // Check if THIS specific effect type has been completed (not global flag)
+          const isThisEffectCompleted = completedActions.manualActions[effect.effect_type] !== undefined;
+          const isButtonDisabled = isProcessingTurn || isThisEffectCompleted;
           
           if (!isButtonDisabled) {
             // Show active button
@@ -290,22 +315,9 @@ export function TurnControlsWithActions({
               <button
                 key={index}
                 onClick={() => onManualEffect(effect.effect_type)}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  color: colors.white,
-                  backgroundColor: colors.info.main,
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '3px'
-                }}
+                style={getManualEffectButtonStyle(isButtonDisabled, colors)}
               >
-                <span>{isCardEffect ? '🃏' : '⚡'}</span>
+                <span>{buttonIcon}</span>
                 <span>{buttonText}</span>
               </button>
             );
@@ -329,6 +341,20 @@ export function TurnControlsWithActions({
           }
           return null;
         })}
+
+        {/* Automatic Funding Results - show funding completion message */}
+        {isCurrentPlayersTurn && completedActions.manualActions.funding && (
+          <div style={{
+            padding: '4px 8px',
+            fontSize: '10px',
+            backgroundColor: colors.success.light,
+            borderRadius: '4px',
+            color: colors.success.text,
+            fontWeight: 'bold'
+          }}>
+            ✅ {completedActions.manualActions.funding}
+          </div>
+        )}
 
         {/* Space and Time Effects are now shown in the GameLog component */}
 
@@ -360,33 +386,31 @@ export function TurnControlsWithActions({
           </button>
         )}
 
-        {/* End Turn - show button if can end turn, otherwise show message */}
-        {canEndTurn ? (
+        {/* End Turn - always show for current player, but disable when actions incomplete */}
+        {isCurrentPlayersTurn && (
           <button
-            onClick={onEndTurn}
+            onClick={canEndTurn ? onEndTurn : undefined}
+            disabled={!canEndTurn}
             style={{
               padding: '4px 8px',
               fontSize: '10px',
               fontWeight: 'bold',
-              color: colors.white,
-              backgroundColor: colors.success.main,
+              color: canEndTurn ? colors.white : colors.secondary.main,
+              backgroundColor: canEndTurn ? colors.success.main : colors.secondary.light,
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: canEndTurn ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '3px'
+              gap: '3px',
+              opacity: canEndTurn ? 1 : 0.7
             }}
           >
             <span>⏹️</span>
             <span>End Turn ({actionCounts.completed}/{actionCounts.required})</span>
           </button>
-        ) : actionCounts.completed < actionCounts.required && isCurrentPlayersTurn ? (
-          <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.warning.bg, borderRadius: '4px', color: colors.warning.text, textAlign: 'center' }}>
-            📋 Complete {actionCounts.required - actionCounts.completed} more action(s)
-          </div>
-        ) : null}
+        )}
       </div>
 
       {/* Modals removed - using persistent GameLog instead */}
