@@ -142,16 +142,25 @@ interface FundingHistorySectionProps {
   dataService: any;
   stateService: any;
   colors: any;
+  currentPlayerSpace?: string;
 }
 
 /**
  * FundingHistorySection displays details about recently played funding cards
  * by looking up B/I cards that were recently discarded
  */
-function FundingHistorySection({ playerMoney, dataService, stateService, colors }: FundingHistorySectionProps): JSX.Element {
+function FundingHistorySection({ playerMoney, dataService, stateService, colors, currentPlayerSpace }: FundingHistorySectionProps): JSX.Element {
   // Get funding source info for one-line display
   const getFundingInfo = () => {
     try {
+      // Special case: If player is on OWNER-FUND-INITIATION space, always show owner seed money
+      if (currentPlayerSpace === 'OWNER-FUND-INITIATION') {
+        return {
+          type: 'Owner',
+          description: 'Seed money'
+        };
+      }
+
       // Get current game state to access discard piles
       const gameState = stateService.getGameState();
       const discardPiles = gameState.discardPiles || {};
@@ -178,7 +187,7 @@ function FundingHistorySection({ playerMoney, dataService, stateService, colors 
           description: card?.title || 'Bank loan'
         };
       } else {
-        // Fallback for OWNER-FUND-INITIATION automatic funding
+        // Fallback for when no cards are found (likely owner seed money)
         return {
           type: 'Owner',
           description: 'Seed money'
@@ -324,9 +333,283 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
     setExpandedWorkTypes(newExpanded);
   };
 
+  // State for expandable sections in ledger layout
+  const [expandedSources, setExpandedSources] = useState(false);
+  const [expandedFees, setExpandedFees] = useState(false);
+
+  // Calculate total fees
+  const calculateFees = () => {
+    // This would typically come from game state, but for now we'll estimate based on loans
+    let totalFees = 0;
+
+    // Add bank loan fees if any B cards were played
+    // Add investor fees if any I cards were played
+    // This is a simplified calculation - actual fees would be tracked in game state
+
+    return totalFees;
+  };
+
+  const totalFees = calculateFees();
+
   return (
     <div style={containerStyle}>
-      {/* Project Scope Section */}
+      {/* LEDGER LAYOUT */}
+
+      {/* 1. SOURCES OF MONEY (Top) - Expandable one-liner */}
+      <div style={sectionStyle}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 12px',
+            backgroundColor: colors.success.bg,
+            borderRadius: '6px',
+            border: `2px solid ${colors.success.main}`,
+            cursor: 'pointer',
+            marginBottom: expandedSources ? '8px' : '0'
+          }}
+          onClick={() => setExpandedSources(!expandedSources)}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
+              color: colors.success.text,
+              marginBottom: '2px'
+            }}>
+              💰 Sources of Money
+            </div>
+            <div style={{
+              fontSize: '0.75rem',
+              color: colors.secondary.main
+            }}>
+              {expandedSources ? 'Click to collapse details' : 'Click to expand funding sources'}
+            </div>
+          </div>
+          <div style={{
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            color: colors.success.text,
+            marginLeft: '12px'
+          }}>
+            {FormatUtils.formatMoney(financialStatus.playerMoney)}
+          </div>
+        </div>
+
+        {/* Expanded Funding Sources */}
+        {expandedSources && (
+          <div style={{ marginLeft: '16px' }}>
+            {/* Detailed Funding Breakdown */}
+            {financialStatus.playerMoney > 0 && (
+              <div style={{ marginBottom: '8px' }}>
+                {/* Show individual funding transactions */}
+                {(() => {
+                  try {
+                    const gameState = stateService.getGameState();
+                    const discardPiles = gameState.discardPiles || {};
+                    const fundingTransactions = [];
+
+                    // Check if on OWNER-FUND-INITIATION space for seed money
+                    if (player.currentSpace === 'OWNER-FUND-INITIATION') {
+                      fundingTransactions.push({
+                        type: 'Owner',
+                        description: 'Seed money',
+                        amount: financialStatus.playerMoney,
+                        icon: '👤'
+                      });
+                    } else {
+                      // Get recently discarded B and I cards for funding history
+                      const bDiscarded = discardPiles.B || [];
+                      const iDiscarded = discardPiles.I || [];
+
+                      // Add Bank funding transactions
+                      bDiscarded.forEach(cardId => {
+                        const card = dataService.getCardById(cardId);
+                        if (card) {
+                          const fundingMatch = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+                          const amount = fundingMatch ? FormatUtils.parseMoney(fundingMatch[1]) : 0;
+                          if (amount > 0) {
+                            fundingTransactions.push({
+                              type: 'Bank',
+                              description: card.title,
+                              amount: amount,
+                              icon: '🏦'
+                            });
+                          }
+                        }
+                      });
+
+                      // Add Investor funding transactions
+                      iDiscarded.forEach(cardId => {
+                        const card = dataService.getCardById(cardId);
+                        if (card) {
+                          const fundingMatch = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+                          const amount = fundingMatch ? FormatUtils.parseMoney(fundingMatch[1]) : 0;
+                          if (amount > 0) {
+                            fundingTransactions.push({
+                              type: 'Investor',
+                              description: card.title,
+                              amount: amount,
+                              icon: '💼'
+                            });
+                          }
+                        }
+                      });
+
+                      // If no transactions found but player has money, show as owner seed money
+                      if (fundingTransactions.length === 0) {
+                        fundingTransactions.push({
+                          type: 'Owner',
+                          description: 'Seed money',
+                          amount: financialStatus.playerMoney,
+                          icon: '👤'
+                        });
+                      }
+                    }
+
+                    return fundingTransactions.map((transaction, index) => (
+                      <div key={index} style={{
+                        padding: '6px 12px',
+                        backgroundColor: colors.secondary.bg,
+                        borderRadius: '4px',
+                        border: `1px solid ${colors.secondary.border}`,
+                        marginBottom: '4px'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{
+                            fontSize: '0.8rem',
+                            color: colors.secondary.dark,
+                            flex: 1,
+                            marginRight: '8px'
+                          }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                              {transaction.icon} {transaction.type} Funding
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: colors.secondary.main }}>
+                              {transaction.description}
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            color: colors.success.text
+                          }}>
+                            +{FormatUtils.formatMoney(transaction.amount)}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  } catch (error) {
+                    // Fallback if funding breakdown fails
+                    return (
+                      <div style={{
+                        padding: '6px 12px',
+                        backgroundColor: colors.secondary.bg,
+                        borderRadius: '4px',
+                        border: `1px solid ${colors.secondary.border}`,
+                        marginBottom: '4px'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{
+                            fontSize: '0.8rem',
+                            color: colors.secondary.dark,
+                            flex: 1
+                          }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                              👤 Owner Funding
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: colors.secondary.main }}>
+                              Seed money
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            color: colors.success.text
+                          }}>
+                            +{FormatUtils.formatMoney(financialStatus.playerMoney)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
+
+                {/* Total Funding */}
+                <div style={{
+                  marginTop: '8px',
+                  paddingTop: '8px',
+                  borderTop: `2px solid ${colors.success.main}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  <span style={{
+                    fontSize: '0.8rem',
+                    color: colors.secondary.main
+                  }}>
+                    Total Funding:
+                  </span>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    color: colors.success.text
+                  }}>
+                    {FormatUtils.formatMoney(financialStatus.playerMoney)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Available Funding Options in Hand */}
+            {(bCards.length > 0 || iCards.length > 0) && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  color: colors.info.dark,
+                  marginBottom: '6px'
+                }}>
+                  💼 Available Options:
+                </div>
+
+                {/* Bank Loans (B Cards) */}
+                {bCards.length > 0 && (
+                  <FundingCardSection
+                    title="🏦 Bank Loans"
+                    cards={bCards}
+                    cardType="B"
+                    dataService={dataService}
+                    colors={colors}
+                  />
+                )}
+
+                {/* Investment Deals (I Cards) */}
+                {iCards.length > 0 && (
+                  <FundingCardSection
+                    title="💼 Investment Deals"
+                    cards={iCards}
+                    cardType="I"
+                    dataService={dataService}
+                    colors={colors}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 2. PROJECT SCOPE (Middle) - As is */}
       {Object.keys(groupedWCards).length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
@@ -335,7 +618,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
           {Object.entries(groupedWCards).map(([workType, cards]) => {
             const totalCost = cards.reduce((sum, { card }) => sum + (card.cost || 0), 0);
             const isExpanded = expandedWorkTypes.has(workType);
-            
+
             return (
               <div key={workType} style={{ marginBottom: '8px' }}>
                 {/* Work Type Header */}
@@ -378,7 +661,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                     {FormatUtils.formatMoney(totalCost)}
                   </div>
                 </div>
-                
+
                 {/* Expanded Details */}
                 {isExpanded && cards.map(({ cardId, card }) => (
                   <div key={cardId} style={{
@@ -406,7 +689,6 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                         fontWeight: 'bold',
                         color: colors.warning.text
                       }}>
-
                         {FormatUtils.formatCardCost(card.cost)}
                       </div>
                     </div>
@@ -415,7 +697,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
               </div>
             );
           })}
-          
+
           {/* Total Scope Cost */}
           <div style={{
             ...metricRowStyle,
@@ -423,7 +705,7 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
             borderTop: `2px solid ${colors.warning.main}`,
             fontWeight: 'bold'
           }}>
-            <span style={metricLabelStyle}>Total Scope Cost:</span>
+            <span style={metricLabelStyle}>Total Project Cost:</span>
             <span style={{
               ...metricValueStyle,
               color: colors.warning.text,
@@ -435,277 +717,137 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
         </div>
       )}
 
-      {/* Financial Summary Section - Always show */}
+      {/* 3. FEES (Third) - Expandable one-liner */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>
-          💰 Financial Summary
-        </div>
-
-        <div style={metricRowStyle}>
-          <span style={metricLabelStyle}>Current Balance:</span>
-          <span style={{
-            ...metricValueStyle,
-            color: financialStatus.playerMoney >= 0 ? colors.success.text : colors.danger.text,
-            fontWeight: 'bold'
-          }}>
-            {FormatUtils.formatMoney(financialStatus.playerMoney)}
-          </span>
-        </div>
-
-        <div style={metricRowStyle}>
-          <span style={metricLabelStyle}>Project Cost:</span>
-          <span style={{ ...metricValueStyle, color: colors.warning.text }}>
-            {FormatUtils.formatMoney(financialStatus.totalScopeCost)}
-          </span>
-        </div>
-
-        <div style={{
-          ...metricRowStyle,
-          paddingTop: '8px',
-          borderTop: `1px solid ${colors.secondary.border}`,
-          fontWeight: 'bold'
-        }}>
-          <span style={metricLabelStyle}>
-            {financialStatus.isDeficit ? 'Funding Needed:' : 'Surplus Available:'}
-          </span>
-          <span style={{
-            ...metricValueStyle,
-            color: financialStatus.isDeficit ? colors.danger.text : colors.success.text,
-            fontSize: '0.9rem',
-            fontWeight: 'bold'
-          }}>
-            {FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}
-          </span>
-        </div>
-
-        {/* Funding Options in Hand */}
-        {(bCards.length > 0 || iCards.length > 0) && (
-          <div style={{ marginTop: '16px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 12px',
+            backgroundColor: colors.danger.bg,
+            borderRadius: '6px',
+            border: `2px solid ${colors.danger.main}`,
+            cursor: 'pointer',
+            marginBottom: expandedFees ? '8px' : '0'
+          }}
+          onClick={() => setExpandedFees(!expandedFees)}
+        >
+          <div style={{ flex: 1 }}>
             <div style={{
               fontSize: '0.9rem',
               fontWeight: 'bold',
-              color: colors.info.dark,
-              marginBottom: '8px'
+              color: colors.danger.text,
+              marginBottom: '2px'
             }}>
-              💼 Available Funding Options:
+              📊 Fees & Costs
             </div>
+            <div style={{
+              fontSize: '0.75rem',
+              color: colors.secondary.main
+            }}>
+              {expandedFees ? 'Click to collapse details' : 'Click to expand fee breakdown'}
+            </div>
+          </div>
+          <div style={{
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            color: colors.danger.text,
+            marginLeft: '12px'
+          }}>
+            {totalFees > 0 ? FormatUtils.formatMoney(totalFees) : '$0'}
+          </div>
+        </div>
 
-            {/* Bank Loans (B Cards) */}
-            {bCards.length > 0 && (
-              <FundingCardSection
-                title="🏦 Bank Loans"
-                cards={bCards}
-                cardType="B"
-                dataService={dataService}
-                colors={colors}
-              />
-            )}
-
-            {/* Investment Deals (I Cards) */}
-            {iCards.length > 0 && (
-              <FundingCardSection
-                title="💼 Investment Deals"
-                cards={iCards}
-                cardType="I"
-                dataService={dataService}
-                colors={colors}
-              />
-            )}
+        {/* Expanded Fee Details */}
+        {expandedFees && (
+          <div style={{ marginLeft: '16px' }}>
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: colors.secondary.bg,
+              borderRadius: '6px',
+              border: `1px solid ${colors.secondary.border}`,
+              fontSize: '0.75rem',
+              color: colors.secondary.main
+            }}>
+              <strong>Fee Structure:</strong>
+              <br />
+              • Bank Loans: 1-3% processing fee
+              <br />
+              • Investor Loans: 5% processing fee
+              <br />
+              • Owner Seed Money: No fees
+              <br />
+              <em>Note: Fees are calculated when loans are approved</em>
+            </div>
           </div>
         )}
-
-        {/* Active Funding History - Show when player has money but no cards */}
-        {financialStatus.playerMoney > 0 && (bCards.length === 0 && iCards.length === 0) && (
-          <div style={{ marginTop: '16px' }}>
-            <FundingHistorySection
-              playerMoney={financialStatus.playerMoney}
-              dataService={dataService}
-              stateService={stateService}
-              colors={colors}
-            />
-          </div>
-        )}
-
       </div>
 
-      {bCards.length > 0 && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>
-            🏦 Bank Loans
-          </div>
-          {bCards.map((cardId, index) => {
-            const card = dataService.getCardById(cardId);
-            if (!card) return null;
-            
-            // Bank fee calculation (simplified - actual amount would come from game state)
-            // Fees: 1% up to $1.4M, 2% for $1.5M-$2.75M, 3% above $2.75M
-            const getLoanFeeInfo = (amount: number = 0) => {
-              if (amount === 0) return 'Fee calculated at loan approval';
-              if (amount <= 1400000) return `1% fee (${FormatUtils.formatMoney(amount * 0.01)})`;
-              if (amount <= 2750000) return `2% fee (${FormatUtils.formatMoney(amount * 0.02)})`;
-              return `3% fee (${FormatUtils.formatMoney(amount * 0.03)})`;
-            };
-            
-            return (
-              <div key={cardId} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px',
-                marginBottom: '6px',
-                backgroundColor: colors.info.bg,
-                borderRadius: '6px',
-                border: `2px solid ${colors.primary.main}`
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    color: colors.primary.dark,
-                    marginBottom: '2px'
-                  }}>
-                    {card.card_name}
-                  </div>
-                  <div style={{
-                    fontSize: '0.75rem',
-                    color: colors.secondary.main,
-                    lineHeight: '1.2',
-                    marginBottom: '4px'
-                  }}>
-                    {card.description}
-                  </div>
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: colors.primary.dark,
-                    fontWeight: 'bold'
-                  }}>
-                    📊 {getLoanFeeInfo()} • ⏱️ Processing: 1 day per $200K
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  color: colors.primary.dark,
-                  marginLeft: '12px',
-                  textAlign: 'center'
-                }}>
-                  <div>Bank Loan</div>
-                  <div style={{ fontSize: '0.7rem', color: colors.secondary.main }}>Low Rate</div>
-                </div>
-              </div>
-            );
-          })}
-          
-          {/* Bank Loan Summary */}
+      {/* 4. SURPLUS/DEFICIT (Bottom) - Final calculation */}
+      <div style={sectionStyle}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 16px',
+          backgroundColor: financialStatus.isDeficit ? colors.danger.bg : colors.success.bg,
+          borderRadius: '8px',
+          border: `3px solid ${financialStatus.isDeficit ? colors.danger.main : colors.success.main}`,
+        }}>
           <div style={{
-            marginTop: '8px',
-            padding: '8px 12px',
-            backgroundColor: colors.secondary.bg,
-            borderRadius: '6px',
-            border: `1px solid ${colors.secondary.border}`,
-            fontSize: '0.75rem',
-            color: colors.secondary.main
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            color: financialStatus.isDeficit ? colors.danger.text : colors.success.text,
           }}>
-            <strong>Bank Loan Terms:</strong> Quick approval, low rates (1-3%), processing time applies
-            <br />
-            <em>Note: Fees don't apply for seed money from OWNER-FUND-INITIATION space</em>
+            {financialStatus.isDeficit ? '⚠️ Funding Needed' : '✅ Surplus Available'}
+          </div>
+          <div style={{
+            fontSize: '1.1rem',
+            fontWeight: 'bold',
+            color: financialStatus.isDeficit ? colors.danger.text : colors.success.text,
+          }}>
+            {FormatUtils.formatMoney(Math.abs(financialStatus.surplus))}
           </div>
         </div>
-      )}
 
-      {/* Investor Loans Section */}
-      {iCards.length > 0 && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>
-            💼 Investor Loans
+        {/* Calculation breakdown */}
+        <div style={{
+          marginTop: '8px',
+          padding: '8px 12px',
+          backgroundColor: colors.secondary.bg,
+          borderRadius: '6px',
+          border: `1px solid ${colors.secondary.border}`,
+          fontSize: '0.75rem',
+          color: colors.secondary.main
+        }}>
+          <div style={metricRowStyle}>
+            <span>Available Funds:</span>
+            <span>{FormatUtils.formatMoney(financialStatus.playerMoney)}</span>
           </div>
-          {iCards.map((cardId, index) => {
-            const card = dataService.getCardById(cardId);
-            if (!card) return null;
-            
-            // Investor fee is always 5% of amount borrowed
-            const getInvestorFeeInfo = (amount: number = 0) => {
-              if (amount === 0) return 'Fee: 5% of loan amount';
-              return `5% fee (${FormatUtils.formatMoney(amount * 0.05)})`;
-            };
-            
-            // Extract loan amount from card description if available
-            const extractLoanAmount = (description: string): number => {
-              const match = description.match(/\$(\d{1,3}(?:,\d{3})*)/);
-              if (match) {
-                return parseInt(match[1].replace(/,/g, ''));
-              }
-              return 0;
-            };
-            
-            const loanAmount = extractLoanAmount(card.description || '');
-            
-            return (
-              <div key={cardId} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px',
-                marginBottom: '6px',
-                backgroundColor: colors.purple.light,
-                borderRadius: '6px',
-                border: `2px solid ${colors.purple.main}`
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    color: colors.purple.darker,
-                    marginBottom: '2px'
-                  }}>
-                    {card.card_name}
-                  </div>
-                  <div style={{
-                    fontSize: '0.75rem',
-                    color: colors.secondary.main,
-                    lineHeight: '1.2',
-                    marginBottom: '4px'
-                  }}>
-                    {card.description}
-                  </div>
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: colors.purple.main,
-                    fontWeight: 'bold'
-                  }}>
-                    📈 {getInvestorFeeInfo(loanAmount)} • ⏱️ Processing: 30-70 days
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  color: colors.purple.main,
-                  marginLeft: '12px',
-                  textAlign: 'center'
-                }}>
-                  <div>Investor</div>
-                  <div style={{ fontSize: '0.7rem', color: colors.secondary.main }}>High Rate</div>
-                </div>
-              </div>
-            );
-          })}
-          
-          {/* Investor Loan Summary */}
+          <div style={metricRowStyle}>
+            <span>Project Cost:</span>
+            <span>-{FormatUtils.formatMoney(financialStatus.totalScopeCost)}</span>
+          </div>
+          <div style={metricRowStyle}>
+            <span>Fees:</span>
+            <span>-{FormatUtils.formatMoney(totalFees)}</span>
+          </div>
           <div style={{
-            marginTop: '8px',
-            padding: '8px 12px',
-            backgroundColor: colors.secondary.bg,
-            borderRadius: '6px',
-            border: `1px solid ${colors.secondary.border}`,
-            fontSize: '0.75rem',
-            color: colors.secondary.main
+            ...metricRowStyle,
+            paddingTop: '4px',
+            borderTop: `1px solid ${colors.secondary.border}`,
+            fontWeight: 'bold'
           }}>
-            <strong>Investor Loan Terms:</strong> Higher amounts, 5% fixed rate, longer processing times
-            <br />
-            <em>Note: Fees don't apply for seed money from OWNER-FUND-INITIATION space</em>
+            <span>Net Position:</span>
+            <span style={{
+              color: financialStatus.isDeficit ? colors.danger.text : colors.success.text
+            }}>
+              {FormatUtils.formatMoney(financialStatus.surplus)}
+            </span>
           </div>
         </div>
-      )}
+      </div>
 
     </div>
   );
