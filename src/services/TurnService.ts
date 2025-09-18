@@ -104,6 +104,10 @@ export class TurnService implements ITurnService {
       console.log(`🎮 TurnService.takeTurn - Processing turn effects...`);
       await this.processTurnEffects(playerId, diceRoll);
 
+      // Process leaving space effects BEFORE movement (time spent on current space)
+      console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
+      await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
+
       // Handle movement based on current space
       console.log(`🎮 TurnService.takeTurn - Handling movement...`);
       await this.movementService.handleMovementChoice(playerId);
@@ -220,6 +224,10 @@ export class TurnService implements ITurnService {
       if (gameState.awaitingChoice && gameState.awaitingChoice.type === 'MOVEMENT') {
         throw new Error('Cannot end turn: Player must resolve the pending movement choice first');
       }
+
+      // Process leaving space effects BEFORE movement (time spent on current space)
+      console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
+      await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
       // Handle movement using MovementService
       await this.movementService.handleMovementChoice(currentPlayer.id);
@@ -465,9 +473,9 @@ export class TurnService implements ITurnService {
       // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
       const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
 
-      // Filter out manual effects - these should only be triggered when player clicks buttons
+      // Filter out manual effects and time effects - manual effects are triggered by buttons, time effects on leaving space
       const filteredSpaceEffects = conditionFilteredEffects.filter(effect =>
-        effect.trigger_type !== 'manual'
+        effect.trigger_type !== 'manual' && effect.effect_type !== 'time'
       );
       
       // Get dice effect data from DataService  
@@ -1349,8 +1357,17 @@ export class TurnService implements ITurnService {
     console.log(`🔄 Try Again requested for player ${playerId}`);
     
     try {
-      // 1. Check for the snapshot. If it doesn't exist, return an error.
-      if (!this.stateService.hasPreSpaceEffectSnapshot()) {
+      // 1. Get the current player to determine their space
+      const currentPlayer = this.stateService.getPlayer(playerId);
+      if (!currentPlayer) {
+        return {
+          success: false,
+          message: 'Player not found'
+        };
+      }
+
+      // 2. Check for the snapshot for this specific player and space
+      if (!this.stateService.hasPreSpaceEffectSnapshot(playerId, currentPlayer.currentSpace)) {
         return {
           success: false,
           message: 'No snapshot available - Try Again not possible at this time'
@@ -1388,15 +1405,29 @@ export class TurnService implements ITurnService {
 
       console.log(`⏰ Applying ${timePenalty} day penalty for Try Again on ${snapshotPlayer.currentSpace}`);
 
-      // 4. Create a new state object by deep-copying the snapshot
+      // 4. Get current game state to preserve turn context
+      const currentGameState = this.stateService.getGameState();
+
+      // 5. Create a new state object by deep-copying the snapshot
+      // Reset button states so player can take actions again after Try Again
       const newStateObject: GameState = {
         ...snapshotState,
         players: snapshotState.players.map(player => ({ ...player })),
         globalActionLog: [...snapshotState.globalActionLog],
-        preSpaceEffectState: null // Clear snapshot after use
+        preSpaceEffectState: snapshotState, // Keep snapshot for multiple Try Again attempts
+        // Preserve current turn context (don't restore old turn state)
+        currentPlayerId: currentGameState.currentPlayerId,
+        turn: currentGameState.turn,
+        // Reset action states so player can take actions again
+        hasPlayerRolledDice: false,
+        hasPlayerMovedThisTurn: false,
+        hasCompletedManualActions: false,
+        completedActions: 0,
+        requiredActions: 1,
+        availableActionTypes: ['movement']
       };
 
-      // 5. In this new object, find the player and add the timePenalty to their timeSpent
+      // 6. In this new object, find the player and add the timePenalty to their timeSpent
       const targetPlayerIndex = newStateObject.players.findIndex(p => p.id === playerId);
       if (targetPlayerIndex === -1) {
         throw new Error(`Player ${playerId} not found in new state object`);
@@ -1422,12 +1453,16 @@ export class TurnService implements ITurnService {
         }
       });
 
-      // 6. Now, call setGameState(newStateObject) - atomic operation
+      // 7. Now, call setGameState(newStateObject) - atomic operation
       this.stateService.setGameState(newStateObject);
 
       console.log(`✅ ${snapshotPlayer.name} reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`);
 
-      // 7. Finally, call await this.nextPlayer()
+      // 8. Save new snapshot with time penalty applied (for potential future Try Again attempts)
+      this.stateService.savePreSpaceEffectSnapshot(playerId, snapshotPlayer.currentSpace);
+      console.log(`📸 Saved new snapshot for player ${playerId} at ${snapshotPlayer.currentSpace} with time penalty for future Try Again attempts`);
+
+      // 9. Finally, call await this.nextPlayer()
       console.log(`🏁 Ending turn after Try Again - advancing to next player`);
       await this.nextPlayer();
 
@@ -1479,9 +1514,7 @@ export class TurnService implements ITurnService {
       }
     });
     
-    // Save state snapshot before re-roll
-    console.log(`📸 TurnService.rerollDice - Saving pre-reroll snapshot`);
-    this.stateService.savePreSpaceEffectSnapshot();
+    // Note: Snapshot already saved after movement, no need to save again
     
     // Roll new dice
     const newDiceRoll = this.rollDice();
@@ -1521,10 +1554,8 @@ export class TurnService implements ITurnService {
   async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
     // Starting dice roll with feedback
     
-    // CRITICAL: Save state snapshot BEFORE any dice roll or effects
-    // This enables the "Try Again" feature to revert to this exact state
-    // Saving snapshot for Try Again feature
-    this.stateService.savePreSpaceEffectSnapshot();
+    // Note: Snapshot is now saved immediately after movement in MovementService
+    // This ensures Try Again always works regardless of when player presses it
     
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
@@ -1852,15 +1883,22 @@ export class TurnService implements ITurnService {
     console.log(`🏠 Processing arrival space effects for ${currentPlayer.name} at ${spaceName} (${visitType} visit)`);
 
     try {
+      // Check if there's already a snapshot for this player at this same space (multiple Try Again logic)
+      if (this.stateService.hasPreSpaceEffectSnapshot(playerId, spaceName)) {
+        console.log(`🔄 Snapshot exists for player ${playerId} at ${spaceName} - skipping CSV effects (player used Try Again)`);
+        // Don't apply CSV effects again, snapshot already contains the baseline state for this space
+        return;
+      }
+
       // Get space effect data from DataService for the arrival space
       const spaceEffectsData = this.dataService.getSpaceEffects(spaceName, visitType);
 
       // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
       const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
 
-      // Filter out manual effects - only process automatic effects on arrival
+      // Filter out manual effects and time effects - manual effects are triggered by buttons, time effects on leaving space
       const filteredSpaceEffects = conditionFilteredEffects.filter(effect =>
-        effect.trigger_type !== 'manual'
+        effect.trigger_type !== 'manual' && effect.effect_type !== 'time'
       );
 
       if (filteredSpaceEffects.length === 0) {
@@ -1924,6 +1962,10 @@ export class TurnService implements ITurnService {
     for (const player of players) {
       console.log(`🏠 Processing starting space effects for ${player.name} at ${player.currentSpace}`);
       try {
+        // Create snapshot for Try Again functionality on starting space
+        this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
+        console.log(`📸 Created snapshot for ${player.name} on starting space ${player.currentSpace}`);
+
         await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType);
       } catch (error) {
         console.error(`❌ Error processing starting space effects for ${player.name}:`, error);
@@ -1931,6 +1973,77 @@ export class TurnService implements ITurnService {
     }
 
     console.log(`✅ Completed processing starting space effects for all players`);
+  }
+
+  /**
+   * Process time effects for a player when leaving a space
+   * Time effects represent the time spent working on activities at that space
+   * and should be applied when the player finishes their work and leaves
+   */
+  private async processLeavingSpaceEffects(playerId: string, spaceName: string, visitType: VisitType): Promise<void> {
+    const currentPlayer = this.stateService.getPlayer(playerId);
+    if (!currentPlayer) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🚪 Processing leaving space time effects for ${currentPlayer.name} leaving ${spaceName} (${visitType} visit)`);
+
+    try {
+      // Get space effect data from DataService for the current space
+      const spaceEffectsData = this.dataService.getSpaceEffects(spaceName, visitType);
+
+      // Filter space effects based on conditions and only get time effects
+      const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+      const timeEffects = conditionFilteredEffects.filter(effect =>
+        effect.effect_type === 'time' && effect.trigger_type !== 'manual'
+      );
+
+      if (timeEffects.length === 0) {
+        console.log(`ℹ️ No time effects for leaving ${spaceName}`);
+        return;
+      }
+
+      console.log(`⏰ Processing ${timeEffects.length} time effects for leaving ${spaceName}`);
+
+      // Generate effects from leaving space using EffectFactory
+      const leavingEffects = EffectFactory.createEffectsFromSpaceEntry(
+        timeEffects,
+        playerId,
+        spaceName,
+        visitType
+      );
+
+      if (leavingEffects.length === 0) {
+        console.log(`ℹ️ No processed time effects for leaving ${spaceName}`);
+        return;
+      }
+
+      // Create effect context for leaving space
+      const effectContext = {
+        source: 'space_leaving',
+        playerId,
+        triggerEvent: 'SPACE_EXIT' as const,
+        metadata: {
+          spaceName,
+          visitType,
+          playerName: currentPlayer.name
+        }
+      };
+
+      // Process effects using EffectEngine
+      if (this.effectEngineService) {
+        const result = await this.effectEngineService.processEffects(leavingEffects, effectContext);
+        if (result.success) {
+          console.log(`✅ Applied ${result.successfulEffects} time effects for leaving ${spaceName}`);
+        } else {
+          console.warn(`⚠️ Some time effects failed for leaving ${spaceName}:`, result.errors);
+        }
+      } else {
+        console.warn(`⚠️ EffectEngineService not available - skipping time effects for leaving ${spaceName}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error processing leaving space time effects for ${spaceName}:`, error);
+    }
   }
 
   /**

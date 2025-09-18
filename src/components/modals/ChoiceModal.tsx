@@ -42,8 +42,8 @@ export function ChoiceModal(): JSX.Element {
     }
   };
 
-  // Don't render if no choice is awaiting
-  if (!awaitingChoice) {
+  // Don't render if no choice is awaiting or if it's a MOVEMENT choice (handled by TurnControls)
+  if (!awaitingChoice || awaitingChoice.type === 'MOVEMENT') {
     return <></>;
   }
 
@@ -86,7 +86,7 @@ export function ChoiceModal(): JSX.Element {
               fontSize: '24px',
               fontWeight: 'bold'
             }}>
-              {awaitingChoice.type === 'MOVEMENT' ? '🛤️' : '🎯'} {awaitingChoice.type === 'MOVEMENT' ? 'Choose Your Next Path' : 'Make Your Choice'}
+              🎯 Make Your Choice
             </h2>
             <p style={{ 
               margin: '0',

@@ -246,7 +246,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                             fontSize: '0.7rem'
                           }}
                         >
-                          <span 
+                          <span
                             style={{
                               ...cardTypeStyle,
                               backgroundColor: cardTypeColors[cardType as keyof typeof cardTypeColors],
@@ -260,7 +260,7 @@ export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDeta
                             onClick={() => onOpenCardDetailsModal(cardId)}
                             title={`View details: ${cardDisplayName}${isTransferable ? ' • Transferable' : ''}`}
                           >
-                            {cardType}{index + 1}
+                            {cardDisplayName}
                             {isTransferable && (
                               <span style={{
                                 position: 'absolute',

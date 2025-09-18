@@ -2,14 +2,15 @@
 // Lightweight test data fixtures for performance optimization
 // This reduces CSV loading overhead by 20%
 
-import { Card, Player, GameConfig, SpaceEffect, DiceEffect, Movement, SpaceContent } from '../../src/types/GameTypes';
+import { Card, GameConfig, SpaceEffect, DiceEffect, Movement, SpaceContent } from '../../src/types/DataTypes';
+import { Player } from '../../src/types/StateTypes';
 
 // Minimal card data for testing
 export const TEST_CARDS: Card[] = [
   {
-    id: 'E001',
-    type: 'E',
-    name: 'Test Expeditor Card',
+    card_id: 'E001',
+    card_type: 'E',
+    card_name: 'Test Expeditor Card',
     description: 'Test card for unit testing',
     cost: 100,
     source: 'test',
@@ -20,9 +21,9 @@ export const TEST_CARDS: Card[] = [
     target: 'Self'
   },
   {
-    id: 'W001',
-    type: 'W',
-    name: 'Test Work Card',
+    card_id: 'W001',
+    card_type: 'W',
+    card_name: 'Test Work Card',
     description: 'Test work card for unit testing',
     cost: 0,
     source: 'test',
@@ -33,9 +34,9 @@ export const TEST_CARDS: Card[] = [
     target: 'Self'
   },
   {
-    id: 'B001',
-    type: 'B',
-    name: 'Test Blue Card',
+    card_id: 'B001',
+    card_type: 'B',
+    card_name: 'Test Blue Card',
     description: 'Test blue card for unit testing',
     cost: 50,
     source: 'test',
@@ -46,9 +47,9 @@ export const TEST_CARDS: Card[] = [
     target: 'Self'
   },
   {
-    id: 'L003',
-    type: 'L',
-    name: 'New Safety Regulations',
+    card_id: 'L003',
+    card_type: 'L',
+    card_name: 'New Safety Regulations',
     description: 'All players get +3 time and discard 1 E card',
     cost: 75,
     source: 'test',
@@ -59,9 +60,9 @@ export const TEST_CARDS: Card[] = [
     target: 'All Players'
   },
   {
-    id: 'I001',
-    type: 'I',
-    name: 'Test Innovation Card',
+    card_id: 'I001',
+    card_type: 'I',
+    card_name: 'Test Innovation Card',
     description: 'Test innovation card for unit testing',
     cost: 150,
     source: 'test',
@@ -78,52 +79,24 @@ export const TEST_PLAYERS: Player[] = [
   {
     id: 'player1',
     name: 'Test Player 1',
-    money: 1000,
-    timeRemaining: 10,
-    cards: {
-      hand: ['E001'],
-      active: ['W001'],
-      discarded: {
-        W: [],
-        B: [],
-        E: [],
-        L: [],
-        I: []
-      }
-    },
     currentSpace: 'START-SPACE',
-    hasMovedThisTurn: false,
-    requiredActions: 2,
-    completedActions: 0,
-    hasCompletedManualActions: false,
-    hasRolledDice: false,
+    visitType: 'First',
+    money: 1000,
+    timeSpent: 10,
     projectScope: 2000000,
-    completedProjects: []
+    hand: ['E001'],
+    activeCards: []
   },
   {
     id: 'player2',
     name: 'Test Player 2',
-    money: 1500,
-    timeRemaining: 12,
-    cards: {
-      hand: ['B001'],
-      active: [],
-      discarded: {
-        W: [],
-        B: [],
-        E: [],
-        L: [],
-        I: []
-      }
-    },
     currentSpace: 'START-SPACE',
-    hasMovedThisTurn: false,
-    requiredActions: 2,
-    completedActions: 0,
-    hasCompletedManualActions: false,
-    hasRolledDice: false,
-    projectScope: 4000000,
-    completedProjects: []
+    visitType: 'First',
+    money: 1500,
+    timeSpent: 12,
+    projectScope: 2000000,
+    hand: ['B001'],
+    activeCards: []
   }
 ];
 

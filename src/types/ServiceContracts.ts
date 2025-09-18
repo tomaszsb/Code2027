@@ -190,9 +190,9 @@ export interface IStateService {
   logToActionHistory(actionData: Omit<import('./StateTypes').ActionLogEntry, 'id' | 'timestamp'>): GameState;
   
   // Pre-space effect snapshot methods (Try Again feature)
-  savePreSpaceEffectSnapshot(): GameState;
+  savePreSpaceEffectSnapshot(playerId: string, spaceName: string): GameState;
   clearPreSpaceEffectSnapshot(): GameState;
-  hasPreSpaceEffectSnapshot(): boolean;
+  hasPreSpaceEffectSnapshot(playerId: string, spaceName: string): boolean;
   getPreSpaceEffectSnapshot(): GameState | null;
   
   // State management methods

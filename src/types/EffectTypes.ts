@@ -171,7 +171,7 @@ export type Effect =
 export interface EffectContext {
   source: string;
   playerId?: string;
-  triggerEvent?: 'CARD_PLAY' | 'SPACE_ENTRY' | 'DICE_ROLL' | 'TURN_START' | 'TURN_END' | 'ACTIVE_EFFECT';
+  triggerEvent?: 'CARD_PLAY' | 'SPACE_ENTRY' | 'SPACE_EXIT' | 'DICE_ROLL' | 'TURN_START' | 'TURN_END' | 'ACTIVE_EFFECT';
   diceRoll?: number; // Required for CONDITIONAL_EFFECT processing
   metadata?: Record<string, any>;
 }

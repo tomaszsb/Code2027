@@ -25,8 +25,9 @@ describe('E2E Scenarios - Lightweight Performance Tests', () => {
       const player = createTestPlayer({
         id: 'player1',
         money: 1000,
-        timeRemaining: 10,
-        cards: { hand: ['L003'], active: [], discarded: { W: [], B: [], E: [], L: [], I: [] }}
+        timeSpent: 10,
+        hand: ['L003'],
+        activeCards: []
       });
 
       // Setup mocks
@@ -90,7 +91,7 @@ describe('E2E Scenarios - Lightweight Performance Tests', () => {
       const player = createTestPlayer({ 
         id: 'player1',
         money: 500,
-        timeRemaining: 5
+        timeSpent: 5
       });
 
       mockServices.stateService.getPlayer!.mockReturnValue(player);

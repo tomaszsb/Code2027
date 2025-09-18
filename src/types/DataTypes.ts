@@ -43,7 +43,7 @@ export interface DiceOutcome {
 export interface SpaceEffect {
   space_name: string;
   visit_type: 'First' | 'Subsequent';
-  effect_type: 'time' | 'cards' | 'money';
+  effect_type: 'time' | 'cards' | 'money' | 'dice_roll_chance' | 'turn';
   effect_action: string;
   effect_value: string | number;
   condition: string;
@@ -102,6 +102,7 @@ export interface Player {
   name: string;
   currentSpace: string;
   visitType: 'First' | 'Subsequent';
+  visitedSpaces: string[];
   money: number;
   timeSpent: number;
   projectScope: number;

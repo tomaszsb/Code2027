@@ -7,7 +7,7 @@
 export interface Choice {
   id: string;
   playerId: string;
-  type: 'MOVEMENT' | 'PLAYER_TARGET' | 'GENERAL' | 'TARGET_SELECTION';
+  type: 'MOVEMENT' | 'PLAYER_TARGET' | 'GENERAL' | 'TARGET_SELECTION' | 'CARD_REPLACEMENT';
   prompt: string;
   options: Array<{ id: string; label: string; }>;
 }

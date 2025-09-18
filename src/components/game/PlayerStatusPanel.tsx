@@ -17,7 +17,7 @@ interface PlayerStatusPanelProps {
   players: Player[];
   currentPlayerId: string | null;
   // TurnControlsWithActions props (passed from GameLayout)
-  currentPlayer: Player | null;
+  currentPlayer: Player;
   gamePhase: import('../../types/StateTypes').GamePhase;
   isProcessingTurn: boolean;
   hasPlayerMovedThisTurn: boolean;
@@ -35,7 +35,6 @@ interface PlayerStatusPanelProps {
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
   onAutomaticFunding?: () => Promise<void>;
-  onStartGame: () => void;
   playerId: string;
   playerName: string;
 }
@@ -71,7 +70,6 @@ export function PlayerStatusPanel({
   onManualEffect,
   onNegotiate,
   onAutomaticFunding,
-  onStartGame,
   playerId,
   playerName
 }: PlayerStatusPanelProps): JSX.Element {
@@ -139,7 +137,7 @@ export function PlayerStatusPanel({
         }}>
           {players.map((player) => (
             <PlayerStatusItem
-              key={player.id}
+              key={`${player.id}-${player.timeSpent || 0}`}
               player={player}
               isCurrentPlayer={player.id === currentPlayerId}
               onOpenNegotiationModal={onOpenNegotiationModal}
@@ -165,7 +163,6 @@ export function PlayerStatusPanel({
               onManualEffect={onManualEffect}
               onNegotiate={onNegotiate}
               onAutomaticFunding={onAutomaticFunding}
-              onStartGame={onStartGame}
               playerId={playerId}
               playerName={playerName}
             />

@@ -433,7 +433,7 @@ export class EffectEngineService implements IEffectEngineService {
             console.log(`🔧 EFFECT_ENGINE: Moving player ${payload.playerId} to ${payload.destinationSpace}`);
             
             try {
-              const updatedState = this.movementService.movePlayer(payload.playerId, payload.destinationSpace);
+              const updatedState = await this.movementService.movePlayer(payload.playerId, payload.destinationSpace);
               console.log(`    ✅ Successfully moved player to ${payload.destinationSpace}`);
               
               // Log the movement

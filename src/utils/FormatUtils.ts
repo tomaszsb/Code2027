@@ -44,21 +44,21 @@ export class FormatUtils {
       });
     } else if (absAmount < 1000000) {
       // Thousands: $50K
-      const thousands = absAmount / 1000;
+      const thousands = Math.round(absAmount / 1000 * Math.pow(10, precision)) / Math.pow(10, precision);
       formattedAmount = thousands.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: precision
       }) + 'K';
     } else if (absAmount < 1000000000) {
       // Millions: $1.5M
-      const millions = absAmount / 1000000;
+      const millions = Math.round(absAmount / 1000000 * Math.pow(10, precision)) / Math.pow(10, precision);
       formattedAmount = millions.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: precision
       }) + 'M';
     } else {
       // Billions: $2.1B
-      const billions = absAmount / 1000000000;
+      const billions = Math.round(absAmount / 1000000000 * Math.pow(10, precision)) / Math.pow(10, precision);
       formattedAmount = billions.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: precision

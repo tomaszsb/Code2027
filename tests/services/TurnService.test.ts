@@ -786,15 +786,9 @@ describe('TurnService', () => {
       // Act
       await turnService.processTurnEffects('player1', 3);
 
-      // Assert - Should process time effect + B card draw effect (not I card)
+      // Assert - Should process B card draw effect (not I card). Time effects now processed when leaving space.
       expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({
-            effectType: 'RESOURCE_CHANGE',
-            payload: expect.objectContaining({
-              resource: 'TIME'
-            })
-          }),
           expect.objectContaining({
             effectType: 'CARD_DRAW',
             payload: expect.objectContaining({
@@ -844,15 +838,9 @@ describe('TurnService', () => {
       // Act
       await turnService.processTurnEffects('player1', 3);
 
-      // Assert - Should process time effect + I card draw effect (not B card)
+      // Assert - Should process I card draw effect (not B card). Time effects now processed when leaving space.
       expect(mockEffectEngineService.processEffects).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({
-            effectType: 'RESOURCE_CHANGE',
-            payload: expect.objectContaining({
-              resource: 'TIME'
-            })
-          }),
           expect.objectContaining({
             effectType: 'CARD_DRAW',
             payload: expect.objectContaining({

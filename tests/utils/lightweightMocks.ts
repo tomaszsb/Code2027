@@ -3,9 +3,9 @@
 // Uses minimal fixtures instead of heavy mock objects with 300+ method stubs
 
 // Cross-compatibility for Jest and Vitest
-const mockFn = (() => {
+const mockFn: any = (() => {
   if (typeof vi !== 'undefined' && vi.fn) return vi.fn;
-  if (typeof jest !== 'undefined' && mockFn) return mockFn;
+  if (typeof jest !== 'undefined' && jest.fn) return jest.fn;
   return (impl?: any) => impl || (() => {});
 })();
 
@@ -131,14 +131,19 @@ export const createLightweightTurnService = () => ({
 });
 
 // Lightweight PlayerActionService mock - only essential methods
-export const createLightweightPlayerActionService = () => ({
-  playCard: mockFn(async (playerId: string, cardId: string) => 
-    Promise.resolve({ success: true, message: 'Card played successfully' })),
-  
-  rollDice: mockFn(async (playerId: string) => 
+export const createLightweightPlayerActionService = (cardService?: any) => ({
+  playCard: mockFn(async (playerId: string, cardId: string) => {
+    // Call the cardService.playCard if provided to simulate real behavior
+    if (cardService && cardService.playCard) {
+      await cardService.playCard(playerId, cardId);
+    }
+    return Promise.resolve({ success: true, message: 'Card played successfully' });
+  }),
+
+  rollDice: mockFn(async (playerId: string) =>
     Promise.resolve({ success: true, diceRoll: 3 })),
-  
-  endTurn: mockFn(async (playerId: string) => 
+
+  endTurn: mockFn(async (playerId: string) =>
     Promise.resolve({ success: true, message: 'Turn ended' }))
 });
 
@@ -169,15 +174,19 @@ export const createLightweightEffectEngineService = () => ({
 });
 
 // Factory function to create all lightweight mocks at once
-export const createLightweightMockServices = () => ({
-  dataService: createFastMockDataService(),
-  stateService: createLightweightStateService(),
-  cardService: createLightweightCardService(),
-  resourceService: createLightweightResourceService(),
-  turnService: createLightweightTurnService(),
-  playerActionService: createLightweightPlayerActionService(),
-  effectEngineService: createLightweightEffectEngineService()
-});
+export const createLightweightMockServices = () => {
+  const cardService = createLightweightCardService();
+
+  return {
+    dataService: createFastMockDataService(),
+    stateService: createLightweightStateService(),
+    cardService,
+    resourceService: createLightweightResourceService(),
+    turnService: createLightweightTurnService(),
+    playerActionService: createLightweightPlayerActionService(cardService),
+    effectEngineService: createLightweightEffectEngineService()
+  };
+};
 
 // Utility function to create a test game state quickly
 export const createTestGameState = (overrides = {}) => ({

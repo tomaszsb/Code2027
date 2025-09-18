@@ -89,7 +89,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     stateService.setGameState(initialGameState);
 
     // 2. Save a snapshot (this captures OWNER-SCOPE-INITIATION as the current space)
-    stateService.savePreSpaceEffectSnapshot();
+    stateService.savePreSpaceEffectSnapshot(player1.id, 'OWNER-SCOPE-INITIATION');
     
     // Create a mock snapshot with the correct space
     const mockSnapshot = {
@@ -97,7 +97,9 @@ describe('TurnService.tryAgainOnSpace', () => {
       players: initialGameState.players.map(p => ({ ...p, currentSpace: 'OWNER-SCOPE-INITIATION' }))
     };
     vi.spyOn(stateService, 'getPreSpaceEffectSnapshot').mockReturnValue(mockSnapshot);
-    vi.spyOn(stateService, 'hasPreSpaceEffectSnapshot').mockReturnValue(true);
+    vi.spyOn(stateService, 'hasPreSpaceEffectSnapshot').mockImplementation((playerId: string, spaceName: string) =>
+      playerId === player1.id && spaceName === 'OWNER-SCOPE-INITIATION'
+    );
 
     // Mock DataService responses for this test
     (dataService.getSpaceContent as vi.Mock).mockReturnValue({ can_negotiate: true });
@@ -138,8 +140,9 @@ describe('TurnService.tryAgainOnSpace', () => {
     // Check that the penalty was applied to the reverted state
     expect(revertedPlayer.timeSpent).toBe(1); // initial 0 + 1 penalty
 
-    // Check that the snapshot is cleared in the final state
-    expect(finalState.preSpaceEffectState).toBeNull();
+    // Check that the snapshot is preserved for multiple Try Again attempts
+    expect(finalState.preSpaceEffectState).not.toBeNull();
+    expect(finalState.preSpaceEffectState!.players[0].currentSpace).toBe('OWNER-SCOPE-INITIATION');
 
     // Verify that the turn was advanced
     expect((turnService as any).nextPlayer).toHaveBeenCalledTimes(1);
@@ -172,7 +175,7 @@ describe('TurnService.tryAgainOnSpace', () => {
     // Mock DataService to return a non-negotiable space
     (dataService.getSpaceContent as vi.Mock).mockReturnValue({ can_negotiate: false });
 
-    stateService.savePreSpaceEffectSnapshot();
+    stateService.savePreSpaceEffectSnapshot(player1.id, 'NON-NEGOTIABLE-SPACE');
 
     const result = await turnService.tryAgainOnSpace(player1.id);
 

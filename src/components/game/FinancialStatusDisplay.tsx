@@ -427,12 +427,12 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                       bDiscarded.forEach(cardId => {
                         const card = dataService.getCardById(cardId);
                         if (card) {
-                          const fundingMatch = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+                          const fundingMatch = card.card_name.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
                           const amount = fundingMatch ? FormatUtils.parseMoney(fundingMatch[1]) : 0;
                           if (amount > 0) {
                             fundingTransactions.push({
                               type: 'Bank',
-                              description: card.title,
+                              description: card.card_name,
                               amount: amount,
                               icon: '🏦'
                             });
@@ -444,12 +444,12 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
                       iDiscarded.forEach(cardId => {
                         const card = dataService.getCardById(cardId);
                         if (card) {
-                          const fundingMatch = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+                          const fundingMatch = card.card_name.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
                           const amount = fundingMatch ? FormatUtils.parseMoney(fundingMatch[1]) : 0;
                           if (amount > 0) {
                             fundingTransactions.push({
                               type: 'Investor',
-                              description: card.title,
+                              description: card.card_name,
                               amount: amount,
                               icon: '💼'
                             });

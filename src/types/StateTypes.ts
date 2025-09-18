@@ -78,8 +78,10 @@ export interface GameState {
   activeNegotiation: NegotiationState | null;
   // Global action log
   globalActionLog: ActionLogEntry[];
-  // Try Again state snapshotting
+  // Try Again state snapshotting with player context
   preSpaceEffectState: GameState | null;
+  snapshotPlayerId: string | null;  // Track which player the snapshot belongs to
+  snapshotSpaceName: string | null; // Track which space the snapshot is for
   // Stateful decks and discard piles
   decks: {
     W: string[];
@@ -121,6 +123,7 @@ export interface PlayerUpdateData {
   name?: string;
   currentSpace?: string;
   visitType?: 'First' | 'Subsequent';
+  visitedSpaces?: string[];
   money?: number;
   timeSpent?: number;
   projectScope?: number;

@@ -305,7 +305,7 @@ export class PlayerActionService implements IPlayerActionService {
       // Get current player for logging
       const gameState = this.stateService.getGameState();
       const currentPlayer = gameState.currentPlayerId ? this.stateService.getPlayer(gameState.currentPlayerId) : null;
-      
+
       if (currentPlayer) {
         // Log the end turn attempt
         this.loggingService.info(`Ending turn ${gameState.turn}`, {
@@ -315,7 +315,7 @@ export class PlayerActionService implements IPlayerActionService {
           status: 'attempt'
         });
       }
-      
+
       await this.turnService.endTurn();
 
       // Log successful turn ending

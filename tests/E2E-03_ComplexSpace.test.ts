@@ -103,11 +103,14 @@ describe('E2E-03: Complex Space Features Test', () => {
     expect(player.name).toBe('Test Player');
 
     // Place player on OWNER-SCOPE-INITIATION (can_negotiate=true, time penalty)
-    stateService.updatePlayer({ 
-      id: player.id, 
+    stateService.updatePlayer({
+      id: player.id,
       currentSpace: 'OWNER-SCOPE-INITIATION',
       visitType: 'First'
     });
+
+    // Create snapshot for Try Again functionality
+    stateService.savePreSpaceEffectSnapshot(player.id, 'OWNER-SCOPE-INITIATION');
 
     // Set player as having rolled dice (to verify reset)
     stateService.setPlayerHasRolledDice();
@@ -164,11 +167,14 @@ describe('E2E-03: Complex Space Features Test', () => {
     const player = gameState.players[0];
 
     // Place player on PM-DECISION-CHECK (can_negotiate=false)
-    stateService.updatePlayer({ 
-      id: player.id, 
+    stateService.updatePlayer({
+      id: player.id,
       currentSpace: 'PM-DECISION-CHECK',
       visitType: 'First'
     });
+
+    // Create snapshot for Try Again functionality (but this space shouldn't allow it)
+    stateService.savePreSpaceEffectSnapshot(player.id, 'PM-DECISION-CHECK');
 
     const initialTime = player.timeSpent || 0;
 

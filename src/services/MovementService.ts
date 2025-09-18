@@ -94,6 +94,15 @@ export class MovementService implements IMovementService {
       visitType: newVisitType
     });
 
+    // Clear any existing snapshot for this player (regardless of space)
+    // Each player can only have one active snapshot at a time
+    this.stateService.clearPreSpaceEffectSnapshot();
+
+    // Save snapshot for Try Again feature immediately after movement
+    // This ensures Try Again always returns player to the space they just moved to
+    this.stateService.savePreSpaceEffectSnapshot(playerId, destinationSpace);
+    console.log(`📸 Saved snapshot for Try Again: Player ${playerId} now at ${destinationSpace}`);
+
     // Note: Space effects are processed by TurnService.processTurnEffects, not here
     // MovementService only handles the physical movement of players between spaces
 

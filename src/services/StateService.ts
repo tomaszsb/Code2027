@@ -380,13 +380,15 @@ export class StateService implements IStateService {
 
   setAwaitingChoice(choice: Choice): GameState {
     console.log(`🎯 Setting awaiting choice for player ${choice.playerId}: ${choice.type} - "${choice.prompt}"`);
-    
+
     this.currentState = {
       ...this.currentState,
       awaitingChoice: choice
     };
 
+    console.log(`🔄 StateService: About to notify ${this.listeners.length} subscribers about choice update`);
     this.notifyListeners();
+    console.log(`✅ StateService: Subscribers notified about choice update`);
     return this.currentState;
   }
 
@@ -557,8 +559,6 @@ export class StateService implements IStateService {
     if (!currentPlayer || !this.dataService.isLoaded()) return;
     
     const actionCounts = this.calculateRequiredActions(currentPlayer);
-    console.log(`🎯 Action Counts for ${currentPlayer.name}: Required=${actionCounts.required}, Completed=${actionCounts.completed}, Types=[${actionCounts.availableTypes.join(', ')}]`);
-    console.log(`🎯 State: hasPlayerMovedThisTurn=${this.currentState.hasPlayerMovedThisTurn}, hasCompletedManualActions=${this.currentState.hasCompletedManualActions}`);
     
     this.currentState = {
       ...this.currentState,
@@ -592,10 +592,6 @@ export class StateService implements IStateService {
       const manualEffects = spaceEffects.filter(effect => effect.trigger_type === 'manual');
       const automaticEffects = spaceEffects.filter(effect => effect.trigger_type !== 'manual');
       
-      console.log(`🔍 Found ${spaceEffects.length} space effects for ${player.currentSpace}: Manual=${manualEffects.length}, Automatic=${automaticEffects.length} (automatic effects don't count as separate actions)`);
-      spaceEffects.forEach((effect, i) => {
-        console.log(`  Effect ${i}: type=${effect.effect_type}, trigger=${effect.trigger_type}, action=${effect.effect_action}`);
-      });
       
       // Log automatic effects for debugging, but don't count them as separate actions
       // Automatic effects are triggered by space entry and don't require separate player actions
@@ -604,7 +600,9 @@ export class StateService implements IStateService {
       });
 
       // Count manual effects (require separate player action)
-      manualEffects.forEach(effect => {
+      // Exclude 'turn' effects since they duplicate the regular End Turn button
+      const countableManualEffects = manualEffects.filter(effect => effect.effect_type !== 'turn');
+      countableManualEffects.forEach(effect => {
         // Generic handling for ALL manual effect types
         const actionType = `${effect.effect_type}_manual`;
         if (!availableTypes.includes(actionType)) {
@@ -692,27 +690,31 @@ export class StateService implements IStateService {
   }
 
   // Global game state snapshot methods for "Try Again" feature
-  savePreSpaceEffectSnapshot(): GameState {
-    console.log('📸 Saving pre-space-effect snapshot for Try Again feature');
-    
+  savePreSpaceEffectSnapshot(playerId: string, spaceName: string): GameState {
+    console.log(`📸 Saving snapshot for player ${playerId} at space ${spaceName}`);
+
     // Create a deep copy of the current game state
     const currentState = this.getGameStateDeepCopy();
-    
-    // Save the snapshot (excluding the snapshot itself to avoid circular reference)
+
+    // Save the snapshot with player and space context
     const snapshotState: GameState = {
       ...currentState,
-      preSpaceEffectState: null // Don't include nested snapshots
+      preSpaceEffectState: null, // Don't include nested snapshots
+      snapshotPlayerId: null,
+      snapshotSpaceName: null
     };
-    
+
     const newState: GameState = {
       ...this.currentState,
-      preSpaceEffectState: snapshotState
+      preSpaceEffectState: snapshotState,
+      snapshotPlayerId: playerId,
+      snapshotSpaceName: spaceName
     };
 
     this.currentState = newState;
     this.notifyListeners();
-    
-    console.log('✅ Pre-space-effect snapshot saved successfully');
+
+    console.log(`✅ Snapshot saved for player ${playerId} at space ${spaceName}`);
     return newState;
   }
 
@@ -740,20 +742,24 @@ export class StateService implements IStateService {
 
   clearPreSpaceEffectSnapshot(): GameState {
     console.log('🗑️ Clearing pre-space-effect snapshot');
-    
+
     const newState: GameState = {
       ...this.currentState,
-      preSpaceEffectState: null
+      preSpaceEffectState: null,
+      snapshotPlayerId: null,
+      snapshotSpaceName: null
     };
 
     this.currentState = newState;
     this.notifyListeners();
-    
+
     return newState;
   }
 
-  hasPreSpaceEffectSnapshot(): boolean {
-    return this.currentState.preSpaceEffectState !== null;
+  hasPreSpaceEffectSnapshot(playerId: string, spaceName: string): boolean {
+    return this.currentState.preSpaceEffectState !== null &&
+           this.currentState.snapshotPlayerId === playerId &&
+           this.currentState.snapshotSpaceName === spaceName;
   }
 
   getPreSpaceEffectSnapshot(): GameState | null {
@@ -799,6 +805,8 @@ export class StateService implements IStateService {
       globalActionLog: [],
       // Initialize Try Again snapshot
       preSpaceEffectState: null,
+      snapshotPlayerId: null,
+      snapshotSpaceName: null,
       // Initialize empty decks and discard piles (will be populated in startGame)
       decks: {
         W: [],
@@ -827,6 +835,7 @@ export class StateService implements IStateService {
       name,
       currentSpace: startingSpace,
       visitType: 'First',
+      visitedSpaces: [startingSpace], // Track starting space as first visited
       money: 0, // Players start with no money, get funding from owner and loans later
       timeSpent: 0,
       projectScope: 0, // Players start with no project scope, calculated from W cards

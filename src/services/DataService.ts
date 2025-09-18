@@ -277,7 +277,7 @@ export class DataService implements IDataService {
       const spaceEffect: SpaceEffect = {
         space_name: values[0],
         visit_type: values[1] as VisitType,
-        effect_type: values[2] as 'time' | 'cards' | 'money',
+        effect_type: values[2] as SpaceEffect['effect_type'],
         effect_action: values[3],
         effect_value: isNaN(Number(values[4])) ? values[4] : Number(values[4]),
         condition: values[5],
@@ -288,7 +288,7 @@ export class DataService implements IDataService {
       if (values[7] && values[7].trim()) {
         spaceEffect.trigger_type = values[7].trim() as 'manual' | 'auto';
       }
-      
+
       return spaceEffect;
     });
   }

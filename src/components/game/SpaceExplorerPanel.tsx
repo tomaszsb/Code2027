@@ -260,6 +260,7 @@ export function SpaceExplorerPanel({
                 cursor: 'pointer',
                 color: colors.secondary.main
               }}
+              title="Close Space Explorer"
             >
               ✕
             </button>
@@ -377,7 +378,7 @@ export function SpaceExplorerPanel({
                 {spaceDetails.space.name}
               </h4>
               <button
-                onClick={onToggle}
+                onClick={() => setSelectedSpace(null)}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -385,6 +386,7 @@ export function SpaceExplorerPanel({
                   cursor: 'pointer',
                   color: colors.primary.text
                 }}
+                title="Close details panel"
               >
                 ✕
               </button>
@@ -461,7 +463,7 @@ export function SpaceExplorerPanel({
                         <div>
                           <div>{player.name}</div>
                           <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                            💰${FormatUtils.formatMoney(player.money)} | ⏱️{player.timeSpent}h
+                            💰${FormatUtils.formatMoney(player.money)} | ⏱️{player.timeSpent}d
                           </div>
                         </div>
                       </div>

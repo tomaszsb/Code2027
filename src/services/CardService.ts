@@ -1021,6 +1021,7 @@ export class CardService implements ICardService {
         effects.push({
           effectType: 'CHOICE',
           payload: {
+            id: `${card.card_id}_movement_choice`,
             playerId: playerId,
             type: 'MOVEMENT',
             prompt: `Choose where to move (${movementSpaces} spaces)`,

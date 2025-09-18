@@ -21,7 +21,7 @@ interface PlayerStatusItemProps {
   isSpaceExplorerVisible: boolean;
   isMovementPathVisible: boolean;
   // TurnControlsWithActions props (passed from GameLayout via PlayerStatusPanel)
-  currentPlayer: Player | null;
+  currentPlayer: Player;
   gamePhase: import('../../types/StateTypes').GamePhase;
   isProcessingTurn: boolean;
   hasPlayerMovedThisTurn: boolean;
@@ -39,7 +39,6 @@ interface PlayerStatusItemProps {
   onManualEffect: (effectType: string) => Promise<void>;
   onNegotiate: () => Promise<void>;
   onAutomaticFunding?: () => Promise<void>;
-  onStartGame: () => void;
   playerId: string;
   playerName: string;
 }
@@ -74,7 +73,6 @@ export function PlayerStatusItem({
   onManualEffect,
   onNegotiate,
   onAutomaticFunding,
-  onStartGame,
   playerId,
   playerName
 }: PlayerStatusItemProps): JSX.Element {
@@ -99,6 +97,38 @@ export function PlayerStatusItem({
   };
 
   const financialStatus = calculateFinancialStatus();
+
+  // Helper function to evaluate effect conditions
+  const evaluateEffectCondition = (condition: string | undefined): boolean => {
+    if (!condition || condition === 'always') return true;
+
+    const conditionLower = condition.toLowerCase();
+
+    // Project scope conditions
+    const projectScope = player.projectScope || 0;
+    if (conditionLower === 'scope_le_4m') {
+      return projectScope <= 4000000;
+    }
+    if (conditionLower === 'scope_gt_4m') {
+      return projectScope > 4000000;
+    }
+
+    // Add other conditions as needed
+    // For now, default to true for unknown conditions
+    return true;
+  };
+
+  // Calculate space time cost that will be spent when taking actions
+  const getSpaceTimeCost = (): number => {
+    const spaceEffects = dataService.getSpaceEffects(player.currentSpace, player.visitType);
+    return spaceEffects
+      .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add' && evaluateEffectCondition(effect.condition))
+      .reduce((total, effect) => total + Number(effect.effect_value || 0), 0);
+  };
+
+  const spaceTimeCost = getSpaceTimeCost();
+
+
   // Add CSS animation styles to document head if not already present
   React.useEffect(() => {
     const styleId = 'player-status-animations';
@@ -471,6 +501,29 @@ export function PlayerStatusItem({
 
             <div style={statItemStyle}>
               <div style={statLabelStyle}>Time</div>
+
+              {/* Time Cost Warning - appears above current time when current player has time cost */}
+              {isCurrentPlayer && spaceTimeCost > 0 && (
+                <div style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  color: colors.warning.dark,
+                  backgroundColor: colors.warning.light,
+                  border: `1px solid ${colors.warning.main}`,
+                  borderRadius: '4px',
+                  padding: '4px 6px',
+                  marginBottom: '4px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px'
+                }}>
+                  <span style={{ fontSize: '0.8rem' }}>⚠️</span>
+                  <span>Cost: {spaceTimeCost}d</span>
+                </div>
+              )}
+
               <div style={statValueStyle}>⏱️ {FormatUtils.formatTime(player.timeSpent || 0)}</div>
             </div>
 
@@ -543,6 +596,7 @@ export function PlayerStatusItem({
             );
           })()}
 
+
         </div>
 
         {/* Right Section: Turn Controls */}
@@ -579,7 +633,6 @@ export function PlayerStatusItem({
                 onManualEffect={onManualEffect}
                 onNegotiate={onNegotiate}
                 onAutomaticFunding={onAutomaticFunding}
-                onStartGame={onStartGame}
               />
             </div>
           ) : (
@@ -613,6 +666,7 @@ export function PlayerStatusItem({
           <FinancialStatusDisplay player={player} />
         </div>
       )}
+
 
       {/* Card Portfolio Dashboard */}
       {showCardPortfolio && (

@@ -46,7 +46,13 @@ export const formatActionDescription = (entry: ActionLogEntry): string => {
 
     case 'system_log':
       return `⚙️ ${entry.description}`;
-      
+
+    case 'turn_start':
+      return `▶️ ${entry.description}`;
+
+    case 'turn_end':
+      return `⏹️ ${entry.description}`;
+
     default:
       return entry.description;
   }

@@ -147,6 +147,16 @@ export function TurnControlsWithActions({
   // Check if negotiation is available on current space
   const canNegotiate = dataService.getSpaceContent(currentPlayer.currentSpace, currentPlayer.visitType)?.can_negotiate === true;
 
+  // Calculate space time cost that will be spent when rolling dice/taking actions
+  const getSpaceTimeCost = (): number => {
+    const spaceEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
+    return spaceEffects
+      .filter(effect => effect.effect_type === 'time' && effect.effect_action === 'add' && evaluateEffectCondition(effect.condition))
+      .reduce((total, effect) => total + Number(effect.effect_value || 0), 0);
+  };
+
+  const spaceTimeCost = getSpaceTimeCost();
+
   // All players can take actions when it's their turn - currentPlayer is guaranteed to exist
   const isCurrentPlayersTurn = true;
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
@@ -182,6 +192,7 @@ export function TurnControlsWithActions({
           🎮 Turn Controls & Actions
         </div>
       </div>
+
 
       {/* Feedback Message Display */}
       {feedbackMessage && (
