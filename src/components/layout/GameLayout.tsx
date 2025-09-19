@@ -1,6 +1,6 @@
 // src/components/layout/GameLayout.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { colors } from '../../styles/theme';
 import { CardModal } from '../modals/CardModal';
 import { CardDetailsModal } from '../modals/CardDetailsModal';
@@ -17,6 +17,7 @@ import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { GameLog } from '../game/GameLog';
 import { useGameContext } from '../../context/GameContext';
 import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
+import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
 
@@ -25,7 +26,7 @@ import { Card } from '../../types/DataTypes';
  * This provides the main grid-based layout for the game application.
  */
 export function GameLayout(): JSX.Element {
-  const { stateService, dataService, cardService, turnService, movementService } = useGameContext();
+  const { stateService, dataService, cardService, turnService, movementService, notificationService } = useGameContext();
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
@@ -45,11 +46,34 @@ export function GameLayout(): JSX.Element {
   const [hasCompletedManualActions, setHasCompletedManualActions] = useState<boolean>(false);
   const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
   const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
-  const [completedActions, setCompletedActions] = useState<{
-    diceRoll?: string;
-    manualActions: { [effectType: string]: string };
-  }>({ manualActions: {} });
-  const [feedbackMessage, setFeedbackMessage] = useState<string>('');
+
+  // Unified notification system - driven by NotificationService
+  const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
+  const [playerNotifications, setPlayerNotifications] = useState<{ [playerId: string]: string }>({});
+
+  // Legacy compatibility - map new notification system to old format for existing components
+  const completedActions = {
+    diceRoll: buttonFeedback.dice || undefined,
+    manualActions: {
+      funding: buttonFeedback.funding || '',
+      ...Object.keys(buttonFeedback)
+        .filter(key => key.startsWith('manual-'))
+        .reduce((acc, key) => {
+          const effectType = key.replace('manual-', '');
+          acc[effectType] = buttonFeedback[key];
+          return acc;
+        }, {} as { [key: string]: string })
+    }
+  };
+  const feedbackMessage = ''; // No longer used - messages go to player notifications
+
+  // Subscribe to NotificationService updates
+  useEffect(() => {
+    notificationService.setUpdateCallbacks(
+      setButtonFeedback,
+      setPlayerNotifications
+    );
+  }, [notificationService]);
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -107,7 +131,7 @@ export function GameLayout(): JSX.Element {
       const playerChanged = previousPlayerId && previousPlayerId !== gameState.currentPlayerId;
 
       if (playerChanged) {
-        setCompletedActions({ manualActions: {} });
+        notificationService.clearAllNotifications(); // Clear all notifications on turn change
       }
 
       // Track turn control state for TurnControlsWithActions
@@ -140,7 +164,11 @@ export function GameLayout(): JSX.Element {
       completed: currentState.completedActions || 0
     });
     
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      // Clean up all notifications on unmount
+      notificationService.clearAllNotifications();
+    };
   }, [stateService]);
 
   // NOTE: Auto-show movement path logic disabled - using board-based movement indicators instead
@@ -209,16 +237,32 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.rollDiceWithFeedback(currentPlayerId);
-      // Create completion message using centralized utility
-      const unifiedDescription = formatDiceRollFeedback(result.diceValue, result.effects || []);
-      
-      // Store completion message for immediate UI feedback
-      setCompletedActions(prev => ({
-        ...prev,
-        diceRoll: unifiedDescription
-      }));
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+
+      if (currentPlayer) {
+        // Use unified notification system
+        notificationService.notify(
+          NotificationUtils.createDiceRollNotification(result.diceValue, result.effects || [], currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'dice'
+          }
+        );
+      }
     } catch (error) {
       console.error("Error rolling dice:", error);
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+      if (currentPlayer) {
+        notificationService.notify(
+          NotificationUtils.createErrorNotification('dice roll', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'dice'
+          }
+        );
+      }
     } finally {
       setIsProcessingTurn(false);
     }
@@ -228,8 +272,8 @@ export function GameLayout(): JSX.Element {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      // Clear completed actions when ending turn
-      setCompletedActions({ manualActions: {} });
+      // Clear all notifications when ending turn as per user requirements
+      notificationService.clearAllNotifications();
       await turnService.endTurnWithMovement();
     } catch (error) {
       console.error("Error ending turn:", error);
@@ -243,45 +287,59 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
-      // Create completion message for immediate UI feedback
-      const outcomes: string[] = [];
-      
-      result.effects?.forEach(effect => {
-        switch (effect.type) {
-          case 'cards':
-            outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
-            break;
-          case 'money':
-            if (effect.value !== undefined) {
-              const moneyOutcome = effect.value > 0 
-                ? `Gained $${Math.abs(effect.value)}`
-                : `Spent $${Math.abs(effect.value)}`;
-              outcomes.push(moneyOutcome);
-            }
-            break;
-          case 'time':
-            if (effect.value !== undefined) {
-              const timeOutcome = effect.value > 0 
-                ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
-                : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
-              outcomes.push(timeOutcome);
-            }
-            break;
-        }
-      });
-      
-      const actionDescription = `Manual Action: ${outcomes.join(', ') || 'Action completed'}`;
-      
-      // Store completion message for immediate UI feedback
-      setCompletedActions(prev => ({
-        ...prev,
-        manualActions: {
-          ...prev.manualActions,
-          [effectType]: actionDescription
-        }
-      }));
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+
+      if (currentPlayer) {
+        // Create outcomes for the notification utility
+        const outcomes: string[] = [];
+
+        result.effects?.forEach(effect => {
+          switch (effect.type) {
+            case 'cards':
+              outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
+              break;
+            case 'money':
+              if (effect.value !== undefined) {
+                const moneyOutcome = effect.value > 0
+                  ? `Gained $${Math.abs(effect.value)}`
+                  : `Spent $${Math.abs(effect.value)}`;
+                outcomes.push(moneyOutcome);
+              }
+              break;
+            case 'time':
+              if (effect.value !== undefined) {
+                const timeOutcome = effect.value > 0
+                  ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
+                  : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
+                outcomes.push(timeOutcome);
+              }
+              break;
+          }
+        });
+
+        // Use unified notification system
+        notificationService.notify(
+          NotificationUtils.createManualActionNotification(effectType, outcomes, currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: `manual-${effectType}`
+          }
+        );
+      }
     } catch (error) {
       console.error("Error triggering manual effect:", error);
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+      if (currentPlayer) {
+        notificationService.notify(
+          NotificationUtils.createErrorNotification('manual action', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: `manual-${effectType}`
+          }
+        );
+      }
     } finally {
       setIsProcessingTurn(false);
     }
@@ -292,56 +350,85 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.handleAutomaticFunding(currentPlayerId);
-      // Handle the result similar to dice roll feedback
-      if (result.effects) {
-        // Create completion message using centralized utility
-        const unifiedDescription = formatDiceRollFeedback(0, result.effects); // 0 dice value for automatic funding
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
 
-        // Store completion message for immediate UI feedback
-        let fundingMessage = unifiedDescription.replace('Rolled 0 → ', '💰 Funding → ');
+      if (result.effects && currentPlayer) {
+        // Calculate total funding amount from effects
+        const totalAmount = result.effects
+          .filter(effect => effect.type === 'money')
+          .reduce((sum, effect) => sum + (effect.value || 0), 0);
 
-        // Special case for OWNER-FUND-INITIATION space - show "owner seed money" instead
-        const currentPlayer = players.find(p => p.id === currentPlayerId);
-        if (currentPlayer?.currentSpace === 'OWNER-FUND-INITIATION') {
-          fundingMessage = '💰 Funding → Owner seed money';
-        }
-
-        setCompletedActions(prev => ({
-          ...prev,
-          diceRoll: undefined, // Clear dice roll message since funding is more specific
-          manualActions: {
-            ...prev.manualActions,
-            funding: fundingMessage
+        // Use unified notification system
+        notificationService.notify(
+          NotificationUtils.createFundingNotification(totalAmount, currentPlayer.currentSpace, currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'funding'
           }
-        }));
+        );
       }
     } catch (error) {
       console.error("Error handling automatic funding:", error);
-      setFeedbackMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setTimeout(() => setFeedbackMessage(''), 3000);
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+      if (currentPlayer) {
+        notificationService.notify(
+          NotificationUtils.createErrorNotification('funding', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'funding'
+          }
+        );
+      }
     } finally {
       setIsProcessingTurn(false);
     }
   };
 
+
   const handleTryAgain = async () => {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      // Clear completed actions when trying again
-      setCompletedActions({ manualActions: {} });
       const result = await turnService.tryAgainOnSpace(currentPlayerId);
-      setFeedbackMessage(result.message);
-      // Clear feedback after 4 seconds
-      setTimeout(() => {
-        setFeedbackMessage('');
-      }, 4000);
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+
+      if (currentPlayer) {
+        // Use unified notification system
+        notificationService.notify(
+          NotificationUtils.createTryAgainNotification(result.success, 1, currentPlayer.currentSpace, currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'try-again'
+          }
+        );
+      }
+
+      // If successful and should advance turn, do so after a brief delay to show message
+      if (result.success && result.shouldAdvanceTurn) {
+        setTimeout(async () => {
+          try {
+            await turnService.endTurn();
+          } catch (error) {
+            console.error("Error advancing turn after Try Again:", error);
+          }
+        }, 1500); // Show message for 1.5 seconds before advancing turn
+      }
     } catch (error) {
       console.error("Error trying again on space:", error);
-      setFeedbackMessage(`Try again failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setTimeout(() => {
-        setFeedbackMessage('');
-      }, 4000);
+      const currentPlayer = players.find(p => p.id === currentPlayerId);
+      if (currentPlayer) {
+        notificationService.notify(
+          NotificationUtils.createErrorNotification('try again', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
+          {
+            playerId: currentPlayerId,
+            playerName: currentPlayer.name,
+            actionType: 'try-again'
+          }
+        );
+      }
     } finally {
       setIsProcessingTurn(false);
     }
@@ -422,6 +509,7 @@ export function GameLayout(): JSX.Element {
               // Player data
               players={players}
               currentPlayerId={currentPlayerId}
+              playerNotifications={playerNotifications}
               // TurnControlsWithActions props - guaranteed non-null currentPlayer
               currentPlayer={currentPlayer}
               gamePhase={gamePhase}
@@ -433,6 +521,7 @@ export function GameLayout(): JSX.Element {
               actionCounts={actionCounts}
               completedActions={completedActions}
               feedbackMessage={feedbackMessage}
+              buttonFeedback={buttonFeedback}
               onRollDice={handleRollDice}
               onEndTurn={handleEndTurn}
               onManualEffect={handleManualEffect}

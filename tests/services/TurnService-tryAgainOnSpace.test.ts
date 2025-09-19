@@ -75,7 +75,9 @@ describe('TurnService.tryAgainOnSpace', () => {
       loggingService,
       effectEngineService
     );
-    (turnService as any).nextPlayer = vi.fn();
+
+    // Mock the private nextPlayer method using spyOn
+    vi.spyOn(turnService as any, 'nextPlayer').mockResolvedValue({ nextPlayerId: 'player2' });
   });
 
   it('should revert to snapshot, apply penalty, and advance turn', async () => {
@@ -121,6 +123,7 @@ describe('TurnService.tryAgainOnSpace', () => {
 
     // 5. Assertions
     expect(result.success).toBe(true);
+    expect(result.message).toContain('Player 1 used Try Again');
     expect(result.message).toContain('Reverted to OWNER-SCOPE-INITIATION with 1 day penalty');
 
     // Verify that setGameState was called with the correct, reverted state
@@ -141,11 +144,14 @@ describe('TurnService.tryAgainOnSpace', () => {
     expect(revertedPlayer.timeSpent).toBe(1); // initial 0 + 1 penalty
 
     // Check that the snapshot is preserved for multiple Try Again attempts
-    expect(finalState.preSpaceEffectState).not.toBeNull();
-    expect(finalState.preSpaceEffectState!.players[0].currentSpace).toBe('OWNER-SCOPE-INITIATION');
+    expect(finalState.playerSnapshots[player1.id]).not.toBeNull();
+    expect(finalState.playerSnapshots[player1.id]!.spaceName).toBe('OWNER-SCOPE-INITIATION');
 
-    // Verify that the turn was advanced
-    expect((turnService as any).nextPlayer).toHaveBeenCalledTimes(1);
+    // Verify that shouldAdvanceTurn flag is set
+    expect(result.shouldAdvanceTurn).toBe(true);
+
+    // Verify that nextPlayer is NOT called directly (handled by GameLayout)
+    expect((turnService as any).nextPlayer).toHaveBeenCalledTimes(0);
   });
 
   it('should fail if no snapshot is available', async () => {

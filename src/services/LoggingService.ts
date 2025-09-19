@@ -55,8 +55,8 @@ export class LoggingService implements ILoggingService {
     // Create log entry for action history
     const logEntry: Omit<ActionLogEntry, 'id' | 'timestamp'> = {
       type: this.mapLogLevelToActionType(level),
-      playerId: 'system',
-      playerName: 'System',
+      playerId: payload.playerId || 'system',
+      playerName: payload.playerName || 'System',
       description: message,
       details: {
         level: level,

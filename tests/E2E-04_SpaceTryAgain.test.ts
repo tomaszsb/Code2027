@@ -95,7 +95,7 @@ describe('E2E-04: Space Try Again Logic', () => {
     });
 
     // 2. Save Snapshot
-    stateService.savePreSpaceEffectSnapshot();
+    stateService.savePreSpaceEffectSnapshot(playerA.id, 'OWNER-SCOPE-INITIATION');
     const snapshotTime = stateService.getPlayer(playerA.id)!.timeSpent;
 
     // 3. Mutate State (to prove revert works)
@@ -105,9 +105,16 @@ describe('E2E-04: Space Try Again Logic', () => {
     // 4. Action: Player A uses "Try Again"
     const result = await turnService.tryAgainOnSpace(playerA.id);
     expect(result.success).toBe(true);
+    expect(result.message).toContain('Player A used Try Again');
     expect(result.message).toContain('Reverted to OWNER-SCOPE-INITIATION with 1 day penalty');
+    expect(result.shouldAdvanceTurn).toBe(true);
 
-    // 5. Verification
+    // 5. Manually advance turn (simulating GameLayout behavior)
+    if (result.shouldAdvanceTurn) {
+      await turnService.endTurn();
+    }
+
+    // 6. Verification
     const finalState = stateService.getGameState();
     const finalPlayerA = stateService.getPlayer(playerA.id)!;
 

@@ -696,19 +696,21 @@ export class StateService implements IStateService {
     // Create a deep copy of the current game state
     const currentState = this.getGameStateDeepCopy();
 
-    // Save the snapshot with player and space context
+    // Save the snapshot with clean player snapshots (avoid circular references)
     const snapshotState: GameState = {
       ...currentState,
-      preSpaceEffectState: null, // Don't include nested snapshots
-      snapshotPlayerId: null,
-      snapshotSpaceName: null
+      playerSnapshots: {} // Don't include nested snapshots
     };
 
     const newState: GameState = {
       ...this.currentState,
-      preSpaceEffectState: snapshotState,
-      snapshotPlayerId: playerId,
-      snapshotSpaceName: spaceName
+      playerSnapshots: {
+        ...this.currentState.playerSnapshots,
+        [playerId]: {
+          spaceName: spaceName,
+          gameState: snapshotState
+        }
+      }
     };
 
     this.currentState = newState;
@@ -719,35 +721,34 @@ export class StateService implements IStateService {
   }
 
   restorePreSpaceEffectSnapshot(): GameState {
-    console.log('🔄 Restoring pre-space-effect snapshot for Try Again');
-    
-    if (!this.currentState.preSpaceEffectState) {
-      throw new Error('No pre-space-effect snapshot available for Try Again');
-    }
-
-    const snapshotState = this.currentState.preSpaceEffectState;
-    console.log('📝 Restoring game state from snapshot');
-
-    // Restore the game state from snapshot, but clear the snapshot itself
-    this.currentState = {
-      ...snapshotState,
-      preSpaceEffectState: null
-    };
-
-    this.notifyListeners();
-    
-    console.log('✅ Pre-space-effect snapshot restored successfully');
+    console.warn('⚠️ restorePreSpaceEffectSnapshot() is deprecated - use TurnService.tryAgainOnSpace() instead');
+    // This method is no longer used since TurnService handles restoration with the new multi-player system
     return this.currentState;
   }
 
   clearPreSpaceEffectSnapshot(): GameState {
-    console.log('🗑️ Clearing pre-space-effect snapshot');
+    console.log('🗑️ Clearing all player snapshots');
 
     const newState: GameState = {
       ...this.currentState,
-      preSpaceEffectState: null,
-      snapshotPlayerId: null,
-      snapshotSpaceName: null
+      playerSnapshots: {}
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+
+    return newState;
+  }
+
+  clearPlayerSnapshot(playerId: string): GameState {
+    console.log(`🗑️ Clearing snapshot for player ${playerId}`);
+
+    const newState: GameState = {
+      ...this.currentState,
+      playerSnapshots: {
+        ...this.currentState.playerSnapshots,
+        [playerId]: null
+      }
     };
 
     this.currentState = newState;
@@ -757,13 +758,23 @@ export class StateService implements IStateService {
   }
 
   hasPreSpaceEffectSnapshot(playerId: string, spaceName: string): boolean {
-    return this.currentState.preSpaceEffectState !== null &&
-           this.currentState.snapshotPlayerId === playerId &&
-           this.currentState.snapshotSpaceName === spaceName;
+    const playerSnapshot = this.currentState.playerSnapshots[playerId];
+    return playerSnapshot !== null &&
+           playerSnapshot !== undefined &&
+           playerSnapshot.spaceName === spaceName;
   }
 
   getPreSpaceEffectSnapshot(): GameState | null {
-    return this.currentState.preSpaceEffectState;
+    // This method is used by TurnService.tryAgainOnSpace to get the snapshot
+    // We need to determine which player's snapshot to return based on current context
+    // For now, return null - the TurnService should be updated to use a player-specific method
+    console.warn('⚠️ getPreSpaceEffectSnapshot() called without player context - use getPlayerSnapshot() instead');
+    return null;
+  }
+
+  getPlayerSnapshot(playerId: string): GameState | null {
+    const playerSnapshot = this.currentState.playerSnapshots[playerId];
+    return playerSnapshot?.gameState || null;
   }
 
   setGameState(newState: GameState): GameState {
@@ -803,10 +814,8 @@ export class StateService implements IStateService {
       activeNegotiation: null,
       // Initialize global action log
       globalActionLog: [],
-      // Initialize Try Again snapshot
-      preSpaceEffectState: null,
-      snapshotPlayerId: null,
-      snapshotSpaceName: null,
+      // Initialize Try Again snapshots (per player)
+      playerSnapshots: {},
       // Initialize empty decks and discard piles (will be populated in startGame)
       decks: {
         W: [],

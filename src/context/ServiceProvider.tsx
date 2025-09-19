@@ -18,6 +18,7 @@ import { ChoiceService } from '../services/ChoiceService';
 import { EffectEngineService } from '../services/EffectEngineService';
 import { NegotiationService } from '../services/NegotiationService';
 import { TargetingService } from '../services/TargetingService';
+import { NotificationService } from '../services/NotificationService';
 
 interface ServiceProviderProps {
   children: ReactNode;
@@ -59,11 +60,15 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   cardService.setEffectEngineService(effectEngineService);
   
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);
-  
+
+  // Create NotificationService
+  const notificationService = new NotificationService(stateService, loggingService);
+
   const services: IServiceContainer = {
     dataService,
     stateService,
     loggingService,
+    notificationService,
     turnService,
     cardService,
     playerActionService,

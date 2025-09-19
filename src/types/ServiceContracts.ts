@@ -192,8 +192,10 @@ export interface IStateService {
   // Pre-space effect snapshot methods (Try Again feature)
   savePreSpaceEffectSnapshot(playerId: string, spaceName: string): GameState;
   clearPreSpaceEffectSnapshot(): GameState;
+  clearPlayerSnapshot(playerId: string): GameState;
   hasPreSpaceEffectSnapshot(playerId: string, spaceName: string): boolean;
   getPreSpaceEffectSnapshot(): GameState | null;
+  getPlayerSnapshot(playerId: string): GameState | null;
   
   // State management methods
   setGameState(newState: GameState): GameState;
@@ -233,7 +235,7 @@ export interface ITurnService {
   rerollDice(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
   triggerManualEffectWithFeedback(playerId: string, effectType: string): import('./StateTypes').TurnEffectResult;
   performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
-  tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }>;
+  tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }>;
   handleAutomaticFunding(playerId: string): import('./StateTypes').TurnEffectResult;
 }
 
@@ -370,10 +372,22 @@ export interface INegotiationService {
   makeOffer(playerId: string, offer: any): Promise<NegotiationResult>;
   acceptOffer(playerId: string): Promise<NegotiationResult>;
   declineOffer(playerId: string): Promise<NegotiationResult>;
-  
+
   // Negotiation state methods
   getActiveNegotiation(): NegotiationState | null;
   hasActiveNegotiation(): boolean;
+}
+
+export interface INotificationService {
+  notify(content: import('../services/NotificationService').NotificationContent, options: import('../services/NotificationService').NotificationOptions): void;
+  clearPlayerNotifications(playerId?: string): void;
+  clearAllNotifications(): void;
+  setUpdateCallbacks(
+    onButtonUpdate: (feedback: { [actionType: string]: string }) => void,
+    onNotificationUpdate: (notifications: { [playerId: string]: string }) => void
+  ): void;
+  getButtonFeedback(): { [actionType: string]: string };
+  getPlayerNotifications(): { [playerId: string]: string };
 }
 
 /**
@@ -384,6 +398,7 @@ export interface IServiceContainer {
   dataService: IDataService;
   stateService: IStateService;
   loggingService: ILoggingService;
+  notificationService: INotificationService;
   turnService: ITurnService;
   cardService: ICardService;
   playerActionService: IPlayerActionService;

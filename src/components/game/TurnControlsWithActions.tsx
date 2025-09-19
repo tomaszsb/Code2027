@@ -9,6 +9,7 @@ import { GamePhase, ActionLogEntry } from '../../types/StateTypes';
 import { Choice } from '../../types/CommonTypes';
 import { formatActionDescription } from '../../utils/actionLogFormatting';
 import { formatManualEffectButton, formatDiceRollButton, getManualEffectButtonStyle, formatDiceRollFeedback } from '../../utils/buttonFormatting';
+import { NotificationUtils } from '../../utils/NotificationUtils';
 
 interface TurnControlsWithActionsProps {
   // Game state data - currentPlayer is guaranteed to exist by higher-level architecture
@@ -25,6 +26,7 @@ interface TurnControlsWithActionsProps {
     manualActions: { [effectType: string]: string };
   };
   feedbackMessage: string;
+  buttonFeedback: { [actionType: string]: string };
   
   // Action handlers
   onRollDice: () => Promise<void>;
@@ -54,6 +56,7 @@ export function TurnControlsWithActions({
   actionCounts,
   completedActions,
   feedbackMessage,
+  buttonFeedback,
   // Action handlers
   onRollDice,
   onEndTurn,
@@ -65,7 +68,7 @@ export function TurnControlsWithActions({
   playerId,
   playerName 
 }: TurnControlsWithActionsProps): JSX.Element {
-  const { dataService, stateService, choiceService } = useGameContext();
+  const { dataService, stateService, choiceService, notificationService } = useGameContext();
 
   // Movement choice state
   const [currentChoice, setCurrentChoice] = useState<Choice | null>(null);
@@ -106,6 +109,17 @@ export function TurnControlsWithActions({
 
     try {
       console.log('🔥 TurnControlsWithActions: Resolving movement choice:', choiceId);
+
+      // Add notification feedback before resolving choice
+      notificationService.notify(
+        NotificationUtils.createSuccessNotification('Path Chosen', `Selected destination: ${choiceId}`, currentPlayer.name),
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: `move_${choiceId}`
+        }
+      );
+
       await choiceService.resolveChoice(currentChoice.id, choiceId);
       console.log('🔥 TurnControlsWithActions: Movement choice resolved successfully');
     } catch (error) {
@@ -218,35 +232,64 @@ export function TurnControlsWithActions({
           }}>
             🚶 Choose Your Destination
           </div>
-          {currentChoice.options.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => handleMovementChoice(option.id)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                margin: '2px 0',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                backgroundColor: colors.primary.main,
-                color: colors.white,
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = colors.primary.dark;
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = colors.primary.main;
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              🎯 {option.label}
-            </button>
-          ))}
+          {currentChoice.options.map((option, index) => {
+            const feedbackKey = `move_${option.id}`;
+            const feedback = buttonFeedback[feedbackKey];
+
+            // If feedback exists, show completion message instead of button
+            if (feedback) {
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    margin: '2px 0',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    backgroundColor: colors.success.light,
+                    color: colors.success.text,
+                    border: `1px solid ${colors.success.main}`,
+                    borderRadius: '6px',
+                    textAlign: 'center'
+                  }}
+                >
+                  ✅ {feedback}
+                </div>
+              );
+            }
+
+            // Otherwise show the button as normal
+            return (
+              <button
+                key={index}
+                onClick={() => handleMovementChoice(option.id)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  margin: '2px 0',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  backgroundColor: colors.primary.main,
+                  color: colors.white,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = colors.primary.dark;
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = colors.primary.main;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                🎯 {option.label}
+              </button>
+            );
+          })}
         </div>
       )}
 

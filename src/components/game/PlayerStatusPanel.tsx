@@ -16,6 +16,8 @@ interface PlayerStatusPanelProps {
   // Player data (passed from GameLayout)
   players: Player[];
   currentPlayerId: string | null;
+  // Per-player notifications
+  playerNotifications: { [playerId: string]: string };
   // TurnControlsWithActions props (passed from GameLayout)
   currentPlayer: Player;
   gamePhase: import('../../types/StateTypes').GamePhase;
@@ -30,6 +32,7 @@ interface PlayerStatusPanelProps {
     manualActions: { [effectType: string]: string };
   };
   feedbackMessage: string;
+  buttonFeedback: { [actionType: string]: string };
   onRollDice: () => Promise<void>;
   onEndTurn: () => Promise<void>;
   onManualEffect: (effectType: string) => Promise<void>;
@@ -43,17 +46,18 @@ interface PlayerStatusPanelProps {
  * PlayerStatusPanel displays the list of all player statuses
  * Now acts as a "dumb" component, receiving all data via props from GameLayout
  */
-export function PlayerStatusPanel({ 
-  onOpenNegotiationModal, 
-  onOpenRulesModal, 
-  onOpenCardDetailsModal, 
-  onToggleSpaceExplorer, 
-  onToggleMovementPath, 
-  isSpaceExplorerVisible, 
+export function PlayerStatusPanel({
+  onOpenNegotiationModal,
+  onOpenRulesModal,
+  onOpenCardDetailsModal,
+  onToggleSpaceExplorer,
+  onToggleMovementPath,
+  isSpaceExplorerVisible,
   isMovementPathVisible,
   // Player data from GameLayout
   players,
   currentPlayerId,
+  playerNotifications,
   // TurnControlsWithActions props from GameLayout
   currentPlayer,
   gamePhase,
@@ -65,6 +69,7 @@ export function PlayerStatusPanel({
   actionCounts,
   completedActions,
   feedbackMessage,
+  buttonFeedback,
   onRollDice,
   onEndTurn,
   onManualEffect,
@@ -147,6 +152,7 @@ export function PlayerStatusPanel({
               onToggleMovementPath={onToggleMovementPath}
               isSpaceExplorerVisible={isSpaceExplorerVisible}
               isMovementPathVisible={isMovementPathVisible}
+              playerNotification={playerNotifications[player.id] || ''}
               // TurnControlsWithActions props (pass-through from GameLayout)
               currentPlayer={currentPlayer}
               gamePhase={gamePhase}
@@ -158,6 +164,7 @@ export function PlayerStatusPanel({
               actionCounts={actionCounts}
               completedActions={completedActions}
               feedbackMessage={feedbackMessage}
+              buttonFeedback={buttonFeedback}
               onRollDice={onRollDice}
               onEndTurn={onEndTurn}
               onManualEffect={onManualEffect}

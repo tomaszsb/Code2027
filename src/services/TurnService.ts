@@ -1353,7 +1353,7 @@ export class TurnService implements ITurnService {
    * @param playerId - The player trying again
    * @returns Promise resolving to the action result
    */
-  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }> {
+  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }> {
     console.log(`🔄 Try Again requested for player ${playerId}`);
     
     try {
@@ -1374,8 +1374,8 @@ export class TurnService implements ITurnService {
         };
       }
 
-      // 2. Get the snapshot object (do not restore it yet)
-      const snapshotState = this.stateService.getPreSpaceEffectSnapshot();
+      // 3. Get the snapshot object (do not restore it yet)
+      const snapshotState = this.stateService.getPlayerSnapshot(playerId);
       if (!snapshotState) {
         throw new Error('Snapshot exists but could not be retrieved');
       }
@@ -1408,16 +1408,29 @@ export class TurnService implements ITurnService {
       // 4. Get current game state to preserve turn context
       const currentGameState = this.stateService.getGameState();
 
-      // 5. Create a new state object by deep-copying the snapshot
-      // Reset button states so player can take actions again after Try Again
+      // 5. Create a new state object preserving current game state but reverting specific player
+      // Only revert the player who used Try Again, preserve all other players' current state
       const newStateObject: GameState = {
-        ...snapshotState,
-        players: snapshotState.players.map(player => ({ ...player })),
-        globalActionLog: [...snapshotState.globalActionLog],
-        preSpaceEffectState: snapshotState, // Keep snapshot for multiple Try Again attempts
-        // Preserve current turn context (don't restore old turn state)
-        currentPlayerId: currentGameState.currentPlayerId,
-        turn: currentGameState.turn,
+        ...currentGameState, // Start with current game state
+        players: currentGameState.players.map(player => {
+          if (player.id === playerId) {
+            // Revert this player to their snapshot state
+            const snapshotPlayerState = snapshotState.players.find(p => p.id === playerId);
+            return snapshotPlayerState ? { ...snapshotPlayerState } : player;
+          } else {
+            // Preserve other players' current state
+            return { ...player };
+          }
+        }),
+        globalActionLog: [...currentGameState.globalActionLog], // Preserve current action log
+        // Preserve all player snapshots (including the current one for multiple Try Again attempts)
+        playerSnapshots: {
+          ...currentGameState.playerSnapshots,
+          [playerId]: {
+            spaceName: snapshotPlayer.currentSpace,
+            gameState: snapshotState
+          }
+        },
         // Reset action states so player can take actions again
         hasPlayerRolledDice: false,
         hasPlayerMovedThisTurn: false,
@@ -1427,7 +1440,9 @@ export class TurnService implements ITurnService {
         availableActionTypes: ['movement']
       };
 
-      // 6. In this new object, find the player and add the timePenalty to their timeSpent
+      // 6. Add time penalty to the reverted player's timeSpent
+      // Use the current player's timeSpent as base to accumulate penalties across multiple Try Again attempts
+      const currentPlayerState = this.stateService.getPlayer(playerId);
       const targetPlayerIndex = newStateObject.players.findIndex(p => p.id === playerId);
       if (targetPlayerIndex === -1) {
         throw new Error(`Player ${playerId} not found in new state object`);
@@ -1435,7 +1450,7 @@ export class TurnService implements ITurnService {
 
       newStateObject.players[targetPlayerIndex] = {
         ...newStateObject.players[targetPlayerIndex],
-        timeSpent: (newStateObject.players[targetPlayerIndex].timeSpent || 0) + timePenalty
+        timeSpent: (currentPlayerState?.timeSpent || 0) + timePenalty
       };
 
       // Add action log entry
@@ -1458,17 +1473,18 @@ export class TurnService implements ITurnService {
 
       console.log(`✅ ${snapshotPlayer.name} reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`);
 
-      // 8. Save new snapshot with time penalty applied (for potential future Try Again attempts)
-      this.stateService.savePreSpaceEffectSnapshot(playerId, snapshotPlayer.currentSpace);
-      console.log(`📸 Saved new snapshot for player ${playerId} at ${snapshotPlayer.currentSpace} with time penalty for future Try Again attempts`);
+      // 8. DO NOT save a new snapshot - preserve the original clean snapshot for multiple Try Again attempts
+      // This ensures subsequent Try Again attempts revert to the original state, not the penalty-applied state
 
-      // 9. Finally, call await this.nextPlayer()
-      console.log(`🏁 Ending turn after Try Again - advancing to next player`);
-      await this.nextPlayer();
+      // 9. Prepare success message for immediate display
+      const successMessage = `${snapshotPlayer.name} used Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty.`;
 
+      // 10. Return success immediately (before advancing player)
+      // The caller should handle advancing to next player after displaying the message
       return {
         success: true,
-        message: `Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty. Turn advanced to next player.`
+        message: successMessage,
+        shouldAdvanceTurn: true // Flag to indicate turn should advance after message display
       };
 
     } catch (error) {

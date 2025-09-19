@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Choice } from '../../types/CommonTypes';
+import { NotificationUtils } from '../../utils/NotificationUtils';
 
 export function ChoiceModal(): JSX.Element {
-  const { stateService, choiceService } = useGameContext();
+  const { stateService, choiceService, notificationService } = useGameContext();
   const [awaitingChoice, setAwaitingChoice] = useState<Choice | null>(null);
   const [currentPlayerName, setCurrentPlayerName] = useState<string>('');
 
@@ -33,8 +34,26 @@ export function ChoiceModal(): JSX.Element {
 
   const handleChoiceClick = (selectedOptionId: string) => {
     if (!awaitingChoice) return;
-    
+
     try {
+      // Get the selected option for feedback
+      const selectedOption = awaitingChoice.options.find(opt => opt.id === selectedOptionId);
+      const optionLabel = selectedOption?.label || selectedOptionId;
+
+      // Provide immediate feedback via NotificationService
+      notificationService.notify(
+        NotificationUtils.createSuccessNotification(
+          'Choice Made',
+          `Selected: ${optionLabel}`,
+          currentPlayerName
+        ),
+        {
+          playerId: awaitingChoice.playerId,
+          playerName: currentPlayerName,
+          actionType: `choice_${selectedOptionId}`
+        }
+      );
+
       // Use the ChoiceService to resolve the choice
       choiceService.resolveChoice(awaitingChoice.id, selectedOptionId);
     } catch (error) {

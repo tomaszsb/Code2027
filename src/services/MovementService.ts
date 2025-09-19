@@ -94,9 +94,8 @@ export class MovementService implements IMovementService {
       visitType: newVisitType
     });
 
-    // Clear any existing snapshot for this player (regardless of space)
-    // Each player can only have one active snapshot at a time
-    this.stateService.clearPreSpaceEffectSnapshot();
+    // Clear any existing snapshot for this specific player (other players' snapshots preserved)
+    this.stateService.clearPlayerSnapshot(playerId);
 
     // Save snapshot for Try Again feature immediately after movement
     // This ensures Try Again always returns player to the space they just moved to

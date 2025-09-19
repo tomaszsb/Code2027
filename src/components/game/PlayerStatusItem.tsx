@@ -20,6 +20,7 @@ interface PlayerStatusItemProps {
   onToggleMovementPath: () => void;
   isSpaceExplorerVisible: boolean;
   isMovementPathVisible: boolean;
+  playerNotification?: string; // New notification area
   // TurnControlsWithActions props (passed from GameLayout via PlayerStatusPanel)
   currentPlayer: Player;
   gamePhase: import('../../types/StateTypes').GamePhase;
@@ -34,6 +35,7 @@ interface PlayerStatusItemProps {
     manualActions: { [effectType: string]: string };
   };
   feedbackMessage: string;
+  buttonFeedback: { [actionType: string]: string };
   onRollDice: () => Promise<void>;
   onEndTurn: () => Promise<void>;
   onManualEffect: (effectType: string) => Promise<void>;
@@ -55,8 +57,9 @@ export function PlayerStatusItem({
   onOpenCardDetailsModal, 
   onToggleSpaceExplorer, 
   onToggleMovementPath, 
-  isSpaceExplorerVisible, 
+  isSpaceExplorerVisible,
   isMovementPathVisible,
+  playerNotification,
   // TurnControlsWithActions props
   currentPlayer,
   gamePhase,
@@ -68,6 +71,7 @@ export function PlayerStatusItem({
   actionCounts,
   completedActions,
   feedbackMessage,
+  buttonFeedback,
   onRollDice,
   onEndTurn,
   onManualEffect,
@@ -552,11 +556,47 @@ export function PlayerStatusItem({
             </button>
           </div>
 
+          {/* Player Notification Area */}
+          {playerNotification && (
+            <div style={{
+              background: `linear-gradient(135deg, ${colors.primary.light}, ${colors.primary.lighter})`,
+              border: `2px solid ${colors.primary.main}`,
+              borderRadius: '8px',
+              padding: '10px',
+              marginTop: '8px',
+              boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+              animation: 'fadeIn 0.3s ease-in-out'
+            }}>
+              <div style={{
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                color: colors.primary.dark,
+                marginBottom: '4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <span>📢</span>
+                <span>Action Notification</span>
+              </div>
+              <div style={{
+                fontSize: '0.85rem',
+                color: colors.primary.text,
+                lineHeight: '1.4',
+                fontWeight: '500'
+              }}>
+                {playerNotification}
+              </div>
+            </div>
+          )}
+
           {/* Location Story Section */}
           {(() => {
             const spaceContent = dataService.getSpaceContent(player.currentSpace, 'First');
             const storyText = spaceContent?.story || 'No story available for this space.';
-            
+
             return (
               <div style={{
                 background: `linear-gradient(135deg, ${colors.warning.bg}, ${colors.warning.light})`,
@@ -628,6 +668,7 @@ export function PlayerStatusItem({
                 actionCounts={actionCounts}
                 completedActions={completedActions}
                 feedbackMessage={feedbackMessage}
+                buttonFeedback={buttonFeedback}
                 onRollDice={onRollDice}
                 onEndTurn={onEndTurn}
                 onManualEffect={onManualEffect}

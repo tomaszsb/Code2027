@@ -136,8 +136,10 @@ export const createMockStateService = (): any => ({
   // Pre-space effect snapshot methods (Try Again feature)
   savePreSpaceEffectSnapshot: vi.fn(),
   clearPreSpaceEffectSnapshot: vi.fn(),
+  clearPlayerSnapshot: vi.fn(),
   hasPreSpaceEffectSnapshot: vi.fn(),
   getPreSpaceEffectSnapshot: vi.fn(),
+  getPlayerSnapshot: vi.fn(),
   
   // State management methods
   setGameState: vi.fn(),
