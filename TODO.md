@@ -27,8 +27,10 @@
 *   [ ] **Implement Load Time Optimizations**: Execute the recommended optimizations from the performance investigation - bundle CSV data, enable code splitting, lazy service initialization, and pre-parsed JSON data.
 *   [ ] **Reduce Bundle Size**: Implement service decomposition and dynamic imports to reduce initial bundle from 414KB to <200KB.
 
-### 🐞 **NEW: UI/Data Discrepancies (PM-DECISION-CHECK)**
+### 🐞 **RESOLVED: UI/Data Discrepancies (PM-DECISION-CHECK)**
 - [x] **Fix Action Buttons & Implement Path Selection:** Corrected the data in `SPACE_EFFECTS.csv` and fixed the underlying `visitType` bug in `MovementService` to properly display all manual actions on the `PM-DECISION-CHECK` space. This includes the corrected "Roll for Bonus" button, path selection buttons, and the "End Turn" button. ✅ **COMPLETED (Sept 16)**
+- [x] **Fix Manual Actions Display Logic:** Resolved critical UI bug where manual action buttons showed as "✅ Manual action completed" instead of clickable buttons due to incorrect fallback logic when movement choices were active. Fixed by distinguishing between "disabled due to completion" vs "disabled due to processing". ✅ **COMPLETED (Sept 20)**
+- [x] **Implement Game Logic Independence:** Fixed fundamental game design flaw where movement choices blocked all other actions. Manual actions (dice rolls, space effects) and movement choices are now properly independent, allowing flexible action order as intended in board game mechanics. Players can now roll dice first to inform movement decisions. ✅ **COMPLETED (Sept 20)**
 
 ### ❌ **NEW: Test Suite Regressions (P1 Blocker - Investigate Hang First)**
 *   [x] **Fix CardService.test.ts: Card Collection Management: should draw cards from stateful decks and update player hand** (Regression) ✅ **FIXED (Sept 11)**
