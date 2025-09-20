@@ -5,7 +5,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: [
-      'tests/**/*.test.ts'
+      'tests/**/*.test.ts',
+      'tests/**/*.test.tsx'
     ],
     exclude: [
       'tests/**/*.lightweight.test.ts',  // Exclude Jest-specific optimized tests

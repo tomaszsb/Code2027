@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Player, Card, CardType } from '../../types/DataTypes';
+import { NotificationUtils } from '../../utils/NotificationUtils';
 
 // Types for negotiation state management
 interface NegotiationOffer {
@@ -27,7 +28,7 @@ interface NegotiationModalProps {
  * Supports partner selection, offer creation, and offer response handling.
  */
 export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JSX.Element | null {
-  const { stateService, dataService, negotiationService, cardService } = useGameContext();
+  const { stateService, dataService, negotiationService, cardService, notificationService } = useGameContext();
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [availableCards, setAvailableCards] = useState<Card[]>([]);
@@ -116,28 +117,88 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
   };
 
   const handleMakeOffer = () => {
-    if (!negotiation) return;
-    
+    if (!negotiation || !currentPlayerId) return;
+
     setNegotiation(prev => prev ? {
       ...prev,
       currentOffer: offer,
       status: 'awaiting_response'
     } : null);
-    
+
     negotiationService.makeOffer(negotiation.initiatorId, offer);
+
+    // Get current player for notification
+    const currentPlayer = players.find(p => p.id === currentPlayerId);
+    const currentPlayerName = currentPlayer?.name || 'Unknown Player';
+
+    // Calculate offer summary for notification
+    const cardCount = Object.values(offer.cards).flat().length;
+    const offerSummary = `Offered $${offer.money}${cardCount > 0 ? ` and ${cardCount} card(s)` : ''}`;
+
+    // Provide success notification
+    notificationService.notify(
+      NotificationUtils.createSuccessNotification(
+        'Offer Made',
+        offerSummary,
+        currentPlayerName
+      ),
+      {
+        playerId: currentPlayerId,
+        playerName: currentPlayerName,
+        actionType: 'negotiation_make_offer'
+      }
+    );
   };
 
   const handleAcceptOffer = () => {
     if (!negotiation || !currentPlayerId) return;
-    
+
     negotiationService.acceptOffer(currentPlayerId);
+
+    // Get current player for notification
+    const currentPlayer = players.find(p => p.id === currentPlayerId);
+    const currentPlayerName = currentPlayer?.name || 'Unknown Player';
+
+    // Provide success notification
+    notificationService.notify(
+      NotificationUtils.createSuccessNotification(
+        'Offer Accepted',
+        'Negotiation completed successfully',
+        currentPlayerName
+      ),
+      {
+        playerId: currentPlayerId,
+        playerName: currentPlayerName,
+        actionType: 'negotiation_accept'
+      }
+    );
+
     handleCloseModal();
   };
 
   const handleDeclineOffer = () => {
     if (!negotiation || !currentPlayerId) return;
-    
+
     negotiationService.declineOffer(currentPlayerId);
+
+    // Get current player for notification
+    const currentPlayer = players.find(p => p.id === currentPlayerId);
+    const currentPlayerName = currentPlayer?.name || 'Unknown Player';
+
+    // Provide notification for declining offer
+    notificationService.notify(
+      {
+        short: '❌ Declined',
+        medium: '❌ Offer declined',
+        detailed: `${currentPlayerName} declined the negotiation offer`
+      },
+      {
+        playerId: currentPlayerId,
+        playerName: currentPlayerName,
+        actionType: 'negotiation_decline'
+      }
+    );
+
     setNegotiation(prev => prev ? {
       ...prev,
       currentOffer: undefined,

@@ -28,6 +28,7 @@ import {
 } from '../../src/types/ServiceContracts';
 
 import { ILoggingService } from '../../src/services/LoggingService';
+import { INotificationService } from '../../src/services/NotificationService';
 
 export const createMockDataService = (): any => ({
   // Configuration methods
@@ -334,6 +335,15 @@ export const createMockLoggingService = (): any => ({
   endPerformanceTimer: vi.fn()
 });
 
+export const createMockNotificationService = (): any => ({
+  // Notification methods
+  notify: vi.fn(),
+  clearPlayerNotifications: vi.fn(),
+  clearAllNotifications: vi.fn(),
+  setButtonFeedbackCallback: vi.fn(),
+  setNotificationCallback: vi.fn()
+});
+
 export const createAllMockServices = () => ({
   dataService: createMockDataService(),
   stateService: createMockStateService(),
@@ -346,5 +356,6 @@ export const createAllMockServices = () => ({
   effectEngineService: createMockEffectEngineService(),
   choiceService: createMockChoiceService(),
   turnService: createMockTurnService(),
-  playerActionService: createMockPlayerActionService()
+  playerActionService: createMockPlayerActionService(),
+  notificationService: createMockNotificationService()
 });

@@ -75,7 +75,7 @@ describe('E2E-04: Space Try Again Logic', () => {
     await dataService.loadData();
   });
 
-  it('should revert state, apply penalty, and advance the turn', async () => {
+  it('should revert state, apply penalty, and reset the current turn', async () => {
     // 1. Setup: Create two players
     stateService.resetGame();
     stateService.addPlayer('Player A');
@@ -107,12 +107,8 @@ describe('E2E-04: Space Try Again Logic', () => {
     expect(result.success).toBe(true);
     expect(result.message).toContain('Player A used Try Again');
     expect(result.message).toContain('Reverted to OWNER-SCOPE-INITIATION with 1 day penalty');
-    expect(result.shouldAdvanceTurn).toBe(true);
-
-    // 5. Manually advance turn (simulating GameLayout behavior)
-    if (result.shouldAdvanceTurn) {
-      await turnService.endTurn();
-    }
+    // TurnService.tryAgainOnSpace() now handles the complete flow internally
+    // No external turn advancement needed
 
     // 6. Verification
     const finalState = stateService.getGameState();
@@ -124,10 +120,14 @@ describe('E2E-04: Space Try Again Logic', () => {
     // Verify penalty was applied to reverted state
     expect(finalPlayerA.timeSpent).toBe(snapshotTime + 1);
 
-    // Verify turn was advanced to Player B
-    expect(finalState.currentPlayerId).toBe(playerB.id);
+    // Verify turn stays with Player A (Try Again should reset current turn, not advance)
+    expect(finalState.currentPlayerId).toBe(playerA.id);
 
-    console.log('✅ E2E test for state revert, penalty, and turn advancement passed');
+    // Verify turn flags are reset so player can take actions again
+    expect(finalState.hasPlayerMovedThisTurn).toBe(false);
+    expect(finalState.hasPlayerRolledDice).toBe(false);
+
+    console.log('✅ E2E test for state revert, penalty, and turn reset passed');
   });
 
   it('should fail gracefully if no snapshot exists', async () => {

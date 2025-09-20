@@ -111,8 +111,15 @@ export function TurnControlsWithActions({
       console.log('🔥 TurnControlsWithActions: Resolving movement choice:', choiceId);
 
       // Add notification feedback before resolving choice
+      const selectedOption = currentChoice.options.find(opt => opt.id === choiceId);
+      const optionLabel = selectedOption?.label || choiceId;
+
       notificationService.notify(
-        NotificationUtils.createSuccessNotification('Path Chosen', `Selected destination: ${choiceId}`, currentPlayer.name),
+        {
+          short: `→ ${optionLabel}`,
+          medium: `🚶 Moving to ${optionLabel}`,
+          detailed: `${currentPlayer.name} chose to move to ${optionLabel}`
+        },
         {
           playerId: currentPlayer.id,
           playerName: currentPlayer.name,
@@ -153,10 +160,13 @@ export function TurnControlsWithActions({
 
   // Check for available manual effects with condition evaluation
   // Filter out 'turn' effects since they duplicate the regular End Turn button
-  const manualEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType)
+  const allSpaceEffects = dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
+  const manualEffects = allSpaceEffects
     .filter(effect => effect.trigger_type === 'manual')
     .filter(effect => effect.effect_type !== 'turn') // Exclude turn effects to avoid duplicate end turn buttons
     .filter(effect => evaluateEffectCondition(effect.condition));
+
+  // Manual effects are properly detected and handled
 
   // Check if negotiation is available on current space
   const canNegotiate = dataService.getSpaceContent(currentPlayer.currentSpace, currentPlayer.visitType)?.can_negotiate === true;
@@ -174,7 +184,9 @@ export function TurnControlsWithActions({
   // All players can take actions when it's their turn - currentPlayer is guaranteed to exist
   const isCurrentPlayersTurn = true;
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
-                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn && !awaitingChoice &&
+                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn &&
+                     // Allow dice rolling during movement choices - they're independent actions
+                     !(awaitingChoice && currentChoice?.type !== 'MOVEMENT') &&
                      currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
   const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                     !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
@@ -361,7 +373,11 @@ export function TurnControlsWithActions({
 
           // Check if THIS specific effect type has been completed (not global flag)
           const isThisEffectCompleted = completedActions.manualActions[effect.effect_type] !== undefined;
-          const isButtonDisabled = isProcessingTurn || isThisEffectCompleted;
+          // Manual actions should be available alongside movement choices - they're independent
+          // Only disable if already completed or if currently processing a manual action
+          const isButtonDisabled = isThisEffectCompleted;
+
+          // Check if effect should be displayed based on state
           
           if (!isButtonDisabled) {
             // Show active button
@@ -375,8 +391,8 @@ export function TurnControlsWithActions({
                 <span>{buttonText}</span>
               </button>
             );
-          } else {
-            // Check if we have a local completion message for this effect type
+          } else if (isThisEffectCompleted) {
+            // Button is disabled because effect is completed - show completion message
             const completionMessage = completedActions.manualActions[effect.effect_type];
             if (completionMessage) {
               return (
@@ -385,13 +401,17 @@ export function TurnControlsWithActions({
                 </div>
               );
             } else {
-              // Fallback if no local message available
+              // Fallback for completed effects without specific message
               return (
                 <div key={`completed-${index}`} style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
                   ✅ Manual action completed - check game log
                 </div>
               );
             }
+          } else {
+            // Button is disabled because turn is processing - don't show anything
+            // This handles cases like movement choices being active
+            return null;
           }
           return null;
         })}

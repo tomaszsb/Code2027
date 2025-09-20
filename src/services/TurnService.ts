@@ -229,14 +229,23 @@ export class TurnService implements ITurnService {
       console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
       await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
-      // Handle movement using MovementService
-      await this.movementService.handleMovementChoice(currentPlayer.id);
+      // Handle single-step movement (no choices)
+      const validMoves = this.movementService.getValidMoves(currentPlayer.id);
+      if (validMoves.length === 1) {
+        // Only one move available - perform automatic movement
+        console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
+        await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
 
-      // Process space effects for the NEW space the player just moved to
-      const updatedPlayer = this.stateService.getPlayer(currentPlayer.id);
-      if (updatedPlayer && updatedPlayer.currentSpace !== currentPlayer.currentSpace) {
-        console.log(`🏠 Processing space effects for arrival at ${updatedPlayer.currentSpace}`);
-        await this.processSpaceEffectsAfterMovement(updatedPlayer.id, updatedPlayer.currentSpace, updatedPlayer.visitType);
+        // Process space effects for the NEW space the player just moved to
+        const updatedPlayer = this.stateService.getPlayer(currentPlayer.id);
+        if (updatedPlayer && updatedPlayer.currentSpace !== currentPlayer.currentSpace) {
+          console.log(`🏠 Processing space effects for arrival at ${updatedPlayer.currentSpace}`);
+          await this.processSpaceEffectsAfterMovement(updatedPlayer.id, updatedPlayer.currentSpace, updatedPlayer.visitType);
+
+          // Save snapshot for Try Again feature after space effects are processed
+          this.stateService.savePreSpaceEffectSnapshot(updatedPlayer.id, updatedPlayer.currentSpace);
+          console.log(`📸 Saved Try Again snapshot for ${updatedPlayer.name} at ${updatedPlayer.currentSpace} after space effects`);
+        }
       }
 
       // Check for win condition before ending turn
@@ -413,7 +422,45 @@ export class TurnService implements ITurnService {
       space: nextPlayer.currentSpace
     });
 
+    // Start-of-turn logic: Check for movement choices
+    await this.startTurn(nextPlayer.id);
+
     return { nextPlayerId: nextPlayer.id };
+  }
+
+  /**
+   * Handles the start-of-turn logic, including checking for movement choices
+   * @private
+   */
+  private async startTurn(playerId: string): Promise<void> {
+    console.log(`🎬 TurnService.startTurn - Starting turn logic for player ${playerId}`);
+
+    try {
+      // Check if the player's current space requires a movement choice
+      const validMoves = this.movementService.getValidMoves(playerId);
+
+      // Defensive check - ensure validMoves is an array
+      if (!validMoves || !Array.isArray(validMoves)) {
+        console.log(`🎬 TurnService.startTurn - No valid moves data available for player ${playerId}`);
+        return;
+      }
+
+      if (validMoves.length > 1) {
+        // Multiple moves available - present choice to player
+        const player = this.stateService.getPlayer(playerId);
+        const playerName = player?.name || 'Unknown Player';
+        console.log(`🎯 Player ${playerName} is at a choice space with ${validMoves.length} options - creating movement choice`);
+
+        // This will create the choice and wait for player input
+        await this.movementService.handleMovementChoice(playerId);
+      } else {
+        // 0 or 1 moves - no choice needed, turn proceeds normally
+        console.log(`🎬 TurnService.startTurn - No choice needed (${validMoves.length} valid moves)`);
+      }
+    } catch (error) {
+      // If movement service fails, log but don't crash the turn
+      console.warn(`🎬 TurnService.startTurn - Error checking for movement choices:`, error);
+    }
   }
 
   rollDice(): number {
@@ -1353,7 +1400,7 @@ export class TurnService implements ITurnService {
    * @param playerId - The player trying again
    * @returns Promise resolving to the action result
    */
-  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }> {
+  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }> {
     console.log(`🔄 Try Again requested for player ${playerId}`);
     
     try {
@@ -1479,12 +1526,11 @@ export class TurnService implements ITurnService {
       // 9. Prepare success message for immediate display
       const successMessage = `${snapshotPlayer.name} used Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty.`;
 
-      // 10. Return success immediately (before advancing player)
-      // The caller should handle advancing to next player after displaying the message
+      // 10. Return success - state reversion has reset turn flags automatically
+      // No turn advancement needed - player should continue their current turn
       return {
         success: true,
-        message: successMessage,
-        shouldAdvanceTurn: true // Flag to indicate turn should advance after message display
+        message: successMessage
       };
 
     } catch (error) {

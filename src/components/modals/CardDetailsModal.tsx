@@ -5,6 +5,8 @@ import { colors } from '../../styles/theme';
 import { Card } from '../../types/DataTypes';
 import { Player } from '../../types/StateTypes';
 import { ICardService } from '../../types/ServiceContracts';
+import { useGameContext } from '../../context/GameContext';
+import { NotificationUtils } from '../../utils/NotificationUtils';
 
 interface CardDetailsModalProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ interface CardDetailsModalProps {
  * including name, description, effects, cost, and other properties.
  */
 export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPlayers, cardService }: CardDetailsModalProps): JSX.Element | null {
+  const { notificationService } = useGameContext();
   const [showTransferUI, setShowTransferUI] = useState(false);
   const [selectedTargetPlayer, setSelectedTargetPlayer] = useState<string>('');
 
@@ -56,17 +59,47 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
   // Handle transfer card
   const handleTransferCard = async () => {
     if (!currentPlayer || !selectedTargetPlayer || !card) return;
-    
+
     try {
       cardService.transferCard(currentPlayer.id, selectedTargetPlayer, card.card_id);
-      
+
+      // Get target player name for notification
+      const targetPlayer = otherPlayers.find(p => p.id === selectedTargetPlayer);
+      const targetPlayerName = targetPlayer?.name || 'Unknown Player';
+
+      // Provide success notification
+      notificationService.notify(
+        NotificationUtils.createSuccessNotification(
+          'Card Transferred',
+          `${card.card_name} transferred to ${targetPlayerName}`,
+          currentPlayer.name
+        ),
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: `transfer_${card.card_id}`
+        }
+      );
+
       // Close modal and transfer UI on success
       setShowTransferUI(false);
       setSelectedTargetPlayer('');
       onClose();
-      
+
     } catch (error: any) {
-      alert(`Transfer failed: ${error.message}`);
+      // Provide error notification instead of alert
+      notificationService.notify(
+        NotificationUtils.createErrorNotification(
+          'Card Transfer',
+          error.message,
+          currentPlayer.name
+        ),
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: `transfer_${card.card_id}_error`
+        }
+      );
     }
   };
 

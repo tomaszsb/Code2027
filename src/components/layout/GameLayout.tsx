@@ -46,6 +46,7 @@ export function GameLayout(): JSX.Element {
   const [hasCompletedManualActions, setHasCompletedManualActions] = useState<boolean>(false);
   const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
   const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
+  const [turnNumber, setTurnNumber] = useState<number>(0);
 
   // Unified notification system - driven by NotificationService
   const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
@@ -127,11 +128,18 @@ export function GameLayout(): JSX.Element {
       // Track active modal state
       setActiveModal(gameState.activeModal?.type || null);
 
-      // Clear completed actions when current player changes (new turn)
-      const playerChanged = previousPlayerId && previousPlayerId !== gameState.currentPlayerId;
+      // Track turn changes for notification clearing
+      const previousTurn = turnNumber;
+      setTurnNumber(gameState.turn);
 
-      if (playerChanged) {
+      // Clear completed actions when current player changes OR turn advances
+      const playerChanged = previousPlayerId && previousPlayerId !== gameState.currentPlayerId;
+      const turnChanged = previousTurn !== gameState.turn;
+
+      if (playerChanged || turnChanged) {
         notificationService.clearAllNotifications(); // Clear all notifications on turn change
+        setButtonFeedback({}); // Manually clear React state that drives completedActions
+        setPlayerNotifications({}); // Also clear player notifications
       }
 
       // Track turn control state for TurnControlsWithActions
@@ -153,7 +161,8 @@ export function GameLayout(): JSX.Element {
     setPlayers(currentState.players);
     setCurrentPlayerId(currentState.currentPlayerId);
     setActiveModal(currentState.activeModal?.type || null);
-    
+    setTurnNumber(currentState.turn);
+
     // Initialize turn control state
     setHasPlayerMovedThisTurn(currentState.hasPlayerMovedThisTurn || false);
     setHasPlayerRolledDice(currentState.hasPlayerRolledDice || false);
@@ -406,16 +415,8 @@ export function GameLayout(): JSX.Element {
         );
       }
 
-      // If successful and should advance turn, do so after a brief delay to show message
-      if (result.success && result.shouldAdvanceTurn) {
-        setTimeout(async () => {
-          try {
-            await turnService.endTurn();
-          } catch (error) {
-            console.error("Error advancing turn after Try Again:", error);
-          }
-        }, 1500); // Show message for 1.5 seconds before advancing turn
-      }
+      // TurnService.tryAgainOnSpace() now handles the complete flow internally
+      // No additional turn advancement needed here
     } catch (error) {
       console.error("Error trying again on space:", error);
       const currentPlayer = players.find(p => p.id === currentPlayerId);

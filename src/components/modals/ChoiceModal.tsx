@@ -50,7 +50,7 @@ export function ChoiceModal(): JSX.Element {
         {
           playerId: awaitingChoice.playerId,
           playerName: currentPlayerName,
-          actionType: `choice_${selectedOptionId}`
+          actionType: `choice_${awaitingChoice.id}`
         }
       );
 

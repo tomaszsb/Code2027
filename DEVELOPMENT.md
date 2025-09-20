@@ -1,3 +1,68 @@
+## 🎯 **GAME LOGIC INDEPENDENCE FIXES - September 20, 2025**
+
+### **🚨 Issue: Movement choices blocked all other player actions**
+**Status**: ✅ **RESOLVED** - Manual actions and movement choices are now properly independent.
+
+**Problem Description**:
+A fundamental game design flaw was discovered where movement choices (e.g., at PM-DECISION-CHECK) would disable all other player actions including dice rolls and manual space effects. This forced players into a rigid sequence where they had to choose movement before performing any other actions, which contradicts proper board game mechanics.
+
+**Impact**:
+- Players couldn't roll dice to see results before choosing movement direction
+- Manual space effects were hidden when movement choices were available
+- Strategy was artificially constrained by UI limitations rather than game rules
+
+### **🔍 Root Cause Analysis**
+
+1. **UI State Management Bug**: Manual action buttons showed "✅ Manual action completed" instead of clickable buttons when movement choices were active due to incorrect fallback logic in `TurnControlsWithActions.tsx`
+
+2. **Dependency Logic Flaw**: The `isProcessingTurn` and `awaitingChoice` flags incorrectly disabled all actions when movement choices were present, treating them as dependent rather than independent systems
+
+3. **Sequential Forcing**: The code architecture enforced `movement choice → then other actions` instead of allowing flexible action order
+
+### **🎯 Resolution Implemented**
+
+**Files Modified:**
+- `src/components/game/TurnControlsWithActions.tsx`
+- `src/components/layout/GameLayout.tsx`
+
+**Changes Made:**
+
+1. **Manual Actions Independence** (TurnControlsWithActions.tsx:375):
+   ```typescript
+   // Before: Blocked during movement choices
+   const isButtonDisabled = isProcessingTurn || isThisEffectCompleted;
+
+   // After: Independent of movement choices
+   const isButtonDisabled = isThisEffectCompleted;
+   ```
+
+2. **Dice Roll Independence** (TurnControlsWithActions.tsx:189):
+   ```typescript
+   // Before: Blocked during ANY choice
+   !(awaitingChoice) &&
+
+   // After: Allowed during movement choices
+   !(awaitingChoice && currentChoice?.type !== 'MOVEMENT') &&
+   ```
+
+3. **Display Logic Fix** (TurnControlsWithActions.tsx:405-426):
+   ```typescript
+   // Added proper distinction between:
+   // - Disabled due to completion → Show completion message
+   // - Disabled due to processing → Hide button (return null)
+   ```
+
+**Result:**
+Players can now perform actions in any order they prefer:
+- Roll dice → see results → choose movement based on outcomes
+- Perform manual space effects → then decide movement
+- Choose movement first → then perform other actions
+- Any combination that makes strategic sense
+
+This matches proper board game mechanics where action order is flexible rather than enforced by the system.
+
+---
+
 ## 🐛 **CRITICAL ARCHITECTURE FLAW DISCOVERED - September 7, 2025**
 
 ### **🚨 Issue: Card Service allows duplicate cards to be drawn**

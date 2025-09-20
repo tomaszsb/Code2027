@@ -97,28 +97,11 @@ export class MovementService implements IMovementService {
     // Clear any existing snapshot for this specific player (other players' snapshots preserved)
     this.stateService.clearPlayerSnapshot(playerId);
 
-    // Save snapshot for Try Again feature immediately after movement
-    // This ensures Try Again always returns player to the space they just moved to
-    this.stateService.savePreSpaceEffectSnapshot(playerId, destinationSpace);
-    console.log(`📸 Saved snapshot for Try Again: Player ${playerId} now at ${destinationSpace}`);
+    // Note: Try Again snapshots are saved by TurnService after space effects are processed
+    // MovementService only handles the physical movement between spaces
 
     // Note: Space effects are processed by TurnService.processTurnEffects, not here
     // MovementService only handles the physical movement of players between spaces
-
-    // Check if the destination space has multiple movement options
-    // If so, proactively create a movement choice for TurnControls integration
-    try {
-      const newValidMoves = this.getValidMoves(playerId);
-      if (newValidMoves.length > 1) {
-        console.log(`🚶 Player ${player.name} arrived at ${destinationSpace} with ${newValidMoves.length} movement options - creating choice`);
-
-        // Create movement choice without awaiting (fire and forget)
-        // This will set awaitingChoice in the game state for TurnControls to detect
-        this.createMovementChoiceAsync(playerId, newValidMoves);
-      }
-    } catch (error) {
-      console.warn(`Warning: Could not check for movement options at ${destinationSpace}:`, error);
-    }
 
     return updatedState;
   }
@@ -212,11 +195,11 @@ export class MovementService implements IMovementService {
    */
   async handleMovementChoice(playerId: string): Promise<GameState> {
     const validMoves = this.getValidMoves(playerId);
-    
+
     if (validMoves.length === 0) {
       throw new Error(`No valid moves available for player ${playerId}`);
     }
-    
+
     if (validMoves.length === 1) {
       // Only one option - move automatically without presenting a choice
       console.log(`🚶 Auto-moving player ${playerId} to ${validMoves[0]} (only option)`);
@@ -235,9 +218,9 @@ export class MovementService implements IMovementService {
     }));
 
     const prompt = `Choose your destination from ${player.currentSpace}:`;
-    
+
     console.log(`🎯 Presenting movement choice to ${player.name}: ${validMoves.length} options`);
-    
+
     // Use ChoiceService to handle the choice
     const selectedDestination = await this.choiceService.createChoice(
       playerId,
@@ -247,7 +230,7 @@ export class MovementService implements IMovementService {
     );
 
     console.log(`✅ Player ${player.name} chose to move to: ${selectedDestination}`);
-    
+
     // Move the player to the selected destination
     return await this.movePlayer(playerId, selectedDestination);
   }
@@ -407,42 +390,4 @@ export class MovementService implements IMovementService {
     return projectScope;
   }
 
-  /**
-   * Creates a movement choice asynchronously for TurnControls integration
-   * @private
-   */
-  private createMovementChoiceAsync(playerId: string, validMoves: string[]): void {
-    // Run asynchronously to avoid blocking the movement operation
-    setTimeout(async () => {
-      try {
-        const player = this.stateService.getPlayer(playerId);
-        if (!player) {
-          console.warn(`Player ${playerId} not found when creating movement choice`);
-          return;
-        }
-
-        const options = validMoves.map(destination => ({
-          id: destination,
-          label: destination
-        }));
-
-        const prompt = `Choose your destination from ${player.currentSpace}:`;
-
-        console.log(`🎯 Creating movement choice for ${player.name}: ${validMoves.length} options`);
-
-        // Set the movement choice in the game state for TurnControls to display
-        // Note: We don't await this since it's meant to be displayed in TurnControls
-        await this.choiceService.createChoice(
-          playerId,
-          'MOVEMENT',
-          prompt,
-          options
-        );
-
-        console.log(`✅ Movement choice created successfully for ${player.name}`);
-      } catch (error) {
-        console.error('Error creating movement choice:', error);
-      }
-    }, 0); // No delay - run immediately on next tick
-  }
 }

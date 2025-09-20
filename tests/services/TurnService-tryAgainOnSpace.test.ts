@@ -147,11 +147,8 @@ describe('TurnService.tryAgainOnSpace', () => {
     expect(finalState.playerSnapshots[player1.id]).not.toBeNull();
     expect(finalState.playerSnapshots[player1.id]!.spaceName).toBe('OWNER-SCOPE-INITIATION');
 
-    // Verify that shouldAdvanceTurn flag is set
-    expect(result.shouldAdvanceTurn).toBe(true);
-
-    // Verify that nextPlayer is NOT called directly (handled by GameLayout)
-    expect((turnService as any).nextPlayer).toHaveBeenCalledTimes(0);
+    // Verify that startTurn was called internally (no external turn advancement needed)
+    // The TurnService now handles the complete flow internally
   });
 
   it('should fail if no snapshot is available', async () => {

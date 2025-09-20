@@ -464,7 +464,8 @@ export class StateService implements IStateService {
   clearPlayerCompletedManualActions(): GameState {
     const newState: GameState = {
       ...this.currentState,
-      hasCompletedManualActions: false
+      hasCompletedManualActions: false,
+      completedActions: 0  // Reset the completed actions counter
     };
 
     this.currentState = newState;
