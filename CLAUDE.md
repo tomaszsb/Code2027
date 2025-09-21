@@ -3,7 +3,7 @@
 ## ⚡ **INSTANT CONTEXT** (Read in 30 seconds)
 
 ### **What This Is**
-Production-ready TypeScript React game with clean service-oriented architecture. **All anti-patterns eliminated**. Ready for feature development.
+Advanced TypeScript React game with clean service-oriented architecture. **All anti-patterns eliminated**. Requires test suite stabilization before feature development.
 
 ### **Architecture Pattern**
 ```typescript
@@ -16,9 +16,10 @@ window.GameStateManager.doSomething(); // Will not exist
 ```
 
 ### **Current Status**
-- **Production Ready**: `npm run dev` fully functional
-- **Test Suite**: 95% passing (21 test files) 
-- **TypeScript**: Strict mode, 54 files, 0 compile errors ✅
+- **Development**: `npm run dev` fully functional
+- **Test Infrastructure**: Vitest-based, sub-30s execution ✅ *(post-Sept 13 migration)*
+- **Test Results**: 8 failures requiring resolution (465/473 tests passing)
+- **TypeScript**: Strict mode, 59 files, 0 compile errors ✅ *(fixed Sept 21)*
 - **Architecture**: Service-oriented with dependency injection
 
 ---
@@ -105,6 +106,9 @@ EffectEngineService  // Card/space effect processing
 ResourceService  // Resource management (money/time)
 ChoiceService    // Player choice handling
 NegotiationService   // Player-to-player interactions
+NotificationService  // Unified notification system
+TargetingService     // Multi-player targeting logic
+LoggingService       // Centralized logging infrastructure
 ```
 
 ### **Service Usage Patterns**
@@ -296,8 +300,8 @@ npm run preview       # Preview production build
 ### **File Organization**
 ```
 src/
-├── services/         # Business logic (11 services)
-├── components/       # UI components (33 files)  
+├── services/         # Business logic (14 services)
+├── components/       # UI components (29 files)  
 ├── types/           # TypeScript interfaces
 ├── utils/           # Pure utility functions
 ├── context/         # React context providers
@@ -306,14 +310,12 @@ src/
 
 ---
 
-## 🎯 **CURRENT PRIORITIES** (Code Building Optimized - September 5, 2025)
+## 🎯 **CURRENT PRIORITIES** (Updated September 21, 2025)
 
-### **🚨 IMMEDIATE PRIORITY - Week 1 (40 hours)**
-- [ ] **Fix story content display** (30 minutes) - Trivial 2-line change, massive UX impact
-- [ ] **Fix OWNER-FUND-INITIATION dice roll** (4 hours) - Remove confusing UX
-- [ ] **Connect logging infrastructure** (8 hours) - Leverage existing GameLog UI
-- [ ] **Code quality foundation** (16 hours) - Shared mocks, theme constants
-- [ ] **Remove PlayerStatusItem_backup.tsx** (15 minutes) - Cleanup duplicate file
+### **🚨 IMMEDIATE PRIORITY - Test Suite Stabilization**
+- [ ] **Fix TurnService test failures** (2 hours) - 6 tests failing due to missing clearTurnActions mock
+- [ ] **Fix E066 re-roll test** (1 hour) - Re-roll mechanism state management
+- [ ] **Fix TurnControlsWithActions notification test** (30 minutes) - Mock service integration
 
 ### **🔥 HIGH PRIORITY - Week 2-3 (80 hours) - Game Transformation**
 - [ ] **Phase-Restricted Card System** (20 hours) - Fix broken game balance
@@ -352,6 +354,8 @@ const mockService = {
 ```
 
 ### **Testing System (Vitest - Production Ready)**
+**📋 Infrastructure Note**: Complete Jest→Vitest migration (Sept 13, 2025) resolved fundamental testing issues. Previous "95%/100% passing" claims (Sept 7-11) were based on broken Jest setup with 15+ minute timeouts.
+
 ```bash
 # Primary Test Commands (Lightning Fast)
 npm test                    # Full test suite (<30 seconds)
@@ -361,12 +365,13 @@ npm run test:verbose        # Debug mode with full output
 
 # Category-Specific Testing
 npm run test:services       # Service layer tests only
-npm run test:components     # UI component tests  
+npm run test:components     # UI component tests
 npm run test:e2e           # End-to-end scenarios
 npm run test:isolated      # Ultra-fast pure logic tests
 
-# Performance Achievement: 99.96% improvement
-# Before: 15+ minutes (timeout) → After: <30 seconds
+# Performance Achievement: 99.96% improvement (Sept 13, 2025)
+# Before (Jest): 15+ minutes (timeout) → After (Vitest): <30 seconds
+# Current Status: 465/473 tests passing (8 failures to fix)
 ```
 
 ### **Writing Tests (Vitest Syntax)**
@@ -538,16 +543,17 @@ Suggested Options: [2-3 potential solutions]"
 ---
 
 ## 🎉 **MAJOR MILESTONE ACHIEVED - September 7, 2025**
+**📋 Historical Note**: The achievements below were accurate on September 7, 2025. Current status (September 21, 2025) requires test suite stabilization.
 
-### **✅ ALL P1 CRITICAL ISSUES RESOLVED**
+### **✅ ALL P1 CRITICAL ISSUES RESOLVED** *(Historical - September 7)*
 - **OWNER-FUND-INITIATION UX**: Complete automatic funding system implemented
 - **Theme System**: 100% hardcoded color elimination, professional theming
 - **TypeScript**: 0 compilation errors, full strict mode compliance
 - **Code Quality**: Centralized theming, clean architecture maintained
 
-### **🚀 PRODUCTION STATUS**
+### **🚀 PRODUCTION STATUS** *(Historical - September 7)*
 - **npm run typecheck**: ✅ 0 errors
-- **npm run test**: ✅ 100% passing (21/21 test files)
+- **npm run test**: ✅ 100% passing (21/21 test files) *(then - now 8 failures)*
 - **npm run dev**: ✅ Fully functional with enhanced UX
 - **Architecture**: ✅ Service-oriented with dependency injection
 
@@ -560,17 +566,18 @@ Suggested Options: [2-3 potential solutions]"
 ---
 
 ## 🎉 **SYSTEM STATUS UPDATE - September 11, 2025**
+**📋 Historical Note**: The status below was accurate on September 11, 2025. Current status (September 21, 2025) shows 8 test failures have emerged.
 
-### ✅ **Critical Issues Resolved**
+### ✅ **Critical Issues Resolved** *(Historical - September 11)*
 - **Multi-Player Card Effects**: Fixed L003 "All Players" targeting - now affects all players correctly
-- **Test Suite Stability**: All 19 test regressions resolved, suite runs under 2 minutes  
+- **Test Suite Stability**: All 19 test regressions resolved, suite runs under 2 minutes *(then - now 8 new failures)*
 - **Performance Analysis**: Completed comprehensive load time investigation with optimization roadmap
 
-### 📈 **Current System Health**
-- **TypeScript**: ✅ 0 compilation errors, full strict mode compliance
-- **Tests**: ✅ All critical test suites passing (CardService, TurnService, E066, tryAgainOnSpace)
-- **E2E Tests**: ✅ All 4 multi-player effect tests passing in 5.8 seconds
-- **Architecture**: ✅ Service-oriented with proper dependency injection maintained
+### 📈 **Current System Health** *(Historical - September 11)*
+- **TypeScript**: ✅ 0 compilation errors, full strict mode compliance *(still true)*
+- **Tests**: ✅ All critical test suites passing *(then - now 8 failures need resolution)*
+- **E2E Tests**: ✅ All 4 multi-player effect tests passing in 5.8 seconds *(still true)*
+- **Architecture**: ✅ Service-oriented with proper dependency injection maintained *(still true)*
 
 ### 📋 **Deliverables Completed**
 - **Bug Fix**: Multi-player card targeting in `PlayerActionService.playCard()`
@@ -581,6 +588,6 @@ Suggested Options: [2-3 potential solutions]"
 ---
 
 *Last Updated: September 21, 2025*
-*Project Status: Enhanced Production System - Action Notification Fixes Complete*
-*Next Focus: Performance Optimizations & P2 Feature Development*
-*PM Collaboration: Active with Gemini - System Stable & Ready*
+*Project Status: Advanced Development - Test Suite Stabilization Required*
+*Current Focus: Fix 8 test failures, then P2 feature development*
+*PM Collaboration: Active with Gemini - Architecture solid, testing needed*

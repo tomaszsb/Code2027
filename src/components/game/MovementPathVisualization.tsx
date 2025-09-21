@@ -24,7 +24,7 @@ interface MovementPathVisualizationProps {
 export function MovementPathVisualization({ 
   isVisible, 
   onToggle 
-}: MovementPathVisualizationProps): JSX.Element {
+}: MovementPathVisualizationProps): JSX.Element | null {
   const { movementService, stateService, dataService } = useGameContext();
   const [pathNodes, setPathNodes] = useState<PathNode[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);

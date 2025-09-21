@@ -1,52 +1,83 @@
-### 🔥 **PRIORITY 1: Critical Bug Fixes**
-*   [x] **Fix "Get Funding" Button Error**: Refactored `drawAndApplyCard` to bypass cost validation for automatic funding. ✅ **COMPLETED (Sept 9)**
-*   [x] **Restore Movement Arrows**: Implemented board-based visual movement indicators. Current player position (📍) and valid destinations (🎯) now display directly on game spaces during PLAY phase. ✅ **COMPLETED (Sept 11)**
-*   [x] **Fix "Try Again" Snapshot Logic**: Refactored snapshot clearing to be tied to explicit player actions ("End Turn", "Try Again"), eliminating the race condition that caused snapshots to disappear. ✅ **COMPLETED (Sept 15)**
-*   [x] **Fix E2E-05_MultiPlayerEffects.test.ts Multi-Player Effects**: Fixed critical bug where multi-player card effects (L003 "All Players" targeting) only affected the playing player instead of all players. Root cause: PlayerActionService was calling `processEffects()` instead of `processCardEffects()`, preventing access to card targeting data. All 4 tests now pass in 5.8 seconds. ✅ **FIXED (Sept 11)**
+# Current Tasks - Code2027 Project
 
-### 🎯 **Core Game Mechanics & Systems**
-*   [x] **Implement Core Card Effects via Unified Effect Engine**: Successfully integrated card data with the Effect Engine, enabling dynamic card effects. ✅ **COMPLETED (Sept 11)**
+**Last Updated**: September 21, 2025
+**Current Phase**: Test Suite Stabilization
+**Priority**: Fix 8 identified test failures before moving to feature development
 
-### 🎨 **PRIORITY 2: UI/UX Enhancements**
-*   [x] **Enhanced Financial Summary with Card Details**: Removed duplicate Financial Status section and enhanced Financial Summary to show detailed funding information including expandable B/I card sections and one-line funding source display (Bank/Investor/Owner). Fixed automatic funding completion messages to show proper card details using unified notification system. ✅ **COMPLETED (Sept 17)**
-*   [x] **Fixed Button Text and Notification Messages**: Corrected card type names in unified notification system (Business → Bank) and added special handling for OWNER-FUND-INITIATION space to show "Owner seed money" instead of card type. Fixed completed actions clearing to occur on End Turn and Try Again button clicks. ✅ **COMPLETED (Sept 17)**
-*   [x] **Ledger-Style Financial Layout**: Reorganized Financial Summary into professional ledger layout with hierarchical structure: Sources of Money (expandable), Project Scope (unchanged), Fees & Costs (expandable), and Surplus/Deficit (final calculation). Each section shows totals with detailed breakdowns when expanded. ✅ **COMPLETED (Sept 17)**
-*   [x] **Individual Funding Breakdown**: Enhanced Sources of Money expansion to show individual funding transactions (Owner/Bank/Investor) with amounts and descriptions, matching the detail level of Project Scope expansions. Fixed OWNER-FUND-INITIATION space detection for proper "Owner - Seed money" display regardless of underlying card mechanics. ✅ **COMPLETED (Sept 17)**
-*   [x] **Unified Notification System Implementation**: Replaced three separate notification systems (button feedback, player notifications, GameLog) with single NotificationService engine generating short/medium/detailed message variants. Integrated across all major UI components including GameLayout, TurnControlsWithActions, and ChoiceModal for consistent user feedback. ✅ **COMPLETED (Sept 19)**
-*   [x] **Fix Action Notification Visibility**: Resolved critical issue where Action Notifications (blue boxes) were being created correctly but immediately cleared by auto-clearing logic during turn transitions. Moved notification sending from UI components to service layer (TurnService) where notifications are sent after all state changes complete. Fixed notifications for End Turn, Manual Effects, Automatic Funding, and Try Again actions. ✅ **COMPLETED (Sept 21)**
-*   [x] **Display Space Time Cost**: Show the time that will be spent on a space in the Turn Controls UI *before* the action is taken.
-*   [ ] **Display Full Card Titles**: Update the Card Portfolio to show the full card name/title instead of IDs like "e1".
-*   [ ] **Clarify Space Explorer Close Buttons**: Rework the two "x" buttons so the blue one closes the details panel and the grey one closes the entire modal.
-*   [ ] **Expand Location Story Text**: Augment the story display to include `action_description` and `outcome_description` from the CSV files.
-*   [ ] **Dynamic Location Title**: Replace the static "Location" title in the story panel with the actual name of the current space.
-*   [ ] **Refine Game Log Naming**: Investigate why "SYSTEM" is used in the game log and replace it with the relevant player's name where appropriate.
+---
 
-### 🔧 **PRIORITY 3: Infrastructure & Performance**
-*   [ ] **Implement Base Service Class**: Create a `BaseService` to reduce code duplication across services.
-*   [ ] **Develop Component Library**: Establish a shared component library for common UI elements.
-*   [x] **Game Load Time Performance Investigation**: Completed comprehensive analysis identifying 4 major bottlenecks causing 20-30 second load times. Root causes: Large JavaScript bundle (414KB), multiple CSV network requests (7 requests, 115KB total), CPU-intensive CSV parsing, and complex service initialization. Detailed optimization roadmap provided with potential 75-85% improvement (target: 4-6 seconds). ✅ **COMPLETED (Sept 11)**
-*   [ ] **Implement Load Time Optimizations**: Execute the recommended optimizations from the performance investigation - bundle CSV data, enable code splitting, lazy service initialization, and pre-parsed JSON data.
-*   [ ] **Reduce Bundle Size**: Implement service decomposition and dynamic imports to reduce initial bundle from 414KB to <200KB.
+## 🚨 **IMMEDIATE PRIORITY: Test Suite Stabilization**
 
-### 🐞 **RESOLVED: UI/Data Discrepancies (PM-DECISION-CHECK)**
-- [x] **Fix Action Buttons & Implement Path Selection:** Corrected the data in `SPACE_EFFECTS.csv` and fixed the underlying `visitType` bug in `MovementService` to properly display all manual actions on the `PM-DECISION-CHECK` space. This includes the corrected "Roll for Bonus" button, path selection buttons, and the "End Turn" button. ✅ **COMPLETED (Sept 16)**
-- [x] **Fix Manual Actions Display Logic:** Resolved critical UI bug where manual action buttons showed as "✅ Manual action completed" instead of clickable buttons due to incorrect fallback logic when movement choices were active. Fixed by distinguishing between "disabled due to completion" vs "disabled due to processing". ✅ **COMPLETED (Sept 20)**
-- [x] **Implement Game Logic Independence:** Fixed fundamental game design flaw where movement choices blocked all other actions. Manual actions (dice rolls, space effects) and movement choices are now properly independent, allowing flexible action order as intended in board game mechanics. Players can now roll dice first to inform movement decisions. ✅ **COMPLETED (Sept 20)**
+### **TurnService Test Failures (6 tests)**
+**Issue**: `this.stateService.clearTurnActions is not a function`
+**Affected Tests**:
+- `should advance from first player to second player`
+- `should advance from second player to third player`
+- `should wrap around from last player to first player`
+- `should work with two players`
+- `should work with single player (wrap to self)`
+- `should call state service methods in correct order`
 
-### ❌ **NEW: Test Suite Regressions (P1 Blocker - Investigate Hang First)**
-*   [x] **Fix CardService.test.ts: Card Collection Management: should draw cards from stateful decks and update player hand** (Regression) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should advance from first player to second player** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should advance from second player to third player** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should wrap around from last player to first player** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should work with two players** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should work with single player (wrap to self)** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should throw error if no players in game** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should throw error if current player not found in player list** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should call state service methods in correct order** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService.test.ts: endTurn: should handle state service errors gracefully** (Regression - TypeError: Cannot read properties of undefined (reading 'shouldEnd')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix E066-reroll-integration.test.ts: should include canReRoll in rollDiceWithFeedback result when flag is set** (Regression - TypeError: Cannot read properties of undefined (reading 'players')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix E066-reroll-integration.test.ts: should not include canReRoll when flag is not set** (Regression - TypeError: Cannot read properties of undefined (reading 'players')) ✅ **FIXED (Sept 11)**
-*   [x] **Fix E066-reroll-integration.test.ts: should reset canReRoll flag at end of turn** (Regression - mock not called) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService-tryAgainOnSpace.test.ts: should revert to snapshot, apply penalty, and advance turn** (Regression - TypeError: gameConfigs.find is not a function) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService-tryAgainOnSpace.test.ts: should fail if no snapshot is available** (Regression - TypeError: gameConfigs.find is not a function) ✅ **FIXED (Sept 11)**
-*   [x] **Fix TurnService-tryAgainOnSpace.test.ts: should fail if the space is not negotiable** (Regression - TypeError: gameConfigs.find is not a function) ✅ **FIXED (Sept 11)**
+**Root Cause**: The `clearTurnActions()` method EXISTS in the actual StateService interface and implementation, but is missing from the test mock in `TurnService.test.ts`.
+
+**Action Required**: Add `clearTurnActions: vi.fn()` to the `mockStateService` in `tests/services/TurnService.test.ts`.
+
+---
+
+### **E066 Integration Test Failure (1 test)**
+**Issue**: `should reset canReRoll flag at end of turn`
+**Description**: The canReRoll flag reset functionality is not working as expected during turn transitions.
+
+**Action Required**: Debug the E066 card reroll mechanics to ensure proper flag reset at turn end.
+
+---
+
+### **TurnControlsWithActions Test Failure (1 test)**
+**Issue**: `should call notificationService.notify when movement choice button is clicked`
+**Description**: Movement choice button clicks are not triggering the expected notification service calls.
+
+**Action Required**: Fix the notification integration in movement choice handling.
+
+---
+
+## 🎯 **PENDING: UI/UX Improvements**
+*(Start after test stabilization)*
+
+- **Display Full Card Titles**: Update Card Portfolio to show full card names instead of IDs like "e1"
+- **Clarify Space Explorer Close Buttons**: Rework the two "x" buttons for better UX
+- **Expand Location Story Text**: Include `action_description` and `outcome_description` from CSV files
+- **Dynamic Location Title**: Replace static "Location" title with actual space name
+- **Refine Game Log Naming**: Replace "SYSTEM" entries with relevant player names
+
+---
+
+## 🔧 **FUTURE: Infrastructure & Performance**
+*(P3 - After core stability achieved)*
+
+- **Implement Base Service Class**: Reduce code duplication across services
+- **Develop Component Library**: Shared UI components
+- **Load Time Optimizations**: Execute performance investigation recommendations
+- **Bundle Size Reduction**: Reduce initial bundle from 414KB to <200KB
+
+---
+
+## ✅ **RECENTLY COMPLETED**
+*(For context - major work completed September 2025)*
+
+- Action Notification visibility fixes (Sept 21)
+- Game logic independence fixes (Sept 20)
+- Unified notification system (Sept 19)
+- PM-DECISION-CHECK UI/data fixes (Sept 16)
+- Financial summary enhancements (Sept 17)
+- Multi-player card effects (Sept 11)
+- Complete theme system implementation (Sept 7)
+
+---
+
+**Next Steps**:
+1. Focus on TurnService `clearTurnActions` method issue (6 test failures)
+2. Debug E066 canReRoll flag reset (1 test failure)
+3. Fix TurnControlsWithActions notification integration (1 test failure)
+4. Verify all 8 tests pass before moving to UI improvements
+
+**Success Criteria**: 100% test suite passing (currently 465 passing, 8 failing)
