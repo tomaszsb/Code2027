@@ -66,16 +66,22 @@ export interface GameState {
   hasPlayerMovedThisTurn: boolean;
   hasPlayerRolledDice: boolean;
   isGameOver: boolean;
+  isMoving: boolean;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;
   // Action tracking for turn management
   requiredActions: number;
-  completedActions: number;
+  completedActionCount: number;
   availableActionTypes: string[];
-  hasCompletedManualActions: boolean;
+  completedActions: {
+    diceRoll: string | undefined;
+    manualActions: { [key: string]: string };
+  };
   // Negotiation state
   activeNegotiation: NegotiationState | null;
+  // Movement selection state
+  selectedDestination: string | null;
   // Global action log
   globalActionLog: ActionLogEntry[];
   // Try Again state snapshotting (per player)

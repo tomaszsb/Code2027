@@ -113,15 +113,12 @@ export class ChoiceService implements IChoiceService {
     }
 
     try {
-      // Clear the choice from game state
-      this.stateService.clearAwaitingChoice();
-      
       // Remove from pending choices
       this.pendingChoices.delete(choiceId);
-      
+
       // Resolve the promise with the selection
       pendingChoice.resolve(selection);
-      
+
       console.log(`✅ Choice Resolved [${choiceId}]: "${validOption.label}" selected`);
       return true;
 

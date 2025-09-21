@@ -1,3 +1,77 @@
+## 🔔 **ACTION NOTIFICATION VISIBILITY FIXES - September 21, 2025**
+
+### **🚨 Issue: Action Notifications (blue boxes) not displaying**
+**Status**: ✅ **RESOLVED** - All action notifications now display correctly and persist for their configured duration.
+
+**Problem Description**:
+Action Notifications (blue notification boxes) for End Turn, Manual Effects, Automatic Funding, and Try Again actions were being created correctly by the NotificationService but immediately cleared by auto-clearing logic during turn transitions. Users never saw the feedback messages that confirmed their actions were successful.
+
+**Impact**:
+- Users had no visual confirmation that their actions (End Turn, Manual Effects, etc.) were successful
+- Poor user experience due to missing feedback for critical game actions
+- Notifications appeared to be broken despite working notification infrastructure
+
+### **🔍 Root Cause Analysis**
+
+1. **Timing Issue**: Notifications were being sent from UI components (GameLayout) during state transitions
+2. **Auto-Clearing Logic**: The GameLayout component automatically cleared all notifications when turn/player changes occurred
+3. **State Update Batching**: React batched multiple state updates during turn processing, causing immediate clearing
+4. **Architecture Problem**: Notification logic was in the UI layer instead of the service layer
+
+### **🎯 Resolution Implemented**
+
+**Core Strategy**: Move notification sending from UI components to service layer where notifications are sent AFTER all state changes are complete.
+
+**Files Modified:**
+- `src/services/TurnService.ts` - Added NotificationService dependency and notification logic
+- `src/context/ServiceProvider.tsx` - Injected NotificationService into TurnService
+- `src/components/layout/GameLayout.tsx` - Simplified action handlers, removed notification logic
+
+**Changes Made:**
+
+1. **Service-Layer Notifications** - Added notifications to TurnService methods:
+   ```typescript
+   // End Turn notifications in nextPlayer() method
+   if (this.notificationService) {
+     this.notificationService.notify({
+       short: 'Turn Ended',
+       medium: `🏁 Turn ${turnNumber} ended`,
+       detailed: `${currentPlayer.name} ended Turn ${turnNumber} at ${currentPlayer.currentSpace}`
+     }, { playerId, playerName, actionType: 'endTurn' });
+   }
+   ```
+
+2. **Dependency Injection** - Added NotificationService to TurnService constructor:
+   ```typescript
+   constructor(...services, notificationService?: INotificationService) {
+     this.notificationService = notificationService;
+   }
+   ```
+
+3. **UI Simplification** - Removed notification logic from GameLayout handlers:
+   ```typescript
+   // Before: Complex notification handling with timing workarounds
+   const handleEndTurn = async () => {
+     // ...complex notification logic with delays and flags...
+   };
+
+   // After: Simple service call
+   const handleEndTurn = async () => {
+     const result = await turnService.endTurnWithMovement();
+   };
+   ```
+
+### **✅ Results**
+
+- **End Turn Notifications**: Display after turn completes with player name and turn number
+- **Manual Effect Notifications**: Show effect outcomes (cards drawn, money/time changes)
+- **Automatic Funding Notifications**: Display funding approval messages
+- **Try Again Notifications**: Show time penalty and space reversion details
+- **Timing Fixed**: Notifications appear after state changes complete and persist for full duration
+- **Architecture Improved**: Clean separation between UI interaction and business logic notifications
+
+---
+
 ## 🎯 **GAME LOGIC INDEPENDENCE FIXES - September 20, 2025**
 
 ### **🚨 Issue: Movement choices blocked all other player actions**

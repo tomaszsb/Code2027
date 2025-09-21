@@ -1,16 +1,17 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CardReplacementModal } from '../../../src/components/modals/CardReplacementModal';
 import { Player, Card } from '../../../src/types/DataTypes';
 import { DataService } from '../../../src/services/DataService';
 
 // Mock GameContext
 const mockDataService = {
-  getCardById: jest.fn()
+  getCardById: vi.fn()
 } as unknown as DataService;
 
-jest.mock('../../../src/context/GameContext', () => ({
+vi.mock('../../../src/context/GameContext', () => ({
   useGameContext: () => ({
     dataService: mockDataService
   })

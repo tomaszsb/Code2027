@@ -44,13 +44,16 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const cardService = new CardService(dataService, stateService, resourceService, loggingService);
   const movementService = new MovementService(dataService, stateService, choiceService, loggingService);
   const targetingService = new TargetingService(stateService, choiceService);
-  
+
+  // Create NotificationService early for TurnService dependency
+  const notificationService = new NotificationService(stateService, loggingService);
+
   // Create temporary services for circular dependency resolution
   const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any, targetingService);
   const negotiationService = new NegotiationService(stateService, tempEffectEngine);
-  
-  // Create TurnService with NegotiationService dependency
-  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService, choiceService);
+
+  // Create TurnService with NegotiationService and NotificationService dependencies
+  const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService, choiceService, notificationService);
   
   // Create final EffectEngineService with TurnService dependency
   const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService);
@@ -60,9 +63,6 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   cardService.setEffectEngineService(effectEngineService);
   
   const playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);
-
-  // Create NotificationService
-  const notificationService = new NotificationService(stateService, loggingService);
 
   const services: IServiceContainer = {
     dataService,

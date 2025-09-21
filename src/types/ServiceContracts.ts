@@ -164,13 +164,15 @@ export interface IStateService {
   // Choice management methods
   setAwaitingChoice(choice: Choice): GameState;
   clearAwaitingChoice(): GameState;
-  
+  setMoving(isMoving: boolean): GameState;
+  selectDestination(destination: string | null): GameState;
+
   // Turn state management methods
   setPlayerHasMoved(): GameState;
   clearPlayerHasMoved(): GameState;
-  setPlayerCompletedManualAction(): GameState;
+  setPlayerCompletedManualAction(effectType: string, message: string): GameState;
   setPlayerHasRolledDice(): GameState;
-  clearPlayerCompletedManualActions(): GameState;
+  clearTurnActions(): GameState;
   clearPlayerHasRolledDice(): GameState;
   updateActionCounts(): void;
   
@@ -296,6 +298,7 @@ export interface IMovementService {
   
   // Choice-based movement methods
   handleMovementChoice(playerId: string): Promise<GameState>;
+  handleMovementChoiceV2(playerId: string): Promise<GameState>;
 }
 
 export interface IGameRulesService {

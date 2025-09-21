@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { EndGameModal } from '../../../src/components/modals/EndGameModal';
 import { IStateService } from '../../../src/types/ServiceContracts';
 import { GameState } from '../../../src/types/StateTypes';
@@ -8,14 +9,14 @@ import { Player } from '../../../src/types/DataTypes';
 import { createMockStateService } from '../../mocks/mockServices';
 
 beforeAll(() => {
-  jest.spyOn(console, 'error').mockImplementation(jest.fn());
+  vi.spyOn(console, 'error').mockImplementation(vi.fn());
 });
 
 // Create mock outside of describe block
-const mockStateService: jest.Mocked<IStateService> = createMockStateService();
+const mockStateService: any = createMockStateService();
 
 // Mock the useGameContext hook
-jest.mock('../../../src/context/GameContext', () => ({
+vi.mock('../../../src/context/GameContext', () => ({
   useGameContext: () => ({
     stateService: mockStateService,
   }),
@@ -26,7 +27,7 @@ describe('EndGameModal', () => {
   let mockGameState: GameState;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockPlayer = {
       id: 'player1',
@@ -83,7 +84,7 @@ describe('EndGameModal', () => {
     mockStateService.getGameState.mockReturnValue(mockGameState);
     mockStateService.subscribe.mockImplementation((callback) => {
       // Return unsubscribe function
-      return jest.fn();
+      return vi.fn();
     });
   });
 
@@ -148,11 +149,11 @@ describe('EndGameModal', () => {
     });
 
     it('should update display when state changes to game over', async () => {
-      let stateChangeCallback: (state: GameState) => void = jest.fn();
+      let stateChangeCallback: (state: GameState) => void = vi.fn();
       
       mockStateService.subscribe.mockImplementation((callback) => {
         stateChangeCallback = callback;
-        return jest.fn();
+        return vi.fn();
       });
 
       render(<EndGameModal />);
@@ -178,7 +179,7 @@ describe('EndGameModal', () => {
     });
 
     it('should return unsubscribe function when component unmounts', () => {
-      const mockUnsubscribe = jest.fn();
+      const mockUnsubscribe = vi.fn();
       mockStateService.subscribe.mockReturnValue(mockUnsubscribe);
 
       const { unmount } = render(<EndGameModal />);
@@ -259,7 +260,7 @@ describe('EndGameModal', () => {
         throw new Error('Reset failed');
       });
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
       render(<EndGameModal />);
       

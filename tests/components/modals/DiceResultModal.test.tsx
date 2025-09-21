@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DiceResultModal, DiceRollResult } from '../../../src/components/modals/DiceResultModal';
 
 describe('DiceResultModal', () => {
@@ -24,8 +25,8 @@ describe('DiceResultModal', () => {
     hasChoices: false
   };
 
-  const mockOnClose = jest.fn();
-  const mockOnConfirm = jest.fn();
+  const mockOnClose = vi.fn();
+  const mockOnConfirm = vi.fn();
 
   beforeEach(() => {
     mockOnClose.mockClear();

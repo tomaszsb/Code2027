@@ -72,24 +72,37 @@ export function TurnControlsWithActions({
 
   // Movement choice state
   const [currentChoice, setCurrentChoice] = useState<Choice | null>(null);
+  const [movementChoice, setMovementChoice] = useState<Choice | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
 
   // Subscribe to state changes for movement choices
   useEffect(() => {
     console.log('🔥 TurnControlsWithActions: Setting up movement choice subscription');
     const unsubscribe = stateService.subscribe((gameState) => {
+      // This console log can stay, it's useful for debugging
       console.log('🔥 TurnControlsWithActions: Received state update', {
         awaitingChoice: gameState.awaitingChoice?.type || null,
         currentPlayer: gameState.currentPlayerId
       });
 
-      // Update movement choice state
-      setCurrentChoice(gameState.awaitingChoice);
+      // REFINED GUARD: Only block this specific state update during a move
+      if (!gameState.isMoving) {
+        setCurrentChoice(gameState.awaitingChoice);
+      }
+
+      // Cache movement choice and movement state to prevent UI flicker
+      setIsMoving(gameState.isMoving);
+      setSelectedDestination(gameState.selectedDestination);
 
       if (gameState.awaitingChoice?.type === 'MOVEMENT') {
+        setMovementChoice(gameState.awaitingChoice);
         console.log('🔥 TurnControlsWithActions: Movement choice detected!', {
           choice: gameState.awaitingChoice,
           options: gameState.awaitingChoice.options
         });
+      } else if (!gameState.isMoving && !gameState.awaitingChoice) {
+        setMovementChoice(null);
       }
     });
 
@@ -100,38 +113,12 @@ export function TurnControlsWithActions({
     return unsubscribe;
   }, [stateService]);
 
-  // Handle movement choice selection
-  const handleMovementChoice = async (choiceId: string) => {
-    if (!currentChoice || currentChoice.type !== 'MOVEMENT') {
-      console.error('🔥 TurnControlsWithActions: No valid movement choice available');
-      return;
-    }
+  // Handle movement choice selection (NEW: Just selects destination, doesn't move)
+  const handleMovementChoice = (destinationId: string) => {
+    const newSelection = selectedDestination === destinationId ? null : destinationId;
+    stateService.selectDestination(newSelection);
 
-    try {
-      console.log('🔥 TurnControlsWithActions: Resolving movement choice:', choiceId);
-
-      // Add notification feedback before resolving choice
-      const selectedOption = currentChoice.options.find(opt => opt.id === choiceId);
-      const optionLabel = selectedOption?.label || choiceId;
-
-      notificationService.notify(
-        {
-          short: `→ ${optionLabel}`,
-          medium: `🚶 Moving to ${optionLabel}`,
-          detailed: `${currentPlayer.name} chose to move to ${optionLabel}`
-        },
-        {
-          playerId: currentPlayer.id,
-          playerName: currentPlayer.name,
-          actionType: `move_${choiceId}`
-        }
-      );
-
-      await choiceService.resolveChoice(currentChoice.id, choiceId);
-      console.log('🔥 TurnControlsWithActions: Movement choice resolved successfully');
-    } catch (error) {
-      console.error('🔥 TurnControlsWithActions: Error resolving movement choice:', error);
-    }
+    console.log(`🎯 TurnControlsWithActions: Selected destination: ${newSelection || 'none'}`);
   };
 
 
@@ -186,11 +173,11 @@ export function TurnControlsWithActions({
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                      !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn &&
                      // Allow dice rolling during movement choices - they're independent actions
-                     !(awaitingChoice && currentChoice?.type !== 'MOVEMENT') &&
+                     !(awaitingChoice && movementChoice?.type !== 'MOVEMENT') &&
                      currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
   const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                     !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
-                    !(currentChoice && currentChoice.type === 'MOVEMENT'); // Disable end turn if movement choice pending
+                    !movementChoice; // Disable end turn if movement choice pending
 
 
   // Get contextual dice roll button text using centralized utility
@@ -228,7 +215,7 @@ export function TurnControlsWithActions({
       )}
 
       {/* Movement Choice Buttons */}
-      {currentChoice && currentChoice.type === 'MOVEMENT' && (
+      {movementChoice && (
         <div style={{
           padding: '8px',
           backgroundColor: colors.primary.bg,
@@ -244,7 +231,7 @@ export function TurnControlsWithActions({
           }}>
             🚶 Choose Your Destination
           </div>
-          {currentChoice.options.map((option, index) => {
+          {movementChoice.options.map((option, index) => {
             const feedbackKey = `move_${option.id}`;
             const feedback = buttonFeedback[feedbackKey];
 
@@ -271,7 +258,9 @@ export function TurnControlsWithActions({
               );
             }
 
-            // Otherwise show the button as normal
+            // Show button with selection state
+            const isSelected = selectedDestination === option.id;
+
             return (
               <button
                 key={index}
@@ -282,19 +271,24 @@ export function TurnControlsWithActions({
                   margin: '2px 0',
                   fontSize: '11px',
                   fontWeight: 'bold',
-                  backgroundColor: colors.primary.main,
+                  backgroundColor: isSelected ? colors.success.main : colors.primary.main,
                   color: colors.white,
-                  border: 'none',
+                  border: isSelected ? `3px solid ${colors.white}` : 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  boxSizing: 'border-box',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.primary.dark;
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = colors.primary.dark;
+                  }
                   e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.primary.main;
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = colors.primary.main;
+                  }
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
@@ -330,13 +324,13 @@ export function TurnControlsWithActions({
             <span>🎲</span>
             <span>{getDiceRollButtonText()}</span>
           </button>
-        ) : hasPlayerRolledDice && completedActions.diceRoll ? (
-          // Show local completion message with immediate feedback
+        ) : hasPlayerRolledDice && completedActions.diceRoll && !completedActions.manualActions.dice_roll_chance ? (
+          // Show local completion message with immediate feedback (only if no manual dice action)
           <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ {completedActions.diceRoll}
           </div>
-        ) : hasPlayerRolledDice && !completedActions.manualActions.funding ? (
-          // Fallback if no local message available and no funding message
+        ) : hasPlayerRolledDice && !completedActions.manualActions.funding && !completedActions.manualActions.dice_roll_chance ? (
+          // Fallback if no local message available and no manual dice action
           <div style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: colors.secondary.light, borderRadius: '4px', color: colors.secondary.main }}>
             ✅ Dice rolled - check game log
           </div>

@@ -8,6 +8,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CardPortfolioDashboard } from '../../../src/components/game/CardPortfolioDashboard';
 import { GameContext } from '../../../src/context/GameContext';
 import { Player, GameState } from '../../../src/types/StateTypes';
@@ -75,11 +76,11 @@ describe('CardPortfolioDashboard', () => {
   const defaultProps = {
     player: mockPlayer,
     isCurrentPlayer: true,
-    onOpenCardDetailsModal: jest.fn()
+    onOpenCardDetailsModal: vi.fn()
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock services
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
@@ -174,11 +175,11 @@ describe('CardPortfolioDashboard', () => {
 
   describe('Card Interactions', () => {
     it('should call onOpenCardDetailsModal when card is clicked', () => {
-      const mockOpenModal = jest.fn();
+      const mockOpenModal = vi.fn();
       renderComponent({ ...defaultProps, onOpenCardDetailsModal: mockOpenModal });
       
-      // Find the first card button (E1) and click it
-      const cardButton = screen.getByText('E1');
+      // Find the first card button (Mock Card E001) in Available Cards section
+      const cardButton = screen.getByTitle('View details: Mock Card E001 • Transferable');
       fireEvent.click(cardButton);
       
       expect(mockOpenModal).toHaveBeenCalledWith('E001');

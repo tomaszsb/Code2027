@@ -8,6 +8,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DiscardedCardsModal } from '../../../src/components/modals/DiscardedCardsModal';
 import { GameContext } from '../../../src/context/GameContext';
 import { Player, GameState } from '../../../src/types/StateTypes';
@@ -70,12 +71,12 @@ describe('DiscardedCardsModal', () => {
   const defaultProps = {
     player: mockPlayer,
     isVisible: true,
-    onClose: jest.fn(),
-    onOpenCardDetailsModal: jest.fn()
+    onClose: vi.fn(),
+    onOpenCardDetailsModal: vi.fn()
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock services
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
@@ -170,7 +171,7 @@ describe('DiscardedCardsModal', () => {
 
   describe('Modal Interactions', () => {
     it('should call onClose when close button is clicked', () => {
-      const mockOnClose = jest.fn();
+      const mockOnClose = vi.fn();
       renderComponent({ ...defaultProps, onClose: mockOnClose });
       
       const closeButton = screen.getByText('✕');
@@ -180,7 +181,7 @@ describe('DiscardedCardsModal', () => {
     });
 
     it('should call onClose when modal overlay is clicked', () => {
-      const mockOnClose = jest.fn();
+      const mockOnClose = vi.fn();
       renderComponent({ ...defaultProps, onClose: mockOnClose });
       
       // Click on the modal overlay (the div with modalOverlayStyle)
@@ -192,7 +193,7 @@ describe('DiscardedCardsModal', () => {
     });
 
     it('should call onOpenCardDetailsModal when card is clicked', () => {
-      const mockOnOpenCardDetails = jest.fn();
+      const mockOnOpenCardDetails = vi.fn();
       renderComponent({ ...defaultProps, onOpenCardDetailsModal: mockOnOpenCardDetails });
       
       // Find the first card and click it
@@ -203,7 +204,7 @@ describe('DiscardedCardsModal', () => {
     });
 
     it('should not call onClose when modal content is clicked', () => {
-      const mockOnClose = jest.fn();
+      const mockOnClose = vi.fn();
       renderComponent({ ...defaultProps, onClose: mockOnClose });
       
       // Click on modal content (should not close)

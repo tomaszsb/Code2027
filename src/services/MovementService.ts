@@ -192,8 +192,9 @@ export class MovementService implements IMovementService {
    * Handles movement choices by presenting options and awaiting player selection
    * @param playerId - The ID of the player making the choice
    * @returns Promise that resolves with the updated game state after movement
+   * CACHE BUSTER: Version 2.0 - Force Browser Reload
    */
-  async handleMovementChoice(playerId: string): Promise<GameState> {
+  async handleMovementChoiceV2(playerId: string): Promise<GameState> {
     const validMoves = this.getValidMoves(playerId);
 
     if (validMoves.length === 0) {
@@ -231,11 +232,38 @@ export class MovementService implements IMovementService {
 
     console.log(`✅ Player ${player.name} chose to move to: ${selectedDestination}`);
 
-    // Move the player to the selected destination
-    return await this.movePlayer(playerId, selectedDestination);
+    // Set the moving flag immediately to notify the UI
+    // FORCE RELOAD: Cache-busting timestamp: 2025-09-21T04:45:00Z
+    this.stateService.setMoving(true);
+
+    // IMPORTANT: Use a setTimeout to yield to the event loop.
+    // This forces React to render the 'isMoving=true' state BEFORE the move happens.
+    console.log(`🕐 TIMEOUT START: About to yield control back to React for isMoving=true render`);
+    return new Promise((resolve, reject) => {
+      setTimeout(async () => {
+        console.log(`🕐 TIMEOUT EXECUTING: React should have rendered isMoving=true by now`);
+        try {
+          // This code now runs AFTER the UI has re-rendered in its 'moving' state
+          const result = await this.movePlayer(playerId, selectedDestination);
+          this.stateService.clearAwaitingChoice();
+          resolve(result);
+        } catch (error) {
+          this.stateService.clearAwaitingChoice();
+          reject(error);
+        } finally {
+          // This will run after the move is done, queuing the final state update
+          this.stateService.setMoving(false);
+        }
+      }, 0);
+    });
   }
 
-
+  /**
+   * Legacy method - calls the new V2 implementation
+   */
+  async handleMovementChoice(playerId: string): Promise<GameState> {
+    return this.handleMovementChoiceV2(playerId);
+  }
 
   /**
    * Checks if a player has previously visited a space

@@ -157,8 +157,6 @@ export function MovementPathVisualization({
     borderRadius: '12px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
     zIndex: 900,
-    transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
-    transition: 'transform 0.3s ease-in-out',
     overflow: 'hidden',
     border: `2px solid ${colors.secondary.border}`
   };
@@ -190,6 +188,11 @@ export function MovementPathVisualization({
     cursor: node.isValidDestination ? 'pointer' : 'default',
     transition: 'all 0.2s ease'
   });
+
+  // Early return if not visible - don't render any DOM elements
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <>

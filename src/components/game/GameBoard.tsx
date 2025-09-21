@@ -10,6 +10,7 @@ export function GameBoard(): JSX.Element {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [highlightedMoves, setHighlightedMoves] = useState<string[]>([]);
   const [gamePhase, setGamePhase] = useState<string>('SETUP');
 
   // Subscribe to state changes for live updates
@@ -18,19 +19,29 @@ export function GameBoard(): JSX.Element {
       setPlayers(gameState.players);
       setCurrentPlayerId(gameState.currentPlayerId);
       setGamePhase(gameState.gamePhase);
-      
-      // Calculate valid moves for current player during PLAY phase
-      if (gameState.gamePhase === 'PLAY' && gameState.currentPlayerId && !gameState.hasPlayerMovedThisTurn) {
-        try {
-          const moves = movementService.getValidMoves(gameState.currentPlayerId);
-          setValidMoves(moves);
-          console.log(`🎯 BOARD: Player ${gameState.currentPlayerId} has ${moves.length} valid moves:`, moves);
-        } catch (error) {
-          console.log(`🎯 BOARD: No valid moves for player ${gameState.currentPlayerId}:`, error);
+
+      // REFINED GUARD: Only block this specific state update during a move
+      if (!gameState.isMoving) {
+        if (gameState.gamePhase === 'PLAY' && gameState.currentPlayerId && !gameState.hasPlayerMovedThisTurn) {
+          try {
+            const moves = movementService.getValidMoves(gameState.currentPlayerId);
+            setValidMoves(moves);
+            console.log(`🎯 BOARD: Player ${gameState.currentPlayerId} has ${moves.length} valid moves:`, moves);
+          } catch (error) {
+            console.log(`🎯 BOARD: No valid moves for player ${gameState.currentPlayerId}:`, error);
+            setValidMoves([]);
+          }
+        } else {
           setValidMoves([]);
         }
-      } else {
-        setValidMoves([]);
+      }
+
+      // Cache movement choices to prevent them from disappearing during animation
+      if (gameState.awaitingChoice?.type === 'MOVEMENT' && !gameState.isMoving && gameState.currentPlayerId) {
+        const moves = movementService.getValidMoves(gameState.currentPlayerId);
+        setHighlightedMoves(moves);
+      } else if (!gameState.awaitingChoice && !gameState.isMoving) {
+        setHighlightedMoves([]);
       }
     });
     
@@ -70,7 +81,7 @@ export function GameBoard(): JSX.Element {
 
   // Helper function to check if a space is a valid move destination
   const isValidMoveDestination = (spaceName: string): boolean => {
-    return validMoves.includes(spaceName);
+    return highlightedMoves.includes(spaceName);
   };
 
   // Helper function to check if current player is on this space
@@ -112,7 +123,7 @@ export function GameBoard(): JSX.Element {
               playersOnSpace={playersOnSpace}
               isValidMoveDestination={isValidMove}
               isCurrentPlayerSpace={isCurrentPlayer}
-              showMovementIndicators={gamePhase === 'PLAY' && validMoves.length > 0}
+              showMovementIndicators={highlightedMoves.length > 0}
             />
           );
         })}

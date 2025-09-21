@@ -1,26 +1,27 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useGameContext } from '../../../src/context/GameContext';
 import { IPlayerActionService, IStateService } from '../../../src/types/ServiceContracts';
 import { GameState } from '../../../src/types/StateTypes';
 import { createMockStateService } from '../../mocks/mockServices';
 
 // Mock the useGameContext hook
-jest.mock('../../../src/context/GameContext', () => ({
-  useGameContext: jest.fn(),
+vi.mock('../../../src/context/GameContext', () => ({
+  useGameContext: vi.fn(),
 }));
 
 // Mock alert function
-global.alert = jest.fn();
+global.alert = vi.fn();
 
 // Mock console.error
 global.console = {
   ...console,
-  error: jest.fn(),
+  error: vi.fn(),
 };
 
 describe('CardActions Service Integration', () => {
-  let mockPlayerActionService: jest.Mocked<IPlayerActionService>;
-  let mockStateService: jest.Mocked<IStateService>;
-  let mockUseGameContext: jest.MockedFunction<typeof useGameContext>;
+  let mockPlayerActionService: any;
+  let mockStateService: any;
+  let mockUseGameContext: any;
 
   const mockGameState: GameState = {
     players: [],
@@ -57,19 +58,19 @@ describe('CardActions Service Integration', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock services
     mockPlayerActionService = {
-      playCard: jest.fn(),
-      rollDice: jest.fn(),
-      endTurn: jest.fn(),
+      playCard: vi.fn(),
+      rollDice: vi.fn(),
+      endTurn: vi.fn(),
     };
 
     mockStateService = createMockStateService();
     mockStateService.getGameState.mockReturnValue(mockGameState);
 
-    mockUseGameContext = useGameContext as jest.MockedFunction<typeof useGameContext>;
+    mockUseGameContext = useGameContext as anyFunction<typeof useGameContext>;
     mockUseGameContext.mockReturnValue({
       playerActionService: mockPlayerActionService,
       stateService: mockStateService,
@@ -87,7 +88,7 @@ describe('CardActions Service Integration', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('PlayerActionService Integration', () => {

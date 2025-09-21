@@ -40,7 +40,7 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
       setGamePhase(gameState.gamePhase);
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
-      setHasCompletedManualActions(gameState.hasCompletedManualActions || false);
+      setHasCompletedManualActions(Object.keys(gameState.completedActions.manualActions).length > 0);
       setAwaitingChoice(gameState.awaitingChoice !== null);
       setCurrentChoice(gameState.awaitingChoice);
 
@@ -54,10 +54,10 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
       }
       
       // Update action counts from game state
-      console.log(`🎯 TurnControls - Action Counts Update: Required=${gameState.requiredActions}, Completed=${gameState.completedActions}`);
+      console.log(`🎯 TurnControls - Action Counts Update: Required=${gameState.requiredActions}, Completed=${gameState.completedActionCount}`);
       setActionCounts({
         required: gameState.requiredActions || 1,
-        completed: gameState.completedActions || 0
+        completed: gameState.completedActionCount || 0
       });
       
       // Set the first player as the human player (for demo purposes)
@@ -83,7 +83,7 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
     // Initialize action counts
     setActionCounts({
       required: gameState.requiredActions || 1,
-      completed: gameState.completedActions || 0
+      completed: gameState.completedActionCount || 0
     });
     
     // Set the first player as the human player

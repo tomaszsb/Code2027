@@ -1,9 +1,11 @@
 import { ITurnService, IDataService, IStateService, IGameRulesService, ICardService, IResourceService, IEffectEngineService, IMovementService, ILoggingService, IChoiceService, TurnResult } from '../types/ServiceContracts';
 import { NegotiationService } from './NegotiationService';
+import { INotificationService } from './NotificationService';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement, CardType, VisitType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
 import { EffectContext } from '../types/EffectTypes';
+import { formatManualEffectButton } from '../utils/buttonFormatting';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -15,9 +17,10 @@ export class TurnService implements ITurnService {
   private readonly negotiationService: NegotiationService;
   private readonly loggingService: ILoggingService;
   private readonly choiceService: IChoiceService;
+  private readonly notificationService?: INotificationService;
   private effectEngineService?: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, loggingService: ILoggingService, choiceService: IChoiceService, effectEngineService?: IEffectEngineService) {
+  constructor(dataService: IDataService, stateService: IStateService, gameRulesService: IGameRulesService, cardService: ICardService, resourceService: IResourceService, movementService: IMovementService, negotiationService: NegotiationService, loggingService: ILoggingService, choiceService: IChoiceService, notificationService?: INotificationService, effectEngineService?: IEffectEngineService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.gameRulesService = gameRulesService;
@@ -27,6 +30,7 @@ export class TurnService implements ITurnService {
     this.negotiationService = negotiationService;
     this.loggingService = loggingService;
     this.choiceService = choiceService;
+    this.notificationService = notificationService;
     this.effectEngineService = effectEngineService;
   }
 
@@ -110,7 +114,7 @@ export class TurnService implements ITurnService {
 
       // Handle movement based on current space
       console.log(`🎮 TurnService.takeTurn - Handling movement...`);
-      await this.movementService.handleMovementChoice(playerId);
+      await this.movementService.handleMovementChoiceV2(playerId);
       const newGameState = this.stateService.getGameState();
 
       // Mark that the player has moved this turn
@@ -214,8 +218,8 @@ export class TurnService implements ITurnService {
       }
 
       // Validation: Check if all required actions are completed
-      if (gameState.requiredActions > gameState.completedActions) {
-        throw new Error(`Cannot end turn: Player has not completed all required actions. Required: ${gameState.requiredActions}, Completed: ${gameState.completedActions}`);
+      if (gameState.requiredActions > gameState.completedActionCount) {
+        throw new Error(`Cannot end turn: Player has not completed all required actions. Required: ${gameState.requiredActions}, Completed: ${gameState.completedActionCount}`);
       }
 
       console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
@@ -410,7 +414,26 @@ export class TurnService implements ITurnService {
     this.stateService.advanceTurn();
     this.stateService.clearPlayerHasMoved();
     this.stateService.clearPlayerHasRolledDice();
-    this.stateService.clearPlayerCompletedManualActions();
+    this.stateService.clearTurnActions();
+
+    // Send End Turn notification for the previous player AFTER all state changes are complete
+    if (this.notificationService) {
+      const prevGameState = this.stateService.getGameState();
+      const turnNumber = prevGameState.turn - 1; // Previous turn that just ended
+      this.notificationService.notify(
+        {
+          short: 'Turn Ended',
+          medium: `🏁 Turn ${turnNumber} ended`,
+          detailed: `${currentPlayer.name} ended Turn ${turnNumber} at ${currentPlayer.currentSpace}`
+        },
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: 'endTurn',
+          notificationDuration: 3000
+        }
+      );
+    }
 
     // Log turn start for new player
     const newGameState = this.stateService.getGameState();
@@ -452,7 +475,7 @@ export class TurnService implements ITurnService {
         console.log(`🎯 Player ${playerName} is at a choice space with ${validMoves.length} options - creating movement choice`);
 
         // This will create the choice and wait for player input
-        await this.movementService.handleMovementChoice(playerId);
+        await this.movementService.handleMovementChoiceV2(playerId);
       } else {
         // 0 or 1 moves - no choice needed, turn proceeds normally
         console.log(`🎬 TurnService.startTurn - No choice needed (${validMoves.length} valid moves)`);
@@ -1274,6 +1297,9 @@ export class TurnService implements ITurnService {
       // Handle dice roll chance effects (like "draw_l_on_1")
       console.log(`🎲 Processing dice_roll_chance effect: ${manualEffect.effect_action}`);
       newState = this.applyDiceRollChanceEffect(playerId, manualEffect);
+
+      // Mark that dice has been rolled to prevent duplicate dice roll buttons
+      this.stateService.setPlayerHasRolledDice();
     } else if (effectType === 'turn') {
       // Handle turn effects (like "end_turn") - these are special and don't need processing here
       console.log(`🏁 Processing turn effect: ${manualEffect.effect_action}`);
@@ -1282,8 +1308,9 @@ export class TurnService implements ITurnService {
       console.warn(`⚠️ Unknown manual effect type: ${effectType}`);
     }
 
-    // Mark that player has completed a manual action
-    this.stateService.setPlayerCompletedManualAction();
+    // Mark that player has completed a manual action with specific type and message
+    const { text: buttonText } = formatManualEffectButton(manualEffect);
+    this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
     
     console.log(`🔧 Manual ${effectType} effect completed for player ${player.name}`);
     return this.stateService.getGameState();
@@ -1352,6 +1379,23 @@ export class TurnService implements ITurnService {
     }
 
     const summary = effects.map(e => e.description).join(', ');
+
+    // Send Manual Effect notification
+    if (this.notificationService) {
+      this.notificationService.notify(
+        {
+          short: 'Action Complete',
+          medium: `✅ ${summary}`,
+          detailed: `${currentPlayer.name} completed manual action: ${summary}`
+        },
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: 'manualEffect',
+          notificationDuration: 3000
+        }
+      );
+    }
 
     return {
       diceValue: 0, // No dice roll for manual effects
@@ -1481,8 +1525,11 @@ export class TurnService implements ITurnService {
         // Reset action states so player can take actions again
         hasPlayerRolledDice: false,
         hasPlayerMovedThisTurn: false,
-        hasCompletedManualActions: false,
-        completedActions: 0,
+        completedActionCount: 0,
+        completedActions: {
+          diceRoll: undefined,
+          manualActions: {},
+        },
         requiredActions: 1,
         availableActionTypes: ['movement']
       };
@@ -1525,6 +1572,23 @@ export class TurnService implements ITurnService {
 
       // 9. Prepare success message for immediate display
       const successMessage = `${snapshotPlayer.name} used Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty.`;
+
+      // Send Try Again notification
+      if (this.notificationService) {
+        this.notificationService.notify(
+          {
+            short: 'Try Again Used',
+            medium: `🔄 Try Again: ${timePenalty} day penalty`,
+            detailed: successMessage
+          },
+          {
+            playerId: snapshotPlayer.id,
+            playerName: snapshotPlayer.name,
+            actionType: 'tryAgain',
+            notificationDuration: 3000
+          }
+        );
+      }
 
       // 10. Return success - state reversion has reset turn flags automatically
       // No turn advancement needed - player should continue their current turn
@@ -2243,6 +2307,23 @@ export class TurnService implements ITurnService {
         cardType: fundingCardType,
         cardCount: 1
       }];
+
+      // Send Automatic Funding notification
+      if (this.notificationService) {
+        this.notificationService.notify(
+          {
+            short: 'Funding Approved',
+            medium: `💰 ${fundingDescription}`,
+            detailed: `${currentPlayer.name} received automatic funding: ${fundingDescription}`
+          },
+          {
+            playerId: currentPlayer.id,
+            playerName: currentPlayer.name,
+            actionType: 'automaticFunding',
+            notificationDuration: 3000
+          }
+        );
+      }
 
       return {
         diceValue: 0, // No actual dice roll

@@ -47,32 +47,28 @@ export function GameLayout(): JSX.Element {
   const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
   const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
   const [turnNumber, setTurnNumber] = useState<number>(0);
+  const [gameStateCompletedActions, setGameStateCompletedActions] = useState<{
+    diceRoll: string | undefined;
+    manualActions: { [key: string]: string };
+  }>({ diceRoll: undefined, manualActions: {} });
 
   // Unified notification system - driven by NotificationService
   const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
   const [playerNotifications, setPlayerNotifications] = useState<{ [playerId: string]: string }>({});
 
-  // Legacy compatibility - map new notification system to old format for existing components
-  const completedActions = {
-    diceRoll: buttonFeedback.dice || undefined,
-    manualActions: {
-      funding: buttonFeedback.funding || '',
-      ...Object.keys(buttonFeedback)
-        .filter(key => key.startsWith('manual-'))
-        .reduce((acc, key) => {
-          const effectType = key.replace('manual-', '');
-          acc[effectType] = buttonFeedback[key];
-          return acc;
-        }, {} as { [key: string]: string })
-    }
-  };
+  // Use actual game state completed actions for UI display
+  const completedActions = gameStateCompletedActions;
   const feedbackMessage = ''; // No longer used - messages go to player notifications
 
   // Subscribe to NotificationService updates
   useEffect(() => {
     notificationService.setUpdateCallbacks(
-      setButtonFeedback,
-      setPlayerNotifications
+      (buttonFeedback) => {
+        setButtonFeedback(buttonFeedback);
+      },
+      (playerNotifications) => {
+        setPlayerNotifications(playerNotifications);
+      }
     );
   }, [notificationService]);
 
@@ -145,13 +141,16 @@ export function GameLayout(): JSX.Element {
       // Track turn control state for TurnControlsWithActions
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
-      setHasCompletedManualActions(gameState.hasCompletedManualActions || false);
+      setHasCompletedManualActions(Object.keys(gameState.completedActions.manualActions).length > 0);
       setAwaitingChoice(gameState.awaitingChoice !== null);
+
+      // Update completed actions from game state
+      setGameStateCompletedActions(gameState.completedActions);
 
       // Update action counts from game state
       setActionCounts({
         required: gameState.requiredActions || 1,
-        completed: gameState.completedActions || 0
+        completed: gameState.completedActionCount || 0
       });
     });
     
@@ -166,11 +165,12 @@ export function GameLayout(): JSX.Element {
     // Initialize turn control state
     setHasPlayerMovedThisTurn(currentState.hasPlayerMovedThisTurn || false);
     setHasPlayerRolledDice(currentState.hasPlayerRolledDice || false);
-    setHasCompletedManualActions(currentState.hasCompletedManualActions || false);
+    setHasCompletedManualActions(Object.keys(currentState.completedActions.manualActions).length > 0);
     setAwaitingChoice(currentState.awaitingChoice !== null);
+    setGameStateCompletedActions(currentState.completedActions);
     setActionCounts({
       required: currentState.requiredActions || 1,
-      completed: currentState.completedActions || 0
+      completed: currentState.completedActionCount || 0
     });
     
     return () => {
@@ -281,9 +281,8 @@ export function GameLayout(): JSX.Element {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      // Clear all notifications when ending turn as per user requirements
-      notificationService.clearAllNotifications();
-      await turnService.endTurnWithMovement();
+      const result = await turnService.endTurnWithMovement();
+      console.log(`End turn completed for player ${currentPlayerId}:`, result);
     } catch (error) {
       console.error("Error ending turn:", error);
     } finally {
@@ -296,59 +295,9 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-
-      if (currentPlayer) {
-        // Create outcomes for the notification utility
-        const outcomes: string[] = [];
-
-        result.effects?.forEach(effect => {
-          switch (effect.type) {
-            case 'cards':
-              outcomes.push(`Drew ${effect.cardCount} ${effect.cardType} card${effect.cardCount !== 1 ? 's' : ''}`);
-              break;
-            case 'money':
-              if (effect.value !== undefined) {
-                const moneyOutcome = effect.value > 0
-                  ? `Gained $${Math.abs(effect.value)}`
-                  : `Spent $${Math.abs(effect.value)}`;
-                outcomes.push(moneyOutcome);
-              }
-              break;
-            case 'time':
-              if (effect.value !== undefined) {
-                const timeOutcome = effect.value > 0
-                  ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
-                  : `Time Saved: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
-                outcomes.push(timeOutcome);
-              }
-              break;
-          }
-        });
-
-        // Use unified notification system
-        notificationService.notify(
-          NotificationUtils.createManualActionNotification(effectType, outcomes, currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: `manual-${effectType}`
-          }
-        );
-      }
+      console.log(`Manual effect ${effectType} completed for player ${currentPlayerId}:`, result);
     } catch (error) {
       console.error("Error triggering manual effect:", error);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-      if (currentPlayer) {
-        notificationService.notify(
-          NotificationUtils.createErrorNotification('manual action', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: `manual-${effectType}`
-          }
-        );
-      }
     } finally {
       setIsProcessingTurn(false);
     }
@@ -359,37 +308,9 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.handleAutomaticFunding(currentPlayerId);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-
-      if (result.effects && currentPlayer) {
-        // Calculate total funding amount from effects
-        const totalAmount = result.effects
-          .filter(effect => effect.type === 'money')
-          .reduce((sum, effect) => sum + (effect.value || 0), 0);
-
-        // Use unified notification system
-        notificationService.notify(
-          NotificationUtils.createFundingNotification(totalAmount, currentPlayer.currentSpace, currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: 'funding'
-          }
-        );
-      }
+      console.log(`Automatic funding completed for player ${currentPlayerId}:`, result);
     } catch (error) {
       console.error("Error handling automatic funding:", error);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-      if (currentPlayer) {
-        notificationService.notify(
-          NotificationUtils.createErrorNotification('funding', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: 'funding'
-          }
-        );
-      }
     } finally {
       setIsProcessingTurn(false);
     }
@@ -401,35 +322,9 @@ export function GameLayout(): JSX.Element {
     setIsProcessingTurn(true);
     try {
       const result = await turnService.tryAgainOnSpace(currentPlayerId);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-
-      if (currentPlayer) {
-        // Use unified notification system
-        notificationService.notify(
-          NotificationUtils.createTryAgainNotification(result.success, 1, currentPlayer.currentSpace, currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: 'try-again'
-          }
-        );
-      }
-
-      // TurnService.tryAgainOnSpace() now handles the complete flow internally
-      // No additional turn advancement needed here
+      console.log(`Try Again completed for player ${currentPlayerId}:`, result);
     } catch (error) {
       console.error("Error trying again on space:", error);
-      const currentPlayer = players.find(p => p.id === currentPlayerId);
-      if (currentPlayer) {
-        notificationService.notify(
-          NotificationUtils.createErrorNotification('try again', error instanceof Error ? error.message : 'Unknown error', currentPlayer.name),
-          {
-            playerId: currentPlayerId,
-            playerName: currentPlayer.name,
-            actionType: 'try-again'
-          }
-        );
-      }
     } finally {
       setIsProcessingTurn(false);
     }

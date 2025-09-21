@@ -230,7 +230,8 @@ export class StateService implements IStateService {
       ...this.currentState,
       currentPlayerId: nextPlayerId,
       hasPlayerMovedThisTurn: false,
-      hasPlayerRolledDice: false
+      hasPlayerRolledDice: false,
+      selectedDestination: null
     };
 
     this.currentState = newState;
@@ -406,6 +407,25 @@ export class StateService implements IStateService {
     return this.currentState;
   }
 
+  setMoving(isMoving: boolean): GameState {
+    console.log(`🏃 Movement state changing to: ${isMoving}`);
+    this.currentState = {
+      ...this.currentState,
+      isMoving
+    };
+    this.notifyListeners();
+    return this.currentState;
+  }
+
+  selectDestination(destination: string | null): GameState {
+    this.currentState = {
+      ...this.currentState,
+      selectedDestination: destination,
+    };
+    this.notifyListeners();
+    return this.currentState;
+  }
+
   setPlayerHasMoved(): GameState {
     const newState: GameState = {
       ...this.currentState,
@@ -420,18 +440,23 @@ export class StateService implements IStateService {
     return { ...this.currentState };
   }
 
-  setPlayerCompletedManualAction(): GameState {
-    console.log(`🎯 Setting hasCompletedManualActions to true for current player`);
+  setPlayerCompletedManualAction(effectType: string, message: string): GameState {
+    console.log(`🎯 Recording completed manual action: ${effectType}`);
+    const newCompletedActions = {
+      ...this.currentState.completedActions,
+      manualActions: {
+        ...this.currentState.completedActions.manualActions,
+        [effectType]: message,
+      },
+    };
+
     const newState: GameState = {
       ...this.currentState,
-      hasCompletedManualActions: true
+      completedActions: newCompletedActions,
     };
 
     this.currentState = newState;
-    
-    // Update action counts when player completes manual actions
-    this.updateActionCounts();
-    
+    this.updateActionCounts(); // This remains the same
     return { ...this.currentState };
   }
 
@@ -461,11 +486,14 @@ export class StateService implements IStateService {
     return { ...newState };
   }
 
-  clearPlayerCompletedManualActions(): GameState {
+  clearTurnActions(): GameState {
     const newState: GameState = {
       ...this.currentState,
-      hasCompletedManualActions: false,
-      completedActions: 0  // Reset the completed actions counter
+      // RESET the new object
+      completedActions: {
+        diceRoll: undefined,
+        manualActions: {},
+      },
     };
 
     this.currentState = newState;
@@ -564,7 +592,7 @@ export class StateService implements IStateService {
     this.currentState = {
       ...this.currentState,
       requiredActions: actionCounts.required,
-      completedActions: actionCounts.completed,
+      completedActionCount: actionCounts.completed,
       availableActionTypes: actionCounts.availableTypes
     };
     
@@ -611,9 +639,8 @@ export class StateService implements IStateService {
         }
         required++;
 
-        // This logic might need review later, but for now, we keep it consistent.
-        // If any manual action is completed, we count them all as completed.
-        if (this.currentState.hasCompletedManualActions) {
+        // Check if this specific manual action has been completed
+        if (this.currentState.completedActions.manualActions[effect.effect_type]) {
           completed++;
         }
       });
@@ -806,13 +833,19 @@ export class StateService implements IStateService {
       hasPlayerMovedThisTurn: false,
       hasPlayerRolledDice: false,
       isGameOver: false,
+      isMoving: false,
       // Initialize action tracking
       requiredActions: 1,
-      completedActions: 0,
+      completedActionCount: 0,
       availableActionTypes: [],
-      hasCompletedManualActions: false,
+      completedActions: {
+        diceRoll: undefined as string | undefined,
+        manualActions: {} as { [key: string]: string },
+      },
       // Initialize negotiation state
       activeNegotiation: null,
+      // Initialize movement selection state
+      selectedDestination: null as string | null,
       // Initialize global action log
       globalActionLog: [],
       // Initialize Try Again snapshots (per player)

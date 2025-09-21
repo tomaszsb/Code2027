@@ -135,9 +135,9 @@ describe('E2E-05: Multi-Player Interactive Effects', () => {
     
     // Ensure all players start in well-defined states (after game is started)
     try {
-      movementService.movePlayer(aliceId, 'CONSTRUCTION-SITE');
-      movementService.movePlayer(bobId, 'OFFICE-DOWNTOWN');
-      movementService.movePlayer(charlieId, 'PERMITTING-OFFICE');
+      await movementService.movePlayer(aliceId, 'CONSTRUCTION-SITE');
+      await movementService.movePlayer(bobId, 'OFFICE-DOWNTOWN');
+      await movementService.movePlayer(charlieId, 'PERMITTING-OFFICE');
     } catch (error) {
       // If movement fails, players will use their default starting positions
       console.log('Player movement in setup failed, using default starting positions:', (error as Error).message);

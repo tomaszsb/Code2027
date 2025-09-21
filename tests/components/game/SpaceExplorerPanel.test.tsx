@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SpaceExplorerPanel } from '../../../src/components/game/SpaceExplorerPanel';
 import { DataService } from '../../../src/services/DataService';
 import { StateService } from '../../../src/services/StateService';
@@ -9,24 +10,24 @@ import { Space, Player, SpaceContent, SpaceEffect, GameConfig, Movement } from '
 
 // Mock GameContext
 const mockDataService = {
-  getAllSpaces: jest.fn(),
-  getSpaceContent: jest.fn(),
-  getSpaceEffects: jest.fn(),
-  getDiceEffects: jest.fn(),
-  getGameConfigBySpace: jest.fn(),
-  getMovement: jest.fn()
+  getAllSpaces: vi.fn(),
+  getSpaceContent: vi.fn(),
+  getSpaceEffects: vi.fn(),
+  getDiceEffects: vi.fn(),
+  getGameConfigBySpace: vi.fn(),
+  getMovement: vi.fn()
 } as unknown as DataService;
 
 const mockStateService = {
-  subscribe: jest.fn(),
-  getGameState: jest.fn()
+  subscribe: vi.fn(),
+  getGameState: vi.fn()
 } as unknown as StateService;
 
 const mockMovementService = {
-  getValidMoves: jest.fn()
+  getValidMoves: vi.fn()
 } as unknown as MovementService;
 
-jest.mock('../../../src/context/GameContext', () => ({
+vi.mock('../../../src/context/GameContext', () => ({
   useGameContext: () => ({
     dataService: mockDataService,
     stateService: mockStateService,
@@ -160,25 +161,25 @@ describe('SpaceExplorerPanel', () => {
     destination_5: ''
   };
 
-  const mockOnToggle = jest.fn();
+  const mockOnToggle = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
+    vi.clearAllMocks();
+    (mockStateService.subscribe as any).mockImplementation((callback) => {
       callback(mockGameState);
       return () => {}; // unsubscribe function
     });
-    (mockStateService.getGameState as jest.Mock).mockReturnValue(mockGameState);
-    (mockDataService.getAllSpaces as jest.Mock).mockReturnValue(mockSpaces);
-    (mockDataService.getSpaceContent as jest.Mock).mockReturnValue(mockSpaceContent);
-    (mockDataService.getSpaceEffects as jest.Mock).mockReturnValue([mockSpaceEffect]);
-    (mockDataService.getDiceEffects as jest.Mock).mockReturnValue([]);
-    (mockDataService.getGameConfigBySpace as jest.Mock).mockImplementation((spaceName) => {
+    (mockStateService.getGameState as any).mockReturnValue(mockGameState);
+    (mockDataService.getAllSpaces as any).mockReturnValue(mockSpaces);
+    (mockDataService.getSpaceContent as any).mockReturnValue(mockSpaceContent);
+    (mockDataService.getSpaceEffects as any).mockReturnValue([mockSpaceEffect]);
+    (mockDataService.getDiceEffects as any).mockReturnValue([]);
+    (mockDataService.getGameConfigBySpace as any).mockImplementation((spaceName) => {
       if (spaceName === 'START') return { ...mockGameConfig, is_starting_space: true };
       if (spaceName === 'END') return { ...mockGameConfig, space_name: spaceName, is_ending_space: true, is_starting_space: false };
       return { ...mockGameConfig, space_name: spaceName, is_starting_space: false };
     });
-    (mockDataService.getMovement as jest.Mock).mockReturnValue(mockMovement);
+    (mockDataService.getMovement as any).mockReturnValue(mockMovement);
   });
 
   it('should not render toggle button (now in player box)', () => {
@@ -508,7 +509,7 @@ describe('SpaceExplorerPanel', () => {
       ]
     };
 
-    (mockStateService.subscribe as jest.Mock).mockImplementation((callback) => {
+    (mockStateService.subscribe as any).mockImplementation((callback) => {
       callback(newGameState);
       return () => {};
     });

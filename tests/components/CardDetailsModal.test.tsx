@@ -145,7 +145,7 @@ describe('CardDetailsModal', () => {
       {
         short: '✓',
         medium: '✅ Card Transferred complete',
-        detailed: 'Current Player successfully completed Card Transferred: undefined transferred to Other Player 1'
+        detailed: 'Current Player successfully completed Card Transferred: Permit Expeditor transferred to Other Player 1'
       },
       {
         playerId: 'player1',
