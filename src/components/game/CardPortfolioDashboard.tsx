@@ -18,6 +18,16 @@ interface CardPortfolioDashboardProps {
  */
 export function CardPortfolioDashboard({ player, isCurrentPlayer, onOpenCardDetailsModal }: CardPortfolioDashboardProps): JSX.Element {
   const { dataService, cardService, stateService } = useGameContext();
+
+  // Data loading guard - prevent rendering until card data is available
+  if (!dataService.isLoaded()) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center', fontStyle: 'italic' }}>
+        Loading card portfolio...
+      </div>
+    );
+  }
+
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | ''>('');
 

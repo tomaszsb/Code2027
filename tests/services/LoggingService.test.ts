@@ -1,6 +1,6 @@
 import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { LoggingService, LogLevel } from '../../src/services/LoggingService';
-import { IStateService } from '../../src/types/ServiceContracts';
+import { LoggingService } from '../../src/services/LoggingService';
+import { IStateService, LogLevel } from '../../src/types/ServiceContracts';
 import { createMockStateService } from '../mocks/mockServices';
 
 describe('LoggingService', () => {

@@ -386,9 +386,9 @@ export function SpaceExplorerPanel({
                   cursor: 'pointer',
                   color: colors.primary.text
                 }}
-                title="Close details panel"
+                title="Back to space list"
               >
-                ✕
+                ←
               </button>
             </div>
 
@@ -497,7 +497,31 @@ export function SpaceExplorerPanel({
                     <div style={{ marginBottom: '12px' }}>
                       {spaceDetails.content.story || 'No story content available'}
                     </div>
-                    
+
+                    {/* Action Description */}
+                    {spaceDetails.content.action_description && (
+                      <>
+                        <div style={{ fontWeight: 'bold', marginBottom: '8px', marginTop: '12px', color: colors.danger.text }}>
+                          Action Required:
+                        </div>
+                        <div style={{ marginBottom: '12px' }}>
+                          {spaceDetails.content.action_description}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Outcome Description */}
+                    {spaceDetails.content.outcome_description && (
+                      <>
+                        <div style={{ fontWeight: 'bold', marginBottom: '8px', marginTop: '12px', color: colors.success.text }}>
+                          Potential Outcomes:
+                        </div>
+                        <div>
+                          {spaceDetails.content.outcome_description}
+                        </div>
+                      </>
+                    )}
+
                     {/* Additional Content Properties */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
                       {spaceDetails.content.can_negotiate && (

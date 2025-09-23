@@ -569,9 +569,9 @@ export function GameLayout(): JSX.Element {
         />
       )}
       
-      {/* SpaceExplorerPanel - only during PLAY phase and no modals open */}
-      {gamePhase === 'PLAY' && !isAnyModalOpen() && (
-        <SpaceExplorerPanel 
+      {/* SpaceExplorerPanel - only during PLAY phase */}
+      {gamePhase === 'PLAY' && (
+        <SpaceExplorerPanel
           isVisible={isSpaceExplorerVisible}
           onToggle={handleToggleSpaceExplorer}
         />

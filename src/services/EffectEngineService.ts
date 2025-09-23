@@ -1,14 +1,16 @@
 // src/services/EffectEngineService.ts
 
-import { 
-  IResourceService, 
-  ICardService, 
-  IChoiceService, 
-  IStateService, 
+import {
+  IResourceService,
+  ICardService,
+  IChoiceService,
+  IStateService,
   IMovementService,
   ITurnService,
   IGameRulesService,
-  ITargetingService
+  ITargetingService,
+  ILoggingService,
+  LogPayload
 } from '../types/ServiceContracts';
 import { 
   Effect, 
@@ -75,6 +77,7 @@ export class EffectEngineService implements IEffectEngineService {
   private turnService: ITurnService;
   private gameRulesService: IGameRulesService;
   private targetingService: ITargetingService;
+  private loggingService: ILoggingService;
 
   constructor(
     resourceService: IResourceService,
@@ -84,7 +87,8 @@ export class EffectEngineService implements IEffectEngineService {
     movementService: IMovementService,
     turnService: ITurnService,
     gameRulesService: IGameRulesService,
-    targetingService: ITargetingService
+    targetingService: ITargetingService,
+    loggingService: ILoggingService
   ) {
     this.resourceService = resourceService;
     this.cardService = cardService;
@@ -94,6 +98,7 @@ export class EffectEngineService implements IEffectEngineService {
     this.turnService = turnService;
     this.gameRulesService = gameRulesService;
     this.targetingService = targetingService;
+    this.loggingService = loggingService;
   }
 
   public setTurnService(turnService: ITurnService): void {
@@ -408,19 +413,30 @@ export class EffectEngineService implements IEffectEngineService {
         case 'LOG':
           if (isLogEffect(effect)) {
             const { payload } = effect;
-            const logMessage = `[${payload.source || context.source}] ${payload.message}`;
+
+            const logPayload: LogPayload = {
+              source: payload.source || context.source,
+              ...context.metadata,
+            };
+
+            if (context.playerId) {
+              const player = this.stateService.getPlayer(context.playerId);
+              logPayload.playerId = context.playerId;
+              logPayload.playerName = player?.name || 'Unknown Player';
+            }
+
             switch (payload.level) {
               case 'INFO':
-                console.log(`ℹ️  ${logMessage}`);
+                this.loggingService.info(payload.message, logPayload);
                 break;
               case 'WARN':
-                console.warn(`⚠️  ${logMessage}`);
+                this.loggingService.warn(payload.message, logPayload);
                 break;
               case 'ERROR':
-                console.error(`❌ ${logMessage}`);
+                this.loggingService.error(payload.message, new Error(payload.message), logPayload);
                 break;
             }
-            success = true; // Log effects always succeed
+            success = true;
           }
           break;
 

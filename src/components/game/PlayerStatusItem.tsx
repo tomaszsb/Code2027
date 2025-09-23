@@ -596,6 +596,7 @@ export function PlayerStatusItem({
           {(() => {
             const spaceContent = dataService.getSpaceContent(player.currentSpace, 'First');
             const storyText = spaceContent?.story || 'No story available for this space.';
+            const locationName = spaceContent?.title || player.currentSpace;
 
             return (
               <div style={{
@@ -614,7 +615,7 @@ export function PlayerStatusItem({
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  📍 Location Story
+                  📍 {locationName}
                 </div>
                 <div style={{
                   fontSize: '0.8rem',

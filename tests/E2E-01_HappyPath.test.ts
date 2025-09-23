@@ -87,20 +87,57 @@ describe('E2E-01: Happy Path', () => {
     const initialGameState = stateService.getGameState();
     const player = initialGameState.players[0];
 
-    // Assert Phase 1: Check that the setup is correct
+    // Assert Phase 1: Check that the initial setup is correct
     expect(player.name).toBe('Player 1');
     expect(player.currentSpace).toBe('OWNER-SCOPE-INITIATION');
+    expect(player.money).toBe(0);
+    expect(player.timeSpent).toBe(0);
+    expect(player.projectScope).toBe(0);
+    expect(player.hand).toHaveLength(0);
+    expect(player.visitType).toBe('First');
+    expect(initialGameState.turn).toBe(0); // Game starts at turn 0
+    expect(initialGameState.globalActionLog).toHaveLength(0); // Empty initially
+
+    // Mock dice roll to return 4 consistently
+    const rollDiceSpy = vi.spyOn(turnService, 'rollDice').mockReturnValue(4);
 
     // Action: Take a turn
     await turnService.rollDiceAndProcessEffects(player.id);
     await turnService.triggerManualEffectWithFeedback(player.id, 'cards'); // Perform the manual card draw
     await turnService.endTurnWithMovement();
 
-    // Assert Phase 2: Check that the player has moved
+    // Assert Phase 2: Check the complete game state after the turn
     const finalGameState = stateService.getGameState();
     const finalPlayer = finalGameState.players[0];
 
-    expect(finalPlayer.currentSpace).not.toBe('OWNER-SCOPE-INITIATION');
+    // Position assertions: OWNER-SCOPE-INITIATION has fixed movement to OWNER-FUND-INITIATION
+    expect(finalPlayer.currentSpace).toBe('OWNER-FUND-INITIATION');
+    expect(finalPlayer.visitType).toBe('First');
+    expect(finalPlayer.visitedSpaces).toContain('OWNER-SCOPE-INITIATION');
+    expect(finalPlayer.visitedSpaces).toContain('OWNER-FUND-INITIATION');
+
+    // Resource assertions: Test meaningful changes from the complete turn
+    expect(finalPlayer.timeSpent).toBe(1); // +1 day from OWNER-FUND-INITIATION space effect
+
+    // Cards: Manual action draws 3 E cards + space effect draws 1 B card + others
+    expect(finalPlayer.hand.length).toBeGreaterThan(0); // Player should have cards
+    expect(finalPlayer.hand.some(card => card.type === 'E')); // Should have E cards from manual action
+    expect(finalPlayer.hand.some(card => card.type === 'B')); // Should have B card from space effect
+
+    // Project scope: Cards contribute to scope when drawn/played
+    expect(finalPlayer.projectScope).toBeGreaterThan(0); // Should have positive scope from cards
+    expect(finalPlayer.money).toBe(0); // No money changes during this basic turn
+
+    // Game state assertions
+    expect(finalGameState.turn).toBe(1); // Turn should have advanced to 1
+    expect(finalGameState.globalActionLog.length).toBeGreaterThan(0); // Should have action log entries
+
+    // Verify dice roll was called and controlled
+    expect(rollDiceSpy).toHaveBeenCalled(); // rollDice is called without parameters
+
+    // Cleanup
+    rollDiceSpy.mockRestore();
+
     console.log(`E2E test success: Player moved from ${player.currentSpace} to ${finalPlayer.currentSpace}`);
   });
 });

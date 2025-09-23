@@ -115,6 +115,31 @@ export function TurnControlsWithActions({
 
   // Handle movement choice selection (NEW: Just selects destination, doesn't move)
   const handleMovementChoice = (destinationId: string) => {
+    // Find the option label for the selected destination
+    const selectedOption = movementChoice?.options.find(option => option.id === destinationId);
+    const optionLabel = selectedOption?.label || destinationId;
+
+    // Send notification for the movement choice
+    if (notificationService) {
+      notificationService.notify(
+        {
+          short: `→ ${optionLabel}`,
+          medium: `🚶 Moving to ${optionLabel}`,
+          detailed: `${currentPlayer.name} chose to move to ${optionLabel}`
+        },
+        {
+          playerId: currentPlayer.id,
+          playerName: currentPlayer.name,
+          actionType: `move_${destinationId}`
+        }
+      );
+    }
+
+    // Resolve the choice with the choice service
+    if (choiceService && movementChoice) {
+      choiceService.resolveChoice(movementChoice.id, destinationId);
+    }
+
     const newSelection = selectedDestination === destinationId ? null : destinationId;
     stateService.selectDestination(newSelection);
 

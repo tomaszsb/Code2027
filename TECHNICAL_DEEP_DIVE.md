@@ -6,15 +6,22 @@
 
 ## ✅ Architecture Patterns (Current Implementation)
 
-### Core Services (ALL COMPLETED):
+### Core Services (ALL 14 IMPLEMENTED):
 ```typescript
-DataService.ts          // ✅ CSV data access with caching
-StateService.ts         // ✅ Immutable game state management
-TurnService.ts          // ✅ Turn progression + win conditions
-CardService.ts          // ✅ Card operations + validation
-PlayerActionService.ts  // ✅ Command orchestration
-MovementService.ts      // ✅ Movement logic + validation
-GameRulesService.ts     // ✅ Business rules + validation
+DataService.ts           // ✅ CSV data access with caching
+StateService.ts          // ✅ Immutable game state management
+TurnService.ts           // ✅ Turn progression + win conditions
+CardService.ts           // ✅ Card operations + validation
+PlayerActionService.ts   // ✅ Command orchestration
+MovementService.ts       // ✅ Movement logic + validation
+GameRulesService.ts      // ✅ Business rules + validation
+EffectEngineService.ts   // ✅ Unified effect processing
+ResourceService.ts       // ✅ Resource management
+ChoiceService.ts         // ✅ Player choice handling
+NegotiationService.ts    // ✅ Player interactions
+NotificationService.ts   // ✅ Unified notifications
+TargetingService.ts      // ✅ Multi-player targeting
+LoggingService.ts        // ✅ Centralized logging
 ```
 
 ### Key Patterns to Follow:
@@ -82,7 +89,7 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 ## 🏗️ Code Quality Standards
 
 ### File Size Enforcement:
-- **Components**: <200 lines (hard limit) - Break down into smaller, focused components
+- **Components**: <1,000 lines (prefer <400 lines) - Break down into smaller, focused components when practical
 - **Services**: <300 lines (split if larger into focused services)
 - **Utilities**: <150 lines (single-purpose functions)
 - **Tests**: No limit (comprehensive coverage required)
@@ -93,6 +100,7 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 - [x] TypeScript types for all interfaces and function signatures
 - [ ] Unit tests for all business logic
 - [ ] Component tests for all UI components
+*NOTE: Current service test coverage is 56.47%, which is below the 90%+ project goal. A "Test Coverage Improvement" phase is required.*
 - [x] File size limits respected
 - [x] Single responsibility principle followed
 - [x] CSV data accessed only through DataService
@@ -111,10 +119,56 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 - **Error Handling**: Comprehensive try-catch with meaningful error messages
 - **Testing**: 90%+ test coverage with both success and error scenarios
 
+--- 
+
+## 🪵 Centralized Logging Architecture
+
+To ensure robust debugging and clear game history, a centralized logging architecture has been implemented, revolving around the `LoggingService` and its integration with the `EffectEngineService`.
+
+### Core Components
+
+1.  **`LoggingService`**: A dedicated service responsible for formatting, categorizing, and persisting all game log entries. It is the single source of truth for game history.
+2.  **`LOG` Effect Type**: A standardized `Effect` object used to represent a loggable event. This allows any part of the system to generate a log entry in a structured way.
+3.  **`EffectEngineService` Integration**: The `EffectEngineService` now treats `LOG` effects as a core part of its processing pipeline. It is responsible for enriching the log payload with contextual information.
+
+### Data Flow
+
+```typescript
+// Event Source -> LOG Effect -> EffectEngine -> LoggingService -> GameState
+
+// 1. An action creates a LOG effect
+const logEffect: Effect = {
+  effectType: 'LOG',
+  payload: {
+    message: 'Player completed action',
+    level: 'INFO',
+    source: 'TurnService'
+  }
+};
+
+// 2. The EffectEngine receives the effect with context
+// context = { playerId: 'player1', metadata: {...} }
+await effectEngineService.processEffect(logEffect, context);
+
+// 3. EffectEngine enriches the payload and calls LoggingService
+this.loggingService.info(
+  'Player completed action', 
+  { playerId: 'player1', playerName: 'Tomas', source: 'TurnService', ... }
+);
+
+// 4. LoggingService creates the final ActionLogEntry and saves it to the global log
+stateService.logToActionHistory(logEntry);
+```
+
+### Key Benefits
+
+- **Player Attribution**: By enriching the log payload within the `EffectEngine`, all logs are now correctly attributed to the player who initiated the event, eliminating generic "SYSTEM" entries.
+- **Context-Rich Logs**: The log payload includes the source of the event, player details, and any other metadata passed in the `EffectContext`, providing a comprehensive record for debugging.
+- **Decoupled & Centralized**: Components and services don't need to know about the `GameLog` or how to format messages. They simply fire a `LOG` effect, and the engine and logging service handle the rest.
+
 ---
 
 ## 🚀 The Unified Effect Engine
-
 The **Unified Effect Engine** is the crown achievement of the code2027 refactor. It represents a complete paradigm shift from the fragmented, ad-hoc game logic of code2026 to a centralized, standardized system for handling all game events.
 
 ### Core Concept

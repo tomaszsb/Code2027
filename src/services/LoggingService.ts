@@ -1,26 +1,5 @@
-import { IStateService } from '../types/ServiceContracts';
+import { IStateService, LogLevel, LogPayload, ILoggingService } from '../types/ServiceContracts';
 import { ActionLogEntry } from '../types/StateTypes';
-
-export enum LogLevel {
-  INFO = 'INFO',
-  WARN = 'WARN',
-  ERROR = 'ERROR',
-  DEBUG = 'DEBUG',
-}
-
-export interface LogPayload {
-  [key: string]: any;
-}
-
-export interface ILoggingService {
-  info(message: string, payload?: LogPayload): void;
-  warn(message: string, payload?: LogPayload): void;
-  error(message: string, error: Error, payload?: LogPayload): void;
-  debug(message: string, payload?: LogPayload): void;
-  log(level: LogLevel, message: string, payload?: LogPayload): void;
-  startPerformanceTimer(key: string): void;
-  endPerformanceTimer(key: string, message?: string): void;
-}
 
 export class LoggingService implements ILoggingService {
   private stateService: IStateService;

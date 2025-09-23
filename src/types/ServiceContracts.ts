@@ -17,10 +17,27 @@ import {
   Card
 } from './DataTypes';
 
-import { ILoggingService } from '../services/LoggingService';
+// Logging Service Types and Interface
+export enum LogLevel {
+  INFO = 'INFO',
+  WARN = 'WARN',
+  ERROR = 'ERROR',
+  DEBUG = 'DEBUG',
+}
 
-// Re-export ILoggingService for convenience
-export type { ILoggingService };
+export interface LogPayload {
+  [key: string]: any;
+}
+
+export interface ILoggingService {
+  info(message: string, payload?: LogPayload): void;
+  warn(message: string, payload?: LogPayload): void;
+  error(message: string, error: Error, payload?: LogPayload): void;
+  debug(message: string, payload?: LogPayload): void;
+  log(level: LogLevel, message: string, payload?: LogPayload): void;
+  startPerformanceTimer(key: string): void;
+  endPerformanceTimer(key: string, message?: string): void;
+}
 
 import { 
   GameState, 

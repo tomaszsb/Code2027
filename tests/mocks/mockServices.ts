@@ -118,6 +118,7 @@ export const createMockStateService = (): any => ({
   clearPlayerCompletedManualActions: vi.fn(),
   clearPlayerHasRolledDice: vi.fn(),
   updateActionCounts: vi.fn(),
+  clearTurnActions: vi.fn(),
   
   // Modal management methods
   showCardModal: vi.fn(),
@@ -144,7 +145,10 @@ export const createMockStateService = (): any => ({
   
   // State management methods
   setGameState: vi.fn(),
-  updateGameState: vi.fn()
+  updateGameState: vi.fn(),
+
+  // Movement destination selection
+  selectDestination: vi.fn()
 });
 
 export const createMockGameRulesService = (): any => ({

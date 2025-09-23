@@ -49,14 +49,14 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const notificationService = new NotificationService(stateService, loggingService);
 
   // Create temporary services for circular dependency resolution
-  const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any, targetingService);
+  const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any, targetingService, loggingService);
   const negotiationService = new NegotiationService(stateService, tempEffectEngine);
 
   // Create TurnService with NegotiationService and NotificationService dependencies
   const turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService, choiceService, notificationService);
-  
+
   // Create final EffectEngineService with TurnService dependency
-  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService);
+  const effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService, loggingService);
   
   // Set final EffectEngineService on TurnService and CardService to complete the circular dependencies
   turnService.setEffectEngineService(effectEngineService);
