@@ -3,7 +3,8 @@ import {
   getManualEffectButtonStyle,
   formatManualEffectButton,
   formatDiceRollButton,
-  formatDiceRollFeedback
+  formatDiceRollFeedback,
+  formatActionFeedback
 } from '../../src/utils/buttonFormatting';
 import { SpaceEffect, DiceEffect } from '../../src/types/DataTypes';
 
@@ -548,6 +549,100 @@ describe('buttonFormatting', () => {
         const result = formatDiceRollFeedback(3, effects);
         expect(result).toBe(`Rolled 3 → Drew 1 ${expected} card`);
       });
+    });
+  });
+
+  describe('formatActionFeedback', () => {
+    it('should format feedback with card effects', () => {
+      const effects = [{
+        type: 'cards',
+        cardCount: 1,
+        cardType: 'B'
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Drew 1 Bank card');
+    });
+
+    it('should format feedback with multiple card effects', () => {
+      const effects = [{
+        type: 'cards',
+        cardCount: 2,
+        cardType: 'W'
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Drew 2 Work cards');
+    });
+
+    it('should format feedback with money effects', () => {
+      const effects = [{
+        type: 'money',
+        value: 1000
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Gained $1,000');
+    });
+
+    it('should format feedback with negative money effects', () => {
+      const effects = [{
+        type: 'money',
+        value: -500
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Spent $500');
+    });
+
+    it('should format feedback with time effects', () => {
+      const effects = [{
+        type: 'time',
+        value: 2
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Time Penalty: 2 days');
+    });
+
+    it('should format feedback with single day time effect', () => {
+      const effects = [{
+        type: 'time',
+        value: 1
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Time Penalty: 1 day');
+    });
+
+    it('should format feedback with movement effects', () => {
+      const effects = [{
+        type: 'movement',
+        destination: 'ARCH-ENG-1'
+      }];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Moved to ARCH-ENG-1');
+    });
+
+    it('should handle multiple effects', () => {
+      const effects = [
+        { type: 'cards', cardCount: 1, cardType: 'I' },
+        { type: 'money', value: 500 }
+      ];
+
+      const result = formatActionFeedback(effects);
+      expect(result).toBe('Drew 1 Investment card, Gained $500');
+    });
+
+    it('should return default message for no effects', () => {
+      const result = formatActionFeedback([]);
+      expect(result).toBe('Action completed');
+    });
+
+    it('should handle undefined effects', () => {
+      const result = formatActionFeedback(undefined);
+      expect(result).toBe('Action completed');
     });
   });
 });

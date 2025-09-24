@@ -212,3 +212,43 @@ export function formatDiceRollFeedback(diceValue: number, effects: any[]): strin
 
   return unifiedDescription;
 }
+
+/**
+ * Create standardized action feedback message for non-dice actions (like automatic funding)
+ */
+export function formatActionFeedback(effects: any[]): string {
+  const outcomes: string[] = [];
+
+  effects?.forEach(effect => {
+    switch (effect.type) {
+      case 'cards':
+        outcomes.push(`Drew ${effect.cardCount} ${getCardTypeName(effect.cardType)} card${effect.cardCount !== 1 ? 's' : ''}`);
+        break;
+      case 'money':
+        if (effect.value !== undefined) {
+          const moneyOutcome = effect.value > 0
+            ? `Gained $${Math.abs(effect.value).toLocaleString()}`
+            : `Spent $${Math.abs(effect.value).toLocaleString()}`;
+          outcomes.push(moneyOutcome);
+        }
+        break;
+      case 'time':
+        if (effect.value !== undefined) {
+          const timeOutcome = effect.value > 0
+            ? `Time Penalty: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`
+            : `Time Bonus: ${Math.abs(effect.value)} day${Math.abs(effect.value) !== 1 ? 's' : ''}`;
+          outcomes.push(timeOutcome);
+        }
+        break;
+      case 'movement':
+        outcomes.push(`Moved to ${effect.destination || 'new location'}`);
+        break;
+    }
+  });
+
+  if (outcomes.length === 0) {
+    return 'Action completed';
+  }
+
+  return outcomes.join(', ');
+}

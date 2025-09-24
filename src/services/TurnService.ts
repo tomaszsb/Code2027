@@ -5,7 +5,7 @@ import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/
 import { DiceEffect, SpaceEffect, Movement, CardType, VisitType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
 import { EffectContext } from '../types/EffectTypes';
-import { formatManualEffectButton, formatDiceRollFeedback } from '../utils/buttonFormatting';
+import { formatManualEffectButton, formatDiceRollFeedback, formatActionFeedback } from '../utils/buttonFormatting';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -2312,8 +2312,8 @@ export class TurnService implements ITurnService {
         cardCount: 1
       }];
 
-      // Generate detailed feedback message and store it in state
-      const feedbackMessage = formatDiceRollFeedback(0, effects);  // Use 0 for dice value since no actual dice roll
+      // Generate detailed feedback message for non-dice action and store it in state
+      const feedbackMessage = formatActionFeedback(effects);
       this.stateService.setDiceRollCompletion(feedbackMessage);
 
       // Send Automatic Funding notification
