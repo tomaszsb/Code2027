@@ -12,6 +12,7 @@ import {
   ILoggingService,
   LogPayload
 } from '../types/ServiceContracts';
+import { NegotiationService } from './NegotiationService';
 import { 
   Effect, 
   EffectContext, 
@@ -29,7 +30,10 @@ import {
   isConditionalEffect,
   isChoiceOfEffectsEffect,
   isPlayCardEffect,
-  isDurationStoredEffect
+  isDurationStoredEffect,
+  isInitiateNegotiationEffect,
+  isNegotiationResponseEffect,
+  isPlayerAgreementRequiredEffect
 } from '../types/EffectTypes';
 
 /**
@@ -78,6 +82,7 @@ export class EffectEngineService implements IEffectEngineService {
   private gameRulesService: IGameRulesService;
   private targetingService: ITargetingService;
   private loggingService: ILoggingService;
+  private negotiationService?: NegotiationService;
 
   constructor(
     resourceService: IResourceService,
@@ -99,6 +104,12 @@ export class EffectEngineService implements IEffectEngineService {
     this.gameRulesService = gameRulesService;
     this.targetingService = targetingService;
     this.loggingService = loggingService;
+    // NegotiationService is initialized separately to avoid circular dependencies
+    this.negotiationService = undefined;
+  }
+
+  public setNegotiationService(negotiationService: NegotiationService): void {
+    this.negotiationService = negotiationService;
   }
 
   public setTurnService(turnService: ITurnService): void {
@@ -307,7 +318,8 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Drew ${drawnCards.length} ${payload.cardType} card(s): ${drawnCards.join(', ')}`,
                     level: 'INFO',
-                    source
+                    source,
+                    playerId: payload.playerId
                   }
                 }]
               };
@@ -419,9 +431,11 @@ export class EffectEngineService implements IEffectEngineService {
               ...context.metadata,
             };
 
-            if (context.playerId) {
-              const player = this.stateService.getPlayer(context.playerId);
-              logPayload.playerId = context.playerId;
+            // Check for playerId in payload first, then context
+            const playerId = payload.playerId || context.playerId;
+            if (playerId) {
+              const player = this.stateService.getPlayer(playerId);
+              logPayload.playerId = playerId;
               logPayload.playerName = player?.name || 'Unknown Player';
             }
 
@@ -717,6 +731,174 @@ export class EffectEngineService implements IEffectEngineService {
           if (isDurationStoredEffect(effect)) {
             console.log(`⏳ EFFECT_ENGINE: Duration effect stored for processing`);
             success = true;
+          }
+          break;
+
+        case 'INITIATE_NEGOTIATION':
+          if (isInitiateNegotiationEffect(effect)) {
+            const { payload } = effect;
+            console.log(`🤝 EFFECT_ENGINE: Initiating ${payload.negotiationType} negotiation`);
+            console.log(`    Initiator: ${payload.initiatorId}`);
+            console.log(`    Targets: ${payload.targetPlayerIds.join(', ')}`);
+
+            try {
+              if (!this.negotiationService) {
+                console.error('❌ NegotiationService not available for INITIATE_NEGOTIATION effect');
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: 'NegotiationService not available'
+                };
+              }
+
+              const result = await this.negotiationService.initiateNegotiation(payload.initiatorId, {
+                type: payload.negotiationType,
+                targetPlayerIds: payload.targetPlayerIds,
+                context: payload.context,
+                source: payload.source || context.source
+              });
+
+              if (result.success) {
+                console.log(`✅ Negotiation initiated: ${result.negotiationId}`);
+                success = true;
+              } else {
+                console.error(`❌ Failed to initiate negotiation: ${result.message}`);
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: result.message
+                };
+              }
+            } catch (error) {
+              console.error(`❌ Error initiating negotiation:`, error);
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to initiate negotiation: ${error instanceof Error ? error.message : 'Unknown error'}`
+              };
+            }
+          }
+          break;
+
+        case 'NEGOTIATION_RESPONSE':
+          if (isNegotiationResponseEffect(effect)) {
+            const { payload } = effect;
+            console.log(`🤝 EFFECT_ENGINE: Processing negotiation response: ${payload.response}`);
+            console.log(`    Player: ${payload.respondingPlayerId}`);
+            console.log(`    Negotiation: ${payload.negotiationId}`);
+
+            try {
+              if (!this.negotiationService) {
+                console.error('❌ NegotiationService not available for NEGOTIATION_RESPONSE effect');
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: 'NegotiationService not available'
+                };
+              }
+
+              let result;
+              switch (payload.response) {
+                case 'ACCEPT':
+                  result = await this.negotiationService.acceptOffer(payload.respondingPlayerId);
+                  break;
+                case 'DECLINE':
+                  result = await this.negotiationService.declineOffer(payload.respondingPlayerId);
+                  break;
+                case 'COUNTER_OFFER':
+                  result = await this.negotiationService.makeOffer(payload.respondingPlayerId, payload.responseData || {});
+                  break;
+                default:
+                  return {
+                    success: false,
+                    effectType: effect.effectType,
+                    error: `Unknown negotiation response: ${payload.response}`
+                  };
+              }
+
+              if (result.success) {
+                console.log(`✅ Negotiation response processed: ${payload.response}`);
+                success = true;
+              } else {
+                console.error(`❌ Failed to process negotiation response: ${result.message}`);
+                return {
+                  success: false,
+                  effectType: effect.effectType,
+                  error: result.message
+                };
+              }
+            } catch (error) {
+              console.error(`❌ Error processing negotiation response:`, error);
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to process negotiation response: ${error instanceof Error ? error.message : 'Unknown error'}`
+              };
+            }
+          }
+          break;
+
+        case 'PLAYER_AGREEMENT_REQUIRED':
+          if (isPlayerAgreementRequiredEffect(effect)) {
+            const { payload } = effect;
+            console.log(`🤝 EFFECT_ENGINE: Processing player agreement requirement`);
+            console.log(`    Requester: ${payload.requesterPlayerId}`);
+            console.log(`    Targets: ${payload.targetPlayerIds.join(', ')}`);
+            console.log(`    Type: ${payload.agreementType}`);
+
+            try {
+              // Create choices for target players to accept or decline the agreement
+              const agreementResults = [];
+
+              for (const targetPlayerId of payload.targetPlayerIds) {
+                const targetPlayer = this.stateService.getPlayer(targetPlayerId);
+                if (!targetPlayer) {
+                  console.warn(`Target player ${targetPlayerId} not found, skipping`);
+                  continue;
+                }
+
+                const choiceResult = await this.choiceService.createChoice(
+                  targetPlayerId,
+                  'AGREEMENT_REQUEST',
+                  payload.prompt,
+                  [
+                    { id: 'accept', label: 'Accept' },
+                    { id: 'decline', label: 'Decline' }
+                  ]
+                );
+
+                agreementResults.push({
+                  playerId: targetPlayerId,
+                  playerName: targetPlayer.name,
+                  response: choiceResult,
+                  accepted: choiceResult === 'accept'
+                });
+
+                console.log(`   Player ${targetPlayer.name} ${choiceResult === 'accept' ? 'accepted' : 'declined'} the agreement`);
+              }
+
+              // Store agreement results for other effects to use
+              return {
+                success: true,
+                effectType: effect.effectType,
+                resultingEffects: [{
+                  effectType: 'LOG',
+                  payload: {
+                    message: `Agreement request processed: ${agreementResults.filter(r => r.accepted).length}/${agreementResults.length} players accepted`,
+                    level: 'INFO',
+                    source: payload.source || context.source
+                  }
+                }],
+                data: { agreementResults }
+              };
+            } catch (error) {
+              console.error(`❌ Error processing player agreement:`, error);
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: `Failed to process player agreement: ${error instanceof Error ? error.message : 'Unknown error'}`
+              };
+            }
           }
           break;
 
@@ -1327,5 +1509,78 @@ export class EffectEngineService implements IEffectEngineService {
     }
 
     console.log(`✅ Completed processing active effects for all ${players.length} players`);
+  }
+
+  /**
+   * Create a negotiation initiation effect
+   */
+  createNegotiationEffect(
+    initiatorId: string,
+    targetPlayerIds: string[],
+    negotiationType: 'CARD_EXCHANGE' | 'RESOURCE_TRADE' | 'FAVOR_REQUEST' | 'ALLIANCE_PROPOSAL',
+    context: {
+      description: string;
+      requiresAgreement: boolean;
+      offerData?: any;
+      requestData?: any;
+    },
+    source?: string
+  ): Effect {
+    return {
+      effectType: 'INITIATE_NEGOTIATION',
+      payload: {
+        initiatorId,
+        targetPlayerIds,
+        negotiationType,
+        context,
+        source
+      }
+    };
+  }
+
+  /**
+   * Create a player agreement requirement effect
+   */
+  createPlayerAgreementEffect(
+    requesterPlayerId: string,
+    targetPlayerIds: string[],
+    agreementType: 'CARD_TRANSFER' | 'RESOURCE_SHARE' | 'JOINT_ACTION' | 'PROTECTION_DEAL',
+    agreementData: any,
+    prompt: string,
+    source?: string
+  ): Effect {
+    return {
+      effectType: 'PLAYER_AGREEMENT_REQUIRED',
+      payload: {
+        requesterPlayerId,
+        targetPlayerIds,
+        agreementType,
+        agreementData,
+        prompt,
+        source
+      }
+    };
+  }
+
+  /**
+   * Create a negotiation response effect
+   */
+  createNegotiationResponseEffect(
+    respondingPlayerId: string,
+    negotiationId: string,
+    response: 'ACCEPT' | 'DECLINE' | 'COUNTER_OFFER',
+    responseData?: any,
+    source?: string
+  ): Effect {
+    return {
+      effectType: 'NEGOTIATION_RESPONSE',
+      payload: {
+        respondingPlayerId,
+        negotiationId,
+        response,
+        responseData,
+        source
+      }
+    };
   }
 }
