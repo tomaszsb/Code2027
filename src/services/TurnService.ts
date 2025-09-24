@@ -5,7 +5,7 @@ import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/
 import { DiceEffect, SpaceEffect, Movement, CardType, VisitType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
 import { EffectContext } from '../types/EffectTypes';
-import { formatManualEffectButton } from '../utils/buttonFormatting';
+import { formatManualEffectButton, formatDiceRollFeedback } from '../utils/buttonFormatting';
 
 export class TurnService implements ITurnService {
   private readonly dataService: IDataService;
@@ -1716,7 +1716,11 @@ export class TurnService implements ITurnService {
     // Generate summary
     const summary = this.generateEffectSummary(effects, diceRoll);
     const hasChoices = effects.some(effect => effect.type === 'choice');
-    
+
+    // Generate detailed feedback message and store it in state
+    const feedbackMessage = formatDiceRollFeedback(diceRoll, effects);
+    this.stateService.setDiceRollCompletion(feedbackMessage);
+
     // Check if player can re-roll (from E066 card effect)
     const canReRoll = currentPlayer.turnModifiers?.canReRoll || false;
 

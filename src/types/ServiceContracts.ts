@@ -207,6 +207,9 @@ export interface IStateService {
   
   // Action logging methods
   logToActionHistory(actionData: Omit<import('./StateTypes').ActionLogEntry, 'id' | 'timestamp'>): GameState;
+
+  // Dice roll completion methods
+  setDiceRollCompletion(message: string): GameState;
   
   // Pre-space effect snapshot methods (Try Again feature)
   savePreSpaceEffectSnapshot(playerId: string, spaceName: string): GameState;

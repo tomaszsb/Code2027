@@ -1020,4 +1020,23 @@ export class StateService implements IStateService {
   private generateActionId(): string {
     return `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
+
+  // Dice roll completion methods
+  setDiceRollCompletion(message: string): GameState {
+    console.log(`🎲 Setting dice roll completion message: ${message}`);
+
+    const newCompletedActions = {
+      ...this.currentState.completedActions,
+      diceRoll: message
+    };
+
+    const newState: GameState = {
+      ...this.currentState,
+      completedActions: newCompletedActions
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    return { ...this.currentState };
+  }
 }
