@@ -31,11 +31,18 @@ export class LoggingService implements ILoggingService {
   }
 
   log(level: LogLevel, message: string, payload: LogPayload = {}): void {
+    // Auto-resolve player name if playerId provided but playerName is not
+    let playerName = payload.playerName;
+    if (!playerName && payload.playerId && payload.playerId !== 'system') {
+      const player = this.stateService.getPlayer(payload.playerId);
+      playerName = player?.name || payload.playerId;
+    }
+
     // Create log entry for action history
     const logEntry: Omit<ActionLogEntry, 'id' | 'timestamp'> = {
       type: this.mapLogLevelToActionType(level),
       playerId: payload.playerId || 'system',
-      playerName: payload.playerName || 'System',
+      playerName: playerName || 'System',
       description: message,
       details: {
         level: level,

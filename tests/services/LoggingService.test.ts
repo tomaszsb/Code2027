@@ -161,4 +161,77 @@ describe('LoggingService', () => {
       });
     });
   });
+
+  describe('Player name resolution', () => {
+    it('should auto-resolve player name when only playerId is provided', () => {
+      // Setup mock player
+      const mockPlayer = { id: 'player123', name: 'Alice' };
+      mockStateService.getPlayer.mockReturnValue(mockPlayer as any);
+
+      loggingService.info('Player action logged', { playerId: 'player123' });
+
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+        type: 'system_log',
+        playerId: 'player123',
+        playerName: 'Alice',
+        description: 'Player action logged',
+        details: {
+          level: LogLevel.INFO,
+          playerId: 'player123'
+        }
+      });
+    });
+
+    it('should use provided playerName when both playerId and playerName are given', () => {
+      loggingService.info('Player action logged', {
+        playerId: 'player123',
+        playerName: 'Explicit Name'
+      });
+
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+        type: 'system_log',
+        playerId: 'player123',
+        playerName: 'Explicit Name',
+        description: 'Player action logged',
+        details: {
+          level: LogLevel.INFO,
+          playerId: 'player123',
+          playerName: 'Explicit Name'
+        }
+      });
+    });
+
+    it('should fallback to playerId when player is not found', () => {
+      // Mock player not found
+      mockStateService.getPlayer.mockReturnValue(null);
+
+      loggingService.info('Player action logged', { playerId: 'unknown_player' });
+
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+        type: 'system_log',
+        playerId: 'unknown_player',
+        playerName: 'unknown_player',
+        description: 'Player action logged',
+        details: {
+          level: LogLevel.INFO,
+          playerId: 'unknown_player'
+        }
+      });
+    });
+
+    it('should use System for system logs', () => {
+      loggingService.info('System message', { playerId: 'system' });
+
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+        type: 'system_log',
+        playerId: 'system',
+        playerName: 'System',
+        description: 'System message',
+        details: {
+          level: LogLevel.INFO,
+          playerId: 'system'
+        }
+      });
+    });
+  });
 });
