@@ -1,10 +1,10 @@
 import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CardService } from '../../src/services/CardService';
-import { IDataService, IStateService, IResourceService, ILoggingService, IEffectEngineService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IResourceService, ILoggingService, IEffectEngineService, IGameRulesService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { CardType } from '../../src/types/DataTypes';
 import { Effect } from '../../src/types/EffectTypes';
-import { createMockDataService, createMockStateService, createMockResourceService, createMockLoggingService } from '../mocks/mockServices';
+import { createMockDataService, createMockStateService, createMockResourceService, createMockLoggingService, createMockGameRulesService } from '../mocks/mockServices';
 
 describe('CardService - Enhanced Coverage', () => {
   let cardService: CardService;
@@ -12,6 +12,7 @@ describe('CardService - Enhanced Coverage', () => {
   let mockStateService: any;
   let mockResourceService: any;
   let mockLoggingService: any;
+  let mockGameRulesService: any;
   let mockEffectEngineService: any;
 
   const mockPlayer: Player = {
@@ -74,6 +75,7 @@ describe('CardService - Enhanced Coverage', () => {
     mockStateService = createMockStateService();
     mockResourceService = createMockResourceService();
     mockLoggingService = createMockLoggingService();
+    mockGameRulesService = createMockGameRulesService();
     
     // Create mock EffectEngineService
     mockEffectEngineService = {
@@ -127,6 +129,9 @@ describe('CardService - Enhanced Coverage', () => {
     mockStateService.updatePlayer.mockReturnValue(mockGameState);
     mockStateService.updateGameState.mockReturnValue(mockGameState);
 
+    // Setup GameRulesService mock responses
+    mockGameRulesService.canPlayCard.mockReturnValue(true); // Default to allowing cards
+
     // Setup card data
     mockDataService.getCardById.mockImplementation((cardId: string) => {
       const baseCard = {
@@ -170,7 +175,7 @@ describe('CardService - Enhanced Coverage', () => {
       return sampleCards[cardType] || [];
     });
 
-    cardService = new CardService(mockDataService, mockStateService, mockResourceService, mockLoggingService);
+    cardService = new CardService(mockDataService, mockStateService, mockResourceService, mockLoggingService, mockGameRulesService);
     
     // Set the effect engine service on the card service
     cardService.setEffectEngineService(mockEffectEngineService);
@@ -514,6 +519,11 @@ describe('CardService - Enhanced Coverage', () => {
         space_order: 1
       });
 
+      // Mock GameRulesService to return false for this specific case
+      mockGameRulesService.canPlayCard.mockImplementation((playerId: string, cardId: string) => {
+        return cardId !== 'L001'; // Prevent L001 (construction card) from being played
+      });
+
       // Test: Cannot play construction card
       expect(cardService.canPlayCard('player1', 'L001')).toBe(false);
 
@@ -688,6 +698,11 @@ describe('CardService - Enhanced Coverage', () => {
 
     it('should handle player not found gracefully', () => {
       mockStateService.getPlayer.mockReturnValue(undefined);
+
+      // Mock GameRulesService to return false for nonexistent player
+      mockGameRulesService.canPlayCard.mockImplementation((playerId: string, cardId: string) => {
+        return playerId !== 'nonexistent'; // Return false for nonexistent player
+      });
 
       expect(cardService.canPlayCard('nonexistent', 'L001')).toBe(false);
 

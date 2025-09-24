@@ -595,8 +595,10 @@ export function PlayerStatusItem({
           {/* Location Story Section */}
           {(() => {
             const spaceContent = dataService.getSpaceContent(player.currentSpace, 'First');
-            const storyText = spaceContent?.story || 'No story available for this space.';
             const locationName = spaceContent?.title || player.currentSpace;
+            const story = spaceContent?.story || 'No story available for this space.';
+            const actionDescription = spaceContent?.action_description;
+            const outcomeDescription = spaceContent?.outcome_description;
 
             return (
               <div style={{
@@ -607,29 +609,88 @@ export function PlayerStatusItem({
                 marginTop: '8px',
                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
               }}>
+                {/* Location Header */}
                 <div style={{
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
                   color: colors.brown.main,
-                  marginBottom: '6px',
+                  marginBottom: '8px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
                   📍 {locationName}
                 </div>
-                <div style={{
-                  fontSize: '0.8rem',
-                  color: colors.brown.dark,
-                  lineHeight: '1.4',
-                  fontStyle: storyText === 'No story available for this space.' ? 'italic' : 'normal'
-                }}>
-                  {storyText}
+
+                {/* Story Content */}
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    color: colors.warning.text,
+                    marginBottom: '4px'
+                  }}>
+                    Story:
+                  </div>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: colors.brown.dark,
+                    lineHeight: '1.4',
+                    fontStyle: story === 'No story available for this space.' ? 'italic' : 'normal'
+                  }}>
+                    {story}
+                  </div>
                 </div>
+
+                {/* Action Required */}
+                {actionDescription && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      color: colors.danger.text,
+                      marginBottom: '4px'
+                    }}>
+                      Action Required:
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: colors.brown.dark,
+                      lineHeight: '1.4'
+                    }}>
+                      {actionDescription}
+                    </div>
+                  </div>
+                )}
+
+                {/* Potential Outcomes */}
+                {outcomeDescription && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      color: colors.success.text,
+                      marginBottom: '4px'
+                    }}>
+                      Potential Outcomes:
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: colors.brown.dark,
+                      lineHeight: '1.4'
+                    }}>
+                      {outcomeDescription}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Location Footer */}
                 <div style={{
                   fontSize: '0.7rem',
                   color: colors.brown.text,
-                  marginTop: '6px',
-                  fontStyle: 'italic'
+                  fontStyle: 'italic',
+                  borderTop: '1px solid rgba(139, 69, 19, 0.2)',
+                  paddingTop: '6px',
+                  marginTop: outcomeDescription || actionDescription ? '0' : '6px'
                 }}>
                   Current location: {player.currentSpace}
                 </div>

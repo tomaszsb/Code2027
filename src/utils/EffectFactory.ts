@@ -287,11 +287,12 @@ export class EffectFactory {
    * @returns Array of Effect objects for space entry
    */
   static createEffectsFromSpaceEntry(
-    spaceEffects: SpaceEffect[], 
-    playerId: string, 
-    spaceName: string, 
+    spaceEffects: SpaceEffect[],
+    playerId: string,
+    spaceName: string,
     visitType: 'First' | 'Subsequent',
-    spaceConfig?: GameConfig
+    spaceConfig?: GameConfig,
+    playerName?: string
   ): Effect[] {
     const effects: Effect[] = [];
     const spaceSource = `space:${spaceName}`;
@@ -310,7 +311,7 @@ export class EffectFactory {
     // Process space action if present
     if (spaceConfig && spaceConfig.action && spaceConfig.action !== '') {
       console.log(`   Processing space action: ${spaceConfig.action}`);
-      const actionEffects = this.createEffectsFromSpaceAction(spaceConfig.action, playerId, spaceName, spaceSource);
+      const actionEffects = this.createEffectsFromSpaceAction(spaceConfig.action, playerId, spaceName, spaceSource, playerName);
       effects.push(...actionEffects);
     }
 
@@ -318,7 +319,7 @@ export class EffectFactory {
     effects.push({
       effectType: 'LOG',
       payload: {
-        message: `Player ${playerId} entered space: ${spaceName} (${visitType} visit) - ${spaceEffects.length} effects processed${spaceConfig?.action ? `, action: ${spaceConfig.action}` : ''}`,
+        message: `Player ${playerName || playerId} entered space: ${spaceName} (${visitType} visit) - ${spaceEffects.length} effects processed${spaceConfig?.action ? `, action: ${spaceConfig.action}` : ''}`,
         level: 'INFO',
         source: spaceSource
       }
@@ -337,7 +338,7 @@ export class EffectFactory {
    * @param spaceSource The source identifier for effects
    * @returns Array of Effect objects for the space action
    */
-  private static createEffectsFromSpaceAction(action: string, playerId: string, spaceName: string, spaceSource: string): Effect[] {
+  private static createEffectsFromSpaceAction(action: string, playerId: string, spaceName: string, spaceSource: string, playerName?: string): Effect[] {
     const effects: Effect[] = [];
     
     console.log(`🎯 EFFECT_FACTORY: Processing space action '${action}' for player ${playerId} at ${spaceName}`);
@@ -348,7 +349,7 @@ export class EffectFactory {
         effects.push({
           effectType: 'LOG',
           payload: {
-            message: `Player ${playerId} triggered regulatory violation at ${spaceName} - penalties applied via existing space effects`,
+            message: `Player ${playerName || playerId} triggered regulatory violation at ${spaceName} - penalties applied via existing space effects`,
             level: 'WARN',
             source: spaceSource
           }
@@ -403,10 +404,11 @@ export class EffectFactory {
    * @returns Array of Effect objects for dice outcomes
    */
   static createEffectsFromDiceRoll(
-    diceEffects: DiceEffect[], 
-    playerId: string, 
-    spaceName: string, 
-    diceResult: number
+    diceEffects: DiceEffect[],
+    playerId: string,
+    spaceName: string,
+    diceResult: number,
+    playerName?: string
   ): Effect[] {
     const effects: Effect[] = [];
     const diceSource = `dice:${spaceName}`;
@@ -426,7 +428,7 @@ export class EffectFactory {
     effects.push({
       effectType: 'LOG',
       payload: {
-        message: `Player ${playerId} rolled ${diceResult} at space: ${spaceName} - ${diceEffects.length} effects processed`,
+        message: `Player ${playerName || playerId} rolled ${diceResult} at space: ${spaceName} - ${diceEffects.length} effects processed`,
         level: 'INFO',
         source: diceSource
       }

@@ -37,19 +37,46 @@ const urlMap: { [key: string]: string } = {
   '/data/CLEAN_FILES/CARDS_EXPANDED.csv': mockCardsExpandedCsv,
 };
 
-global.fetch = vi.fn().mockImplementation(url =>
-  Promise.resolve({
+global.fetch = vi.fn().mockImplementation((url: string) => {
+  const cleanUrl = url.split('?')[0]; // Remove query parameters
+  const csvData = urlMap[cleanUrl];
+  if (!csvData) {
+    console.error('No mock data found for URL:', cleanUrl);
+    return Promise.resolve({
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve(''),
+    });
+  }
+  return Promise.resolve({
     ok: true,
-    text: () => Promise.resolve(urlMap[url.split('?')[0]] || ''),
-  })
-);
+    text: () => Promise.resolve(csvData),
+  });
+});
 
 describe('DataService', () => {
   let dataService: DataService;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    // Re-setup the fetch mock for each test
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      const cleanUrl = url.split('?')[0]; // Remove query parameters
+      const csvData = urlMap[cleanUrl];
+      if (!csvData) {
+        console.error('No mock data found for URL:', cleanUrl);
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          text: () => Promise.resolve(''),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(csvData),
+      });
+    });
     dataService = new DataService();
-    (global.fetch as vi.Mock).mockClear();
   });
 
   it('should fetch and parse all CSV files correctly', async () => {

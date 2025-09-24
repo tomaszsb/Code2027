@@ -81,10 +81,13 @@ describe('CardPortfolioDashboard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Setup mock services
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
-    
+
+    // CRITICAL: Mock dataService.isLoaded() to return true so component renders properly
+    mockServices.dataService.isLoaded.mockReturnValue(true);
+
     // Setup cardService.getCardType to return appropriate types
     mockServices.cardService.getCardType.mockImplementation((cardId: string) => {
       if (cardId.startsWith('W')) return 'W';
@@ -94,7 +97,7 @@ describe('CardPortfolioDashboard', () => {
       if (cardId.startsWith('I')) return 'I';
       return null;
     });
-    
+
     // Setup dataService.getCardById to return mock card data
     mockServices.dataService.getCardById.mockImplementation((cardId: string) => ({
       card_id: cardId,

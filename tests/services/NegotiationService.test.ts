@@ -194,4 +194,188 @@ describe('NegotiationService', () => {
       expect(mockStateService.updateNegotiationState).not.toHaveBeenCalled();
     });
   });
+
+  describe('acceptOffer', () => {
+    it('should accept an offer successfully', async () => {
+      // Act
+      const result = await negotiationService.acceptOffer(mockPlayerId);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Offer accepted successfully');
+      expect(result.data?.accepted).toBe(true);
+    });
+  });
+
+  describe('declineOffer', () => {
+    it('should decline an offer successfully', async () => {
+      // Act
+      const result = await negotiationService.declineOffer(mockPlayerId);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Offer declined');
+      expect(result.data?.declined).toBe(true);
+    });
+  });
+
+  describe('cancelNegotiation', () => {
+    it('should cancel negotiation and restore player states', async () => {
+      // Arrange
+      const negotiationId = 'test-negotiation-id';
+      const activeNegotiation: NegotiationState = {
+        negotiationId: negotiationId,
+        initiatorId: mockPlayerId,
+        status: 'in_progress',
+        context: { type: 'card_exchange' },
+        offers: [],
+        createdAt: new Date(),
+        lastUpdatedAt: new Date(),
+        playerSnapshots: [{
+          id: mockPlayerId,
+          hand: ['card1', 'card2'],
+          negotiationOffer: ['card1']
+        }]
+      };
+
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: activeNegotiation
+      });
+
+      // Act
+      const result = await negotiationService.cancelNegotiation(negotiationId);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('cancelled successfully');
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockPlayerId,
+          hand: expect.arrayContaining(['card1', 'card2']) // Cards restored
+        })
+      );
+      expect(mockStateService.updateNegotiationState).toHaveBeenCalledWith(null);
+    });
+
+    it('should fail if negotiation does not exist', async () => {
+      // Arrange
+      const negotiationId = 'non-existent-negotiation';
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: null
+      });
+
+      // Act
+      const result = await negotiationService.cancelNegotiation(negotiationId);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('No active negotiation');
+    });
+  });
+
+  describe('completeNegotiation', () => {
+    it('should complete negotiation successfully', async () => {
+      // Arrange
+      const negotiationId = 'test-negotiation-id';
+      const agreement = { termsAccepted: true };
+      const activeNegotiation: NegotiationState = {
+        negotiationId: negotiationId,
+        initiatorId: mockPlayerId,
+        status: 'in_progress',
+        context: { type: 'card_exchange' },
+        offers: [],
+        createdAt: new Date(),
+        lastUpdatedAt: new Date()
+      };
+
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: activeNegotiation
+      });
+
+      // Act
+      const result = await negotiationService.completeNegotiation(negotiationId, agreement);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('completed successfully');
+      expect(mockStateService.updateNegotiationState).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('getActiveNegotiation', () => {
+    it('should return active negotiation if exists', () => {
+      // Arrange
+      const activeNegotiation: NegotiationState = {
+        negotiationId: 'test-negotiation',
+        initiatorId: mockPlayerId,
+        status: 'pending',
+        context: { type: 'card_exchange' },
+        offers: [],
+        createdAt: new Date(),
+        lastUpdatedAt: new Date()
+      };
+
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: activeNegotiation
+      });
+
+      // Act
+      const result = negotiationService.getActiveNegotiation();
+
+      // Assert
+      expect(result).toEqual(activeNegotiation);
+    });
+
+    it('should return null if no active negotiation', () => {
+      // Arrange
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: null
+      });
+
+      // Act
+      const result = negotiationService.getActiveNegotiation();
+
+      // Assert
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hasActiveNegotiation', () => {
+    it('should return true if active negotiation exists', () => {
+      // Arrange
+      const activeNegotiation: NegotiationState = {
+        negotiationId: 'test-negotiation',
+        initiatorId: mockPlayerId,
+        status: 'pending',
+        context: { type: 'card_exchange' },
+        offers: [],
+        createdAt: new Date(),
+        lastUpdatedAt: new Date()
+      };
+
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: activeNegotiation
+      });
+
+      // Act & Assert
+      expect(negotiationService.hasActiveNegotiation()).toBe(true);
+    });
+
+    it('should return false if no active negotiation', () => {
+      // Arrange
+      mockStateService.getGameState.mockReturnValue({
+        ...mockGameState,
+        activeNegotiation: null
+      });
+
+      // Act & Assert
+      expect(negotiationService.hasActiveNegotiation()).toBe(false);
+    });
+  });
 });

@@ -41,7 +41,7 @@ export const ServiceProvider = ({ children }: ServiceProviderProps): JSX.Element
   const resourceService = new ResourceService(stateService);
   const choiceService = new ChoiceService(stateService);
   const gameRulesService = new GameRulesService(dataService, stateService);
-  const cardService = new CardService(dataService, stateService, resourceService, loggingService);
+  const cardService = new CardService(dataService, stateService, resourceService, loggingService, gameRulesService);
   const movementService = new MovementService(dataService, stateService, choiceService, loggingService);
   const targetingService = new TargetingService(stateService, choiceService);
 

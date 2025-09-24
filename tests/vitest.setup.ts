@@ -1,7 +1,7 @@
 // tests/vitest.setup.ts
 // Vitest setup file with performance optimizations
 
-import { beforeEach, vi } from 'vitest';
+import { beforeEach, afterEach, vi } from 'vitest';
 
 // Environment detection
 const isVerboseMode = process.env.VERBOSE_TESTS === 'true' || 
@@ -66,5 +66,39 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
+
+// Global cleanup after each test
+afterEach(() => {
+  // Use real timers to clear properly
+  vi.useRealTimers();
+
+  // Clear all timers (both real and fake)
+  vi.clearAllTimers();
+
+  // Restore all mocks to prevent interference
+  vi.restoreAllMocks();
+
+  // Clear any lingering intervals/timeouts more aggressively
+  for (let i = 1; i < 10000; i++) {
+    clearTimeout(i);
+    clearInterval(i);
+  }
+
+  // Clear any Promise rejections
+  process.removeAllListeners('unhandledRejection');
+  process.removeAllListeners('uncaughtException');
+
+  // Force cleanup of any pending microtasks
+  if (typeof queueMicrotask !== 'undefined') {
+    queueMicrotask(() => {});
+  }
+
+  // Clear any event listeners on global objects
+  if (typeof window !== 'undefined') {
+    // Remove all event listeners from window
+    const newWindow = Object.create(window.constructor.prototype);
+    Object.setPrototypeOf(window, newWindow);
+  }
+});
 
 console.log('🚀 Vitest setup complete with performance optimizations enabled');

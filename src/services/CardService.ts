@@ -1,4 +1,4 @@
-import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService, ILoggingService } from '../types/ServiceContracts';
+import { ICardService, IDataService, IStateService, IResourceService, IEffectEngineService, ILoggingService, IGameRulesService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
 import { Effect } from '../types/EffectTypes';
@@ -8,13 +8,15 @@ export class CardService implements ICardService {
   private readonly stateService: IStateService;
   private readonly resourceService: IResourceService;
   private readonly loggingService: ILoggingService;
+  private readonly gameRulesService: IGameRulesService;
   public effectEngineService!: IEffectEngineService;
 
-  constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService, loggingService: ILoggingService) {
+  constructor(dataService: IDataService, stateService: IStateService, resourceService: IResourceService, loggingService: ILoggingService, gameRulesService: IGameRulesService) {
     this.dataService = dataService;
     this.stateService = stateService;
     this.resourceService = resourceService;
     this.loggingService = loggingService;
+    this.gameRulesService = gameRulesService;
   }
 
   // Circular dependency resolution methods
@@ -24,43 +26,7 @@ export class CardService implements ICardService {
 
   // Card validation methods
   canPlayCard(playerId: string, cardId: string): boolean {
-    const gameState = this.stateService.getGameState();
-    
-    // Game must be in PLAY phase
-    if (gameState.gamePhase !== 'PLAY') {
-      return false;
-    }
-
-    // Player must exist
-    const player = this.stateService.getPlayer(playerId);
-    if (!player) {
-      return false;
-    }
-
-    // Player must own the card
-    if (!this.playerOwnsCard(playerId, cardId)) {
-      return false;
-    }
-
-    // It must be the player's turn (for some card types)
-    const cardType = this.getCardType(cardId);
-    if (cardType && this.requiresPlayerTurn(cardType)) {
-      if (gameState.currentPlayerId !== playerId) {
-        return false;
-      }
-    }
-
-    // Check phase restrictions
-    const card = this.dataService.getCardById(cardId);
-    if (card && card.phase_restriction && card.phase_restriction !== 'Any') {
-      const currentActivityPhase = this.getCurrentActivityPhase(playerId);
-      if (currentActivityPhase && card.phase_restriction !== currentActivityPhase) {
-        return false;
-      }
-      // If currentActivityPhase is null (player not on a phased space), allow any cards to be played
-    }
-
-    return true;
+    return this.gameRulesService.canPlayCard(playerId, cardId);
   }
 
   isValidCardType(cardType: string): boolean {
@@ -499,81 +465,41 @@ export class CardService implements ICardService {
 
   // Validation helper method
   private validateCardPlay(playerId: string, cardId: string): { isValid: boolean; errorMessage?: string } {
-    const gameState = this.stateService.getGameState();
-    
-    // Check if game is in PLAY phase
-    if (gameState.gamePhase !== 'PLAY') {
-      return { isValid: false, errorMessage: 'Cards can only be played during the PLAY phase' };
+    if (this.gameRulesService.canPlayCard(playerId, cardId)) {
+      return { isValid: true };
     }
-    
-    // Check if player exists
+
+    // If validation failed, provide more specific error message
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       return { isValid: false, errorMessage: `Player ${playerId} not found` };
     }
-    
-    // Check if it's the player's turn
-    if (gameState.currentPlayerId !== playerId) {
-      return { isValid: false, errorMessage: 'You can only play cards on your turn' };
-    }
-    
-    // Check if player owns the card
-    if (!this.playerOwnsCard(playerId, cardId)) {
-      return { isValid: false, errorMessage: 'You do not own this card' };
-    }
-    
-    // Get card data for validation
+
     const card = this.dataService.getCardById(cardId);
     if (!card) {
-      return { isValid: false, errorMessage: `Card ${cardId} not found` };
+      return { isValid: false, errorMessage: 'Card not found' };
     }
-    
-    // Check if player has enough money to play the card
-    if (card.cost) {
-      const cardType = this.getCardType(cardId);
 
-      // Skip cost validation for funding cards (B = Bank loans, I = Investor funding)
-      if (cardType !== 'B' && cardType !== 'I') {
-        const numericCost = typeof card.cost === 'string' ? parseInt(card.cost, 10) : card.cost;
-        if (numericCost > 0) {
-          if (player.money < numericCost) {
-            return { isValid: false, errorMessage: `Insufficient funds. Need ${numericCost}, have ${player.money}` };
-          }
+    // Check if it's a phase restriction issue
+    if (card.phase_restriction && card.phase_restriction !== 'Any') {
+      const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
+      if (spaceConfig && spaceConfig.phase) {
+        const currentPhase = this.mapSpacePhaseToCardPhase(spaceConfig.phase);
+        if (currentPhase && card.phase_restriction !== currentPhase) {
+          return {
+            isValid: false,
+            errorMessage: `Card can only be played during ${card.phase_restriction} phase. Current activity: ${currentPhase}`
+          };
         }
       }
     }
-    
-    // Check phase restrictions for all card types
-    if (card.phase_restriction && card.phase_restriction !== 'Any') {
-      const currentActivityPhase = this.getCurrentActivityPhase(playerId);
-      if (currentActivityPhase && card.phase_restriction !== currentActivityPhase) {
-        return { 
-          isValid: false, 
-          errorMessage: `Card can only be played during ${card.phase_restriction} phase. Current activity: ${currentActivityPhase}` 
-        };
-      }
-      // If currentActivityPhase is null (player not on a phased space), allow any cards to be played
-    }
-    
-    return { isValid: true };
+
+    return { isValid: false, errorMessage: 'Card cannot be played at this time' };
   }
 
-  // Helper method to get current activity phase based on player's current space
-  private getCurrentActivityPhase(playerId: string): string | null {
-    const player = this.stateService.getPlayer(playerId);
-    if (!player) {
-      return null;
-    }
-    
-    // Get the game config for the player's current space to determine its phase
-    const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
-    if (!spaceConfig || !spaceConfig.phase) {
-      return null; // Space has no specific phase, allow any cards
-    }
-    
-    // Map the space's phase to card phase restrictions
-    // The CSV phases in GAME_CONFIG match the card phase_restriction values
-    switch (spaceConfig.phase.toUpperCase()) {
+  // Helper method to map space phases to card phases
+  private mapSpacePhaseToCardPhase(spacePhase: string): string | null {
+    switch (spacePhase.toUpperCase()) {
       case 'CONSTRUCTION':
         return 'CONSTRUCTION';
       case 'DESIGN':
@@ -583,9 +509,10 @@ export class CardService implements ICardService {
       case 'REGULATORY':
         return 'REGULATORY_REVIEW';
       default:
-        return null; // Unknown phase, allow any cards
+        return null;
     }
   }
+
 
   // Public method to activate a card with duration-based effects
   public activateCard(playerId: string, cardId: string, duration: number): void {

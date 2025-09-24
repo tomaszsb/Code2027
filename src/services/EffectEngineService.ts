@@ -318,8 +318,7 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Drew ${drawnCards.length} ${payload.cardType} card(s): ${drawnCards.join(', ')}`,
                     level: 'INFO',
-                    source,
-                    playerId: payload.playerId
+                    source
                   }
                 }]
               };
@@ -431,8 +430,8 @@ export class EffectEngineService implements IEffectEngineService {
               ...context.metadata,
             };
 
-            // Check for playerId in payload first, then context
-            const playerId = payload.playerId || context.playerId;
+            // Use playerId from context (LOG effects don't have playerId in payload)
+            const playerId = context.playerId;
             if (playerId) {
               const player = this.stateService.getPlayer(playerId);
               logPayload.playerId = playerId;
@@ -859,7 +858,7 @@ export class EffectEngineService implements IEffectEngineService {
 
                 const choiceResult = await this.choiceService.createChoice(
                   targetPlayerId,
-                  'AGREEMENT_REQUEST',
+                  'GENERAL',
                   payload.prompt,
                   [
                     { id: 'accept', label: 'Accept' },
@@ -888,8 +887,7 @@ export class EffectEngineService implements IEffectEngineService {
                     level: 'INFO',
                     source: payload.source || context.source
                   }
-                }],
-                data: { agreementResults }
+                }]
               };
             } catch (error) {
               console.error(`❌ Error processing player agreement:`, error);

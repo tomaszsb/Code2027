@@ -11,22 +11,29 @@ export default defineConfig({
     exclude: [
       'tests/**/*.lightweight.test.ts',  // Exclude Jest-specific optimized tests
       'tests/**/*.optimized.test.ts',    // Exclude Jest-specific optimized tests
-      'tests/debug-*.test.ts'            // Exclude debug files
+      'tests/debug-*.test.ts',           // Exclude debug files
+      'node_modules/**',
+      'dist/**'
     ],
     globals: true,
     setupFiles: ['tests/vitest.setup.ts'],
     
-    // Performance optimizations (similar to our Jest optimizations)
-    pool: 'threads',
+    // Optimized configuration for reliability over speed
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        maxThreads: Math.ceil((require('os').cpus().length * 0.75)), // 75% of CPU cores
-        minThreads: 2
+      forks: {
+        maxForks: 1, // Sequential execution
+        minForks: 1,
+        isolate: true
       }
     },
-    
-    // Test timeout configuration
+
+    // Reasonable timeout
     testTimeout: 30000, // 30 seconds
+
+    // Complete isolation between tests
+    isolate: true,
+    clearMocks: true,
     
     // Reporter configuration
     reporter: ['default'],

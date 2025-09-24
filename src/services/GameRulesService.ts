@@ -83,6 +83,16 @@ export class GameRulesService implements IGameRulesService {
       }
     }
 
+    // Check phase restrictions
+    const card = this.dataService.getCardById(cardId);
+    if (card && card.phase_restriction && card.phase_restriction !== 'Any') {
+      const currentActivityPhase = this.getCurrentActivityPhase(playerId);
+      if (currentActivityPhase && card.phase_restriction !== currentActivityPhase) {
+        return false;
+      }
+      // If currentActivityPhase is null (player not on a phased space), allow any cards to be played
+    }
+
     return true;
   }
 
@@ -172,6 +182,38 @@ export class GameRulesService implements IGameRulesService {
     // For most actions, it should be the player's turn
     // Exception: some cards might be playable out of turn
     return this.isPlayerTurn(playerId);
+  }
+
+  /**
+   * Helper method to get current activity phase based on player's current space
+   * @private
+   */
+  private getCurrentActivityPhase(playerId: string): string | null {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      return null;
+    }
+
+    // Get the game config for the player's current space to determine its phase
+    const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
+    if (!spaceConfig || !spaceConfig.phase) {
+      return null; // Space has no specific phase, allow any cards
+    }
+
+    // Map the space's phase to card phase restrictions
+    // The CSV phases in GAME_CONFIG match the card phase_restriction values
+    switch (spaceConfig.phase.toUpperCase()) {
+      case 'CONSTRUCTION':
+        return 'CONSTRUCTION';
+      case 'DESIGN':
+        return 'DESIGN';
+      case 'FUNDING':
+        return 'FUNDING';
+      case 'REGULATORY':
+        return 'REGULATORY_REVIEW';
+      default:
+        return null; // Unknown phase, allow any cards
+    }
   }
 
   /**

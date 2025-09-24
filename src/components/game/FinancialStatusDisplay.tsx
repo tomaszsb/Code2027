@@ -32,8 +32,8 @@ function FundingCardSection({ title, cards, cardType, dataService, colors }: Fun
     const card = dataService.getCardById(cardId);
     if (!card) return sum;
 
-    // Parse funding amount from card title/description
-    const fundingMatch = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+    // Parse funding amount from card name/description
+    const fundingMatch = card.card_name?.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
     if (fundingMatch) {
       const amount = FormatUtils.parseMoney(fundingMatch[1]);
       return sum + amount;
@@ -110,7 +110,7 @@ function FundingCardSection({ title, cards, cardType, dataService, colors }: Fun
                 marginRight: '8px'
               }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
-                  {card.title}
+                  {card.card_name}
                 </div>
                 {card.description && (
                   <div style={{ fontSize: '0.75rem', color: colors.secondary.main }}>
@@ -123,9 +123,9 @@ function FundingCardSection({ title, cards, cardType, dataService, colors }: Fun
                 fontWeight: 'bold',
                 color: cardType === 'B' ? colors.info.text : colors.primary.text
               }}>
-                {/* Try to extract funding amount from title */}
+                {/* Try to extract funding amount from card name */}
                 {(() => {
-                  const match = card.title.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
+                  const match = card.card_name?.match(/\$?([\d,]+(?:\.\d+)?[KMB]?)/);
                   return match ? FormatUtils.formatMoney(FormatUtils.parseMoney(match[1])) : 'Amount varies';
                 })()}
               </div>

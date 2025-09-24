@@ -563,7 +563,8 @@ export class TurnService implements ITurnService {
         playerId,
         currentPlayer.currentSpace,
         currentPlayer.visitType,
-        spaceConfig || undefined
+        spaceConfig || undefined,
+        currentPlayer.name
       );
       
       // Generate all effects from dice roll using EffectFactory
@@ -571,7 +572,8 @@ export class TurnService implements ITurnService {
         diceEffectsData,
         playerId,
         currentPlayer.currentSpace,
-        diceRoll
+        diceRoll,
+        currentPlayer.name
       );
       
       // Add user messaging for OWNER-FUND-INITIATION space
@@ -661,7 +663,8 @@ export class TurnService implements ITurnService {
         diceEffectsData,
         playerId,
         currentPlayer.currentSpace,
-        diceRoll
+        diceRoll,
+        currentPlayer.name
       );
       
       console.log(`🎲 Generated ${diceEffects.length} dice effects from roll ${diceRoll}`);
@@ -2041,7 +2044,9 @@ export class TurnService implements ITurnService {
         filteredSpaceEffects,
         playerId,
         spaceName,
-        visitType
+        visitType,
+        undefined,
+        currentPlayer?.name
       );
 
       if (spaceEffects.length === 0) {
@@ -2140,7 +2145,9 @@ export class TurnService implements ITurnService {
         timeEffects,
         playerId,
         spaceName,
-        visitType
+        visitType,
+        undefined,
+        currentPlayer?.name
       );
 
       if (leavingEffects.length === 0) {

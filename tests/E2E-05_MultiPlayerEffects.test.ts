@@ -101,19 +101,19 @@ describe('E2E-05: Multi-Player Interactive Effects', () => {
     resourceService = new ResourceService(stateService);
     choiceService = new ChoiceService(stateService);
     gameRulesService = new GameRulesService(dataService, stateService);
-    cardService = new CardService(dataService, stateService, resourceService, loggingService);
+    cardService = new CardService(dataService, stateService, resourceService, loggingService, gameRulesService);
     movementService = new MovementService(dataService, stateService, choiceService, loggingService);
     targetingService = new TargetingService(stateService, choiceService);
     
     // Create temporary EffectEngineService for circular dependencies
-    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any, targetingService);
+    const tempEffectEngine = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, undefined as any, undefined as any, targetingService, loggingService);
     negotiationService = new NegotiationService(stateService, tempEffectEngine);
     
     // Create TurnService
     turnService = new TurnService(dataService, stateService, gameRulesService, cardService, resourceService, movementService, negotiationService, loggingService);
     
     // Create final EffectEngineService with complete dependencies
-    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService);
+    effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService, loggingService);
     
     // Complete circular dependency
     turnService.setEffectEngineService(effectEngineService);
@@ -141,6 +141,45 @@ describe('E2E-05: Multi-Player Interactive Effects', () => {
     } catch (error) {
       // If movement fails, players will use their default starting positions
       console.log('Player movement in setup failed, using default starting positions:', (error as Error).message);
+    }
+  });
+
+  afterEach(() => {
+    // Clean up all service references to prevent memory leaks
+    if (stateService) {
+      // Clear any running timers or intervals
+      const gameState = stateService.getGameState();
+      if (gameState.players) {
+        gameState.players.forEach(player => {
+          if (player.activeEffects) {
+            player.activeEffects.length = 0;
+          }
+        });
+      }
+    }
+
+    // Clear all service references
+    dataService = null as any;
+    stateService = null as any;
+    resourceService = null as any;
+    choiceService = null as any;
+    gameRulesService = null as any;
+    cardService = null as any;
+    movementService = null as any;
+    targetingService = null as any;
+    effectEngineService = null as any;
+    turnService = null as any;
+    negotiationService = null as any;
+    playerActionService = null as any;
+
+    // Clear player ID references
+    aliceId = null as any;
+    bobId = null as any;
+    charlieId = null as any;
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
     }
   });
 

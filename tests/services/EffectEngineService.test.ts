@@ -161,7 +161,9 @@ describe('EffectEngineService', () => {
       getTargetPlayers: vi.fn(),
       applyEffectToTargets: vi.fn(),
       resolveTargetRule: vi.fn(),
-      validateTargeting: vi.fn()
+      validateTargeting: vi.fn(),
+      resolveTargets: vi.fn(),
+      getTargetDescription: vi.fn()
     };
 
     // Instantiate the EffectEngineService with mocked dependencies
@@ -538,5 +540,697 @@ describe('EffectEngineService', () => {
     expect(mockResourceService.addMoney).not.toHaveBeenCalledWith('player1', 200, 'high_roll', 'High dice roll bonus');
 
     expect(result.success).toBe(true);
+  });
+
+  describe('Duration-Based Effects', () => {
+    let mockLoggingService: any;
+
+    beforeEach(() => {
+      // Add logging service mock
+      mockLoggingService = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      };
+
+      // Create new service instance with logging service
+      effectEngineService = new EffectEngineService(
+        mockResourceService,
+        mockCardService,
+        mockChoiceService,
+        mockStateService,
+        mockMovementService,
+        mockTurnService,
+        mockGameRulesService,
+        mockTargetingService,
+        mockLoggingService
+      );
+    });
+
+    it('should store duration effects when card has duration=Turns', async () => {
+      // Arrange - Create effects and card data for duration processing
+      const effects: Effect[] = [
+        {
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: 'player1',
+            resource: 'MONEY',
+            amount: 100,
+            source: 'L002',
+            reason: 'Economic Downturn effect'
+          }
+        }
+      ];
+
+      const cardData = {
+        card_id: 'L002',
+        card_name: 'Economic Downturn',
+        duration: 'Turns',
+        duration_count: '3',
+        target: 'All Players'
+      };
+
+      const context: EffectContext = {
+        source: 'card:L002',
+        playerId: 'player1',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      // Mock player data with empty activeEffects
+      const mockPlayer = {
+        id: 'player1',
+        name: 'Test Player',
+        activeEffects: []
+      };
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+
+      // Mock game state for turn tracking
+      mockStateService.getGameState.mockReturnValue({ turn: 5, players: [] });
+
+      // Mock targeting service for multi-player effects
+      mockTargetingService.resolveTargets.mockResolvedValue(['player1', 'player2']);
+      mockTargetingService.getTargetDescription.mockReturnValue('All Players');
+
+      // Act - Process effects with duration
+      const result = await effectEngineService.processCardEffects(effects, context, cardData);
+
+      // Assert - Verify effects were stored as active, not processed immediately
+      expect(result.success).toBe(true);
+      expect(result.totalEffects).toBe(2); // One effect for each target player
+      expect(result.successfulEffects).toBe(2);
+      expect(result.results.every(r => r.effectType === 'DURATION_STORED')).toBe(true);
+
+      // Verify updatePlayer was called to store active effects
+      expect(mockStateService.updatePlayer).toHaveBeenCalledTimes(2);
+
+      // Resource service should NOT have been called for immediate processing
+      expect(mockResourceService.addMoney).not.toHaveBeenCalled();
+    });
+
+    it('should apply active effects and decrement duration', async () => {
+      // Arrange - Create player with existing active effects
+      const activeEffect = {
+        effectId: 'L002_effect_1',
+        sourceCardId: 'L002',
+        effectData: {
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: 'player1',
+            resource: 'MONEY',
+            amount: -50,
+            source: 'L002',
+            reason: 'Economic Downturn'
+          }
+        },
+        remainingDuration: 2,
+        startTurn: 3,
+        effectType: 'RESOURCE_CHANGE',
+        description: 'Effect from L002 (2 turns remaining)'
+      };
+
+      const mockPlayer = {
+        id: 'player1',
+        name: 'Test Player',
+        activeEffects: [activeEffect]
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockResourceService.spendMoney.mockReturnValue(true);
+
+      // Act - Apply active effects for the player
+      await effectEngineService.applyActiveEffects('player1');
+
+      // Assert - Verify effect was processed and duration decremented
+      expect(mockResourceService.spendMoney).toHaveBeenCalledWith('player1', 50, 'active:L002', 'Economic Downturn');
+
+      // Verify player was updated with decremented duration
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
+        id: 'player1',
+        activeEffects: [{
+          ...activeEffect,
+          remainingDuration: 1,
+          description: 'Effect from L002 (1 turns remaining)'
+        }]
+      });
+    });
+
+    it('should remove expired active effects', async () => {
+      // Arrange - Create player with effect that will expire
+      const expiredEffect = {
+        effectId: 'L004_effect_1',
+        sourceCardId: 'L004',
+        effectData: {
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: 'player1',
+            resource: 'TIME',
+            amount: 4,
+            source: 'L004',
+            reason: 'Labor Strike - increased construction time'
+          }
+        },
+        remainingDuration: 1, // Will expire after this turn
+        startTurn: 5,
+        effectType: 'RESOURCE_CHANGE',
+        description: 'Effect from L004 (1 turns remaining)'
+      };
+
+      const continueEffect = {
+        effectId: 'L002_effect_1',
+        sourceCardId: 'L002',
+        effectData: {
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: 'player1',
+            resource: 'MONEY',
+            amount: -25,
+            source: 'L002',
+            reason: 'Economic Downturn'
+          }
+        },
+        remainingDuration: 2, // Will continue
+        startTurn: 4,
+        effectType: 'RESOURCE_CHANGE',
+        description: 'Effect from L002 (2 turns remaining)'
+      };
+
+      const mockPlayer = {
+        id: 'player1',
+        name: 'Test Player',
+        activeEffects: [expiredEffect, continueEffect]
+      };
+
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockResourceService.addTime.mockReturnValue(true);
+      mockResourceService.spendMoney.mockReturnValue(true);
+
+      // Act - Apply active effects
+      await effectEngineService.applyActiveEffects('player1');
+
+      // Assert - Verify both effects were processed
+      expect(mockResourceService.addTime).toHaveBeenCalledWith('player1', 4, 'active:L004', 'Labor Strike - increased construction time');
+      expect(mockResourceService.spendMoney).toHaveBeenCalledWith('player1', 25, 'active:L002', 'Economic Downturn');
+
+      // Verify only the continuing effect remains (expired effect removed)
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
+        id: 'player1',
+        activeEffects: [{
+          ...continueEffect,
+          remainingDuration: 1,
+          description: 'Effect from L002 (1 turns remaining)'
+        }]
+      });
+    });
+
+    it('should process active effects for all players', async () => {
+      // Arrange - Create multiple players with active effects
+      const players = [
+        {
+          id: 'player1',
+          name: 'Player 1',
+          activeEffects: [{
+            effectId: 'L022_effect_1',
+            sourceCardId: 'L022',
+            effectData: {
+              effectType: 'RESOURCE_CHANGE',
+              payload: {
+                playerId: 'player1',
+                resource: 'TIME',
+                amount: -2,
+                source: 'L022',
+                reason: 'Economic Boom - faster construction'
+              }
+            },
+            remainingDuration: 3,
+            startTurn: 2,
+            effectType: 'RESOURCE_CHANGE',
+            description: 'Effect from L022 (3 turns remaining)'
+          }]
+        },
+        {
+          id: 'player2',
+          name: 'Player 2',
+          activeEffects: [{
+            effectId: 'L020_effect_1',
+            sourceCardId: 'L020',
+            effectData: {
+              effectType: 'RESOURCE_CHANGE',
+              payload: {
+                playerId: 'player2',
+                resource: 'TIME',
+                amount: 2,
+                source: 'L020',
+                reason: 'Building Code Update - slower inspections'
+              }
+            },
+            remainingDuration: 1,
+            startTurn: 4,
+            effectType: 'RESOURCE_CHANGE',
+            description: 'Effect from L020 (1 turns remaining)'
+          }]
+        }
+      ];
+
+      mockStateService.getGameState.mockReturnValue({
+        players: players,
+        turn: 5
+      });
+
+      // Mock individual getPlayer calls for each player
+      mockStateService.getPlayer
+        .mockReturnValueOnce(players[0])
+        .mockReturnValueOnce(players[1]);
+
+      mockResourceService.spendTime.mockReturnValue(true);
+      mockResourceService.addTime.mockReturnValue(true);
+
+      // Act - Process active effects for all players
+      await effectEngineService.processActiveEffectsForAllPlayers();
+
+      // Assert - Verify effects were processed for both players
+      expect(mockResourceService.spendTime).toHaveBeenCalledWith('player1', 2, 'active:L022', 'Economic Boom - faster construction');
+      expect(mockResourceService.addTime).toHaveBeenCalledWith('player2', 2, 'active:L020', 'Building Code Update - slower inspections');
+
+      // Verify both players were updated
+      expect(mockStateService.updatePlayer).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle effects with no duration immediately', async () => {
+      // Arrange - Effects and card without duration
+      const effects: Effect[] = [
+        {
+          effectType: 'RESOURCE_CHANGE',
+          payload: {
+            playerId: 'player1',
+            resource: 'MONEY',
+            amount: 200,
+            source: 'I001',
+            reason: 'Immediate investment return'
+          }
+        }
+      ];
+
+      const cardData = {
+        card_id: 'I001',
+        card_name: 'Investment Card',
+        duration: null, // No duration
+        duration_count: null,
+        target: 'Self'
+      };
+
+      const context: EffectContext = {
+        source: 'card:I001',
+        playerId: 'player1',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      mockResourceService.addMoney.mockReturnValue(true);
+
+      // Act - Process effects without duration
+      const result = await effectEngineService.processCardEffects(effects, context, cardData);
+
+      // Assert - Verify effects were processed immediately, not stored
+      expect(result.success).toBe(true);
+      expect(mockResourceService.addMoney).toHaveBeenCalledWith('player1', 200, 'I001', 'Immediate investment return');
+
+      // Verify no active effects were stored
+      expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+    });
+
+    it('should add active effect with correct metadata', async () => {
+      // Arrange - Mock player and game state
+      const mockPlayer = {
+        id: 'player1',
+        name: 'Test Player',
+        activeEffects: []
+      };
+      mockStateService.getPlayer.mockReturnValue(mockPlayer);
+      mockStateService.getGameState.mockReturnValue({ turn: 8 });
+
+      const effect: Effect = {
+        effectType: 'RESOURCE_CHANGE',
+        payload: {
+          playerId: 'player1',
+          resource: 'MONEY',
+          amount: -100,
+          source: 'L030',
+          reason: 'Cybersecurity Breach'
+        }
+      };
+
+      // Act - Add active effect
+      effectEngineService.addActiveEffect('player1', effect, 'L030', 2);
+
+      // Assert - Verify updatePlayer was called with correct active effect
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
+        id: 'player1',
+        activeEffects: [{
+          effectId: expect.stringMatching(/^L030_\d+_[a-z0-9]{9}$/),
+          sourceCardId: 'L030',
+          effectData: effect,
+          remainingDuration: 2,
+          startTurn: 8,
+          effectType: 'RESOURCE_CHANGE',
+          description: 'Effect from L030 (2 turns remaining)'
+        }]
+      });
+    });
+  });
+
+  describe('Multi-Player Interactive Effects', () => {
+    let mockLoggingService: any;
+    let mockNegotiationService: any;
+
+    beforeEach(() => {
+      // Add logging service mock
+      mockLoggingService = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      };
+
+      // Add negotiation service mock
+      mockNegotiationService = {
+        initiateNegotiation: vi.fn(),
+        makeOffer: vi.fn(),
+        acceptOffer: vi.fn(),
+        declineOffer: vi.fn(),
+        cancelNegotiation: vi.fn(),
+        completeNegotiation: vi.fn(),
+        getActiveNegotiation: vi.fn(),
+        hasActiveNegotiation: vi.fn()
+      };
+
+      // Create new service instance with all services
+      effectEngineService = new EffectEngineService(
+        mockResourceService,
+        mockCardService,
+        mockChoiceService,
+        mockStateService,
+        mockMovementService,
+        mockTurnService,
+        mockGameRulesService,
+        mockTargetingService,
+        mockLoggingService
+      );
+
+      // Set the negotiation service
+      effectEngineService.setNegotiationService(mockNegotiationService);
+    });
+
+    it('should process INITIATE_NEGOTIATION effect successfully', async () => {
+      // Arrange
+      const effect: Effect = {
+        effectType: 'INITIATE_NEGOTIATION',
+        payload: {
+          initiatorId: 'player1',
+          targetPlayerIds: ['player2', 'player3'],
+          negotiationType: 'CARD_EXCHANGE',
+          context: {
+            description: 'Propose card exchange with other players',
+            requiresAgreement: true,
+            offerData: { cardsOffered: ['W001'] },
+            requestData: { cardsRequested: ['B001'] }
+          },
+          source: 'card:N001'
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'card:N001',
+        playerId: 'player1',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      mockNegotiationService.initiateNegotiation.mockResolvedValue({
+        success: true,
+        message: 'Negotiation started successfully',
+        negotiationId: 'nego_123',
+        effects: []
+      });
+
+      // Act
+      const result = await effectEngineService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(mockNegotiationService.initiateNegotiation).toHaveBeenCalledWith('player1', {
+        type: 'CARD_EXCHANGE',
+        targetPlayerIds: ['player2', 'player3'],
+        context: {
+          description: 'Propose card exchange with other players',
+          requiresAgreement: true,
+          offerData: { cardsOffered: ['W001'] },
+          requestData: { cardsRequested: ['B001'] }
+        },
+        source: 'card:N001'
+      });
+    });
+
+    it('should process NEGOTIATION_RESPONSE effect with ACCEPT', async () => {
+      // Arrange
+      const effect: Effect = {
+        effectType: 'NEGOTIATION_RESPONSE',
+        payload: {
+          respondingPlayerId: 'player2',
+          negotiationId: 'nego_123',
+          response: 'ACCEPT',
+          source: 'ui:negotiation_modal'
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'ui:negotiation_modal',
+        playerId: 'player2',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      mockNegotiationService.acceptOffer.mockResolvedValue({
+        success: true,
+        message: 'Offer accepted successfully',
+        effects: []
+      });
+
+      // Act
+      const result = await effectEngineService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(mockNegotiationService.acceptOffer).toHaveBeenCalledWith('player2');
+    });
+
+    it('should process NEGOTIATION_RESPONSE effect with DECLINE', async () => {
+      // Arrange
+      const effect: Effect = {
+        effectType: 'NEGOTIATION_RESPONSE',
+        payload: {
+          respondingPlayerId: 'player3',
+          negotiationId: 'nego_123',
+          response: 'DECLINE',
+          source: 'ui:negotiation_modal'
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'ui:negotiation_modal',
+        playerId: 'player3',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      mockNegotiationService.declineOffer.mockResolvedValue({
+        success: true,
+        message: 'Offer declined',
+        effects: []
+      });
+
+      // Act
+      const result = await effectEngineService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(mockNegotiationService.declineOffer).toHaveBeenCalledWith('player3');
+    });
+
+    it('should process NEGOTIATION_RESPONSE effect with COUNTER_OFFER', async () => {
+      // Arrange
+      const effect: Effect = {
+        effectType: 'NEGOTIATION_RESPONSE',
+        payload: {
+          respondingPlayerId: 'player2',
+          negotiationId: 'nego_123',
+          response: 'COUNTER_OFFER',
+          responseData: { cardsOffered: ['E001'], cardsRequested: ['W002'] },
+          source: 'ui:negotiation_modal'
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'ui:negotiation_modal',
+        playerId: 'player2',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      mockNegotiationService.makeOffer.mockResolvedValue({
+        success: true,
+        message: 'Counter-offer made successfully',
+        effects: []
+      });
+
+      // Act
+      const result = await effectEngineService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(mockNegotiationService.makeOffer).toHaveBeenCalledWith('player2', {
+        cardsOffered: ['E001'],
+        cardsRequested: ['W002']
+      });
+    });
+
+    it('should process PLAYER_AGREEMENT_REQUIRED effect successfully', async () => {
+      // Arrange
+      const effect: Effect = {
+        effectType: 'PLAYER_AGREEMENT_REQUIRED',
+        payload: {
+          requesterPlayerId: 'player1',
+          targetPlayerIds: ['player2', 'player3'],
+          agreementType: 'RESOURCE_SHARE',
+          agreementData: {
+            resourceType: 'MONEY',
+            amount: 50000,
+            description: 'Emergency funding request'
+          },
+          prompt: 'Player 1 requests emergency funding. Do you agree to contribute $50,000?',
+          source: 'card:emergency_fund'
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'card:emergency_fund',
+        playerId: 'player1',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      // Mock player data
+      const mockPlayer2 = { id: 'player2', name: 'Player 2' };
+      const mockPlayer3 = { id: 'player3', name: 'Player 3' };
+
+      mockStateService.getPlayer
+        .mockReturnValueOnce(mockPlayer2)
+        .mockReturnValueOnce(mockPlayer3);
+
+      // Mock choice responses
+      mockChoiceService.createChoice
+        .mockResolvedValueOnce('accept')
+        .mockResolvedValueOnce('decline');
+
+      // Act
+      const result = await effectEngineService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.resultingEffects).toBeDefined();
+      expect(result.resultingEffects).toHaveLength(1);
+
+      expect(mockChoiceService.createChoice).toHaveBeenCalledTimes(2);
+      expect(mockChoiceService.createChoice).toHaveBeenCalledWith(
+        'player2',
+        'GENERAL',
+        'Player 1 requests emergency funding. Do you agree to contribute $50,000?',
+        [
+          { id: 'accept', label: 'Accept' },
+          { id: 'decline', label: 'Decline' }
+        ]
+      );
+    });
+
+    it('should fail INITIATE_NEGOTIATION when NegotiationService is not available', async () => {
+      // Arrange
+      const effectWithoutNegotiationService = new EffectEngineService(
+        mockResourceService,
+        mockCardService,
+        mockChoiceService,
+        mockStateService,
+        mockMovementService,
+        mockTurnService,
+        mockGameRulesService,
+        mockTargetingService,
+        mockLoggingService
+      );
+      // Don't set negotiation service
+
+      const effect: Effect = {
+        effectType: 'INITIATE_NEGOTIATION',
+        payload: {
+          initiatorId: 'player1',
+          targetPlayerIds: ['player2'],
+          negotiationType: 'CARD_EXCHANGE',
+          context: {
+            description: 'Test negotiation',
+            requiresAgreement: true
+          }
+        }
+      };
+
+      const context: EffectContext = {
+        source: 'test',
+        playerId: 'player1',
+        triggerEvent: 'CARD_PLAY'
+      };
+
+      // Act
+      const result = await effectWithoutNegotiationService.processEffect(effect, context);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('NegotiationService not available');
+    });
+
+    it('should create negotiation effects using helper methods', () => {
+      // Test createNegotiationEffect
+      const negotiationEffect = effectEngineService.createNegotiationEffect(
+        'player1',
+        ['player2', 'player3'],
+        'RESOURCE_TRADE',
+        {
+          description: 'Trade resources for mutual benefit',
+          requiresAgreement: true,
+          offerData: { money: 100000 },
+          requestData: { time: 10 }
+        },
+        'card:trade'
+      );
+
+      expect(negotiationEffect.effectType).toBe('INITIATE_NEGOTIATION');
+      expect(negotiationEffect.payload.initiatorId).toBe('player1');
+      expect(negotiationEffect.payload.negotiationType).toBe('RESOURCE_TRADE');
+
+      // Test createPlayerAgreementEffect
+      const agreementEffect = effectEngineService.createPlayerAgreementEffect(
+        'player1',
+        ['player2', 'player3'],
+        'JOINT_ACTION',
+        { actionType: 'shared_permit_filing' },
+        'Do you want to join this permit filing?',
+        'card:joint_permit'
+      );
+
+      expect(agreementEffect.effectType).toBe('PLAYER_AGREEMENT_REQUIRED');
+      expect(agreementEffect.payload.agreementType).toBe('JOINT_ACTION');
+
+      // Test createNegotiationResponseEffect
+      const responseEffect = effectEngineService.createNegotiationResponseEffect(
+        'player2',
+        'nego_123',
+        'ACCEPT',
+        { finalTerms: 'agreed' },
+        'ui:modal'
+      );
+
+      expect(responseEffect.effectType).toBe('NEGOTIATION_RESPONSE');
+      expect(responseEffect.payload.response).toBe('ACCEPT');
+    });
   });
 });
