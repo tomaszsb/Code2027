@@ -18,7 +18,6 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
   const [humanPlayerId, setHumanPlayerId] = useState<string | null>(null);
-  const [lastRoll, setLastRoll] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState(false);
   const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState(false);
@@ -109,7 +108,6 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
         try {
           setIsProcessingTurn(true);
           const result = await turnService.takeTurn(currentPlayer.id);
-          setLastRoll(result.diceRoll);
           console.log(`AI player ${currentPlayer.name} rolled a ${result.diceRoll}`);
           
           // End the AI player's turn and advance to next player
@@ -120,7 +118,6 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
             } catch (error) {
               console.error('Error ending AI turn:', error);
             } finally {
-              setLastRoll(null);
               setIsProcessingTurn(false);
             }
           }, 2000);
@@ -191,7 +188,6 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
       
       // Use rollDiceWithFeedback for dice roll + effects + feedback modal
       const result = await turnService.rollDiceWithFeedback(currentPlayer.id);
-      setLastRoll(result.diceValue);
       setDiceResult(result);
       setShowDiceResultModal(true);
       
