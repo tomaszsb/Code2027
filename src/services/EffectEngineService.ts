@@ -318,7 +318,8 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Drew ${drawnCards.length} ${payload.cardType} card(s): ${drawnCards.join(', ')}`,
                     level: 'INFO',
-                    source
+                    source,
+                    action: 'card_draw'
                   }
                 }]
               };
@@ -406,7 +407,8 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Player ${payload.playerId} selected "${selection}" for ${payload.type} choice`,
                     level: 'INFO',
-                    source: context.source
+                    source: context.source,
+                    action: 'choice_made'
                   }
                 }]
               };
@@ -428,6 +430,7 @@ export class EffectEngineService implements IEffectEngineService {
             const logPayload: LogPayload = {
               source: payload.source || context.source,
               ...context.metadata,
+              action: payload.action,
             };
 
             // Use playerId from context (LOG effects don't have playerId in payload)
@@ -474,7 +477,8 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Player ${payload.playerId} moved to ${payload.destinationSpace} (${reason})`,
                     level: 'INFO',
-                    source
+                    source,
+                    action: 'player_movement'
                   }
                 }]
               };
@@ -885,7 +889,8 @@ export class EffectEngineService implements IEffectEngineService {
                   payload: {
                     message: `Agreement request processed: ${agreementResults.filter(r => r.accepted).length}/${agreementResults.length} players accepted`,
                     level: 'INFO',
-                    source: payload.source || context.source
+                    source: payload.source || context.source,
+                    action: 'negotiation_resolved'
                   }
                 }]
               };

@@ -16,6 +16,7 @@ interface TurnControlsWithActionsProps {
   currentPlayer: Player;
   gamePhase: GamePhase;
   isProcessingTurn: boolean;
+  isProcessingArrival: boolean;
   hasPlayerMovedThisTurn: boolean;
   hasPlayerRolledDice: boolean;
   hasCompletedManualActions: boolean;
@@ -49,6 +50,7 @@ export function TurnControlsWithActions({
   currentPlayer,
   gamePhase,
   isProcessingTurn,
+  isProcessingArrival,
   hasPlayerMovedThisTurn,
   hasPlayerRolledDice,
   hasCompletedManualActions,
@@ -196,12 +198,12 @@ export function TurnControlsWithActions({
   // All players can take actions when it's their turn - currentPlayer is guaranteed to exist
   const isCurrentPlayersTurn = true;
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
-                     !isProcessingTurn && !hasPlayerRolledDice && !hasPlayerMovedThisTurn &&
+                     !isProcessingTurn && !isProcessingArrival && !hasPlayerRolledDice && !hasPlayerMovedThisTurn &&
                      // Allow dice rolling during movement choices - they're independent actions
                      !(awaitingChoice && movementChoice?.type !== 'MOVEMENT') &&
                      currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
   const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
-                    !isProcessingTurn && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
+                    !isProcessingTurn && !isProcessingArrival && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
                     !movementChoice; // Disable end turn if movement choice pending
 
 
@@ -455,7 +457,7 @@ export function TurnControlsWithActions({
         {isCurrentPlayersTurn && canNegotiate && (
           <button
             onClick={onNegotiate}
-            disabled={isProcessingTurn}
+            disabled={isProcessingTurn || isProcessingArrival}
             style={{
               padding: '4px 8px',
               fontSize: '10px',

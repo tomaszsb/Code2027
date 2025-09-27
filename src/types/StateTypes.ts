@@ -67,6 +67,7 @@ export interface GameState {
   hasPlayerRolledDice: boolean;
   isGameOver: boolean;
   isMoving: boolean;
+  isProcessingArrival: boolean;
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;

@@ -66,13 +66,14 @@ export type Effect =
       effectType: 'CHOICE'; 
       payload: Choice; 
     }
-  | { 
-      effectType: 'LOG'; 
-      payload: { 
-        message: string; 
-        level: 'INFO' | 'WARN' | 'ERROR'; 
+  | {
+      effectType: 'LOG';
+      payload: {
+        message: string;
+        level: 'INFO' | 'WARN' | 'ERROR';
         source?: string;
-      }; 
+        action?: string;
+      };
     }
   | {
       effectType: 'PLAYER_MOVEMENT';

@@ -89,7 +89,8 @@ export class NegotiationService {
             payload: {
               message: `Negotiation started by ${player.name || playerId}: ${negotiationId}`,
               level: 'INFO',
-              source: `negotiation:${negotiationId}`
+              source: `negotiation:${negotiationId}`,
+              action: 'negotiation_resolved'
             }
           }
         ]
@@ -201,7 +202,8 @@ export class NegotiationService {
             payload: {
               message: `${player.name || playerId} offered ${offer.cards?.length || 0} cards in negotiation`,
               level: 'INFO',
-              source: `negotiation:${negotiation.negotiationId}`
+              source: `negotiation:${negotiation.negotiationId}`,
+              action: 'negotiation_resolved'
             }
           }
         ]
@@ -266,7 +268,8 @@ export class NegotiationService {
             payload: {
               message: `Negotiation ${negotiationId} was cancelled and player cards restored`,
               level: 'INFO',
-              source: `negotiation:${negotiationId}`
+              source: `negotiation:${negotiationId}`,
+              action: 'negotiation_resolved'
             }
           }
         ]
@@ -320,7 +323,8 @@ export class NegotiationService {
             payload: {
               message: `Negotiation ${negotiationId} completed with agreement`,
               level: 'INFO',
-              source: `negotiation:${negotiationId}`
+              source: `negotiation:${negotiationId}`,
+              action: 'negotiation_resolved'
             }
           }
         ]

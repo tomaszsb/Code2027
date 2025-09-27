@@ -41,6 +41,7 @@ export function GameLayout(): JSX.Element {
   
   // State tracking for TurnControlsWithActions component
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
+  const [isProcessingArrival, setIsProcessingArrival] = useState<boolean>(false);
   const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState<boolean>(false);
   const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState<boolean>(false);
   const [hasCompletedManualActions, setHasCompletedManualActions] = useState<boolean>(false);
@@ -143,6 +144,7 @@ export function GameLayout(): JSX.Element {
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
       setHasCompletedManualActions(Object.keys(gameState.completedActions.manualActions).length > 0);
       setAwaitingChoice(gameState.awaitingChoice !== null);
+      setIsProcessingArrival(gameState.isProcessingArrival || false);
 
       // Update completed actions from game state
       setGameStateCompletedActions(gameState.completedActions);
@@ -410,6 +412,7 @@ export function GameLayout(): JSX.Element {
               currentPlayer={currentPlayer}
               gamePhase={gamePhase}
               isProcessingTurn={isProcessingTurn}
+              isProcessingArrival={isProcessingArrival}
               hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
               hasPlayerRolledDice={hasPlayerRolledDice}
               hasCompletedManualActions={hasCompletedManualActions}

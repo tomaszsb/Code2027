@@ -88,9 +88,18 @@ export class MovementService implements IMovementService {
     this.loggingService.info(`Moved from ${sourceSpace} to ${destinationSpace}`, {
       playerId: playerId,
       playerName: player.name,
-      action: 'movePlayer',
+      action: 'player_movement',
       sourceSpace: sourceSpace,
       destinationSpace: destinationSpace,
+      visitType: newVisitType
+    });
+
+    // Log the space entry (critical for Game Log grouping)
+    this.loggingService.info(`Landed on ${destinationSpace}`, {
+      playerId: playerId,
+      playerName: player.name,
+      action: 'space_entry',
+      spaceName: destinationSpace,
       visitType: newVisitType
     });
 

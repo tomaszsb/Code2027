@@ -40,7 +40,7 @@ export class LoggingService implements ILoggingService {
 
     // Create log entry for action history
     const logEntry: Omit<ActionLogEntry, 'id' | 'timestamp'> = {
-      type: this.mapLogLevelToActionType(level),
+      type: this.determineActionType(level, payload, message),
       playerId: payload.playerId || 'system',
       playerName: playerName || 'System',
       description: message,
@@ -93,12 +93,32 @@ export class LoggingService implements ILoggingService {
     });
   }
 
-  private mapLogLevelToActionType(level: LogLevel): ActionLogEntry['type'] {
-    switch (level) {
-      case LogLevel.ERROR:
-        return 'error_event';
-      default:
-        return 'system_log';
+  private determineActionType(level: LogLevel, payload: LogPayload, message: string): ActionLogEntry['type'] {
+    // Priority 1: Explicit 'action' from the payload is always trusted first.
+    if (payload.action) {
+      const validTypes: string[] = ['space_entry', 'space_effect', 'time_effect', 'dice_roll', 'card_draw', 'resource_change', 'manual_action', 'turn_start', 'turn_end', 'card_play', 'card_transfer', 'card_discard', 'player_movement', 'card_activate', 'card_expire', 'deck_reshuffle', 'game_start', 'game_end', 'error_event', 'choice_made', 'negotiation_resolved', 'system_log'];
+      if (validTypes.includes(payload.action)) {
+        return payload.action as ActionLogEntry['type'];
+      }
     }
+
+    // Priority 2: If no explicit action, infer the type from the log message string.
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage.startsWith('landed on')) return 'space_entry';
+    if (lowerMessage.startsWith('turn') && lowerMessage.endsWith('started')) return 'turn_start';
+    if (lowerMessage.startsWith('turn') && lowerMessage.endsWith('ended')) return 'turn_end';
+    if (lowerMessage.startsWith('rolled a')) return 'dice_roll';
+    if (lowerMessage.startsWith('drew') && lowerMessage.includes('card')) return 'card_draw';
+    if (lowerMessage.startsWith('played')) return 'card_play';
+    if (lowerMessage.startsWith('discarded')) return 'card_discard';
+    if (lowerMessage.startsWith('moved from')) return 'player_movement';
+
+    // Priority 3: Fallback for errors.
+    if (level === LogLevel.ERROR) {
+      return 'error_event';
+    }
+
+    // Default to system_log if no other type can be inferred.
+    return 'system_log';
   }
 }

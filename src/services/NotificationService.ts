@@ -78,14 +78,7 @@ export class NotificationService implements INotificationService {
       this.setPlayerNotification(playerId, content.medium, notificationDuration);
     }
 
-    // 3. GameLog (detailed) - Permanent record with full context
-    if (!skipLog) {
-      this.loggingService.info(content.detailed, {
-        playerId,
-        playerName,
-        actionType
-      });
-    }
+    // 3. GameLog (detailed) - EffectEngine handles logging with better context
   }
 
   private setButtonFeedback(actionType: string, message: string, duration: number): void {

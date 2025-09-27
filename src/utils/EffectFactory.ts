@@ -257,7 +257,8 @@ export class EffectFactory {
         payload: {
           message: `Targeted card played: ${cardName} by player ${playerId} (target: ${card.target})`,
           level: 'INFO',
-          source: cardSource
+          source: cardSource,
+          action: 'card_play'
         }
       });
     }
@@ -268,7 +269,8 @@ export class EffectFactory {
       payload: {
         message: `Card played: ${cardName} by player ${playerId}`,
         level: 'INFO',
-        source: cardSource
+        source: cardSource,
+        action: 'card_play'
       }
     });
 
@@ -292,7 +294,8 @@ export class EffectFactory {
     spaceName: string,
     visitType: 'First' | 'Subsequent',
     spaceConfig?: GameConfig,
-    playerName?: string
+    playerName?: string,
+    skipLogging?: boolean
   ): Effect[] {
     const effects: Effect[] = [];
     const spaceSource = `space:${spaceName}`;
@@ -300,30 +303,34 @@ export class EffectFactory {
     console.log(`🏭 EFFECT_FACTORY: Creating effects from space entry: ${spaceName} (${visitType} visit)`);
     console.log(`   Found ${spaceEffects.length} space effects to process`);
 
-    // Process each space effect
+    // FIRST: Log effect for space entry (must be processed before any other space effects)
+    // Skip logging if this is during game initialization
+    if (!skipLogging) {
+      effects.push({
+        effectType: 'LOG',
+        payload: {
+          message: `Player ${playerName || playerId} entered space: ${spaceName} (${visitType} visit) - ${spaceEffects.length} effects processed${spaceConfig?.action ? `, action: ${spaceConfig.action}` : ''}`,
+          level: 'INFO',
+          source: spaceSource,
+          action: 'space_effect'
+        }
+      });
+    }
+
+    // THEN: Process each space effect
     spaceEffects.forEach((spaceEffect, index) => {
       console.log(`   Processing space effect ${index + 1}: ${spaceEffect.effect_type} - ${spaceEffect.effect_action} ${spaceEffect.effect_value}`);
-      
+
       const effectsFromSpaceEffect = this.parseSpaceEffect(spaceEffect, playerId, spaceSource);
       effects.push(...effectsFromSpaceEffect);
     });
 
-    // Process space action if present
+    // FINALLY: Process space action if present
     if (spaceConfig && spaceConfig.action && spaceConfig.action !== '') {
       console.log(`   Processing space action: ${spaceConfig.action}`);
       const actionEffects = this.createEffectsFromSpaceAction(spaceConfig.action, playerId, spaceName, spaceSource, playerName);
       effects.push(...actionEffects);
     }
-
-    // Log effect for space entry
-    effects.push({
-      effectType: 'LOG',
-      payload: {
-        message: `Player ${playerName || playerId} entered space: ${spaceName} (${visitType} visit) - ${spaceEffects.length} effects processed${spaceConfig?.action ? `, action: ${spaceConfig.action}` : ''}`,
-        level: 'INFO',
-        source: spaceSource
-      }
-    });
 
     console.log(`🏭 EFFECT_FACTORY: Generated ${effects.length} effects from space ${spaceName}`);
     return effects;
@@ -351,7 +358,8 @@ export class EffectFactory {
           payload: {
             message: `Player ${playerName || playerId} triggered regulatory violation at ${spaceName} - penalties applied via existing space effects`,
             level: 'WARN',
-            source: spaceSource
+            source: spaceSource,
+            action: 'space_effect'
           }
         });
         console.log(`   Generated GOTO_JAIL trigger: existing space effects will handle penalties`);
@@ -379,7 +387,8 @@ export class EffectFactory {
           payload: {
             message: `Auction would start here for player ${playerId} at ${spaceName}`,
             level: 'INFO',
-            source: spaceSource
+            source: spaceSource,
+            action: 'space_effect'
           }
         });
         console.log(`   Generated LOG effect: Auction placeholder`);
@@ -430,7 +439,8 @@ export class EffectFactory {
       payload: {
         message: `Player ${playerName || playerId} rolled ${diceResult} at space: ${spaceName} - ${diceEffects.length} effects processed`,
         level: 'INFO',
-        source: diceSource
+        source: diceSource,
+        action: 'dice_roll'
       }
     });
 

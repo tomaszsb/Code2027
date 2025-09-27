@@ -84,7 +84,8 @@ export class CardService implements ICardService {
         this.loggingService.info(`Deck for ${cardType} cards was empty. Discard pile reshuffled.`, {
           playerId: player.id,
           cardType: cardType,
-          reshuffledCount: availableDeck.length
+          reshuffledCount: availableDeck.length,
+          action: 'deck_reshuffle'
         });
       }
 
@@ -125,13 +126,7 @@ export class CardService implements ICardService {
     // Card details logged in action history
     // Deck status logged internally
 
-    // Log to action history
-    this.loggingService.info(`Drew ${drawnCards.length} ${cardType} card${drawnCards.length > 1 ? 's' : ''}`, {
-      playerId: playerId,
-      cardType: cardType,
-      cardCount: drawnCards.length,
-      cards: drawnCards
-    });
+    // EffectEngine handles card draw logging with better context
 
     return drawnCards;
   }
@@ -274,7 +269,8 @@ export class CardService implements ICardService {
       playerId: playerId,
       oldCardId: oldCardId,
       newCardId: newCardId,
-      newCardType: newCardType
+      newCardType: newCardType,
+      action: 'card_discard'
     });
 
     return this.stateService.getGameState();
@@ -451,7 +447,8 @@ export class CardService implements ICardService {
           cardId: cardId,
           cardName: card.card_name,
           cardType: card.card_type,
-          cost: card.cost || 0
+          cost: card.cost || 0,
+          action: 'card_play'
         });
       }
       
@@ -541,7 +538,8 @@ export class CardService implements ICardService {
       playerId: playerId,
       cardId: cardId,
       duration: duration,
-      expirationTurn: expirationTurn
+      expirationTurn: expirationTurn,
+      action: 'card_activate'
     });
   }
 
@@ -599,6 +597,7 @@ export class CardService implements ICardService {
         cardName: card?.card_name,
         cardType: cardType,
         sourcePlayer: sourcePlayer.name,
+        action: 'card_transfer',
         targetPlayer: targetPlayer.name,
         sourcePlayerId: sourcePlayerId,
         targetPlayerId: targetPlayerId
@@ -685,7 +684,8 @@ export class CardService implements ICardService {
           const card = this.dataService.getCardById(expiredCardId);
           this.loggingService.info(`"${card?.card_name}" expired.`, {
             playerId: player.id,
-            cardId: expiredCardId
+            cardId: expiredCardId,
+            action: 'card_expire'
           });
           
           this.moveExpiredCardToDiscarded(player.id, expiredCardId);
@@ -1414,7 +1414,8 @@ export class CardService implements ICardService {
         cardIds: cardIds,
         cardsByType: cardsByType,
         source: sourceInfo,
-        reason: reasonInfo
+        reason: reasonInfo,
+        action: 'card_discard'
       });
 
       return true;

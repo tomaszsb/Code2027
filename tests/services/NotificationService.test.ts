@@ -58,14 +58,7 @@ describe('NotificationService', () => {
       expect(mockNotificationUpdate).toHaveBeenCalledWith({
         player1: '🎲 Rolled 4 → 2 W cards'
       });
-      expect(mockLoggingService.info).toHaveBeenCalledWith(
-        'Alice rolled a 4 and gained: 2 W cards',
-        {
-          playerId: 'player1',
-          playerName: 'Alice',
-          actionType: 'dice_roll'
-        }
-      );
+      // NotificationService no longer logs - EffectEngine handles logging
 
       // Clear previous call history
       mockButtonUpdate.mockClear();
@@ -192,10 +185,7 @@ describe('NotificationService', () => {
       expect(mockNotificationUpdate).toHaveBeenCalledWith({
         player1: '🎲 Rolled 4 → 2 W cards'
       });
-      expect(mockLoggingService.info).toHaveBeenCalledWith(
-        'Alice rolled a 4 and gained: 2 W cards',
-        expect.any(Object)
-      );
+      // NotificationService no longer logs - EffectEngine handles logging
     });
 
     it('should skip notification when skipNotification is true', () => {
@@ -213,10 +203,7 @@ describe('NotificationService', () => {
       expect(mockButtonUpdate).toHaveBeenCalledWith({
         dice_roll: '✓'
       });
-      expect(mockLoggingService.info).toHaveBeenCalledWith(
-        'Alice rolled a 4 and gained: 2 W cards',
-        expect.any(Object)
-      );
+      // NotificationService no longer logs - EffectEngine handles logging
     });
 
     it('should skip logging when skipLog is true', () => {
@@ -355,8 +342,8 @@ describe('NotificationService', () => {
         serviceWithoutCallbacks.notify(sampleContent, sampleOptions);
       }).not.toThrow();
 
-      // Logging should still work
-      expect(mockLoggingService.info).toHaveBeenCalled();
+      // NotificationService no longer logs - EffectEngine handles logging
+      // Test passes if no exception is thrown
     });
 
     it('should update callbacks when setUpdateCallbacks is called again', () => {

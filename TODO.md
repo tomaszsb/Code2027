@@ -1,3 +1,14 @@
+## ✅ **PHASE COMPLETION: Game Log & Turn Sequence Overhaul**
+*Status: COMPLETED September 25, 2025*
+
+A full-stack refactor of the game logging system and core turn logic.
+- **UI Overhaul**: ✅ Implemented a new data-driven Game Log UI with collapsible, color-coded, and correctly sequenced entries.
+- **Core Logic Fix**: ✅ Refactored `TurnService` to unify the turn-start sequence, fixing race conditions and ensuring arrival effects process before player actions.
+- **Logging Architecture**: ✅ Centralized logging responsibility and removed dozens of redundant, low-level log entries.
+- **Known Issue**: The `startGame` function in `GameLayout.tsx` has not been updated to use the new unified `startTurn` function, so the first turn of the game remains out of sequence.
+
+---
+
 # Current Tasks - Code2027 Project
 
 **Last Updated**: September 24, 2025

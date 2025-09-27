@@ -99,7 +99,7 @@ export class TurnService implements ITurnService {
       this.loggingService.info(`Rolled a ${diceRoll}`, {
         playerId: currentPlayer.id,
         playerName: currentPlayer.name,
-        action: 'rollDice',
+        action: 'dice_roll',
         roll: diceRoll,
         space: currentPlayer.currentSpace
       });
@@ -166,7 +166,7 @@ export class TurnService implements ITurnService {
       this.loggingService.info(`Rolled a ${diceRoll}`, {
         playerId: currentPlayer.id,
         playerName: currentPlayer.name,
-        action: 'rollDice',
+        action: 'dice_roll',
         roll: diceRoll,
         space: currentPlayer.currentSpace
       });
@@ -240,16 +240,6 @@ export class TurnService implements ITurnService {
         console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
         await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
 
-        // Process space effects for the NEW space the player just moved to
-        const updatedPlayer = this.stateService.getPlayer(currentPlayer.id);
-        if (updatedPlayer && updatedPlayer.currentSpace !== currentPlayer.currentSpace) {
-          console.log(`🏠 Processing space effects for arrival at ${updatedPlayer.currentSpace}`);
-          await this.processSpaceEffectsAfterMovement(updatedPlayer.id, updatedPlayer.currentSpace, updatedPlayer.visitType);
-
-          // Save snapshot for Try Again feature after space effects are processed
-          this.stateService.savePreSpaceEffectSnapshot(updatedPlayer.id, updatedPlayer.currentSpace);
-          console.log(`📸 Saved Try Again snapshot for ${updatedPlayer.name} at ${updatedPlayer.currentSpace} after space effects`);
-        }
       }
 
       // Check for win condition before ending turn
@@ -363,7 +353,7 @@ export class TurnService implements ITurnService {
     this.loggingService.info(`Turn ${gameState.turn} ended`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
-      action: 'endTurn',
+      action: 'turn_end',
       turn: gameState.turn,
       space: currentPlayer.currentSpace
     });
@@ -440,23 +430,75 @@ export class TurnService implements ITurnService {
     this.loggingService.info(`Turn ${newGameState.turn} started`, {
       playerId: nextPlayer.id,
       playerName: nextPlayer.name,
-      action: 'startTurn',
+      action: 'turn_start',
       turn: newGameState.turn,
       space: nextPlayer.currentSpace
     });
 
-    // Start-of-turn logic: Check for movement choices
+    // Process turn start with unified function (handles all arrival logic and movement choices)
     await this.startTurn(nextPlayer.id);
 
     return { nextPlayerId: nextPlayer.id };
   }
 
   /**
-   * Handles the start-of-turn logic, including checking for movement choices
+   * Unified turn start function with correct sequence:
+   * 1. Lock UI to prevent player actions
+   * 2. Save snapshot for Try Again feature
+   * 3. Process arrival effects of the space
+   * 4. Unlock UI and handle movement choices
    * @private
    */
   private async startTurn(playerId: string): Promise<void> {
-    console.log(`🎬 TurnService.startTurn - Starting turn logic for player ${playerId}`);
+    console.log(`🎬 TurnService.startTurn - Starting unified turn logic for player ${playerId}`);
+
+    try {
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        throw new Error(`Player ${playerId} not found`);
+      }
+
+      console.log(`🏠 Starting turn for ${player.name} at ${player.currentSpace}`);
+
+      // 1. Lock UI to prevent player actions during arrival processing
+      this.stateService.updateGameState({ isProcessingArrival: true });
+
+      // 2. Save snapshot for Try Again feature BEFORE processing effects
+      this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
+      console.log(`📸 Saved Try Again snapshot for ${player.name} at ${player.currentSpace} before space effects`);
+
+      // 3. Log space entry and process arrival effects
+      this.loggingService.info(`Player ${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
+        playerId: player.id,
+        playerName: player.name,
+        action: 'space_entry',
+        spaceName: player.currentSpace,
+        visitType: player.visitType
+      });
+
+      // Process space effects (without logging space entry again since we just did it)
+      await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, true);
+
+      // 4. Unlock UI after processing is complete
+      this.stateService.updateGameState({ isProcessingArrival: false });
+
+      // Handle movement choices after effects are processed
+      await this.handleMovementChoices(player.id);
+
+    } catch (error) {
+      // Ensure UI is unlocked if there's an error
+      this.stateService.updateGameState({ isProcessingArrival: false });
+      console.error(`🚨 TurnService.startTurn - Error during turn start for player ${playerId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handles movement choice logic after arrival effects are processed
+   * @private
+   */
+  private async handleMovementChoices(playerId: string): Promise<void> {
+    console.log(`🎬 TurnService.handleMovementChoices - Checking movement choices for player ${playerId}`);
 
     try {
       // Check if the player's current space requires a movement choice
@@ -584,7 +626,8 @@ export class TurnService implements ITurnService {
           payload: {
             message: `Reviewing project scope for funding level...`,
             level: 'INFO',
-            source: `space:${currentPlayer.currentSpace}:${currentPlayer.visitType}`
+            source: `space:${currentPlayer.currentSpace}:${currentPlayer.visitType}`,
+            action: 'space_effect'
           }
         });
       }
@@ -1383,6 +1426,14 @@ export class TurnService implements ITurnService {
 
     const summary = effects.map(e => e.description).join(', ');
 
+    // Log manual action to action history
+    this.loggingService.info(summary, {
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      action: 'manual_action',
+      effectType: effectType
+    });
+
     // Send Manual Effect notification
     if (this.notificationService) {
       this.notificationService.notify(
@@ -1652,7 +1703,7 @@ export class TurnService implements ITurnService {
     this.loggingService.info(`Re-rolled a ${newDiceRoll}`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
-      action: 'rollDice',
+      action: 'dice_roll',
       roll: newDiceRoll,
       space: currentPlayer.currentSpace,
       isReroll: true
@@ -1697,14 +1748,7 @@ export class TurnService implements ITurnService {
     // Roll dice
     const diceRoll = this.rollDice();
     
-    // Log dice roll to action history
-    this.loggingService.info(`Rolled a ${diceRoll}`, {
-      playerId: currentPlayer.id,
-      playerName: currentPlayer.name,
-      action: 'rollDice',
-      roll: diceRoll,
-      space: currentPlayer.currentSpace
-    });
+    // EffectEngine handles dice roll logging with comprehensive context
     
     // Note: Dice roll logging now handled above in rollDice action
 
@@ -2007,7 +2051,7 @@ export class TurnService implements ITurnService {
    * Process space effects for a player after movement (for arrival effects)
    * This is separate from processTurnEffects which processes effects before movement
    */
-  private async processSpaceEffectsAfterMovement(playerId: string, spaceName: string, visitType: VisitType): Promise<void> {
+  private async processSpaceEffectsAfterMovement(playerId: string, spaceName: string, visitType: VisitType, skipLogging: boolean = false): Promise<void> {
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
@@ -2046,7 +2090,8 @@ export class TurnService implements ITurnService {
         spaceName,
         visitType,
         undefined,
-        currentPlayer?.name
+        currentPlayer?.name,
+        skipLogging
       );
 
       if (spaceEffects.length === 0) {
@@ -2092,22 +2137,63 @@ export class TurnService implements ITurnService {
     const gameState = this.stateService.getGameState();
     const players = gameState.players;
 
-    console.log(`🏁 Processing starting space effects for ${players.length} players`);
+    console.log(`🏁 Processing starting space effects for ${players.length} players using unified logic`);
 
+    // Process starting effects for ALL players in order
+    // This handles initial space effects before any turns begin
     for (const player of players) {
       console.log(`🏠 Processing starting space effects for ${player.name} at ${player.currentSpace}`);
       try {
-        // Create snapshot for Try Again functionality on starting space
-        this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
-        console.log(`📸 Created snapshot for ${player.name} on starting space ${player.currentSpace}`);
-
-        await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType);
+        // Use unified logic but without movement choices (game hasn't started yet)
+        await this.processPlayerStartingEffects(player.id);
       } catch (error) {
         console.error(`❌ Error processing starting space effects for ${player.name}:`, error);
       }
     }
 
     console.log(`✅ Completed processing starting space effects for all players`);
+  }
+
+  /**
+   * Process starting effects for a single player using unified logic
+   * Similar to startTurn but without movement choices (used during game initialization)
+   * @private
+   */
+  private async processPlayerStartingEffects(playerId: string): Promise<void> {
+    try {
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        throw new Error(`Player ${playerId} not found`);
+      }
+
+      // 1. Lock UI (though not strictly necessary during game init)
+      this.stateService.updateGameState({ isProcessingArrival: true });
+
+      // 2. Save snapshot for Try Again feature
+      this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
+      console.log(`📸 Created snapshot for ${player.name} on starting space ${player.currentSpace}`);
+
+      // 3. Log space entry for starting position
+      this.loggingService.info(`Player ${player.name} started at space: ${player.currentSpace} (${player.visitType} visit)`, {
+        playerId: player.id,
+        playerName: player.name,
+        action: 'space_entry',
+        spaceName: player.currentSpace,
+        visitType: player.visitType
+      });
+
+      // Process space effects
+      await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, true);
+
+      // 4. Unlock UI
+      this.stateService.updateGameState({ isProcessingArrival: false });
+
+    } catch (error) {
+      // Ensure UI is unlocked if there's an error
+      this.stateService.updateGameState({ isProcessingArrival: false });
+      console.error(`🚨 Error during starting effects for player ${playerId}:`, error);
+      throw error;
+    }
   }
 
   /**

@@ -138,6 +138,7 @@ const mockMovementService: anyIMovementService = {
   movePlayer: vi.fn(),
   getDiceDestination: vi.fn(),
   handleMovementChoice: vi.fn(),
+  handleMovementChoiceV2: vi.fn(),
 };
 
 const mockNegotiationService = {
@@ -267,6 +268,15 @@ describe('TurnService', () => {
     mockStateService.setCurrentPlayer.mockReturnValue(mockGameState);
     mockStateService.advanceTurn.mockReturnValue(mockGameState);
     mockStateService.clearPlayerHasMoved.mockReturnValue(mockGameState);
+
+    // Setup getPlayer to return the correct player from mockPlayers array
+    mockStateService.getPlayer.mockImplementation(playerId =>
+      mockPlayers.find(p => p.id === playerId) || null
+    );
+
+    // Setup movement service mocks for turn start logic
+    mockMovementService.getValidMoves.mockReturnValue([]);
+    mockMovementService.handleMovementChoiceV2.mockResolvedValue();
     
     // Setup default GameRulesService mock - no win by default
     mockGameRulesService.checkWinCondition.mockResolvedValue(false);

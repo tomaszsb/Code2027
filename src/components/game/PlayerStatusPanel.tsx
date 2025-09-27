@@ -22,6 +22,7 @@ interface PlayerStatusPanelProps {
   currentPlayer: Player;
   gamePhase: import('../../types/StateTypes').GamePhase;
   isProcessingTurn: boolean;
+  isProcessingArrival: boolean;
   hasPlayerMovedThisTurn: boolean;
   hasPlayerRolledDice: boolean;
   hasCompletedManualActions: boolean;
@@ -62,6 +63,7 @@ export function PlayerStatusPanel({
   currentPlayer,
   gamePhase,
   isProcessingTurn,
+  isProcessingArrival,
   hasPlayerMovedThisTurn,
   hasPlayerRolledDice,
   hasCompletedManualActions,
@@ -157,6 +159,7 @@ export function PlayerStatusPanel({
               currentPlayer={currentPlayer}
               gamePhase={gamePhase}
               isProcessingTurn={isProcessingTurn}
+              isProcessingArrival={isProcessingArrival}
               hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
               hasPlayerRolledDice={hasPlayerRolledDice}
               hasCompletedManualActions={hasCompletedManualActions}

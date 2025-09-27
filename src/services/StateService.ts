@@ -834,6 +834,7 @@ export class StateService implements IStateService {
       hasPlayerRolledDice: false,
       isGameOver: false,
       isMoving: false,
+      isProcessingArrival: false,
       // Initialize action tracking
       requiredActions: 1,
       completedActionCount: 0,
