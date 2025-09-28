@@ -71,13 +71,13 @@ export function GameLog(): JSX.Element {
   const groupLogEntries = (entries: ActionLogEntry[]): PlayerGroup[] => {
     // First, separate system/game-wide entries from player-specific entries
     const systemEntries = entries.filter(entry =>
-      entry.playerId === 'SYSTEM' ||
+      entry.playerId.toLowerCase() === 'system' ||
       entry.type === 'game_start' ||
       entry.type === 'game_end'
     );
 
     const playerEntries = entries.filter(entry =>
-      entry.playerId !== 'SYSTEM' &&
+      entry.playerId.toLowerCase() !== 'system' &&
       entry.type !== 'game_start' &&
       entry.type !== 'game_end'
     );
@@ -182,10 +182,14 @@ export function GameLog(): JSX.Element {
 
   // Toggle player expansion
   const togglePlayer = (playerId: string) => {
-    setExpandedPlayers(prev => ({
-      ...prev,
-      [playerId]: !prev[playerId]
-    }));
+    setExpandedPlayers(prev => {
+      const defaultExpanded = playerId !== 'SYSTEM';
+      const currentExpanded = prev[playerId] !== undefined ? prev[playerId] : defaultExpanded;
+      return {
+        ...prev,
+        [playerId]: !currentExpanded
+      };
+    });
   };
 
   // Toggle turn expansion
@@ -248,7 +252,11 @@ export function GameLog(): JSX.Element {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {playerGroups.map((playerGroup, playerIndex) => {
-              const isPlayerExpanded = expandedPlayers[playerGroup.playerId] !== false; // Default to expanded
+              // System player starts collapsed, regular players start expanded
+              const defaultExpanded = playerGroup.playerId !== 'SYSTEM';
+              const isPlayerExpanded = expandedPlayers[playerGroup.playerId] !== undefined
+                ? expandedPlayers[playerGroup.playerId]
+                : defaultExpanded;
               const totalTurns = playerGroup.turnGroups.length;
               const totalActions = playerGroup.turnGroups.reduce((sum, turn) => sum + 1 + turn.children.length, 0);
 

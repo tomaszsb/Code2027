@@ -21,5 +21,21 @@ A full-stack refactor was completed to fix systemic issues in the game log and t
 
 4.  **Data-Driven UI:** The `GameLog.tsx` component is a "dumb" component. It correctly renders parent/child groups based on the `type` of the log entries it receives. All grouping and ordering logic is derived from the chronological `actionLog` array from the `StateService`.
 
-### **Known Issue**
-- The final step of the refactor, which involves updating `GameLayout.tsx` to call the unified `startTurn` function, has not been implemented. As a result, the first turn of the game remains out of sequence.
+### **✅ RESOLVED ISSUES** (September 28, 2025)
+
+All previously identified issues have been successfully resolved:
+
+1. **Fixed First Turn Sequence:** Updated `TurnControls.tsx` to call the unified `startTurn` function, ensuring all game initialization paths follow the proper sequence.
+
+2. **Fixed Turn Numbering:** Turn display is now 1-based instead of 0-based (shows "Turn 1 started" instead of "Turn 0 started").
+
+3. **System Log Management:** System logs now start collapsed by default to reduce UI clutter while remaining accessible for debugging.
+
+4. **Unified System Grouping:** Fixed case-sensitive filtering that was causing multiple System sections in the game log.
+
+### **Current Implementation Status**
+- ✅ **Complete Turn Sequence Control:** All turns (including first turn) follow the unified sequence
+- ✅ **Proper Turn Start Logging:** Every turn gets a "Turn X started" log entry
+- ✅ **Clean UI Experience:** System logs minimized, player actions prominent
+- ✅ **Consistent Log Grouping:** Single System section, proper player grouping
+- ✅ **Architectural Principles Followed:** "The Log Follows the Logic" fully implemented

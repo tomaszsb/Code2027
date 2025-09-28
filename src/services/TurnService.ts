@@ -360,12 +360,13 @@ export class TurnService implements ITurnService {
       });
     }
 
-    // Log turn end for current player
-    this.loggingService.info(`Turn ${gameState.turn} ended`, {
+    // Log turn end for current player (display as 1-based instead of 0-based)
+    const displayTurn = gameState.turn + 1;
+    this.loggingService.info(`Turn ${displayTurn} ended`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
       action: 'turn_end',
-      turn: gameState.turn,
+      turn: displayTurn,
       space: currentPlayer.currentSpace
     });
 
@@ -434,17 +435,8 @@ export class TurnService implements ITurnService {
       );
     }
 
-    // Log turn start for new player
-    const newGameState = this.stateService.getGameState();
-    this.loggingService.info(`Turn ${newGameState.turn} started`, {
-      playerId: nextPlayer.id,
-      playerName: nextPlayer.name,
-      action: 'turn_start',
-      turn: newGameState.turn,
-      space: nextPlayer.currentSpace
-    });
-
     // Process turn start with unified function (handles all arrival logic and movement choices)
+    // Note: startTurn will handle the turn start logging
     await this.startTurn(nextPlayer.id);
 
     return { nextPlayerId: nextPlayer.id };
@@ -466,7 +458,18 @@ export class TurnService implements ITurnService {
         throw new Error(`Player ${playerId} not found`);
       }
 
+      const gameState = this.stateService.getGameState();
       console.log(`🏠 Starting turn for ${player.name} at ${player.currentSpace}`);
+
+      // Log turn start for this player (display as 1-based instead of 0-based)
+      const displayTurn = gameState.turn + 1;
+      this.loggingService.info(`Turn ${displayTurn} started`, {
+        playerId: player.id,
+        playerName: player.name,
+        action: 'turn_start',
+        turn: displayTurn,
+        space: player.currentSpace
+      });
 
       // 1. Start new exploration session for transactional logging
       const sessionId = this.loggingService.startNewExplorationSession();

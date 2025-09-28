@@ -394,6 +394,13 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
         try {
           await turnService.placePlayersOnStartingSpaces();
           console.log('✅ Players placed on starting spaces successfully');
+
+          // Start the first turn (this will create snapshots and mark as initialized)
+          const currentState = stateService.getGameState();
+          if (currentState.currentPlayerId) {
+            console.log('🎬 Starting first turn for game initialization...');
+            await turnService.startTurn(currentState.currentPlayerId);
+          }
         } catch (error) {
           console.error('❌ Error placing players on starting spaces:', error);
         }
