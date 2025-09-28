@@ -389,13 +389,13 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
         // Start the game
         stateService.startGame();
 
-        // Process starting space effects for all players
-        console.log('🏁 Processing starting space effects...');
+        // Place players on starting spaces (no effects processing)
+        console.log('🏁 Placing players on starting spaces...');
         try {
-          await turnService.processStartingSpaceEffects();
-          console.log('✅ Starting space effects processed successfully');
+          await turnService.placePlayersOnStartingSpaces();
+          console.log('✅ Players placed on starting spaces successfully');
         } catch (error) {
-          console.error('❌ Error processing starting space effects:', error);
+          console.error('❌ Error placing players on starting spaces:', error);
         }
       } catch (error) {
         console.error('Error starting game:', error);

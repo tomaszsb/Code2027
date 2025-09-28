@@ -24,6 +24,7 @@ describe('EffectFactory', () => {
       expect(effects[0]).toEqual({
         effectType: 'LOG',
         payload: {
+          action: 'card_play',
           message: 'Card played: Test Card by player player1',
           level: 'INFO',
           source: 'card:TEST001'

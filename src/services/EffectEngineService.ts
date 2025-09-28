@@ -319,7 +319,8 @@ export class EffectEngineService implements IEffectEngineService {
                     message: `Drew ${drawnCards.length} ${payload.cardType} card(s): ${drawnCards.join(', ')}`,
                     level: 'INFO',
                     source,
-                    action: 'card_draw'
+                    action: 'card_draw',
+                    playerId: payload.playerId
                   }
                 }]
               };
@@ -433,8 +434,8 @@ export class EffectEngineService implements IEffectEngineService {
               action: payload.action,
             };
 
-            // Use playerId from context (LOG effects don't have playerId in payload)
-            const playerId = context.playerId;
+            // Check for playerId in payload first, then context
+            const playerId = payload.playerId || context.playerId;
             if (playerId) {
               const player = this.stateService.getPlayer(playerId);
               logPayload.playerId = playerId;

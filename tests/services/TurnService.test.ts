@@ -72,6 +72,8 @@ const mockStateService: anyIStateService = {
   getPreSpaceEffectSnapshot: vi.fn(),
   setGameState: vi.fn(),
   updateGameState: vi.fn(),
+  isInitialized: vi.fn().mockReturnValue(true),
+  markAsInitialized: vi.fn(),
 };
 
 const mockGameRulesService: anyIGameRulesService = {

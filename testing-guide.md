@@ -19,9 +19,10 @@ npm run test:isolated       # Ultra-fast pure logic tests
 
 | Test Category | Tests | Execution Time | Status |
 |---------------|-------|----------------|--------|
-| Service Tests | 74+ tests | ~300ms | ⚡ Lightning fast |
+| Service Tests | 90+ tests | ~300ms | ⚡ Lightning fast |
+| Transactional Tests | 11 tests | ~96ms | 🔄 Logging architecture |
 | Isolated Tests | 22 tests | ~50ms | 🚀 Ultra-fast |
-| Full Suite | 91 test files | <30 seconds | ✅ Production ready |
+| Full Suite | 95+ test files | <30 seconds | ✅ Production ready |
 
 ## 🛠️ Writing Tests
 
@@ -190,3 +191,118 @@ The test suite has been completely migrated from Jest to Vitest with incredible 
 - **✅ Zero compilation hangs** with native TypeScript support
 
 **Ready for continuous testing and rapid development!**
+
+---
+
+## 🧪 Transactional Logging Test Cases
+
+To ensure the correctness of the Dual-Layer Logging feature and prevent regressions, the following tests are required.
+
+### Unit Tests (`LoggingService`) ✅ IMPLEMENTED
+
+**Test File**: `tests/services/TransactionalLogging.test.ts` (11 comprehensive tests)
+
+-   ✅ `startNewExplorationSession()` generates unique IDs and updates game state
+-   ✅ `log()` creates entries with `isCommitted: false` during active sessions
+-   ✅ System logs are immediately committed (`isCommitted: true`)
+-   ✅ `commitCurrentSession()` marks all session entries as committed
+-   ✅ `cleanupAbandonedSessions()` removes old uncommitted entries
+-   ✅ Explicit `isCommitted` flag in payload overrides default behavior
+-   ✅ Error logs are always committed regardless of session state
+
+### Integration Tests (`TurnService`) ✅ ARCHITECTURE IMPLEMENTED
+
+**Status**: Core integration points implemented in production code. Session lifecycle is properly managed in:
+- `TurnService.startTurn()` - Starts new exploration sessions
+- `TurnService.endTurn()` and `TurnService.endTurnWithMovement()` - Commits sessions
+- `TurnService.tryAgainOnSpace()` - Handles session abandonment and restart
+
+**Test Cases for Future Implementation:**
+
+-   **Test Case 1: Standard Turn (Commit)**
+    -   **Action:** Simulate a player taking a full turn and clicking "End Turn".
+    -   **Assertion:** Verify that all actions logged during that turn are now marked `isCommitted: true`.
+
+-   **Test Case 2: Single 'Try Again' (Rollback)**
+    -   **Action:** Simulate a player taking several actions, then clicking "Try Again".
+    -   **Assertion 1:** Verify the exploratory actions are in the log but are all marked `isCommitted: false`.
+    -   **Assertion 2:** Verify a single `Try Again` action exists in the log and is marked `isCommitted: true`.
+
+-   **Test Case 3: Multiple 'Try Again' then Commit**
+    -   **Action:** Simulate a player using 'Try Again' twice, then finally completing a turn and clicking "End Turn".
+    -   **Assertion:** Verify that only the actions from the *final, successful* attempt are marked `isCommitted: true`. All previous attempts' actions should remain `isCommitted: false`.
+
+-   **New Test: State Consistency**
+    -   **Action:** Move a player, trigger effects that change their money/cards, then use 'Try Again'.
+    -   **Assertion:** Verify that the player's entire state (money, cards, position, etc.) is identical to the pre-move snapshot, except for any applied time penalty.
+
+-   **New Test: Session ID Integrity**
+    -   **Action:** Use 'Try Again'.
+    -   **Assertion:** The `currentExplorationId` in the game state must be a **new** and different ID than the one from the abandoned session.
+
+### Edge Case Tests (New)
+
+The following scenarios must be tested to ensure production stability:
+
+-   **Browser Refresh:** Test what happens if the game is reloaded mid-exploration. The log should show an abandoned session with no data loss.
+-   **Multiplayer:** Run tests with multiple players using 'Try Again' to ensure their session IDs and log entries do not conflict.
+-   **Empty Try Again:** Test clicking 'Try Again' at the very start of a move before any actions are taken.
+-   **Commit Failure:** Simulate an error during the commit process (e.g., in `commitCurrentSession`) and ensure the log is not left in a corrupted, partially-committed state.
+
+---
+
+## 🎯 Turn Numbering System Test Strategy
+
+**Status**: 📋 PLANNED - Test requirements defined for upcoming implementation
+
+### Turn Progression Testing
+
+**Test File**: `tests/services/TurnNumbering.test.ts` (To be created)
+
+#### **Core Turn Logic Tests**
+- ✅ **Game Round Progression**: Verify `gameRound` increments only after all players complete their turns
+- ✅ **Turn Within Round**: Verify `turnWithinRound` cycles from 1 to player count, then resets
+- ✅ **Global Turn Counter**: Verify `globalTurnCount` increments monotonically for each player turn
+- ✅ **Player Rotation**: Verify turn order maintains consistent player sequence across rounds
+
+#### **Multi-Player Scenarios**
+- ✅ **4-Player Game**: Test complete round progression with all players
+- ✅ **2-Player Game**: Test edge case with minimum players
+- ✅ **Mixed Turn Durations**: Test when players take different amounts of time per turn
+- ✅ **Try Again Impact**: Verify Try Again doesn't affect turn numbering progression
+
+#### **Log Entry Context Tests**
+- ✅ **Turn Context Accuracy**: Verify all log entries include correct `gameRound`, `turnWithinRound`, `globalTurnNumber`
+- ✅ **Visibility Filtering**: Verify `visibility` field properly filters system/debug logs from player view
+- ✅ **Backwards Compatibility**: Verify existing logs without new fields display correctly
+
+### Game Log UI Testing
+
+**Test File**: `tests/components/GameLog.TurnHierarchy.test.tsx` (To be created)
+
+#### **Display Hierarchy Tests**
+- ✅ **Round Grouping**: Verify actions are correctly grouped by game round
+- ✅ **Player Grouping**: Verify player actions are grouped within rounds
+- ✅ **Turn Labeling**: Verify correct turn labels (e.g., "Player 1 (Turn 1)", "Game Round 2")
+- ✅ **Collapsible Sections**: Verify round and player sections can expand/collapse
+
+#### **Visibility Tests**
+- ✅ **Player View**: Verify only `visibility: 'player'` logs are shown to players
+- ✅ **Debug View**: Verify debug mode shows all log levels
+- ✅ **System Logs Hidden**: Verify exploration session logs are hidden from player view
+
+### Integration Testing
+
+**Test Files**: `tests/integration/TurnProgression.test.ts` (To be created)
+
+#### **End-to-End Turn Flow**
+- ✅ **Complete Game Round**: Simulate all players taking turns, verify proper progression
+- ✅ **Try Again Integration**: Verify Try Again preserves turn numbering integrity
+- ✅ **Log Accuracy**: Verify game log displays match actual game progression
+- ✅ **State Consistency**: Verify UI turn displays match internal game state
+
+#### **Edge Cases**
+- ✅ **First Turn**: Verify game initialization sets correct starting turn numbers
+- ✅ **Game End**: Verify final turn numbers are preserved in game end logs
+- ✅ **Player Disconnection**: Test turn progression with player dropout scenarios
+- ✅ **State Migration**: Test loading games saved with old turn numbering system

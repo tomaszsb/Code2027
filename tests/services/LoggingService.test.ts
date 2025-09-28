@@ -3,6 +3,15 @@ import { LoggingService } from '../../src/services/LoggingService';
 import { IStateService, LogLevel } from '../../src/types/ServiceContracts';
 import { createMockStateService } from '../mocks/mockServices';
 
+// Helper function to create expected log entry with transactional fields
+const expectLogEntry = (baseEntry: any) => {
+  return expect.objectContaining({
+    ...baseEntry,
+    isCommitted: true, // Default for system logs
+    explorationSessionId: expect.stringMatching(/^system_\d+_[a-z0-9]+$/)
+  });
+};
+
 describe('LoggingService', () => {
   let loggingService: LoggingService;
   let mockStateService: vi.Mocked<IStateService>;
@@ -10,8 +19,42 @@ describe('LoggingService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStateService = createMockStateService();
+
+    // Mock getGameState to return a state with the new transactional logging field
+    mockStateService.getGameState.mockReturnValue({
+      players: [],
+      currentPlayerId: null,
+      gamePhase: 'SETUP',
+      turn: 0,
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      isGameOver: false,
+      isMoving: false,
+      isProcessingArrival: false,
+      isInitialized: false,
+      gameStartTime: undefined,
+      gameEndTime: undefined,
+      winner: undefined,
+      currentExplorationSessionId: null, // New field for transactional logging
+      requiredActions: 1,
+      completedActionCount: 0,
+      availableActionTypes: [],
+      completedActions: {
+        diceRoll: undefined,
+        manualActions: {},
+      },
+      activeNegotiation: null,
+      selectedDestination: null,
+      globalActionLog: [],
+      playerSnapshots: {},
+      decks: { W: [], B: [], E: [], L: [], I: [] },
+      discardPiles: { W: [], B: [], E: [], L: [], I: [] }
+    });
+
     loggingService = new LoggingService(mockStateService);
-    
+
     // Mock console methods to avoid spam during tests
     vi.spyOn(console, 'log').mockImplementation();
     vi.spyOn(console, 'warn').mockImplementation();
@@ -27,16 +70,18 @@ describe('LoggingService', () => {
     it('should log info messages correctly', () => {
       loggingService.info('Test info message', { key: 'value' });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
-        type: 'system_log',
-        playerId: 'system',
-        playerName: 'System',
-        description: 'Test info message',
-        details: {
-          level: LogLevel.INFO,
-          key: 'value'
-        }
-      });
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
+          type: 'system_log',
+          playerId: 'system',
+          playerName: 'System',
+          description: 'Test info message',
+          details: {
+            level: LogLevel.INFO,
+            key: 'value'
+          }
+        })
+      );
 
       expect(console.log).toHaveBeenCalledWith('[INFO] Test info message', { key: 'value' });
     });
@@ -44,15 +89,17 @@ describe('LoggingService', () => {
     it('should log warning messages correctly', () => {
       loggingService.warn('Test warning message');
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
-        type: 'system_log',
-        playerId: 'system',
-        playerName: 'System',
-        description: 'Test warning message',
-        details: {
-          level: LogLevel.WARN
-        }
-      });
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
+          type: 'system_log',
+          playerId: 'system',
+          playerName: 'System',
+          description: 'Test warning message',
+          details: {
+            level: LogLevel.WARN
+          }
+        })
+      );
 
       expect(console.warn).toHaveBeenCalledWith('[WARN] Test warning message', {});
     });
@@ -63,7 +110,8 @@ describe('LoggingService', () => {
 
       loggingService.error('Test error message', testError, { context: 'test' });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'error_event',
         playerId: 'system',
         playerName: 'System',
@@ -74,7 +122,8 @@ describe('LoggingService', () => {
           errorMessage: 'Test error',
           errorStack: 'Test stack trace'
         }
-      });
+        })
+      );
 
       expect(console.error).toHaveBeenCalled();
     });
@@ -82,7 +131,8 @@ describe('LoggingService', () => {
     it('should log debug messages correctly', () => {
       loggingService.debug('Test debug message');
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'system',
         playerName: 'System',
@@ -90,7 +140,8 @@ describe('LoggingService', () => {
         details: {
           level: LogLevel.DEBUG
         }
-      });
+        })
+      );
 
       expect(console.debug).toHaveBeenCalled();
     });
@@ -108,7 +159,8 @@ describe('LoggingService', () => {
       loggingService.startPerformanceTimer('test-operation');
       loggingService.endPerformanceTimer('test-operation', 'Test operation completed');
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'system',
         playerName: 'System',
@@ -119,7 +171,8 @@ describe('LoggingService', () => {
           duration: '250.00ms',
           durationMs: 250
         }
-      });
+        })
+      );
     });
 
     it('should handle missing performance timer gracefully', () => {
@@ -170,7 +223,8 @@ describe('LoggingService', () => {
 
       loggingService.info('Player action logged', { playerId: 'player123' });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'player123',
         playerName: 'Alice',
@@ -179,7 +233,8 @@ describe('LoggingService', () => {
           level: LogLevel.INFO,
           playerId: 'player123'
         }
-      });
+        })
+      );
     });
 
     it('should use provided playerName when both playerId and playerName are given', () => {
@@ -188,7 +243,8 @@ describe('LoggingService', () => {
         playerName: 'Explicit Name'
       });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'player123',
         playerName: 'Explicit Name',
@@ -198,7 +254,8 @@ describe('LoggingService', () => {
           playerId: 'player123',
           playerName: 'Explicit Name'
         }
-      });
+        })
+      );
     });
 
     it('should fallback to playerId when player is not found', () => {
@@ -207,7 +264,8 @@ describe('LoggingService', () => {
 
       loggingService.info('Player action logged', { playerId: 'unknown_player' });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'unknown_player',
         playerName: 'unknown_player',
@@ -216,13 +274,15 @@ describe('LoggingService', () => {
           level: LogLevel.INFO,
           playerId: 'unknown_player'
         }
-      });
+        })
+      );
     });
 
     it('should use System for system logs', () => {
       loggingService.info('System message', { playerId: 'system' });
 
-      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith({
+      expect(mockStateService.logToActionHistory).toHaveBeenCalledWith(
+        expectLogEntry({
         type: 'system_log',
         playerId: 'system',
         playerName: 'System',
@@ -231,7 +291,8 @@ describe('LoggingService', () => {
           level: LogLevel.INFO,
           playerId: 'system'
         }
-      });
+        })
+      );
     });
   });
 });

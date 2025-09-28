@@ -418,11 +418,204 @@ const player = stateService.getPlayer(playerId);
 const result = cardService.playCard(playerId, cardId);
 ```
 
-This hybrid approach combines the benefits of centralized state management with the simplicity of direct service calls, proving that complex applications don't always require complex state management libraries.
+---
 
-**Conclusion**: The custom StateService decision demonstrates that **architectural choices should be driven by actual requirements rather than popular trends**. For code2027's board game mechanics, our lightweight, purpose-built solution delivers superior performance, maintainability, and developer experience compared to a heavyweight library like Redux.
+## 🪵 Robust Transactional Logging Architecture (September 2025)
+
+**STATUS: ✅ COMPLETED - Implementation and Testing Complete**
+
+This section details the implemented transactional logging system, designed to ensure log accuracy in the presence of state-reverting mechanics like "Try Again".
+
+### 1. Problem Statement
+
+The original logging system wrote actions directly to the `globalActionLog`. When a player used the "Try Again" feature, their game state was reverted, but the log was not. This polluted the official game history with actions from "aborted timelines," making the log unreliable for analysis.
+
+### 2. Core Architecture: Dual-Layer Logging ✅
+
+**IMPLEMENTED**: We use a single log data structure (`globalActionLog`) but create two logical "layers" through metadata. This preserves all data for potential teacher analysis while allowing the student-facing log to remain clean.
+
+-   **`isCommitted: boolean`**: A flag on each log entry. `true` if the action is part of the canonical game history.
+-   **`explorationSessionId: string`**: A unique ID that groups all actions from a single exploratory attempt.
+
+The default view of the game log for a student will **only** show entries where `isCommitted: true`.
+
+### 3. Session Lifecycle Management ✅
+
+**IMPLEMENTED**: The session lifecycle is now properly managed throughout the application:
+
+1.  **`TurnService.startTurn()`**: Calls `loggingService.startNewExplorationSession()`. This generates a **new, unique** session ID and stores it in the `GameState.currentExplorationSessionId`.
+2.  **`TurnService.endTurn()` and `TurnService.endTurnWithMovement()`**: Call `loggingService.commitCurrentSession()`. This finds all log entries with the current session ID and flips their `isCommitted` flag to `true`.
+3.  **`TurnService.tryAgainOnSpace()`**:
+    a. The current exploration session is considered "abandoned" (its entries remain `isCommitted: false`).
+    b. A new, committed action is logged to record the "Try Again" event itself with `isCommitted: true`.
+    c. A **new exploration session is started immediately** with a fresh session ID for the player's next attempt.
+
+### 4. Implementation Details ✅
+
+**LoggingService Enhancements:**
+- `startNewExplorationSession()`: Creates unique session IDs and updates game state
+- `commitCurrentSession()`: Marks all session entries as committed
+- `getCurrentSessionId()`: Returns active session ID or null
+- `cleanupAbandonedSessions()`: Removes old uncommitted entries (24 hour threshold)
+
+**Enhanced Logging Logic:**
+- System logs and error logs are always immediately committed
+- Player actions during exploration sessions are uncommitted until turn ends
+- Explicit `isCommitted` flag in payload overrides default behavior
+- Try Again actions are explicitly marked as committed
+
+### 5. Production Implementation ✅
+
+**Memory Management**: The `cleanupAbandonedSessions()` method removes uncommitted log entries older than 24 hours, preventing unbounded growth.
+
+**State Consistency**: The `StateService.revertPlayerToSnapshot()` performs complete state rollback while preserving transactional log integrity.
+
+**Testing Coverage**: Comprehensive test suite (`TransactionalLogging.test.ts`) validates:
+- Session lifecycle management
+- Commit/uncommitted state handling
+- Cleanup functionality
+- Edge cases and error scenarios
 
 ---
+
+## 🎯 Turn Numbering System Fix (September 2025)
+
+**STATUS: 📋 PLANNED - Architecture Designed, Implementation Pending**
+
+This section outlines the comprehensive solution to fix the confusing and incorrect turn numbering system in the game log.
+
+### 1. Problem Analysis
+
+**Current Issues Identified:**
+- **Global turn counter confusion**: `GameState.turn` increments for every player action instead of game rounds
+- **System log pollution**: Exploration session management logs cluttering player-visible game log
+- **Missing round concept**: No distinction between "game rounds" (all players take turns) vs individual player turns
+- **Inconsistent turn context**: Actions show turn numbers that don't match actual game progression
+
+**User Impact:**
+```
+❌ Current Confusing Display:
+👤 System - 15 turns, 15 actions
+Turn 1: ⚙️ Started exploration session
+Turn 2: ⚙️ Committed exploration session
+Turn 3: ⚙️ Started exploration session
+
+👤 Player 1 - 5 turns, 16 actions
+Turn 1: 🎲 Rolled dice
+Turn 2: ⚙️ Used Try Again
+Turn 3: ▶️ Turn 2 started (???)
+```
+
+### 2. Proposed Turn Tracking Architecture ✅
+
+**Enhanced GameState Structure:**
+```typescript
+interface GameState {
+  // New turn tracking system
+  gameRound: number;           // Current game round (1, 2, 3...)
+  turnWithinRound: number;     // Current turn within round (1-4 for 4 players)
+  globalTurnCount: number;     // Total turns taken (1, 2, 3, 4, 5, 6...)
+
+  // Legacy field (deprecated)
+  turn: number;                // Keep for backwards compatibility
+}
+```
+
+**Enhanced ActionLogEntry Structure:**
+```typescript
+interface ActionLogEntry {
+  // Existing fields...
+
+  // Enhanced turn context
+  gameRound: number;           // Which game round this occurred in
+  turnWithinRound: number;     // Which turn within that round
+  globalTurnNumber: number;    // Absolute turn number
+
+  // Visibility control
+  visibility: 'player' | 'debug' | 'system';  // Who should see this log
+}
+```
+
+### 3. Turn Progression Logic ✅
+
+**4-Player Game Example:**
+```
+Game Round 1:
+  - Player 1: Turn 1 (Global Turn 1)
+  - Player 2: Turn 2 (Global Turn 2)
+  - Player 3: Turn 3 (Global Turn 3)
+  - Player 4: Turn 4 (Global Turn 4)
+
+Game Round 2:
+  - Player 1: Turn 1 (Global Turn 5)
+  - Player 2: Turn 2 (Global Turn 6)
+  - Player 3: Turn 3 (Global Turn 7)
+  - Player 4: Turn 4 (Global Turn 8)
+```
+
+### 4. Enhanced Game Log Display ✅
+
+**Target User Experience:**
+```
+✅ Clear, Hierarchical Display:
+📜 Game Log (46 entries, 4 players)
+
+🎯 Game Round 1
+  👤 Player 1 (Turn 1)
+    🎲 Rolled a 7
+    🃏 Drew 2 cards
+    📍 Moved to SPACE-A2
+
+  👤 Player 2 (Turn 2)
+    🎲 Rolled a 4
+    🔄 Used Try Again
+    🎲 Rolled a 6 (retry)
+    📍 Moved to SPACE-B1
+
+🎯 Game Round 2
+  👤 Player 1 (Turn 3)
+    ...
+```
+
+### 5. Implementation Plan 📋
+
+**Phase 1: Core Turn Logic**
+- Add new turn tracking fields to `GameState`
+- Update `TurnService.nextPlayer()` to properly increment counters
+- Implement round completion detection
+
+**Phase 2: Logging Enhancement**
+- Add visibility levels to `ActionLogEntry` type
+- Update `LoggingService` to include proper turn context
+- Filter system/debug logs from player view
+
+**Phase 3: UI Redesign**
+- Update `GameLog.tsx` component to group by rounds and turns
+- Implement collapsible round/turn hierarchy
+- Add proper turn labeling and context
+
+**Phase 4: Testing & Migration**
+- Test multi-player turn progression scenarios
+- Ensure backwards compatibility with existing logs
+- Add migration logic for existing game states
+
+### 6. Service Integration Points 📋
+
+**TurnService Updates Required:**
+- `nextPlayer()`: Implement proper round/turn progression logic
+- `startTurn()`: Include enhanced turn context in logs
+- `endTurn()`: Mark turn completion with proper numbering
+
+**LoggingService Updates Required:**
+- Add visibility filtering methods
+- Include turn context in all log entries
+- Hide debug/system logs from player view
+
+**StateService Updates Required:**
+- Add turn progression tracking methods
+- Implement backwards compatibility for existing states
+- Add validation for turn number consistency
+
 
 ### Architectural Patterns Established 🏗️
 

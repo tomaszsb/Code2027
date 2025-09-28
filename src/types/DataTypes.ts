@@ -127,6 +127,7 @@ export interface Player {
     skipTurns: number;
     canReRoll?: boolean; // Allow re-roll if player doesn't like dice outcome
   };
+  usedTryAgain?: boolean; // Flag to track if player used Try Again and should not auto-move
   activeEffects: ActiveEffect[]; // Duration-based effects that persist across turns
   loans: Loan[]; // Player's outstanding loans with interest
   score: number; // Player's calculated final score

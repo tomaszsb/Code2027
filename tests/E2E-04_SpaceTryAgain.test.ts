@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { StateService } from '../src/services/StateService';
 import { DataService } from '../src/services/DataService';
 import { CardService } from '../src/services/CardService';
@@ -81,7 +82,10 @@ describe('E2E-04: Space Try Again Logic', () => {
     stateService.addPlayer('Player A');
     stateService.addPlayer('Player B');
     stateService.startGame();
-    
+
+    // Mark as initialized so we can test the Try Again logic specifically
+    stateService.markAsInitialized();
+
     const players = stateService.getGameState().players;
     const playerA = players[0];
     const playerB = players[1];
@@ -134,6 +138,10 @@ describe('E2E-04: Space Try Again Logic', () => {
     stateService.resetGame();
     stateService.addPlayer('Player C');
     stateService.startGame();
+
+    // Mark as initialized so we can test the snapshot logic specifically
+    stateService.markAsInitialized();
+
     const playerC = stateService.getGameState().players[0];
 
     // Ensure no snapshot is present
@@ -142,5 +150,18 @@ describe('E2E-04: Space Try Again Logic', () => {
     const result = await turnService.tryAgainOnSpace(playerC.id);
     expect(result.success).toBe(false);
     expect(result.message).toContain('No snapshot available');
+  });
+
+  it('should fail gracefully if game is not initialized (race condition prevention)', async () => {
+    stateService.resetGame();
+    stateService.addPlayer('Player D');
+    stateService.startGame();
+
+    // Do NOT call markAsInitialized() to simulate the race condition
+    const playerD = stateService.getGameState().players[0];
+
+    const result = await turnService.tryAgainOnSpace(playerD.id);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Game is still initializing');
   });
 });

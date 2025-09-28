@@ -38,8 +38,9 @@ beforeEach(() => {
   testStartTime = performance.now();
 });
 
-// Mock window and DOM globals for jsdom environment
-Object.defineProperty(window, 'matchMedia', {
+// Mock window and DOM globals for jsdom environment only
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
     matches: false,
@@ -51,14 +52,15 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
-});
+  });
 
-// Mock IntersectionObserver for components that might use it
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+  // Mock IntersectionObserver for components that might use it
+  global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }));
+}
 
 // Mock ResizeObserver
 global.ResizeObserver = vi.fn().mockImplementation(() => ({

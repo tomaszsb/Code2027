@@ -38,6 +38,16 @@ export class LoggingService implements ILoggingService {
       playerName = player?.name || payload.playerId;
     }
 
+    // Get current session ID or generate a default one for system logs
+    const currentSessionId = this.getCurrentSessionId();
+    const sessionId = currentSessionId || `system_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+    // Determine if this should be immediately committed
+    // Check if payload explicitly specifies isCommitted, otherwise use default logic
+    const isCommitted = payload.isCommitted !== undefined
+      ? payload.isCommitted
+      : (!currentSessionId || payload.playerId === 'system' || level === LogLevel.ERROR);
+
     // Create log entry for action history
     const logEntry: Omit<ActionLogEntry, 'id' | 'timestamp'> = {
       type: this.determineActionType(level, payload, message),
@@ -47,7 +57,9 @@ export class LoggingService implements ILoggingService {
       details: {
         level: level,
         ...payload
-      }
+      },
+      isCommitted,
+      explorationSessionId: sessionId
     };
 
     // Persist to action history
@@ -120,5 +132,103 @@ export class LoggingService implements ILoggingService {
 
     // Default to system_log if no other type can be inferred.
     return 'system_log';
+  }
+
+  // Transactional logging session management methods
+
+  /**
+   * Starts a new exploration session and returns the session ID.
+   * This should be called when a player starts a turn or begins exploring actions.
+   */
+  startNewExplorationSession(): string {
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Update the current exploration session ID in game state
+    const gameState = this.stateService.getGameState();
+    this.stateService.updateGameState({
+      ...gameState,
+      currentExplorationSessionId: sessionId
+    });
+
+    this.debug(`Started new exploration session: ${sessionId}`, {
+      sessionId,
+      action: 'system_log'
+    });
+
+    return sessionId;
+  }
+
+  /**
+   * Commits the current exploration session by marking all entries
+   * with the current session ID as committed (isCommitted = true).
+   */
+  commitCurrentSession(): void {
+    const currentSessionId = this.getCurrentSessionId();
+    if (!currentSessionId) {
+      this.warn('Attempted to commit session but no current session exists');
+      return;
+    }
+
+    // Get all uncommitted entries for this session and mark them as committed
+    const gameState = this.stateService.getGameState();
+    const updatedActionLog = gameState.globalActionLog.map(entry => {
+      if (entry.explorationSessionId === currentSessionId && !entry.isCommitted) {
+        return { ...entry, isCommitted: true };
+      }
+      return entry;
+    });
+
+    // Update the game state with committed entries and clear current session
+    this.stateService.updateGameState({
+      ...gameState,
+      globalActionLog: updatedActionLog,
+      currentExplorationSessionId: null
+    });
+
+    this.debug(`Committed exploration session: ${currentSessionId}`, {
+      sessionId: currentSessionId,
+      action: 'system_log'
+    });
+  }
+
+  /**
+   * Returns the current exploration session ID, or null if no session is active.
+   */
+  getCurrentSessionId(): string | null {
+    const gameState = this.stateService.getGameState();
+    return gameState.currentExplorationSessionId;
+  }
+
+  /**
+   * Cleans up abandoned sessions by removing uncommitted log entries
+   * older than a specified time threshold.
+   */
+  cleanupAbandonedSessions(): void {
+    const gameState = this.stateService.getGameState();
+    const currentTime = new Date();
+    const threshold = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+    // Remove uncommitted entries older than threshold
+    const cleanedActionLog = gameState.globalActionLog.filter(entry => {
+      if (!entry.isCommitted) {
+        const entryAge = currentTime.getTime() - entry.timestamp.getTime();
+        return entryAge < threshold;
+      }
+      return true; // Keep all committed entries
+    });
+
+    const removedCount = gameState.globalActionLog.length - cleanedActionLog.length;
+
+    if (removedCount > 0) {
+      this.stateService.updateGameState({
+        ...gameState,
+        globalActionLog: cleanedActionLog
+      });
+
+      this.info(`Cleaned up ${removedCount} abandoned log entries`, {
+        removedCount,
+        action: 'system_log'
+      });
+    }
   }
 }

@@ -73,6 +73,7 @@ export type Effect =
         level: 'INFO' | 'WARN' | 'ERROR';
         source?: string;
         action?: string;
+        playerId?: string;
       };
     }
   | {

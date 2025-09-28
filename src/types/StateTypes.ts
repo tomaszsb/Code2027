@@ -12,6 +12,9 @@ export interface ActionLogEntry {
   playerName: string;
   description: string;
   details?: Record<string, any>;
+  // Transactional logging fields for "Try Again" support
+  isCommitted: boolean; // true if action is part of canonical game history
+  explorationSessionId: string; // unique ID grouping all actions from a single exploratory attempt
 }
 
 
@@ -68,9 +71,12 @@ export interface GameState {
   isGameOver: boolean;
   isMoving: boolean;
   isProcessingArrival: boolean;
+  isInitialized: boolean; // Flag to indicate game state is fully set up
   gameStartTime?: Date;
   gameEndTime?: Date;
   winner?: string;
+  // Transactional logging session tracking
+  currentExplorationSessionId: string | null;
   // Action tracking for turn management
   requiredActions: number;
   completedActionCount: number;
@@ -156,6 +162,7 @@ export interface PlayerUpdateData {
     skipTurns: number;
     canReRoll?: boolean;
   };
+  usedTryAgain?: boolean;
   activeEffects?: ActiveEffect[];
   loans?: import('./DataTypes').Loan[];
   score?: number;

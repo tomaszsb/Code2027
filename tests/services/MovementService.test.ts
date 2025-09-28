@@ -303,7 +303,7 @@ describe('MovementService', () => {
 
     it('should throw error for invalid destination', async () => {
       await expect(movementService.movePlayer('player1', 'INVALID-DESTINATION')).rejects.toThrow(
-        'Invalid move: INVALID-DESTINATION is not a valid destination from current position'
+        'Invalid move: INVALID-DESTINATION is not a valid destination from START-QUICK-PLAY-GUIDE'
       );
     });
 

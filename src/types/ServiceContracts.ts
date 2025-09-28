@@ -37,6 +37,11 @@ export interface ILoggingService {
   log(level: LogLevel, message: string, payload?: LogPayload): void;
   startPerformanceTimer(key: string): void;
   endPerformanceTimer(key: string, message?: string): void;
+  // Transactional logging session management
+  startNewExplorationSession(): string;
+  commitCurrentSession(): void;
+  getCurrentSessionId(): string | null;
+  cleanupAbandonedSessions(): void;
 }
 
 import { 
@@ -204,6 +209,10 @@ export interface IStateService {
   // Validation methods
   validatePlayerAction(playerId: string, action: string): boolean;
   canStartGame(): boolean;
+
+  // Initialization methods
+  isInitialized(): boolean;
+  markAsInitialized(): GameState;
   
   // Action logging methods
   logToActionHistory(actionData: Omit<import('./StateTypes').ActionLogEntry, 'id' | 'timestamp'>): GameState;
@@ -218,6 +227,7 @@ export interface IStateService {
   hasPreSpaceEffectSnapshot(playerId: string, spaceName: string): boolean;
   getPreSpaceEffectSnapshot(): GameState | null;
   getPlayerSnapshot(playerId: string): GameState | null;
+  revertPlayerToSnapshot(playerId: string, timePenalty?: number): GameState;
   
   // State management methods
   setGameState(newState: GameState): GameState;
@@ -237,7 +247,7 @@ export interface ITurnService {
   
   // Separate dice and movement methods
   rollDiceAndProcessEffects(playerId: string): Promise<{ diceRoll: number }>;
-  endTurnWithMovement(): Promise<{ nextPlayerId: string }>;
+  endTurnWithMovement(force?: boolean): Promise<{ nextPlayerId: string }>;
   
   // Turn validation methods  
   canPlayerTakeTurn(playerId: string): boolean;
@@ -250,7 +260,10 @@ export interface ITurnService {
   setTurnModifier(playerId: string, action: 'SKIP_TURN'): boolean;
 
   // Starting space effects processing
-  processStartingSpaceEffects(): Promise<void>;
+  placePlayersOnStartingSpaces(): Promise<void>;
+
+  // Turn initialization for game startup
+  startTurn(playerId: string): Promise<void>;
   
   // Feedback methods for UI components
   rollDiceWithFeedback(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
@@ -312,6 +325,7 @@ export interface IMovementService {
   
   // Movement execution methods
   movePlayer(playerId: string, destinationSpace: string): Promise<GameState>;
+  endMove(playerId: string): Promise<GameState>;
   
   // Dice-based movement methods
   getDiceDestination(spaceName: string, visitType: VisitType, diceRoll: number): string | null;

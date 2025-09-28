@@ -47,19 +47,19 @@ export class StateService implements IStateService {
 
   // State access methods
   getGameState(): GameState {
-    // Return copies to prevent external mutations
+    // Return deep copies to prevent external mutations
     return {
       ...this.currentState,
-      players: [...this.currentState.players] // Return shallow copy of array
+      players: this.currentState.players.map(player => ({
+        ...player,
+        hand: [...player.hand]
+      }))
     };
   }
 
-  // Method for when deep cloning is actually needed
+  // Method for explicit deep cloning (same as getGameState now)
   getGameStateDeepCopy(): GameState {
-    return {
-      ...this.currentState,
-      players: this.currentState.players.map(player => ({ ...player, hand: [...player.hand] }))
-    };
+    return this.getGameState();
   }
 
   isStateLoaded(): boolean {
@@ -278,16 +278,18 @@ export class StateService implements IStateService {
       gameStartTime: new Date(),
       currentPlayerId: this.currentState.players.length > 0 ? this.currentState.players[0].id : null,
       decks,
-      discardPiles
+      discardPiles,
+      isInitialized: false // Game is not fully initialized until players are placed
     };
 
     this.currentState = newState;
-    
+
     // Initialize action counts for the first player
     this.updateActionCounts();
-    
+
     console.log(`🎴 DECK_INIT: Created shuffled decks - W:${decks.W.length}, B:${decks.B.length}, E:${decks.E.length}, L:${decks.L.length}, I:${decks.I.length}`);
-    
+    console.log('⏳ Game started but not yet initialized - waiting for player placement');
+
     return { ...this.currentState };
   }
 
@@ -554,6 +556,24 @@ export class StateService implements IStateService {
     return this.currentState.players.length >= 1 && this.currentState.players.length <= 6;
   }
 
+  // Initialization methods
+  isInitialized(): boolean {
+    return this.currentState.isInitialized;
+  }
+
+  markAsInitialized(): GameState {
+    const newState: GameState = {
+      ...this.currentState,
+      isInitialized: true
+    };
+
+    this.currentState = newState;
+    this.notifyListeners();
+    console.log('🎯 Game marked as fully initialized');
+
+    return { ...this.currentState };
+  }
+
   // Modal management methods
   showCardModal(cardId: string): GameState {
     const newState: GameState = {
@@ -805,6 +825,72 @@ export class StateService implements IStateService {
     return playerSnapshot?.gameState || null;
   }
 
+  /**
+   * Revert a specific player to their saved snapshot state
+   * This is an atomic state operation that handles all the complexity of state reversion
+   * @param playerId - The ID of the player to revert
+   * @returns The updated game state
+   * @throws Error if no snapshot exists for the player
+   */
+  public revertPlayerToSnapshot(playerId: string, timePenalty: number = 0): GameState {
+    console.log(`🔄 Reverting player ${playerId} to snapshot state with ${timePenalty} time penalty`);
+
+    // 1. Perform validation: Ensure a snapshot exists for the given playerId
+    const playerSnapshot = this.currentState.playerSnapshots[playerId];
+    if (!playerSnapshot || !playerSnapshot.gameState) {
+      throw new Error(`No snapshot exists for player ${playerId}`);
+    }
+
+    // 2. Get the snapshot state
+    const snapshotState = playerSnapshot.gameState;
+
+    // 3. Find the snapshotPlayerState from the snapshot's players array
+    const snapshotPlayerState = snapshotState.players.find(p => p.id === playerId);
+    if (!snapshotPlayerState) {
+      throw new Error(`Player ${playerId} not found in snapshot state`);
+    }
+
+    // 4. Create a newPlayers array by mapping over the current state's players array
+    const newPlayers = this.currentState.players.map(player => {
+      // 5. If player's ID matches playerId, replace with snapshotPlayerState + time penalty, otherwise keep current
+      if (player.id === playerId) {
+        return {
+          ...snapshotPlayerState,
+          timeSpent: snapshotPlayerState.timeSpent + timePenalty
+        };
+      } else {
+        return { ...player };
+      }
+    });
+
+    // 6. Create a newState object by spreading this.currentState
+    const newState: GameState = {
+      ...this.currentState,
+      // 7. Update with the newPlayers array
+      players: newPlayers,
+      // 8. Crucially, reset all turn-specific action flags
+      hasPlayerRolledDice: false,
+      hasPlayerMovedThisTurn: false,
+      completedActionCount: 0,
+      completedActions: {
+        diceRoll: undefined,
+        manualActions: {}
+      },
+      requiredActions: 1
+    };
+
+    // 9. Set this.currentState = newState
+    this.currentState = newState;
+
+    // 10. Call this.notifyListeners()
+    this.notifyListeners();
+
+    console.log(`✅ Player ${playerId} reverted to snapshot state`);
+
+    // 11. Return the new state
+    return newState;
+  }
+
   setGameState(newState: GameState): GameState {
     console.log('🔧 Setting entire game state atomically');
     this.currentState = newState;
@@ -835,6 +921,7 @@ export class StateService implements IStateService {
       isGameOver: false,
       isMoving: false,
       isProcessingArrival: false,
+      isInitialized: false, // Game starts uninitialized
       // Initialize action tracking
       requiredActions: 1,
       completedActionCount: 0,
@@ -849,6 +936,8 @@ export class StateService implements IStateService {
       selectedDestination: null as string | null,
       // Initialize global action log
       globalActionLog: [],
+      // Initialize transactional logging session tracking
+      currentExplorationSessionId: null,
       // Initialize Try Again snapshots (per player)
       playerSnapshots: {},
       // Initialize empty decks and discard piles (will be populated in startGame)

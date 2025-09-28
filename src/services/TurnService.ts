@@ -195,7 +195,7 @@ export class TurnService implements ITurnService {
    * Handle movement and advance to next player
    * This is for the "End Turn" button
    */
-  async endTurnWithMovement(): Promise<{ nextPlayerId: string }> {
+  async endTurnWithMovement(force: boolean = false): Promise<{ nextPlayerId: string }> {
     console.log(`🏁 TurnService.endTurnWithMovement - Starting`);
     
     try {
@@ -217,8 +217,8 @@ export class TurnService implements ITurnService {
         throw new Error('Current player not found');
       }
 
-      // Validation: Check if all required actions are completed
-      if (gameState.requiredActions > gameState.completedActionCount) {
+      // Validation: Check if all required actions are completed (skip if force = true for Try Again)
+      if (!force && gameState.requiredActions > gameState.completedActionCount) {
         throw new Error(`Cannot end turn: Player has not completed all required actions. Required: ${gameState.requiredActions}, Completed: ${gameState.completedActionCount}`);
       }
 
@@ -233,13 +233,16 @@ export class TurnService implements ITurnService {
       console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
       await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
-      // Handle single-step movement (no choices)
-      const validMoves = this.movementService.getValidMoves(currentPlayer.id);
-      if (validMoves.length === 1) {
-        // Only one move available - perform automatic movement
-        console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
-        await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
-
+      // Handle single-step movement (no choices) - but skip if player used Try Again
+      if (!currentPlayer.usedTryAgain) {
+        const validMoves = this.movementService.getValidMoves(currentPlayer.id);
+        if (validMoves.length === 1) {
+          // Only one move available - perform automatic movement
+          console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
+          await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
+        }
+      } else {
+        console.log(`🔄 Skipping auto-movement for ${currentPlayer.name} - used Try Again`);
       }
 
       // Check for win condition before ending turn
@@ -249,6 +252,10 @@ export class TurnService implements ITurnService {
         this.stateService.endGame(gameState.currentPlayerId);
         return { nextPlayerId: gameState.currentPlayerId }; // Winner remains current player
       }
+
+      // Commit current exploration session before advancing to next player
+      this.loggingService.commitCurrentSession();
+      console.log(`🔄 Committed exploration session for current player turn`);
 
       // Advance to next player
       const nextPlayerResult = await this.nextPlayer();
@@ -308,6 +315,10 @@ export class TurnService implements ITurnService {
       return { nextPlayerId: winnerId || gameState.currentPlayerId };
     }
 
+    // Commit current exploration session before advancing to next player
+    this.loggingService.commitCurrentSession();
+    console.log(`🔄 Committed exploration session for current player turn`);
+
     // Use the common nextPlayer method
     return await this.nextPlayer();
   }
@@ -366,9 +377,10 @@ export class TurnService implements ITurnService {
     let nextPlayerIndex = (currentPlayerIndex + 1) % allPlayers.length;
     let nextPlayer = allPlayers[nextPlayerIndex];
 
-    // Check if the next player has turn modifiers (turn skips)
-    const turnModifiers = nextPlayer.turnModifiers;
-    if (turnModifiers && turnModifiers.skipTurns > 0) {
+    // Use while loop to handle multiple consecutive turn skips without recursion
+    while (nextPlayer.turnModifiers && nextPlayer.turnModifiers.skipTurns > 0) {
+      const turnModifiers = nextPlayer.turnModifiers;
+
       // Log turn skip
       this.loggingService.info(`Turn skipped (${turnModifiers.skipTurns} remaining)`, {
         playerId: nextPlayer.id,
@@ -377,24 +389,21 @@ export class TurnService implements ITurnService {
         skipCount: turnModifiers.skipTurns,
         reason: 'effect_modifier'
       });
-      
+
       // Decrement skip count
       const newModifiers = { ...turnModifiers, skipTurns: turnModifiers.skipTurns - 1 };
       this.stateService.updatePlayer({ id: nextPlayer.id, turnModifiers: newModifiers });
-      
+
       // If no more skips remaining, clean up
       if (newModifiers.skipTurns <= 0) {
         const restoredModifiers = { ...newModifiers, skipTurns: 0 };
         this.stateService.updatePlayer({ id: nextPlayer.id, turnModifiers: restoredModifiers });
         // Skip turns cleared
       }
-      
-      // Recursively call nextPlayer to skip to the following player
-      // But first update current player to the skipped player so the recursion works correctly
-      this.stateService.setCurrentPlayer(nextPlayer.id);
-      // Advancing to next player
-      
-      return await this.nextPlayer();
+
+      // Move to the next player in sequence
+      nextPlayerIndex = (nextPlayerIndex + 1) % allPlayers.length;
+      nextPlayer = this.stateService.getGameState().players[nextPlayerIndex]; // Get fresh player data
     }
 
     // Update the current player in the game state
@@ -447,9 +456,8 @@ export class TurnService implements ITurnService {
    * 2. Save snapshot for Try Again feature
    * 3. Process arrival effects of the space
    * 4. Unlock UI and handle movement choices
-   * @private
    */
-  private async startTurn(playerId: string): Promise<void> {
+  public async startTurn(playerId: string): Promise<void> {
     console.log(`🎬 TurnService.startTurn - Starting unified turn logic for player ${playerId}`);
 
     try {
@@ -460,26 +468,27 @@ export class TurnService implements ITurnService {
 
       console.log(`🏠 Starting turn for ${player.name} at ${player.currentSpace}`);
 
-      // 1. Lock UI to prevent player actions during arrival processing
+      // 1. Start new exploration session for transactional logging
+      const sessionId = this.loggingService.startNewExplorationSession();
+      console.log(`🔄 Started exploration session ${sessionId} for ${player.name}`);
+
+      // 2. Lock UI to prevent player actions during arrival processing
       this.stateService.updateGameState({ isProcessingArrival: true });
 
-      // 2. Save snapshot for Try Again feature BEFORE processing effects
+      // 3. Save snapshot for Try Again feature BEFORE processing effects
       this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
       console.log(`📸 Saved Try Again snapshot for ${player.name} at ${player.currentSpace} before space effects`);
 
-      // 3. Log space entry and process arrival effects
-      this.loggingService.info(`Player ${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
-        playerId: player.id,
-        playerName: player.name,
-        action: 'space_entry',
-        spaceName: player.currentSpace,
-        visitType: player.visitType
-      });
+      // Mark game as fully initialized now that snapshots are available
+      if (!this.stateService.isInitialized()) {
+        this.stateService.markAsInitialized();
+        console.log('🎯 Game marked as fully initialized - Try Again now available');
+      }
 
-      // Process space effects (without logging space entry again since we just did it)
-      await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, true);
+      // 4. Process space effects (including space entry logging as first effect)
+      await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, false);
 
-      // 4. Unlock UI after processing is complete
+      // 5. Unlock UI after processing is complete
       this.stateService.updateGameState({ isProcessingArrival: false });
 
       // Handle movement choices after effects are processed
@@ -1498,16 +1507,27 @@ export class TurnService implements ITurnService {
    * @param playerId - The player trying again
    * @returns Promise resolving to the action result
    */
-  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string }> {
+  async tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }> {
     console.log(`🔄 Try Again requested for player ${playerId}`);
-    
+
     try {
+      // 0. Check if game is fully initialized (prevent race condition on first turn)
+      if (!this.stateService.isInitialized()) {
+        console.log('🚫 Try Again blocked - game not fully initialized');
+        return {
+          success: false,
+          message: 'Game is still initializing - Try Again will be available shortly',
+          shouldAdvanceTurn: false
+        };
+      }
+
       // 1. Get the current player to determine their space
       const currentPlayer = this.stateService.getPlayer(playerId);
       if (!currentPlayer) {
         return {
           success: false,
-          message: 'Player not found'
+          message: 'Player not found',
+          shouldAdvanceTurn: false
         };
       }
 
@@ -1515,7 +1535,8 @@ export class TurnService implements ITurnService {
       if (!this.stateService.hasPreSpaceEffectSnapshot(playerId, currentPlayer.currentSpace)) {
         return {
           success: false,
-          message: 'No snapshot available - Try Again not possible at this time'
+          message: 'No snapshot available - Try Again not possible at this time',
+          shouldAdvanceTurn: false
         };
       }
 
@@ -1538,7 +1559,8 @@ export class TurnService implements ITurnService {
       if (!spaceContent || !spaceContent.can_negotiate) {
         return {
           success: false,
-          message: 'Try again not available on this space'
+          message: 'Try again not available on this space',
+          shouldAdvanceTurn: false
         };
       }
 
@@ -1550,81 +1572,41 @@ export class TurnService implements ITurnService {
 
       console.log(`⏰ Applying ${timePenalty} day penalty for Try Again on ${snapshotPlayer.currentSpace}`);
 
-      // 4. Get current game state to preserve turn context
-      const currentGameState = this.stateService.getGameState();
-
-      // 5. Create a new state object preserving current game state but reverting specific player
-      // Only revert the player who used Try Again, preserve all other players' current state
-      const newStateObject: GameState = {
-        ...currentGameState, // Start with current game state
-        players: currentGameState.players.map(player => {
-          if (player.id === playerId) {
-            // Revert this player to their snapshot state
-            const snapshotPlayerState = snapshotState.players.find(p => p.id === playerId);
-            return snapshotPlayerState ? { ...snapshotPlayerState } : player;
-          } else {
-            // Preserve other players' current state
-            return { ...player };
-          }
-        }),
-        globalActionLog: [...currentGameState.globalActionLog], // Preserve current action log
-        // Preserve all player snapshots (including the current one for multiple Try Again attempts)
-        playerSnapshots: {
-          ...currentGameState.playerSnapshots,
-          [playerId]: {
-            spaceName: snapshotPlayer.currentSpace,
-            gameState: snapshotState
-          }
-        },
-        // Reset action states so player can take actions again
-        hasPlayerRolledDice: false,
-        hasPlayerMovedThisTurn: false,
-        completedActionCount: 0,
-        completedActions: {
-          diceRoll: undefined,
-          manualActions: {},
-        },
-        requiredActions: 1,
-        availableActionTypes: ['movement']
-      };
-
-      // 6. Add time penalty to the reverted player's timeSpent
-      // Use the current player's timeSpent as base to accumulate penalties across multiple Try Again attempts
-      const currentPlayerState = this.stateService.getPlayer(playerId);
-      const targetPlayerIndex = newStateObject.players.findIndex(p => p.id === playerId);
-      if (targetPlayerIndex === -1) {
-        throw new Error(`Player ${playerId} not found in new state object`);
-      }
-
-      newStateObject.players[targetPlayerIndex] = {
-        ...newStateObject.players[targetPlayerIndex],
-        timeSpent: (currentPlayerState?.timeSpent || 0) + timePenalty
-      };
-
-      // Add action log entry
-      newStateObject.globalActionLog.push({
-        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'manual_action',
-        timestamp: new Date(),
+      // 4. Log the Try Again action with committed status before abandoning current session
+      this.loggingService.info(`Used Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`, {
         playerId: playerId,
         playerName: snapshotPlayer.name,
-        description: `Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty`,
-        details: { 
-          action: 'try_again', 
-          space: snapshotPlayer.currentSpace,
-          timePenalty: timePenalty
-        }
+        action: 'try_again',
+        spaceName: snapshotPlayer.currentSpace,
+        timePenalty: timePenalty,
+        isCommitted: true // This action is immediately committed
       });
 
-      // 7. Now, call setGameState(newStateObject) - atomic operation
-      this.stateService.setGameState(newStateObject);
+      // 5. Start new exploration session for the fresh attempt (current session will be abandoned)
+      const newSessionId = this.loggingService.startNewExplorationSession();
+      console.log(`🔄 Started new exploration session ${newSessionId} after Try Again for ${snapshotPlayer.name}`);
+
+      // 6. Revert player to snapshot state with time penalty applied atomically
+      // This handles all the complex state reconstruction, action flag resets, and penalty application
+      this.stateService.revertPlayerToSnapshot(playerId, timePenalty);
+
+      // 7. Set flag to prevent automatic movement on next turn
+      const gameState = this.stateService.getGameState();
+      const playerToUpdate = gameState.players.find(p => p.id === playerId);
+      if (playerToUpdate) {
+        this.stateService.updatePlayer({
+          id: playerId,
+          usedTryAgain: true
+        });
+      }
+
 
       console.log(`✅ ${snapshotPlayer.name} reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`);
 
-      // 8. DO NOT save a new snapshot - preserve the original clean snapshot for multiple Try Again attempts
+      // 6. DO NOT save a new snapshot - preserve the original clean snapshot for multiple Try Again attempts
       // This ensures subsequent Try Again attempts revert to the original state, not the penalty-applied state
 
-      // 9. Prepare success message for immediate display
+      // 7. Prepare success message for immediate display
       const successMessage = `${snapshotPlayer.name} used Try Again: Reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day${timePenalty !== 1 ? 's' : ''} penalty.`;
 
       // Send Try Again notification
@@ -1645,17 +1627,19 @@ export class TurnService implements ITurnService {
       }
 
       // 10. Return success - state reversion has reset turn flags automatically
-      // No turn advancement needed - player should continue their current turn
+      // Signal that turn should advance after Try Again (player's turn is complete)
       return {
         success: true,
-        message: successMessage
+        message: successMessage,
+        shouldAdvanceTurn: true
       };
 
     } catch (error) {
       console.error(`❌ Failed to process Try Again:`, error);
       return {
         success: false,
-        message: `Failed to try again: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Failed to try again: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        shouldAdvanceTurn: false
       };
     }
   }
@@ -1733,13 +1717,22 @@ export class TurnService implements ITurnService {
    */
   async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
     // Starting dice roll with feedback
-    
+
     // Note: Snapshot is now saved immediately after movement in MovementService
     // This ensures Try Again always works regardless of when player presses it
-    
+
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
+    }
+
+    // Clear Try Again flag - player is taking deliberate action
+    if (currentPlayer.usedTryAgain) {
+      this.stateService.updatePlayer({
+        id: playerId,
+        usedTryAgain: false
+      });
+      console.log(`🔄 Cleared Try Again flag for ${currentPlayer.name} - taking deliberate action`);
     }
 
     const beforeState = this.stateService.getGameState();
@@ -2061,9 +2054,18 @@ export class TurnService implements ITurnService {
 
     try {
       // Check if there's already a snapshot for this player at this same space (multiple Try Again logic)
-      if (this.stateService.hasPreSpaceEffectSnapshot(playerId, spaceName)) {
-        console.log(`🔄 Snapshot exists for player ${playerId} at ${spaceName} - skipping CSV effects (player used Try Again)`);
-        // Don't apply CSV effects again, snapshot already contains the baseline state for this space
+      const hasSnapshot = this.stateService.hasPreSpaceEffectSnapshot(playerId, spaceName);
+      if (hasSnapshot) {
+        console.log(`🔄 Snapshot exists for player ${playerId} at ${spaceName} - skipping automatic effects but enabling manual actions`);
+        // Still need to calculate manual actions even when snapshot exists
+        const spaceEffectsData = this.dataService.getSpaceEffects(spaceName, visitType);
+        const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+        const manualEffects = conditionFilteredEffects.filter(effect => effect.trigger_type === 'manual');
+
+        if (manualEffects.length > 0) {
+          console.log(`🎯 Processing ${manualEffects.length} manual effects for ${currentPlayer.name} at ${spaceName}`);
+          this.stateService.updateActionCounts();
+        }
         return;
       }
 
@@ -2130,71 +2132,33 @@ export class TurnService implements ITurnService {
   }
 
   /**
-   * Process starting space effects for all players when the game begins
-   * This should be called once when the game starts to apply initial space effects
+   * Place players on their starting spaces without processing effects
+   * Effects will be processed when players actually take their first turn
    */
-  public async processStartingSpaceEffects(): Promise<void> {
+  public async placePlayersOnStartingSpaces(): Promise<void> {
     const gameState = this.stateService.getGameState();
     const players = gameState.players;
 
-    console.log(`🏁 Processing starting space effects for ${players.length} players using unified logic`);
+    console.log(`🏁 Placing ${players.length} players on starting spaces (no effects processing)`);
 
-    // Process starting effects for ALL players in order
-    // This handles initial space effects before any turns begin
+    // Simply ensure all players are on their starting space
+    // No effects processing - that happens when they take their first turn
     for (const player of players) {
-      console.log(`🏠 Processing starting space effects for ${player.name} at ${player.currentSpace}`);
-      try {
-        // Use unified logic but without movement choices (game hasn't started yet)
-        await this.processPlayerStartingEffects(player.id);
-      } catch (error) {
-        console.error(`❌ Error processing starting space effects for ${player.name}:`, error);
-      }
-    }
+      console.log(`📍 Placing ${player.name} on starting space: ${player.currentSpace}`);
 
-    console.log(`✅ Completed processing starting space effects for all players`);
-  }
-
-  /**
-   * Process starting effects for a single player using unified logic
-   * Similar to startTurn but without movement choices (used during game initialization)
-   * @private
-   */
-  private async processPlayerStartingEffects(playerId: string): Promise<void> {
-    try {
-      const player = this.stateService.getPlayer(playerId);
-      if (!player) {
-        throw new Error(`Player ${playerId} not found`);
-      }
-
-      // 1. Lock UI (though not strictly necessary during game init)
-      this.stateService.updateGameState({ isProcessingArrival: true });
-
-      // 2. Save snapshot for Try Again feature
-      this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
-      console.log(`📸 Created snapshot for ${player.name} on starting space ${player.currentSpace}`);
-
-      // 3. Log space entry for starting position
-      this.loggingService.info(`Player ${player.name} started at space: ${player.currentSpace} (${player.visitType} visit)`, {
+      // Log the initial placement for the Game Log
+      this.loggingService.info(`${player.name} placed on starting space: ${player.currentSpace}`, {
         playerId: player.id,
         playerName: player.name,
-        action: 'space_entry',
+        action: 'game_start',
         spaceName: player.currentSpace,
-        visitType: player.visitType
+        description: 'Initial placement'
       });
-
-      // Process space effects
-      await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, true);
-
-      // 4. Unlock UI
-      this.stateService.updateGameState({ isProcessingArrival: false });
-
-    } catch (error) {
-      // Ensure UI is unlocked if there's an error
-      this.stateService.updateGameState({ isProcessingArrival: false });
-      console.error(`🚨 Error during starting effects for player ${playerId}:`, error);
-      throw error;
     }
+
+    console.log(`✅ All players placed on starting spaces`);
   }
+
 
   /**
    * Process time effects for a player when leaving a space

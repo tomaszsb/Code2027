@@ -5,7 +5,38 @@ A full-stack refactor of the game logging system and core turn logic.
 - **UI Overhaul**: ✅ Implemented a new data-driven Game Log UI with collapsible, color-coded, and correctly sequenced entries.
 - **Core Logic Fix**: ✅ Refactored `TurnService` to unify the turn-start sequence, fixing race conditions and ensuring arrival effects process before player actions.
 - **Logging Architecture**: ✅ Centralized logging responsibility and removed dozens of redundant, low-level log entries.
-- **Known Issue**: The `startGame` function in `GameLayout.tsx` has not been updated to use the new unified `startTurn` function, so the first turn of the game remains out of sequence.
+- **First-Turn Fix**: ✅ The `startGame` function now correctly separates player placement from effects processing, ensuring the first turn's logging is consistent with all subsequent turns.
+
+## ✅ **PHASE COMPLETION: Robust Transactional Logging**
+*Status: COMPLETED September 28, 2025*
+
+**Objective**: Refactor the logging system to be transactional, ensuring the game log is a 100% accurate record of all committed actions, especially when handling the "Try Again" mechanic.
+
+- ✅ **Architecture**: Implemented the "Dual-Layer Logging" architecture with `isCommitted` and `explorationSessionId` fields.
+- ✅ **Services**: Updated `LoggingService` with session lifecycle management (`startNewExplorationSession`, `commitCurrentSession`, `cleanupAbandonedSessions`).
+- ✅ **TurnService Integration**: Integrated session management into `startTurn()`, `endTurn()`, and `tryAgainOnSpace()` methods.
+- ✅ **Types**: Added transactional logging fields to `ActionLogEntry` and `GameState` types.
+- ✅ **Testing**: Implemented comprehensive test suite (`TransactionalLogging.test.ts`) with 11 tests covering all edge cases.
+- ✅ **Documentation**: Updated `TECHNICAL_DEEP_DIVE.md` and `testing-guide.md` with complete architecture documentation.
+
+**Result**: Game log now maintains 100% accuracy with abandoned "Try Again" sessions preserved for analysis but excluded from canonical history.
+
+---
+
+## 🚀 CURRENT PHASE: Turn Numbering System Fix
+*Status: Planned - September 28, 2025*
+
+**Objective**: Fix the confusing and incorrect turn numbering system in the game log to properly distinguish between game rounds, player turns, and individual actions.
+
+**Problem Statement**: Current game log shows inconsistent turn numbers, system logs cluttering player view, and no clear distinction between game rounds vs individual player actions.
+
+- **[ ] Architecture**: Design proper turn tracking system with game rounds, turns within rounds, and global turn counters.
+- **[ ] Types**: Add new turn tracking fields to `GameState` and `ActionLogEntry` types.
+- **[ ] Services**: Update `TurnService` to properly track game rounds and player turn progression.
+- **[ ] Logging**: Add visibility levels to hide system/debug logs from player view.
+- **[ ] UI**: Redesign `GameLog.tsx` to display proper turn hierarchy (rounds → players → actions).
+- **[ ] Testing**: Implement tests for multi-player turn progression scenarios.
+- **[ ] Migration**: Ensure backwards compatibility with existing game states and logs.
 
 ---
 

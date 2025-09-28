@@ -48,6 +48,7 @@ export function GameLayout(): JSX.Element {
   const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
   const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
   const [turnNumber, setTurnNumber] = useState<number>(0);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [gameStateCompletedActions, setGameStateCompletedActions] = useState<{
     diceRoll: string | undefined;
     manualActions: { [key: string]: string };
@@ -154,6 +155,9 @@ export function GameLayout(): JSX.Element {
         required: gameState.requiredActions || 1,
         completed: gameState.completedActionCount || 0
       });
+
+      // Track initialization state
+      setIsInitialized(gameState.isInitialized || false);
     });
     
     // Initialize with current state
@@ -174,7 +178,8 @@ export function GameLayout(): JSX.Element {
       required: currentState.requiredActions || 1,
       completed: currentState.completedActionCount || 0
     });
-    
+    setIsInitialized(currentState.isInitialized || false);
+
     return () => {
       unsubscribe();
       // Clean up all notifications on unmount
@@ -325,6 +330,13 @@ export function GameLayout(): JSX.Element {
     try {
       const result = await turnService.tryAgainOnSpace(currentPlayerId);
       console.log(`Try Again completed for player ${currentPlayerId}:`, result);
+
+      // If Try Again indicates turn should advance, move to next player
+      if (result.success && result.shouldAdvanceTurn) {
+        console.log('🔄 Try Again complete - advancing to next player');
+        const nextResult = await turnService.endTurnWithMovement(true);
+        console.log(`Next player's turn: ${nextResult.nextPlayerId}`);
+      }
     } catch (error) {
       console.error("Error trying again on space:", error);
     } finally {
@@ -340,13 +352,20 @@ export function GameLayout(): JSX.Element {
       }
       stateService.startGame();
 
-      // Process starting space effects for all players
-      console.log('🏁 Processing starting space effects...');
+      // Place players on starting spaces (no effects processing)
+      console.log('🏁 Placing players on starting spaces...');
       try {
-        await turnService.processStartingSpaceEffects();
-        console.log('✅ Starting space effects processed successfully');
+        await turnService.placePlayersOnStartingSpaces();
+        console.log('✅ Players placed on starting spaces successfully');
+
+        // Start the first turn (this will create snapshots and mark as initialized)
+        const currentState = stateService.getGameState();
+        if (currentState.currentPlayerId) {
+          console.log('🎬 Starting first turn for game initialization...');
+          await turnService.startTurn(currentState.currentPlayerId);
+        }
       } catch (error) {
-        console.error('❌ Error processing starting space effects:', error);
+        console.error('❌ Error placing players on starting spaces:', error);
       }
     } catch (error) {
       console.error('Error starting game:', error);
@@ -395,6 +414,23 @@ export function GameLayout(): JSX.Element {
       >
 {gamePhase === 'PLAY' && currentPlayerId ? (() => {
           const currentPlayer = players.find(p => p.id === currentPlayerId);
+
+          // Show loading state if game is not fully initialized
+          if (!isInitialized) {
+            return (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '200px',
+                fontSize: '18px',
+                color: colors.text.secondary
+              }}>
+                🎯 Initializing game...
+              </div>
+            );
+          }
+
           return currentPlayer ? (
             <PlayerStatusPanel
               onOpenNegotiationModal={handleOpenNegotiationModal}
@@ -520,13 +556,20 @@ export function GameLayout(): JSX.Element {
             // Actually start the game through StateService
             stateService.startGame();
 
-            // Process starting space effects for all players
-            console.log('🏁 Processing starting space effects...');
+            // Place players on starting spaces (no effects processing)
+            console.log('🏁 Placing players on starting spaces...');
             try {
-              await turnService.processStartingSpaceEffects();
-              console.log('✅ Starting space effects processed successfully');
+              await turnService.placePlayersOnStartingSpaces();
+              console.log('✅ Players placed on starting spaces successfully');
+
+              // Start the first turn (this will create snapshots and mark as initialized)
+              const currentState = stateService.getGameState();
+              if (currentState.currentPlayerId) {
+                console.log('🎬 Starting first turn for game initialization...');
+                await turnService.startTurn(currentState.currentPlayerId);
+              }
             } catch (error) {
-              console.error('❌ Error processing starting space effects:', error);
+              console.error('❌ Error placing players on starting spaces:', error);
             }
           }}
         />

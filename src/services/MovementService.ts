@@ -45,26 +45,50 @@ export class MovementService implements IMovementService {
   }
 
   /**
-   * Moves a player to a destination space
+   * Moves a player to a destination space using validate → execute → finalize pattern
    * @param playerId - The ID of the player to move
    * @param destinationSpace - The target space name
    * @returns Updated game state after the move
    * @throws Error if move is invalid or player not found
    */
   async movePlayer(playerId: string, destinationSpace: string): Promise<GameState> {
-    const validMoves = this.getValidMoves(playerId);
-    
-    if (!validMoves.includes(destinationSpace)) {
-      throw new Error(`Invalid move: ${destinationSpace} is not a valid destination from current position`);
-    }
+    // PHASE 1: VALIDATE - Check everything before making any changes
+    const moveValidation = this.validateMove(playerId, destinationSpace);
 
+    // PHASE 2: EXECUTE - Perform the actual movement
+    const moveResult = this.executeMove(moveValidation);
+
+    // PHASE 3: FINALIZE - Write state, log completion, cleanup
+    return this.finalizeMove(moveResult);
+  }
+
+  /**
+   * Phase 1: Validate move before execution
+   * @private
+   */
+  private validateMove(playerId: string, destinationSpace: string) {
+    console.log(`🔍 Validating move: ${playerId} → ${destinationSpace}`);
+
+    // Validate player exists
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player with ID ${playerId} not found`);
     }
 
-    // Store current space for logging
-    const sourceSpace = player.currentSpace;
+    // Clear Try Again flag - player is making deliberate movement
+    if (player.usedTryAgain) {
+      this.stateService.updatePlayer({
+        id: playerId,
+        usedTryAgain: false
+      });
+      console.log(`🔄 Cleared Try Again flag for ${player.name} - making deliberate movement`);
+    }
+
+    // Validate move is legal
+    const validMoves = this.getValidMoves(playerId);
+    if (!validMoves.includes(destinationSpace)) {
+      throw new Error(`Invalid move: ${destinationSpace} is not a valid destination from ${player.currentSpace}`);
+    }
 
     // Determine visit type for destination space
     const newVisitType: VisitType = this.hasPlayerVisitedSpace(player, destinationSpace)
@@ -76,17 +100,58 @@ export class MovementService implements IMovementService {
       ? [...player.visitedSpaces, destinationSpace]
       : player.visitedSpaces;
 
-    // Update player's position
-    const updatedState = this.stateService.updatePlayer({
-      id: playerId,
+    console.log(`✅ Move validation passed: ${player.name} ${player.currentSpace} → ${destinationSpace} (${newVisitType})`);
+
+    return {
+      player,
+      destinationSpace,
+      sourceSpace: player.currentSpace,
+      newVisitType,
+      updatedVisitedSpaces
+    };
+  }
+
+  /**
+   * Phase 2: Execute the movement (prepare changes, no state writes yet)
+   * @private
+   */
+  private executeMove(moveValidation: any) {
+    const { player, destinationSpace, sourceSpace, newVisitType, updatedVisitedSpaces } = moveValidation;
+
+    console.log(`⚡ Executing move: ${player.name} ${sourceSpace} → ${destinationSpace}`);
+
+    // Prepare the player update object (don't write to state yet)
+    const playerUpdate = {
+      id: player.id,
       currentSpace: destinationSpace,
       visitType: newVisitType,
       visitedSpaces: updatedVisitedSpaces
-    });
+    };
 
-    // Log the movement
+    return {
+      player,
+      playerUpdate,
+      sourceSpace,
+      destinationSpace,
+      newVisitType
+    };
+  }
+
+  /**
+   * Phase 3: Finalize move (write state, log, cleanup)
+   * @private
+   */
+  private finalizeMove(moveResult: any): GameState {
+    const { player, playerUpdate, sourceSpace, destinationSpace, newVisitType } = moveResult;
+
+    console.log(`📝 Finalizing move: ${player.name} ${sourceSpace} → ${destinationSpace}`);
+
+    // WRITE STATE: Update player's position (atomic operation)
+    const updatedState = this.stateService.updatePlayer(playerUpdate);
+
+    // LOG COMPLETION: Record the movement
     this.loggingService.info(`Moved from ${sourceSpace} to ${destinationSpace}`, {
-      playerId: playerId,
+      playerId: player.id,
       playerName: player.name,
       action: 'player_movement',
       sourceSpace: sourceSpace,
@@ -94,25 +159,39 @@ export class MovementService implements IMovementService {
       visitType: newVisitType
     });
 
-    // Log the space entry (critical for Game Log grouping)
-    this.loggingService.info(`Landed on ${destinationSpace}`, {
-      playerId: playerId,
+    // CLEANUP: Clear any existing snapshot for this player
+    this.stateService.clearPlayerSnapshot(player.id);
+
+    console.log(`✅ Move completed: ${player.name} now at ${destinationSpace}`);
+
+    // Note: Movement is complete. Caller should now call endMove() to process arrival
+    return updatedState;
+  }
+
+  /**
+   * Complete the movement and trigger arrival processing
+   * This should be called after movePlayer() to handle space effects
+   */
+  async endMove(playerId: string): Promise<GameState> {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    console.log(`🏁 Ending move: ${player.name} at ${player.currentSpace} - triggering arrival processing`);
+
+    // Log space entry (now that movement is confirmed complete)
+    this.loggingService.info(`${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
+      playerId: player.id,
       playerName: player.name,
       action: 'space_entry',
-      spaceName: destinationSpace,
-      visitType: newVisitType
+      spaceName: player.currentSpace,
+      visitType: player.visitType
     });
 
-    // Clear any existing snapshot for this specific player (other players' snapshots preserved)
-    this.stateService.clearPlayerSnapshot(playerId);
-
-    // Note: Try Again snapshots are saved by TurnService after space effects are processed
-    // MovementService only handles the physical movement between spaces
-
-    // Note: Space effects are processed by TurnService.processTurnEffects, not here
-    // MovementService only handles the physical movement of players between spaces
-
-    return updatedState;
+    // Return current state - space effects will be processed by TurnService
+    // This creates a clear separation: MovementService handles movement, TurnService handles effects
+    return this.stateService.getGameState();
   }
 
   /**

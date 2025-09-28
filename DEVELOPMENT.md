@@ -1,3 +1,9 @@
+## 🚀 **WORK IN PROGRESS: Robust Transactional Logging - September 28, 2025**
+
+**Objective**: To refactor the game's logging system to be fully transactional, ensuring the final post-game log is a 100% accurate record of all committed player actions. This initiative will correct a flaw where the "Try Again" mechanic would leave aborted actions in the log, making it unreliable for student and teacher analysis. The new architecture will use a dual-layer logging system to logically separate committed and exploratory actions.
+
+---
+
 ## 🎮 **GAME LOG AND TURN SEQUENCE OVERHAUL - September 25, 2025**
 
 ### ✅ **Phase Completion: Game Log UI/UX and Core Logic Refactor**
@@ -28,7 +34,8 @@
     - The UI component was refactored to be purely data-driven.
     - It now correctly renders collapsible, color-coded, and properly ordered log groups based on the `type` of the log entries it receives.
 
-### **Known Issues**
-- As per owner's directive, the final code fix to unify the `startGame` logic was not applied. 
-- **The first turn of the game still processes events out of sequence.** All subsequent turns function correctly.
+### **Post-Refactor Fixes (September 27, 2025)**
+- **First-Turn Unification**: The `startGame` logic was updated to use `placePlayersOnStartingSpaces`, which separates player placement from effect processing. This resolves the long-standing issue where the first turn's events were logged out of sequence. All turns now follow the same unified and correct lifecycle.
+- **Log Sequencing**: Corrected the processing order to ensure player logs appear in the correct sequence and that the "entered space" log is always the first entry.
+- **"Try Again" Logic**: Fixed a bug in the "Try Again" feature to ensure turn progression now correctly moves to the next player after the time penalty is applied.
 

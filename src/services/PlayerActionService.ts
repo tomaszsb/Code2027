@@ -36,6 +36,18 @@ export class PlayerActionService implements IPlayerActionService {
         throw new Error(`Player with ID '${playerId}' not found`);
       }
 
+      // Clear Try Again flag - player is taking deliberate action
+      if (player.usedTryAgain) {
+        this.stateService.updatePlayer({
+          id: playerId,
+          usedTryAgain: false
+        });
+        this.loggingService.info(`Cleared Try Again flag for ${player.name} - playing card`, {
+          playerId: playerId,
+          action: 'clearTryAgain'
+        });
+      }
+
       // Log the card play attempt
       this.loggingService.info(`Attempting to play card: ${cardId}`, {
         playerId: playerId,

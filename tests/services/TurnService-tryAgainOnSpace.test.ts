@@ -43,8 +43,15 @@ describe('TurnService.tryAgainOnSpace', () => {
     } as any;
 
     stateService = new StateService(dataService);
-    vi.spyOn(stateService, 'setGameState').mockImplementation();
+
+    // Allow setGameState to work normally but spy on it
+    const originalSetGameState = stateService.setGameState.bind(stateService);
+    vi.spyOn(stateService, 'setGameState').mockImplementation((newState) => {
+      return originalSetGameState(newState);
+    });
+
     vi.spyOn(stateService, 'canStartGame').mockReturnValue(true);
+    vi.spyOn(stateService, 'isInitialized').mockReturnValue(true);
 
     gameRulesService = {
       checkWinCondition: vi.fn(),
@@ -93,12 +100,17 @@ describe('TurnService.tryAgainOnSpace', () => {
     // 2. Save a snapshot (this captures OWNER-SCOPE-INITIATION as the current space)
     stateService.savePreSpaceEffectSnapshot(player1.id, 'OWNER-SCOPE-INITIATION');
     
-    // Create a mock snapshot with the correct space
+    // Create a mock snapshot with the correct space and initial timeSpent
     const mockSnapshot = {
       ...initialGameState,
-      players: initialGameState.players.map(p => ({ ...p, currentSpace: 'OWNER-SCOPE-INITIATION' }))
+      players: initialGameState.players.map(p => ({
+        ...p,
+        currentSpace: 'OWNER-SCOPE-INITIATION',
+        timeSpent: 0 // Ensure snapshot has initial timeSpent of 0
+      }))
     };
     vi.spyOn(stateService, 'getPreSpaceEffectSnapshot').mockReturnValue(mockSnapshot);
+    vi.spyOn(stateService, 'getPlayerSnapshot').mockReturnValue(mockSnapshot);
     vi.spyOn(stateService, 'hasPreSpaceEffectSnapshot').mockImplementation((playerId: string, spaceName: string) =>
       playerId === player1.id && spaceName === 'OWNER-SCOPE-INITIATION'
     );
@@ -126,26 +138,25 @@ describe('TurnService.tryAgainOnSpace', () => {
     expect(result.message).toContain('Player 1 used Try Again');
     expect(result.message).toContain('Reverted to OWNER-SCOPE-INITIATION with 1 day penalty');
 
-    // Verify that setGameState was called with the correct, reverted state
+    // Verify that setGameState was called
     const setGameStateMock = stateService.setGameState as vi.Mock;
-    console.log('setGameState call count:', setGameStateMock.mock.calls.length);
-    console.log('setGameState calls:', setGameStateMock.mock.calls.map((call, i) => `Call ${i}: ${JSON.stringify(call[0].players[0]?.currentSpace)}`));
-    
-    // We expect at least 2 calls: 1 from test setup (setGameState(initialGameState)), 1 from tryAgainOnSpace
-    expect(setGameStateMock).toHaveBeenCalledWith(expect.any(Object));
-    
-    const finalState: GameState = setGameStateMock.mock.calls[setGameStateMock.mock.calls.length - 1][0];
+    expect(setGameStateMock).toHaveBeenCalled();
+
+    // Check the current state directly from StateService instead of mock calls
+    const currentState = stateService.getGameState();
+    const revertedPlayer = currentState.players.find(p => p.id === player1.id)!;
+
+    console.log('Final player state:', { money: revertedPlayer.money, timeSpent: revertedPlayer.timeSpent });
 
     // Check that the mutation is gone (reverted)
-    const revertedPlayer = finalState.players.find(p => p.id === player1.id)!;
     expect(revertedPlayer.money).toBe(0); // Original value
 
     // Check that the penalty was applied to the reverted state
     expect(revertedPlayer.timeSpent).toBe(1); // initial 0 + 1 penalty
 
     // Check that the snapshot is preserved for multiple Try Again attempts
-    expect(finalState.playerSnapshots[player1.id]).not.toBeNull();
-    expect(finalState.playerSnapshots[player1.id]!.spaceName).toBe('OWNER-SCOPE-INITIATION');
+    expect(currentState.playerSnapshots[player1.id]).not.toBeNull();
+    expect(currentState.playerSnapshots[player1.id]!.spaceName).toBe('OWNER-SCOPE-INITIATION');
 
     // Verify that startTurn was called internally (no external turn advancement needed)
     // The TurnService now handles the complete flow internally
