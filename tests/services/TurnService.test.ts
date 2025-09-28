@@ -168,6 +168,10 @@ const mockLoggingService: anyILoggingService = {
   log: vi.fn(),
   startPerformanceTimer: vi.fn(),
   endPerformanceTimer: vi.fn(),
+  startNewExplorationSession: vi.fn(),
+  commitCurrentSession: vi.fn(),
+  getCurrentSessionId: vi.fn(),
+  cleanupAbandonedSessions: vi.fn(),
 };
 
 describe('TurnService', () => {
@@ -226,6 +230,10 @@ describe('TurnService', () => {
     currentPlayerId: 'player1',
     gamePhase: 'PLAY',
     turn: 1,
+    // Simplified turn tracking system
+    globalTurnCount: 1,
+    // Track individual player turn counts for statistics
+    playerTurnCounts: { 'player1': 1, 'player2': 0, 'player3': 0 },
     activeModal: null,
     awaitingChoice: null,
     hasPlayerMovedThisTurn: false,

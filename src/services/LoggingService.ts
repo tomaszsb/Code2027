@@ -48,6 +48,36 @@ export class LoggingService implements ILoggingService {
       ? payload.isCommitted
       : (!currentSessionId || payload.playerId === 'system' || level === LogLevel.ERROR);
 
+    // Get current turn context from game state (simplified)
+    const gameState = this.stateService.getGameState();
+    const playerId = payload.playerId || 'system';
+
+    // Special handling for setup entries - they should use turn 0 to distinguish from actual gameplay
+    let playerTurnNumber: number;
+    let globalTurnNumber: number;
+
+    if (payload.action === 'game_start' && playerId !== 'system') {
+      // Setup entries: use turn 0 to indicate this is initial setup, not gameplay
+      playerTurnNumber = 0;
+      globalTurnNumber = 0;
+    } else if (playerId === 'system') {
+      // System entries: use turn 1 as default
+      playerTurnNumber = 1;
+      globalTurnNumber = gameState.globalTurnCount || 1;
+    } else {
+      // Regular gameplay entries: use actual turn counts
+      playerTurnNumber = gameState.playerTurnCounts[playerId] || 1;
+      globalTurnNumber = gameState.globalTurnCount || 1;
+    }
+
+    const turnContext = {
+      globalTurnNumber,
+      playerTurnNumber
+    };
+
+    // Determine visibility level
+    const visibility = this.determineVisibility(level, payload);
+
     // Create log entry for action history
     const logEntry: Omit<ActionLogEntry, 'id' | 'timestamp'> = {
       type: this.determineActionType(level, payload, message),
@@ -59,7 +89,12 @@ export class LoggingService implements ILoggingService {
         ...payload
       },
       isCommitted,
-      explorationSessionId: sessionId
+      explorationSessionId: sessionId,
+      // Simplified turn context
+      globalTurnNumber: turnContext.globalTurnNumber,
+      playerTurnNumber: turnContext.playerTurnNumber,
+      // Visibility control
+      visibility
     };
 
     // Persist to action history
@@ -132,6 +167,46 @@ export class LoggingService implements ILoggingService {
 
     // Default to system_log if no other type can be inferred.
     return 'system_log';
+  }
+
+  private determineVisibility(level: LogLevel, payload: LogPayload): 'player' | 'debug' | 'system' {
+    // Check if payload explicitly specifies visibility
+    if (payload.visibility) {
+      return payload.visibility as 'player' | 'debug' | 'system';
+    }
+
+    // Player-facing actions should be 'player'
+    if (payload.action && [
+      'dice_roll', 'card_draw', 'card_play', 'card_discard', 'card_transfer',
+      'resource_change', 'player_movement', 'space_entry', 'choice_made'
+    ].includes(payload.action)) {
+      return 'player';
+    }
+
+    // System/internal processes should be 'system' or 'debug'
+    if (payload.playerId === 'system' || payload.action === 'system_log') {
+      return 'system';
+    }
+
+    // Debug level logs should be 'debug'
+    if (level === LogLevel.DEBUG) {
+      return 'debug';
+    }
+
+    // Error events should be visible to players (they need to know about errors)
+    if (level === LogLevel.ERROR) {
+      return 'player';
+    }
+
+    // Session management and internal processes should be 'system'
+    if (payload.action && [
+      'turn_start', 'turn_end', 'game_start', 'game_end'
+    ].includes(payload.action)) {
+      return 'player'; // Turn starts/ends are important for players to see
+    }
+
+    // Default to 'player' for most game actions
+    return 'player';
   }
 
   // Transactional logging session management methods

@@ -44,6 +44,10 @@ describe('Transactional Logging Architecture', () => {
       currentPlayerId: 'player1',
       gamePhase: 'PLAY' as const,
       turn: 1,
+      // Simplified turn tracking system
+      globalTurnCount: 1,
+      // Track individual player turn counts for statistics
+      playerTurnCounts: { player1: 1 },
       activeModal: null,
       awaitingChoice: null,
       hasPlayerMovedThisTurn: false,

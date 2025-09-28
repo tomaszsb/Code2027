@@ -33,9 +33,31 @@ All previously identified issues have been successfully resolved:
 
 4. **Unified System Grouping:** Fixed case-sensitive filtering that was causing multiple System sections in the game log.
 
+### **🔧 ADDITIONAL FIXES COMPLETED** (September 28, 2025)
+
+**Turn Numbering System & Game Initialization Issues:**
+
+5. **Eliminated Duplicate "Turn 1" Entries:**
+   - **Problem**: Game initialization was creating log entries that conflicted with actual gameplay turns
+   - **Solution**: Modified `LoggingService.ts` to use "Turn 0" for setup entries, distinguishing them from gameplay
+   - **Location**: `src/services/LoggingService.ts:59-71`
+
+6. **Fixed Initial Setup Color Display:**
+   - **Problem**: Initial player placement entries were forced to display in gray instead of player colors
+   - **Solution**: Updated `GameLog.tsx` color logic to allow player setup entries to use proper player colors
+   - **Location**: `src/components/game/GameLog.tsx:61-65`
+
+7. **Resolved Space Progression Issues:**
+   - **Problem**: Players were stuck in endless "First visit" loops due to Try Again functionality incorrectly resetting `visitedSpaces`
+   - **Solution**: Modified `StateService.revertPlayerToSnapshot()` to preserve visit history during Try Again
+   - **Location**: `src/services/StateService.ts:887-889`
+
 ### **Current Implementation Status**
 - ✅ **Complete Turn Sequence Control:** All turns (including first turn) follow the unified sequence
 - ✅ **Proper Turn Start Logging:** Every turn gets a "Turn X started" log entry
 - ✅ **Clean UI Experience:** System logs minimized, player actions prominent
 - ✅ **Consistent Log Grouping:** Single System section, proper player grouping
 - ✅ **Architectural Principles Followed:** "The Log Follows the Logic" fully implemented
+- ✅ **Turn Numbering System:** Setup (Turn 0) vs Gameplay (Turn 1+) clearly distinguished
+- ✅ **Space Progression:** Players correctly move between spaces without visit tracking loops
+- ✅ **Color Consistency:** All player actions display in proper player colors throughout game flow

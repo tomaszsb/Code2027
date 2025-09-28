@@ -4,34 +4,37 @@ import { useGameContext } from '../../context/GameContext';
 import { ActionLogEntry } from '../../types/StateTypes';
 import { formatActionDescription } from '../../utils/actionLogFormatting';
 
-interface TurnGroup {
-  parent: ActionLogEntry;
-  children: ActionLogEntry[];
-}
-
-interface PlayerGroup {
+interface PlayerTurnGroup {
   playerId: string;
   playerName: string;
   playerColor: string;
-  turnGroups: TurnGroup[];
+  globalTurnNumber: number;
+  playerTurnNumber: number;
+  actions: ActionLogEntry[];
 }
 
 export function GameLog(): JSX.Element {
   const { stateService } = useGameContext();
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
-  const [expandedPlayers, setExpandedPlayers] = useState<{ [playerId: string]: boolean }>({});
-  const [expandedTurns, setExpandedTurns] = useState<{ [turnId: string]: boolean }>({});
+  const [expandedPlayerTurns, setExpandedPlayerTurns] = useState<{ [turnKey: string]: boolean }>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Subscribe to state changes to get the global action log
+  // Subscribe to state changes to get the global action log (filtered for player visibility)
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
-      setActionLog(gameState.globalActionLog);
+      // Filter for only player-visible logs
+      const playerVisibleLogs = gameState.globalActionLog.filter(entry =>
+        entry.visibility === 'player'
+      );
+      setActionLog(playerVisibleLogs);
     });
 
     // Initialize with current state
     const gameState = stateService.getGameState();
-    setActionLog(gameState.globalActionLog);
+    const playerVisibleLogs = gameState.globalActionLog.filter(entry =>
+      entry.visibility === 'player'
+    );
+    setActionLog(playerVisibleLogs);
 
     return unsubscribe;
   }, [stateService]);
@@ -51,11 +54,17 @@ export function GameLog(): JSX.Element {
     if (entry.type === 'error_event') {
       return colors.danger.main; // Red for errors
     }
-    if (entry.type === 'system_log' || entry.type === 'game_start' || entry.type === 'game_end') {
+    if (entry.type === 'system_log' || entry.type === 'game_end') {
       return colors.secondary.main; // Grey for system events
     }
 
-    // Use dynamic player lookup from stateService
+    // game_start entries for actual players should use player colors
+    // Only system game_start entries should be grey
+    if (entry.type === 'game_start' && entry.playerId === 'system') {
+      return colors.secondary.main; // Grey for system game start
+    }
+
+    // Use dynamic player lookup from stateService for all player entries (including game_start)
     const player = stateService.getPlayer(entry.playerId);
     if (player && player.color) {
       return player.color;
@@ -67,148 +76,67 @@ export function GameLog(): JSX.Element {
     return colorArray[hash % colorArray.length];
   };
 
-  // Group log entries by player first, then by turn/action type
-  const groupLogEntries = (entries: ActionLogEntry[]): PlayerGroup[] => {
-    // First, separate system/game-wide entries from player-specific entries
-    const systemEntries = entries.filter(entry =>
-      entry.playerId.toLowerCase() === 'system' ||
-      entry.type === 'game_start' ||
-      entry.type === 'game_end'
+  // Group log entries by player turn in chronological order (no rounds)
+  const groupLogEntries = (entries: ActionLogEntry[]): PlayerTurnGroup[] => {
+    // Sort entries by timestamp to ensure proper chronological order
+    const sortedEntries = [...entries].sort((a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-    const playerEntries = entries.filter(entry =>
-      entry.playerId.toLowerCase() !== 'system' &&
-      entry.type !== 'game_start' &&
-      entry.type !== 'game_end'
-    );
+    // Group entries by player and global turn number
+    const playerTurnMap = new Map<string, ActionLogEntry[]>();
 
-    // Group player entries by playerId
-    const playerMap = new Map<string, ActionLogEntry[]>();
-
-    playerEntries.forEach(entry => {
-      if (!playerMap.has(entry.playerId)) {
-        playerMap.set(entry.playerId, []);
+    sortedEntries.forEach(entry => {
+      const turnKey = `${entry.playerId}-${entry.globalTurnNumber}`;
+      if (!playerTurnMap.has(turnKey)) {
+        playerTurnMap.set(turnKey, []);
       }
-      playerMap.get(entry.playerId)!.push(entry);
+      playerTurnMap.get(turnKey)!.push(entry);
     });
 
-    // Create player groups
-    const playerGroups: PlayerGroup[] = [];
+    // Create player turn groups
+    const playerTurns: PlayerTurnGroup[] = [];
+    playerTurnMap.forEach((turnEntries, turnKey) => {
+      if (turnEntries.length === 0) return;
 
-    // Add system entries as a special player group if they exist
-    if (systemEntries.length > 0) {
-      const systemTurnGroups = groupEntriesIntoTurns(systemEntries);
-      playerGroups.push({
-        playerId: 'SYSTEM',
-        playerName: 'System',
-        playerColor: colors.secondary.main,
-        turnGroups: systemTurnGroups
-      });
-    }
-
-    // Process each player's entries
-    playerMap.forEach((entries, playerId) => {
-      // Sort entries by timestamp to ensure proper chronological order
-      entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      // Group this player's entries into turns
-      const turnGroups = groupEntriesIntoTurns(entries);
-
-      // Get player info
-      const firstEntry = entries[0];
+      const firstEntry = turnEntries[0];
       const playerColor = getEntryColor(firstEntry);
 
-      playerGroups.push({
-        playerId,
+      playerTurns.push({
+        playerId: firstEntry.playerId,
         playerName: firstEntry.playerName,
         playerColor,
-        turnGroups
+        globalTurnNumber: firstEntry.globalTurnNumber,
+        playerTurnNumber: firstEntry.playerTurnNumber,
+        actions: turnEntries.sort((a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        )
       });
     });
 
-    // Sort player groups by first action timestamp (except system which goes first)
-    playerGroups.sort((a, b) => {
-      if (a.playerId === 'SYSTEM') return -1;
-      if (b.playerId === 'SYSTEM') return 1;
+    // Sort player turns by global turn number (chronological order)
+    playerTurns.sort((a, b) => a.globalTurnNumber - b.globalTurnNumber);
 
-      const aFirstTimestamp = a.turnGroups[0]?.parent?.timestamp || new Date(0);
-      const bFirstTimestamp = b.turnGroups[0]?.parent?.timestamp || new Date(0);
-
-      return new Date(aFirstTimestamp).getTime() - new Date(bFirstTimestamp).getTime();
-    });
-
-    return playerGroups;
+    return playerTurns;
   };
 
-  // Helper function to group entries into turn-based groups for a single player
-  const groupEntriesIntoTurns = (entries: ActionLogEntry[]): TurnGroup[] => {
-    const groups: TurnGroup[] = [];
-    let currentGroup: TurnGroup | null = null;
-
-    entries.forEach(entry => {
-      // Parent entries: space_entry, turn_start, system_log, game_start, game_end
-      if (entry.type === 'space_entry' || entry.type === 'turn_start' ||
-          entry.type === 'system_log' || entry.type === 'game_start' || entry.type === 'game_end') {
-        // Finish current group if exists
-        if (currentGroup) {
-          groups.push(currentGroup);
-        }
-        // Start new group
-        currentGroup = {
-          parent: entry,
-          children: []
-        };
-      } else {
-        // Child entries: all other types
-        if (currentGroup) {
-          currentGroup.children.push(entry);
-        } else {
-          // If no parent group exists yet, create one with the current entry as parent
-          currentGroup = {
-            parent: entry,
-            children: []
-          };
-        }
-      }
-    });
-
-    // Add the last group
-    if (currentGroup) {
-      groups.push(currentGroup);
-    }
-
-    return groups;
-  };
-
-  // Toggle player expansion
-  const togglePlayer = (playerId: string) => {
-    setExpandedPlayers(prev => {
-      const defaultExpanded = playerId !== 'SYSTEM';
-      const currentExpanded = prev[playerId] !== undefined ? prev[playerId] : defaultExpanded;
-      return {
-        ...prev,
-        [playerId]: !currentExpanded
-      };
-    });
-  };
-
-  // Toggle turn expansion
-  const toggleTurn = (turnId: string) => {
-    setExpandedTurns(prev => ({
+  // Toggle player turn expansion
+  const togglePlayerTurn = (turnKey: string) => {
+    setExpandedPlayerTurns(prev => ({
       ...prev,
-      [turnId]: !prev[turnId]
+      [turnKey]: !prev[turnKey]
     }));
   };
 
-  // Memoize player groups calculation for performance
-  const playerGroups = useMemo(() => groupLogEntries(actionLog), [actionLog]);
+  // Memoize player turn groups calculation for performance
+  const playerTurnGroups = useMemo(() => groupLogEntries(actionLog), [actionLog]);
 
   // Auto-scroll to bottom when new log entries are added
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [playerGroups]);
+  }, [playerTurnGroups]);
 
   return (
     <div style={{
@@ -229,7 +157,7 @@ export function GameLog(): JSX.Element {
         fontSize: '14px',
         color: colors.text.secondary
       }}>
-        📜 Game Log ({actionLog.length} entries, {playerGroups.length} players)
+        📜 Game Log ({actionLog.length} entries, {playerTurnGroups.length} turns)
       </div>
 
       {/* Scrollable content */}
@@ -250,52 +178,52 @@ export function GameLog(): JSX.Element {
             No actions yet. Start playing to see the game log!
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {playerGroups.map((playerGroup, playerIndex) => {
-              // System player starts collapsed, regular players start expanded
-              const defaultExpanded = playerGroup.playerId !== 'SYSTEM';
-              const isPlayerExpanded = expandedPlayers[playerGroup.playerId] !== undefined
-                ? expandedPlayers[playerGroup.playerId]
-                : defaultExpanded;
-              const totalTurns = playerGroup.turnGroups.length;
-              const totalActions = playerGroup.turnGroups.reduce((sum, turn) => sum + 1 + turn.children.length, 0);
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {playerTurnGroups.map((playerTurn, turnIndex) => {
+              const turnKey = `${playerTurn.playerId}-${playerTurn.globalTurnNumber}`;
+              const isTurnExpanded = expandedPlayerTurns[turnKey] !== undefined
+                ? expandedPlayerTurns[turnKey]
+                : false; // Player turns start collapsed
+              const hasActions = playerTurn.actions.length > 1; // More than just turn start
 
               return (
-                <div key={`player-${playerIndex}`}>
-                  {/* Player Header - Always Visible */}
+                <div key={turnKey} style={{ marginBottom: '4px' }}>
+                  {/* Player Turn Header */}
                   <div
                     style={{
                       padding: '10px 12px',
                       backgroundColor: colors.white,
-                      border: `2px solid ${playerGroup.playerColor}30`,
-                      borderLeft: `5px solid ${playerGroup.playerColor}`,
+                      border: `2px solid ${playerTurn.playerColor}30`,
+                      borderLeft: `5px solid ${playerTurn.playerColor}`,
                       borderRadius: '6px',
                       fontSize: '12px',
-                      fontWeight: 'bold',
                       lineHeight: '1.3',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                      cursor: hasActions ? 'pointer' : 'default'
                     }}
-                    onClick={() => togglePlayer(playerGroup.playerId)}
+                    onClick={hasActions ? () => togglePlayerTurn(turnKey) : undefined}
                   >
                     <div style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      marginBottom: '4px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {hasActions && (
+                          <span style={{
+                            fontSize: '10px',
+                            color: colors.secondary.main,
+                            userSelect: 'none'
+                          }}>
+                            {isTurnExpanded ? '▼' : '▶'}
+                          </span>
+                        )}
                         <span style={{
-                          fontSize: '11px',
-                          color: colors.secondary.main,
-                          userSelect: 'none'
+                          color: playerTurn.playerColor,
+                          fontSize: '13px',
+                          fontWeight: 'bold'
                         }}>
-                          {isPlayerExpanded ? '▼' : '▶'}
-                        </span>
-                        <span style={{
-                          color: playerGroup.playerColor,
-                          fontSize: '13px'
-                        }}>
-                          👤 {playerGroup.playerName}
+                          👤 {playerTurn.playerName} (Turn {playerTurn.playerTurnNumber})
                         </span>
                       </div>
                       <span style={{
@@ -303,148 +231,76 @@ export function GameLog(): JSX.Element {
                         fontSize: '10px',
                         fontWeight: 'normal'
                       }}>
-                        {totalTurns} turns, {totalActions} actions
+                        {playerTurn.actions.length} actions
+                        {hasActions && (
+                          <span style={{ marginLeft: '4px' }}>({playerTurn.actions.length - 1} game actions)</span>
+                        )}
                       </span>
+                    </div>
+
+                    {/* First action (usually turn start) - always visible */}
+                    <div style={{
+                      color: colors.text.secondary,
+                      fontSize: '11px'
+                    }}>
+                      {formatActionDescription(playerTurn.actions[0])}
                     </div>
                   </div>
 
-                  {/* Player's Turn Groups - Only Visible When Player is Expanded */}
-                  {isPlayerExpanded && (
-                    <div style={{ marginLeft: '16px', marginTop: '4px' }}>
-                      {playerGroup.turnGroups.map((turnGroup, turnIndex) => {
-                        const turnId = `${playerGroup.playerId}-turn-${turnIndex}`;
-                        const isTurnExpanded = expandedTurns[turnId] || false;
-                        const hasChildren = turnGroup.children.length > 0;
+                  {/* Player's Actions - Only Visible When Turn is Expanded */}
+                  {isTurnExpanded && playerTurn.actions.slice(1).map((action, actionIndex) => (
+                    <div
+                      key={`${turnKey}-action-${actionIndex}`}
+                      style={{
+                        marginLeft: '20px',
+                        padding: '6px 10px',
+                        backgroundColor: colors.secondary.light,
+                        border: `1px solid ${playerTurn.playerColor}20`,
+                        borderLeft: `4px solid ${playerTurn.playerColor}`,
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        lineHeight: '1.3',
+                        marginTop: '3px'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '3px'
+                      }}>
+                        <span style={{
+                          fontWeight: 'bold',
+                          color: colors.secondary.dark,
+                          fontSize: '9px'
+                        }}>
+                          Action {actionIndex + 1}
+                        </span>
+                        <span style={{
+                          color: colors.secondary.main,
+                          fontSize: '8px'
+                        }}>
+                          {formatTimestamp(action.timestamp)}
+                        </span>
+                      </div>
 
-                        return (
-                          <div key={turnId} style={{ marginBottom: '3px' }}>
-                            {/* Turn Header */}
-                            <div
-                              style={{
-                                padding: '8px 10px',
-                                backgroundColor: colors.secondary.light,
-                                border: `1px solid ${playerGroup.playerColor}20`,
-                                borderLeft: `4px solid ${playerGroup.playerColor}`,
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                lineHeight: '1.3',
-                                cursor: hasChildren ? 'pointer' : 'default'
-                              }}
-                              onClick={hasChildren ? () => toggleTurn(turnId) : undefined}
-                            >
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '4px'
-                              }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {hasChildren && (
-                                    <span style={{
-                                      fontSize: '9px',
-                                      color: colors.secondary.main,
-                                      userSelect: 'none'
-                                    }}>
-                                      {isTurnExpanded ? '▼' : '▶'}
-                                    </span>
-                                  )}
-                                  <span style={{
-                                    fontSize: '10px',
-                                    fontWeight: 'bold',
-                                    color: colors.secondary.dark
-                                  }}>
-                                    Turn {turnIndex + 1}
-                                  </span>
-                                </div>
-                                <span style={{
-                                  color: colors.secondary.main,
-                                  fontSize: '9px'
-                                }}>
-                                  {formatTimestamp(turnGroup.parent.timestamp)}
-                                  {hasChildren && (
-                                    <span style={{ marginLeft: '4px' }}>({turnGroup.children.length})</span>
-                                  )}
-                                </span>
-                              </div>
+                      <div style={{
+                        color: colors.text.secondary
+                      }}>
+                        {formatActionDescription(action)}
+                      </div>
 
-                              {/* Turn action description */}
-                              <div style={{
-                                color: colors.text.secondary
-                              }}>
-                                {formatActionDescription(turnGroup.parent)}
-                              </div>
-
-                              {/* Additional details if available */}
-                              {turnGroup.parent.details?.space && (
-                                <div style={{
-                                  color: colors.secondary.main,
-                                  fontSize: '9px',
-                                  marginTop: '2px'
-                                }}>
-                                  📍 {turnGroup.parent.details.space}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Turn's Child Actions - Only Visible When Turn is Expanded */}
-                            {isTurnExpanded && turnGroup.children.map((child, childIndex) => (
-                              <div
-                                key={`${turnId}-child-${childIndex}`}
-                                style={{
-                                  marginLeft: '20px',
-                                  padding: '6px 8px',
-                                  backgroundColor: colors.white,
-                                  border: `1px solid ${playerGroup.playerColor}15`,
-                                  borderLeft: `3px solid ${playerGroup.playerColor}`,
-                                  borderRadius: '3px',
-                                  fontSize: '10px',
-                                  lineHeight: '1.3',
-                                  marginTop: '2px'
-                                }}
-                              >
-                                <div style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  marginBottom: '3px'
-                                }}>
-                                  <span style={{
-                                    fontWeight: 'bold',
-                                    color: colors.secondary.dark,
-                                    fontSize: '9px'
-                                  }}>
-                                    Action {childIndex + 1}
-                                  </span>
-                                  <span style={{
-                                    color: colors.secondary.main,
-                                    fontSize: '8px'
-                                  }}>
-                                    {formatTimestamp(child.timestamp)}
-                                  </span>
-                                </div>
-
-                                <div style={{
-                                  color: colors.text.secondary
-                                }}>
-                                  {formatActionDescription(child)}
-                                </div>
-
-                                {child.details?.space && (
-                                  <div style={{
-                                    color: colors.secondary.main,
-                                    fontSize: '8px',
-                                    marginTop: '2px'
-                                  }}>
-                                    📍 {child.details.space}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
+                      {action.details?.space && (
+                        <div style={{
+                          color: colors.secondary.main,
+                          fontSize: '8px',
+                          marginTop: '2px'
+                        }}>
+                          📍 {action.details.space}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
               );
             })}

@@ -204,9 +204,36 @@ export class StateService implements IStateService {
   }
 
   advanceTurn(): GameState {
+    const currentPlayerId = this.currentState.currentPlayerId;
+
+    // Handle case where no current player is set (for backwards compatibility)
+    if (!currentPlayerId) {
+      // Just increment the legacy turn counter and global count
+      const newState: GameState = {
+        ...this.currentState,
+        turn: this.currentState.turn + 1,
+        globalTurnCount: this.currentState.globalTurnCount + 1
+      };
+      this.currentState = newState;
+      this.notifyListeners();
+      return { ...newState };
+    }
+
+    // Calculate new turn tracking values (simplified)
+    const newGlobalTurnCount = this.currentState.globalTurnCount + 1;
+
+    // Update this player's individual turn count
+    const currentPlayerTurnCount = (this.currentState.playerTurnCounts[currentPlayerId] || 0) + 1;
+    const updatedPlayerTurnCounts = {
+      ...this.currentState.playerTurnCounts,
+      [currentPlayerId]: currentPlayerTurnCount
+    };
+
     const newState: GameState = {
       ...this.currentState,
-      turn: this.currentState.turn + 1
+      turn: this.currentState.turn + 1, // Keep for backwards compatibility
+      globalTurnCount: newGlobalTurnCount,
+      playerTurnCounts: updatedPlayerTurnCounts
     };
 
     this.currentState = newState;
@@ -856,7 +883,10 @@ export class StateService implements IStateService {
       if (player.id === playerId) {
         return {
           ...snapshotPlayerState,
-          timeSpent: snapshotPlayerState.timeSpent + timePenalty
+          timeSpent: snapshotPlayerState.timeSpent + timePenalty,
+          // CRITICAL: Preserve visitedSpaces from current state to prevent "First visit" loops
+          // Try Again should revert position/state but not "unvisit" spaces the player has been to
+          visitedSpaces: player.visitedSpaces
         };
       } else {
         return { ...player };
@@ -913,7 +943,11 @@ export class StateService implements IStateService {
       players: [],
       currentPlayerId: null,
       gamePhase: 'SETUP',
-      turn: 0,
+      turn: 0, // Deprecated but kept for backwards compatibility
+      // Simplified turn tracking system
+      globalTurnCount: 0,
+      // Track individual player turn counts for statistics
+      playerTurnCounts: {},
       activeModal: null,
       awaitingChoice: null,
       hasPlayerMovedThisTurn: false,

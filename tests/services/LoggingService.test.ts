@@ -26,6 +26,10 @@ describe('LoggingService', () => {
       currentPlayerId: null,
       gamePhase: 'SETUP',
       turn: 0,
+      // Simplified turn tracking system
+      globalTurnCount: 0,
+      // Track individual player turn counts for statistics
+      playerTurnCounts: {},
       activeModal: null,
       awaitingChoice: null,
       hasPlayerMovedThisTurn: false,

@@ -15,6 +15,11 @@ export interface ActionLogEntry {
   // Transactional logging fields for "Try Again" support
   isCommitted: boolean; // true if action is part of canonical game history
   explorationSessionId: string; // unique ID grouping all actions from a single exploratory attempt
+  // Simplified turn context
+  globalTurnNumber: number; // Absolute turn number across all players
+  playerTurnNumber: number; // This player's individual turn number (1st, 2nd, 3rd, etc.)
+  // Visibility control
+  visibility: 'player' | 'debug' | 'system'; // Who should see this log
 }
 
 
@@ -63,7 +68,11 @@ export interface GameState {
   players: Player[];
   currentPlayerId: string | null;
   gamePhase: GamePhase;
-  turn: number;
+  turn: number; // Deprecated but kept for backwards compatibility
+  // Simplified turn tracking system
+  globalTurnCount: number; // Total turns taken across all players (1, 2, 3, 4, 5, 6...)
+  // Track individual player turn counts for statistics
+  playerTurnCounts: { [playerId: string]: number }; // How many turns each player has taken total
   activeModal: ActiveModal | null;
   awaitingChoice: Choice | null;
   hasPlayerMovedThisTurn: boolean;

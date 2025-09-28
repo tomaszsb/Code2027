@@ -461,14 +461,17 @@ export class TurnService implements ITurnService {
       const gameState = this.stateService.getGameState();
       console.log(`🏠 Starting turn for ${player.name} at ${player.currentSpace}`);
 
-      // Log turn start for this player (display as 1-based instead of 0-based)
-      const displayTurn = gameState.turn + 1;
-      this.loggingService.info(`Turn ${displayTurn} started`, {
+      // Log turn start for this player using simplified turn numbering
+      const playerTurnNumber = (gameState.playerTurnCounts[player.id] || 0) + 1;
+      const turnLabel = `Turn ${gameState.globalTurnCount + 1}`;
+      this.loggingService.info(`${turnLabel} started`, {
         playerId: player.id,
         playerName: player.name,
         action: 'turn_start',
-        turn: displayTurn,
-        space: player.currentSpace
+        turn: gameState.globalTurnCount + 1,
+        playerTurnNumber: playerTurnNumber,
+        space: player.currentSpace,
+        visibility: 'player'
       });
 
       // 1. Start new exploration session for transactional logging
