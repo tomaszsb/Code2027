@@ -180,14 +180,7 @@ export class MovementService implements IMovementService {
 
     console.log(`🏁 Ending move: ${player.name} at ${player.currentSpace} - triggering arrival processing`);
 
-    // Log space entry (now that movement is confirmed complete)
-    this.loggingService.info(`${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
-      playerId: player.id,
-      playerName: player.name,
-      action: 'space_entry',
-      spaceName: player.currentSpace,
-      visitType: player.visitType
-    });
+    // Note: Space entry logging moved to TurnService.startTurn to ensure proper action sequence
 
     // Return current state - space effects will be processed by TurnService
     // This creates a clear separation: MovementService handles movement, TurnService handles effects

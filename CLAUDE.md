@@ -52,6 +52,11 @@ All previously identified issues have been successfully resolved:
    - **Solution**: Modified `StateService.revertPlayerToSnapshot()` to preserve visit history during Try Again
    - **Location**: `src/services/StateService.ts:887-889`
 
+8. **Fixed Action Sequence Logic:**
+   - **Problem**: "Player entered space" was logged during previous turn's movement, appearing after other actions illogically
+   - **Solution**: Moved space entry logging from `MovementService` to `TurnService.startTurn()` to ensure space entry is first action
+   - **Location**: `src/services/TurnService.ts:477-485` (added), `src/services/MovementService.ts:183` (removed)
+
 ### **Current Implementation Status**
 - ✅ **Complete Turn Sequence Control:** All turns (including first turn) follow the unified sequence
 - ✅ **Proper Turn Start Logging:** Every turn gets a "Turn X started" log entry
@@ -61,3 +66,4 @@ All previously identified issues have been successfully resolved:
 - ✅ **Turn Numbering System:** Setup (Turn 0) vs Gameplay (Turn 1+) clearly distinguished
 - ✅ **Space Progression:** Players correctly move between spaces without visit tracking loops
 - ✅ **Color Consistency:** All player actions display in proper player colors throughout game flow
+- ✅ **Logical Action Sequence:** Players enter spaces before taking actions, ensuring intuitive game flow

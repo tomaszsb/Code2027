@@ -474,6 +474,16 @@ export class TurnService implements ITurnService {
         visibility: 'player'
       });
 
+      // Log space entry as the first action of the turn (moved from MovementService for proper sequence)
+      this.loggingService.info(`${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
+        playerId: player.id,
+        playerName: player.name,
+        action: 'space_entry',
+        spaceName: player.currentSpace,
+        visitType: player.visitType,
+        visibility: 'player'
+      });
+
       // 1. Start new exploration session for transactional logging
       const sessionId = this.loggingService.startNewExplorationSession();
       console.log(`🔄 Started exploration session ${sessionId} for ${player.name}`);
