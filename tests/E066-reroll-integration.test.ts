@@ -328,6 +328,8 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
       currentPlayerId: 'player1',
       gamePhase: 'PLAY',
       turn: 1,
+      globalTurnCount: 1,
+      playerTurnCounts: { player1: 1 },
       activeModal: null,
       awaitingChoice: null,
       hasPlayerMovedThisTurn: false,
@@ -357,6 +359,7 @@ describe('E066 Card - Re-roll Mechanics Integration', () => {
     };
 
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
+    mockServices.stateService.getPlayer.mockReturnValue(mockGameState.players[0]);
     mockServices.gameRulesService.checkWinCondition = vi.fn().mockResolvedValue(false);
 
     // Execute nextPlayer (which is called by endTurn)

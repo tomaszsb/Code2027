@@ -112,6 +112,9 @@ describe('E2E-03: Complex Space Features Test', () => {
     // Create snapshot for Try Again functionality
     stateService.savePreSpaceEffectSnapshot(player.id, 'OWNER-SCOPE-INITIATION');
 
+    // Mark game as initialized (required for Try Again to work)
+    stateService.markAsInitialized();
+
     // Set player as having rolled dice (to verify reset)
     stateService.setPlayerHasRolledDice();
     stateService.setPlayerHasMoved();
@@ -175,6 +178,9 @@ describe('E2E-03: Complex Space Features Test', () => {
 
     // Create snapshot for Try Again functionality (but this space shouldn't allow it)
     stateService.savePreSpaceEffectSnapshot(player.id, 'PM-DECISION-CHECK');
+
+    // Mark game as initialized (required for Try Again logic to work)
+    stateService.markAsInitialized();
 
     const initialTime = player.timeSpent || 0;
 

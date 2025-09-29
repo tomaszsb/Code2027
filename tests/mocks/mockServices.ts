@@ -147,6 +147,13 @@ export const createMockStateService = (): any => ({
   setGameState: vi.fn(),
   updateGameState: vi.fn(),
 
+  // Dice roll feedback methods
+  setDiceRollCompletion: vi.fn(),
+
+  // Initialization methods
+  isInitialized: vi.fn().mockReturnValue(true),
+  markAsInitialized: vi.fn(),
+
   // Movement destination selection
   selectDestination: vi.fn()
 });
@@ -336,7 +343,10 @@ export const createMockLoggingService = (): any => ({
   log: vi.fn(),
   // Performance timing methods
   startPerformanceTimer: vi.fn(),
-  endPerformanceTimer: vi.fn()
+  endPerformanceTimer: vi.fn(),
+  // Exploration session methods
+  startNewExplorationSession: vi.fn().mockReturnValue('session_123'),
+  getCurrentSessionId: vi.fn().mockReturnValue('session_123')
 });
 
 export const createMockNotificationService = (): any => ({

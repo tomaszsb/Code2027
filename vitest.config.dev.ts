@@ -5,7 +5,15 @@ import path from 'path';
 export default defineConfig({
   test: {
     // Use Node environment by default - much faster than jsdom for service tests
+    // But automatically switch to jsdom for React component tests
     environment: 'node',
+    environmentMatchGlobs: [
+      // Use jsdom for React component tests (.tsx files)
+      ['**/*.tsx', 'jsdom'],
+      ['**/components/**/*.test.ts', 'jsdom'],
+      ['**/components/**/*.test.tsx', 'jsdom']
+    ],
+
     include: [
       'tests/**/*.test.ts',
       'tests/**/*.test.tsx'
