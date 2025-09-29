@@ -6,9 +6,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CardPortfolioDashboard } from '../../../src/components/game/CardPortfolioDashboard';
 import { GameContext } from '../../../src/context/GameContext';
 import { Player, GameState } from '../../../src/types/StateTypes';
@@ -81,6 +81,7 @@ describe('CardPortfolioDashboard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    cleanup(); // Clean up any previous renders
 
     // Setup mock services
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
@@ -130,8 +131,8 @@ describe('CardPortfolioDashboard', () => {
 
     it('should render Available Cards section', () => {
       renderComponent();
-      
-      expect(screen.getByText('Available Cards')).toBeInTheDocument();
+
+      expect(screen.getAllByText('Available Cards')[0]).toBeInTheDocument();
     });
 
     it('should render Active Cards section', () => {

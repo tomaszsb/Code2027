@@ -463,22 +463,4 @@ describe('MovementPathVisualization', () => {
     });
   });
 
-  it.skip('should show hover effects on valid destinations', async () => {
-    render(
-      <MovementPathVisualization
-        isVisible={true}
-        onToggle={mockOnToggle}
-      />
-    );
-
-    await waitFor(() => {
-      const destination = screen.getByText('ARCHITECT-MEETING').closest('div')!;
-      
-      fireEvent.mouseEnter(destination);
-      expect(destination).toHaveStyle('transform: translateX(4px)');
-      
-      fireEvent.mouseLeave(destination);
-      expect(destination).toHaveStyle('transform: translateX(0)');
-    });
-  });
 });

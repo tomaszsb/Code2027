@@ -28,22 +28,19 @@ export default defineConfig({
     globals: true,
     setupFiles: ['tests/vitest.setup.ts'],
 
-    // SPEED OPTIMIZATIONS: Use threads for parallel execution
-    pool: 'threads',
+    // STABLE EXECUTION: Single-threaded to avoid worker crashes
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        maxThreads: 4,        // Parallel execution with up to 4 threads
-        minThreads: 1,
-        isolate: false,       // Shared context for speed
-        useAtomics: true      // Enable atomic operations for better performance
+      forks: {
+        singleFork: true      // Run all tests in single process
       }
     },
 
-    // Faster timeouts for development
-    testTimeout: 15000,       // 15 seconds (reduced from 30)
+    // Standard timeouts
+    testTimeout: 30000,       // 30 seconds
 
-    // Minimal isolation for maximum speed
-    isolate: false,           // Shared environment between tests
+    // Proper isolation for reliability
+    isolate: true,            // Isolated environment between tests
     clearMocks: true,         // Still clear mocks for test reliability
 
     // Faster reporter

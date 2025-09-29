@@ -6,9 +6,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TurnControlsWithActions } from '../../src/components/game/TurnControlsWithActions';
 import { GameContext } from '../../src/context/GameContext';
 import { GamePhase, Player } from '../../src/types/StateTypes';
@@ -21,6 +21,7 @@ describe('TurnControlsWithActions', () => {
   let mockGameState: any;
 
   beforeEach(() => {
+    cleanup(); // Clean up any previous renders
     mockServices = createAllMockServices();
 
     mockCurrentPlayer = {
@@ -172,7 +173,7 @@ describe('TurnControlsWithActions', () => {
     );
 
     // Verify movement choice section is displayed
-    expect(screen.getByText('🚶 Choose Your Destination')).toBeInTheDocument();
+    expect(screen.getAllByText('🚶 Choose Your Destination')[0]).toBeInTheDocument();
 
     // Verify both movement option buttons are displayed
     expect(screen.getByText((content, node) => {

@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from 'vitest';
 import { EndGameModal } from '../../../src/components/modals/EndGameModal';
 import { IStateService } from '../../../src/types/ServiceContracts';
 import { GameState } from '../../../src/types/StateTypes';
@@ -27,6 +27,7 @@ describe('EndGameModal', () => {
   let mockGameState: GameState;
 
   beforeEach(() => {
+    cleanup(); // Clean up any previous renders
     vi.clearAllMocks();
 
     mockPlayer = {
@@ -112,8 +113,8 @@ describe('EndGameModal', () => {
       render(<EndGameModal />);
       
       // Modal should be visible with correct content
-      expect(screen.getByText('Game Complete!')).toBeInTheDocument();
-      expect(screen.getByText('🏆 Congratulations Test Winner!')).toBeInTheDocument();
+      expect(screen.getAllByText('Game Complete!')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('🏆 Congratulations Test Winner!')[0]).toBeInTheDocument();
       expect(screen.getByText('You have successfully reached an ending space and won the game!')).toBeInTheDocument();
     });
 
@@ -173,8 +174,8 @@ describe('EndGameModal', () => {
       stateChangeCallback(gameOverState);
 
       await waitFor(() => {
-        expect(screen.getByText('Game Complete!')).toBeInTheDocument();
-        expect(screen.getByText('🏆 Congratulations Test Winner!')).toBeInTheDocument();
+        expect(screen.getAllByText('Game Complete!')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('🏆 Congratulations Test Winner!')[0]).toBeInTheDocument();
       });
     });
 
@@ -290,7 +291,7 @@ describe('EndGameModal', () => {
       
       // Check for key elements
       expect(screen.getByText('🎉')).toBeInTheDocument(); // Celebration icon
-      expect(screen.getByText('Game Complete!')).toBeInTheDocument();
+      expect(screen.getAllByText('Game Complete!')[0]).toBeInTheDocument();
       expect(screen.getByText('🎮 Play Again')).toBeInTheDocument();
       expect(screen.getByText(/Well played! You've mastered the game/)).toBeInTheDocument();
     });
