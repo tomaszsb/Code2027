@@ -218,6 +218,49 @@ app.post('/ask-gemini', async (req, res) => {
     }
 });
 
+// v2.1 endpoint - ask-claude (Gemini asking Claude)
+app.post('/ask-claude', async (req, res) => {
+    const { question, includeContext = true } = req.body;
+
+    if (!question) {
+        return res.status(400).json({ error: 'Question is required' });
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    try {
+        // Add to history
+        await addToHistory('gemini-user', question);
+
+        // Format question with context for Claude
+        let contextualQuestion = question;
+        if (includeContext && conversationHistory.length > 0) {
+            contextualQuestion = formatHistoryForGemini() + '\n' + question;
+        }
+
+        // For now, return a note that Claude needs manual invocation
+        // In future: could integrate with Claude Code API or file-based prompts
+        const response = {
+            response: `[NOTE: This would be sent to Claude Code. Current limitation: Claude Code doesn't have an API endpoint for external questions. Workaround: Question saved to gemini-outbox, user can relay to Claude.]`,
+            question: contextualQuestion,
+            status: 'saved',
+            file: `${timestamp}-gemini-to-claude.txt`
+        };
+
+        // Save question for user to relay
+        const questionFile = path.join(geminiOutboxDir, `${timestamp}-gemini-to-claude.txt`);
+        await fs.writeFile(questionFile, `GEMINI ASKS CLAUDE:\n\n${contextualQuestion}`);
+
+        console.log('[ASK-CLAUDE] Question saved for relay');
+
+        res.json(response);
+
+    } catch (error) {
+        console.error('Error in ask-claude:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // v2.0 endpoint - hybrid communication with triggers
 app.post('/communicate', async (req, res) => {
     const { message, mode = 'claude', metadata = {} } = req.body;
