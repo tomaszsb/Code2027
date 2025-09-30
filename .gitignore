@@ -50,13 +50,15 @@ Thumbs.db
 /.server/.gemini-processed.json
 /.server/.claude-processed.json
 /.server/conversation-history.txt
+/.server/conversation-context.json
 /.server/message-to-gemini.json
 /.server/temp-message.txt
 /.server/index.html
 
 # Keep these for version control (infrastructure code):
 # - gemini-context.py (hook script)
-# - .server/hybrid-ai-bridge.js (bridge server)
+# - .server/hybrid-ai-bridge.js (bridge server v2.0)
+# - .server/hybrid-ai-bridge-v1.js (bridge server v1.0 backup)
 # - .server/gemini-watcher*.py (watcher scripts)
 # - .server/claude-watcher.py (monitor script)
 # - .server/PROTOCOL.md (communication protocol)
