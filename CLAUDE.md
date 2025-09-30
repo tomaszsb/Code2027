@@ -1,4 +1,102 @@
 
+## 🤖 **SESSION INITIALIZATION**
+
+### **Auto-Start Services**
+At the beginning of each session, Claude will automatically:
+
+1. **Start the AI Bridge Server:**
+   ```bash
+   node .server/hybrid-ai-bridge.js &
+   ```
+   - This starts the HTTP server on `localhost:3003`
+   - Enables the `/ask-gemini` endpoint for hook integration
+   - Creates file-based message queues for Claude ↔ Gemini communication
+   - Provides web interface at `http://localhost:3003/index.html`
+
+2. **Verify Hook Configuration:**
+   - Hook is configured in `.claude/settings.local.json:42-49`
+   - Python script at `gemini-context.py` intercepts messages starting with "ask gemini:"
+   - Sends questions to bridge server, returns Gemini's response as additional context
+
+### **Usage Pattern:**
+```
+User: ask gemini: What are best practices for React testing?
+Claude: [Receives Gemini's response and incorporates it into answer]
+```
+
+### **Bidirectional Communication Setup:**
+
+The system supports full bidirectional async communication between Claude and Gemini through file-based message queues.
+
+#### **Gemini Setup (Required for bidirectional):**
+
+1. **Start Gemini Watcher (Simple - No Dependencies):**
+   ```bash
+   cd .server
+   python3 gemini-watcher-simple.py
+   ```
+   - Uses only Python built-in libraries (no pip required)
+   - Monitors `.server/gemini-notifications/` for messages from Claude
+   - Saves responses to `.server/gemini-outbox/`
+   - Works immediately for testing
+
+2. **Configure Real Gemini Integration:**
+
+   See `.server/GEMINI-SETUP.md` for detailed instructions. Quick options:
+
+   **Option A - Google Gemini API (No pip needed):**
+   - Uses built-in `urllib.request` library
+   - Get API key from: https://makersuite.google.com/app/apikey
+   - Edit `get_gemini_response()` in `gemini-watcher-simple.py`
+
+   **Option B - Gemini CLI:**
+   - Install a `gemini` command that accepts: `gemini "question"`
+   - Modify `get_gemini_response()` to call your CLI
+
+   **Option C - Full Featured (requires pip):**
+   - Use `gemini-watcher.py` instead
+   - Requires: `pip3 install google-generativeai`
+
+#### **Claude Setup (Optional - for monitoring Gemini):**
+
+1. **Start Claude Watcher:**
+   ```bash
+   cd .server
+   python3 claude-watcher.py
+   ```
+   - Monitors `.server/gemini-outbox/` for responses from Gemini
+   - Displays new messages in terminal
+   - Logs conversation history to `conversation-history.txt`
+
+#### **Communication Flow:**
+
+```
+User types: "ask gemini: What is React?"
+    ↓
+Hook intercepts → gemini-context.py
+    ↓
+HTTP POST → localhost:3003/ask-gemini
+    ↓
+Bridge server → Saves to claude-inbox/
+    ↓
+Creates notification → gemini-notifications/
+    ↓
+Gemini watcher detects notification
+    ↓
+Calls Gemini CLI/API → Gets response
+    ↓
+Saves to gemini-outbox/
+    ↓
+Claude watcher displays message (if running)
+    ↓
+Bridge server returns response to Claude
+```
+
+#### **Message Directories:**
+- `.server/claude-inbox/` - Questions from Claude
+- `.server/gemini-outbox/` - Responses from Gemini
+- `.server/gemini-notifications/` - Notifications for Gemini watcher
+- `.server/conversation-history.txt` - Full conversation log
 
 ---
 

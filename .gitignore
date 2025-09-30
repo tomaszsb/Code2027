@@ -39,5 +39,25 @@ ehthumbs.db
 Thumbs.db
 
 # Developer scripts
-*.py
-*.js
+# *.py
+# *.js
+
+# AI-AI Bridge Infrastructure
+# Message queues and temp files
+/.server/claude-inbox/
+/.server/gemini-outbox/
+/.server/gemini-notifications/
+/.server/.gemini-processed.json
+/.server/.claude-processed.json
+/.server/conversation-history.txt
+/.server/message-to-gemini.json
+/.server/temp-message.txt
+/.server/index.html
+
+# Keep these for version control (infrastructure code):
+# - gemini-context.py (hook script)
+# - .server/hybrid-ai-bridge.js (bridge server)
+# - .server/gemini-watcher*.py (watcher scripts)
+# - .server/claude-watcher.py (monitor script)
+# - .server/PROTOCOL.md (communication protocol)
+# - .server/README.md, *.md (documentation)
