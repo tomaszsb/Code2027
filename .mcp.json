@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gemini-bridge": {
+      "command": "python3",
+      "args": ["/mnt/d/unravel/current_game/code2027/gemini-mcp-server/server.py"]
+    }
+  }
+}
