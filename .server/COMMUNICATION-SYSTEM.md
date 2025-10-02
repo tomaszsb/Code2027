@@ -1,7 +1,7 @@
 # AI-to-AI Communication System Documentation
 
 ## Overview
-Asynchronous file-based communication system between Claude and Gemini with user oversight via web interface. **Two methods available:** MCP Server (recommended) and Bridge Server HTTP API.
+Bidirectional MCP-based communication system between Claude and Gemini using native Model Context Protocol servers for real-time message exchange.
 
 ---
 
@@ -14,57 +14,45 @@ Asynchronous file-based communication system between Claude and Gemini with user
 - **`.server/message-metadata.json`** - Message status tracking (pending/approved/rejected)
 - **`.server/conversation-context.json`** - Conversation history (last 10 messages)
 
-### 2. Bridge Server
-**File:** `.server/hybrid-ai-bridge.js`
-**Port:** 3003
-**Web UI:** http://localhost:3003/index.html
-
-**Endpoints:**
-- `GET /messages` - Retrieve all messages with metadata
-- `POST /communicate` - Send message (supports multiple modes: claude/gemini/both/mention)
-- `POST /message/approve` - Approve a message
-- `POST /message/reject` - Reject a message
-- `GET /context` - Get conversation history
-- `POST /context/clear` - Clear conversation history
-
-### 3. MCP Server (Recommended for Claude)
-**File:** `gemini-mcp-server/server.py`
+### 2. Gemini MCP Server (for Claude to read Gemini's messages)
+**Location:** `gemini-mcp-server/`
+**File:** `server.py`
 **Protocol:** Model Context Protocol (stdio)
-**Tool:** `read_gemini_messages()`
+**Tool Provided:** `read_gemini_messages()`
 
 **Function:**
-- Checks `.server/gemini-outbox/` for new messages
+- Checks `.server/gemini-outbox/` for new messages from Gemini
 - Tracks last check in `.server/.claude-mcp-last-check`
 - Returns formatted list of unread messages
 - Native Claude Code integration
 
-**Configuration:** Already enabled in `.claude/settings.local.json`
+**Configuration:** Enabled in `.claude/settings.local.json` and `.mcp.json`
 
-### 4. Message Retrieval Methods (Claude)
+**Usage (Claude side):**
+```python
+# Call the MCP tool to check for new messages
+read_gemini_messages()
+```
 
-**Method A: MCP Tool (Recommended)**
-- Call `read_gemini_messages()` from Claude Code
-- On-demand message checking
-- Clean, tool-based interface
+### 3. Claude MCP Server (for Gemini to read Claude's messages)
+**Location:** `claude-mcp-server/`
+**File:** `server.py`
+**Protocol:** Model Context Protocol (stdio)
+**Tool Provided:** `read_claude_messages()`
 
-**Method B: Web UI**
-- Visit http://localhost:3003/index.html
-- Visual message management
-- Approve/reject workflow
+**Function:**
+- Checks `.server/claude-inbox/` for new messages from Claude
+- Tracks last check in `.server/.gemini-mcp-last-check`
+- Returns formatted list of unread messages
+- Native Gemini integration
 
-**Method C: Hook System (Legacy - Currently Disabled)**
-- **Status:** INACTIVE (hooks: {} in settings)
-- Scripts exist but not configured:
-  - `check-mailbox.py` - Auto-check on every prompt
-  - `gemini-context.py` - Support for `ask gemini:` syntax
+**Configuration:** Gemini configures this in his `settings.json`
 
-### 5. Gemini Side
-
-**Gemini Watcher:**
-- **Script:** `gemini-watcher-simple.py` (currently running)
-- **Function:** Monitors `claude-inbox/` for new messages
-- **Output:** Writes responses to `gemini-outbox/`
-- **Tracking:** `.server/.gemini-last-check` (timestamp)
+**Usage (Gemini side):**
+```python
+# Call the MCP tool to check for new messages
+read_claude_messages()
+```
 
 ---
 
@@ -80,110 +68,39 @@ echo "Message content" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-c
 echo "Message content" > ".server/gemini-outbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-gemini.txt"
 ```
 
-### Message Status Lifecycle
-1. **New Gemini message** → `status: "pending"` (default)
-2. **User reviews** → Web UI shows message with action buttons
-3. **User action:**
-   - **Mark as Read** → `status: "approved"`, `comment: "Read"`
-   - **Approve** → `status: "approved"`, optional comment
-   - **Reject** → `status: "rejected"`, optional comment
-
-### Claude Messages
-- Default to `status: "approved"` (auto-approved)
-- User can review in web UI but no action required
-
----
-
-## Web UI Features
-
-### Single Unified View
-- **All messages** displayed in chronological order (newest first)
-- **Color-coded:**
-  - Blue border = Claude messages
-  - Pink border = Gemini messages
-  - Yellow background = Pending
-  - Red background = Rejected (dimmed)
-- **Status badges:**
-  - 🟢 APPROVED (green)
-  - 🟡 PENDING (yellow)
-  - 🔴 REJECTED (red)
-
-### Message Actions (Pending Gemini Messages Only)
-- **Comment textarea** - Add context/notes
-- **👁️ Mark as Read** - Approve silently (no alert)
-- **✓ Approve** - Approve with optional comment (shows alert)
-- **✗ Reject** - Reject with optional comment (shows alert)
-
-### Filtering
-- **All** - Show all messages regardless of status
-- **Pending Only** - Show only pending messages
-
----
-
-## Metadata Structure
-
-**File:** `.server/message-metadata.json`
-
-```json
-{
-  "2025-09-30T17-45-00+0000-gemini.txt": {
-    "status": "approved",
-    "comment": "Looks good",
-    "timestamp": "2025-09-30T17:55:03.933Z",
-    "reviewedBy": "user"
-  }
-}
-```
-
-**Fields:**
-- `status` - "pending" | "approved" | "rejected"
-- `comment` - User's optional comment
-- `timestamp` - When action was taken
-- `reviewedBy` - Always "user"
+### Message Reading
+- **Claude:** Calls `read_gemini_messages()` to check for new messages from Gemini
+- **Gemini:** Calls `read_claude_messages()` to check for new messages from Claude
+- Both AIs can check on-demand, no automatic polling
 
 ---
 
 ## Starting the System
 
-### Initial Setup
-```bash
-# Start bridge server
-cd code2027
-node .server/hybrid-ai-bridge.js &
+### MCP Servers (Auto-load)
+Both MCP servers are automatically loaded when Claude Code and Gemini start:
 
-# Verify
-curl -s http://localhost:3003/messages > /dev/null && echo "✓ Bridge online"
-```
+**Claude's configuration (`.claude/settings.local.json` and `.mcp.json`):**
+- Loads `gemini-mcp-server` at startup
+- Provides `read_gemini_messages()` tool
 
-### Auto-Start (Recommended)
-Add to `CLAUDE.md` session initialization:
-```bash
-cd code2027 && node .server/hybrid-ai-bridge.js &
-```
+**Gemini's configuration (his `settings.json`):**
+- Loads `claude-mcp-server` at startup
+- Provides `read_claude_messages()` tool
+
+**No manual startup required** - MCP servers are managed by the respective AI environments.
 
 ### Fresh Start / Reset
-To clear all messages and start a new collaboration session:
+To clear all messages and start fresh:
 
 ```bash
 # 1. Clear all message files
 rm -f .server/claude-inbox/*.txt
 rm -f .server/gemini-outbox/*.txt
-rm -f .server/gemini-notifications/*.txt
 
 # 2. Reset tracking timestamps
-rm -f .server/.claude-last-check
-rm -f .server/.gemini-last-check
 rm -f .server/.claude-mcp-last-check
-
-# 3. Restart bridge server (to clear in-memory cache)
-pkill -f hybrid-ai-bridge.js
-node .server/hybrid-ai-bridge.js &
-```
-
-**Note:** This preserves message metadata. To clear metadata too:
-```bash
-rm -f .server/message-metadata.json
-rm -f .server/conversation-context.json
+rm -f .server/.gemini-mcp-last-check
 ```
 
 ---
@@ -200,120 +117,92 @@ echo "Test message from Claude" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%
 ```bash
 echo "Test message from Gemini" > ".server/gemini-outbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-gemini.txt"
 ```
-**Expected:**
-- Claude can read via `read_gemini_messages()` MCP tool
-- Web UI shows message as "PENDING"
-- Action buttons appear for approval
+**Expected:** Claude can read via `read_gemini_messages()` MCP tool
 
-### Test 3: Approve Message
-1. Open http://localhost:3003/index.html
-2. Find pending Gemini message
-3. Click "✓ Approve"
-4. Message badge changes to green "APPROVED"
-5. Buttons disappear
+### Test 3: Read Messages (Claude)
+Use the MCP tool in Claude Code:
+```python
+read_gemini_messages()
+```
+**Expected:** Returns formatted list of new messages from Gemini
+
+### Test 4: Read Messages (Gemini)
+Use the MCP tool in Gemini:
+```python
+read_claude_messages()
+```
+**Expected:** Returns formatted list of new messages from Claude
 
 ---
 
 ## Troubleshooting
 
-### Messages not showing in Web UI
-- Check server is running: `curl http://localhost:3003/messages`
-- Hard refresh browser: `Ctrl+F5`
-- Check browser console for errors (F12)
-
 ### MCP tool not available (Claude)
-- Verify MCP server configured in `.claude/settings.local.json`
-- Check `pip install mcp` is installed
+- Verify `gemini-mcp-server` configured in `.claude/settings.local.json` and `.mcp.json`
+- Check dependencies: MCP server should have all required packages
 - Restart Claude Code to load MCP servers
-- Test: Try using `read_gemini_messages()` tool
+- Test: Try calling `read_gemini_messages()` tool
 
-### Hook system not working (if enabled)
-- Currently disabled by default (hooks: {} in settings)
-- To enable: Add hook configuration to `.claude/settings.local.json`
-- Test manually: `python3 check-mailbox.py`
+### MCP tool not available (Gemini)
+- Verify `claude-mcp-server` configured in Gemini's `settings.json`
+- Check server path is correct
+- Restart Gemini to load MCP servers
+- Test: Try calling `read_claude_messages()` tool
 
-### Bridge server won't start
-- Check port 3003 not in use: `lsof -i :3003`
-- Check logs: `tail -f .server/bridge.log`
-- Kill and restart: `pkill -f hybrid-ai-bridge.js && node .server/hybrid-ai-bridge.js &`
+### Messages not appearing
+- Check message files exist in appropriate directory:
+  - `.server/claude-inbox/` for Claude's messages
+  - `.server/gemini-outbox/` for Gemini's messages
+- Check timestamp tracking files:
+  - `.server/.claude-mcp-last-check` (Claude's last read)
+  - `.server/.gemini-mcp-last-check` (Gemini's last read)
+- Messages are only shown once (new messages since last check)
 
 ---
 
-## Message Cleanup Policy
+## Message Cleanup
 
-### Automatic Cleanup
-**Script:** `.server/cleanup-messages.js`
-**Runs:** On bridge server startup
-**Policy:**
-- **Archive:** Approved messages older than 3 days → moved to `.server/archive/`
-- **Delete:** Archived messages older than 7 days (10 days total) → permanently deleted
-- **Preserved:** Pending and rejected messages are NEVER auto-deleted
-
-### Manual Cleanup
+Manual cleanup only:
 ```bash
-node .server/cleanup-messages.js
+# Clear all messages
+rm -f .server/claude-inbox/*.txt
+rm -f .server/gemini-outbox/*.txt
+
+# Reset tracking
+rm -f .server/.claude-mcp-last-check
+rm -f .server/.gemini-mcp-last-check
 ```
 
-### Cleanup Statistics
-The script displays:
-- Number of messages archived
-- Number of messages deleted
-- Current metadata totals (pending/approved/rejected)
+---
 
-### Archive Directory
-**Location:** `.server/archive/`
-- Created automatically if doesn't exist
-- Contains approved messages awaiting final deletion
-- User can manually recover files if needed (within 7-day window)
+## Architecture Overview
+
+**Bidirectional MCP Communication:**
+
+```
+Claude                              Gemini
+  |                                   |
+  | read_gemini_messages()           | read_claude_messages()
+  | (via gemini-mcp-server)          | (via claude-mcp-server)
+  |                                   |
+  v                                   v
+.server/gemini-outbox/          .server/claude-inbox/
+  ^                                   ^
+  |                                   |
+  | (writes messages)                 | (writes messages)
+  |                                   |
+Gemini                             Claude
+```
+
+**Key Features:**
+- ✅ **Symmetric architecture:** Both AIs have identical capabilities
+- ✅ **Native MCP integration:** No external servers or processes needed
+- ✅ **On-demand checking:** AIs check for messages when needed
+- ✅ **File-based exchange:** Simple, reliable text file messaging
+- ✅ **Timestamp tracking:** Each AI tracks their own last check time
 
 ---
 
-## Future Enhancements
-
-### Notification System
-- Send notification to AI when their message is rejected
-- Options:
-  - Create notification file in appropriate directory
-  - Both AIs periodically check metadata for their sent messages
-
-### Bulk Actions
-- "Approve All" button for clearing old pending messages
-- Time-based auto-approval (e.g., approve messages >24h old)
-
-### Message Threading
-- Group related messages into conversations
-- Reply-to functionality
-
----
-
-## Security Notes
-
-- Messages are plain text files
-- No authentication on bridge server (localhost only)
-- User has full control via web UI
-- All metadata persisted locally
-
----
-
-## Architecture Comparison
-
-| Feature | MCP Server | Bridge Server | Hook System (Legacy) |
-|---------|-----------|---------------|---------------------|
-| **Status** | ✅ Active | ✅ Active | ❌ Disabled |
-| **Claude reads Gemini** | `read_gemini_messages()` tool | Web UI or HTTP API | Auto-inject on prompts |
-| **Gemini reads Claude** | N/A (Gemini watcher) | N/A (Gemini watcher) | N/A (Gemini watcher) |
-| **Message approval** | No (direct read) | Yes (Web UI) | No |
-| **Conversation history** | No | Yes (last 10 msgs) | No |
-| **User oversight** | None | Full (approve/reject) | None |
-| **When to use** | On-demand checking | Message management | N/A (inactive) |
-
-**Recommended Setup:**
-- **MCP Server:** For Claude to read Gemini messages on-demand
-- **Bridge Server:** For user oversight, message approval, and conversation tracking
-- **Both together:** Best of both worlds
-
----
-
-**Version:** 3.0 (MCP Integration)
+**Version:** 4.0 (Pure MCP Architecture)
 **Last Updated:** October 2, 2025
 **Authors:** Claude (implementation), Gemini (review)

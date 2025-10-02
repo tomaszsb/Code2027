@@ -1,120 +1,50 @@
 
 ## 🤖 **SESSION INITIALIZATION**
 
-### **ACTIVE COMMUNICATION PROTOCOL (Oct 2, 2025 - Updated)**
+### **COMMUNICATION PROTOCOL (Oct 2, 2025 - MCP Architecture)**
 
-**File-Based AI-to-AI Communication:**
-- Claude and Gemini communicate via direct file exchange
+**Bidirectional MCP-Based Communication:**
+- Claude and Gemini communicate via symmetric MCP servers
 - **Claude → Gemini:** Write to `.server/claude-inbox/<timestamp>-claude.txt`
 - **Gemini → Claude:** Write to `.server/gemini-outbox/<timestamp>-gemini.txt`
-- **Message Reading:** Use MCP tool `read_gemini_messages()` to check for new messages
+- **Message Reading (Claude):** Use MCP tool `read_gemini_messages()`
+- **Message Reading (Gemini):** Use MCP tool `read_claude_messages()`
 
-### **Auto-Start Services**
-At the beginning of each session, Claude will automatically:
+### **MCP Servers (Auto-load on startup)**
 
-1. **Start the AI Bridge Server:**
-   ```bash
-   node .server/hybrid-ai-bridge.js &
-   ```
-   - HTTP server on `localhost:3003`
-   - Message management and metadata tracking
-   - Web interface at `http://localhost:3003/index.html`
-   - Conversation history (last 10 messages)
+**No manual startup required** - Both MCP servers load automatically:
 
-2. **MCP Server (Already Configured):**
-   - `gemini-mcp-server` provides `read_gemini_messages()` tool
+1. **Gemini MCP Server (for Claude):**
+   - Location: `gemini-mcp-server/`
+   - Tool provided: `read_gemini_messages()`
    - Configured in `.claude/settings.local.json` and `.mcp.json`
-   - No manual startup needed (loads with Claude Code)
-   - Use tool to check for Gemini's messages on-demand
+   - Auto-loads when Claude Code starts
 
-### **Current Usage Pattern:**
-```
+2. **Claude MCP Server (for Gemini):**
+   - Location: `claude-mcp-server/`
+   - Tool provided: `read_claude_messages()`
+   - Configured in Gemini's `settings.json`
+   - Auto-loads when Gemini starts
+
+### **Usage Pattern:**
+```bash
 # Check for new messages from Gemini:
 read_gemini_messages()
 
 # Send message to Gemini:
 echo "Message" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-claude.txt"
-
-# View all messages in web UI:
-# Open http://localhost:3003/index.html
 ```
 
-### **Legacy Systems (Currently Disabled):**
-- ❌ Hook-based auto-check - Not configured (`hooks: {}` in settings)
-- ❌ `ask gemini:` syntax - Hook system inactive
-- Scripts exist (`check-mailbox.py`, `gemini-context.py`) but not enabled
-
-### **Bidirectional Communication Setup:**
-
-The system supports full bidirectional async communication between Claude and Gemini through file-based message queues.
-
-#### **Gemini Setup (Required for bidirectional):**
-
-1. **Start Gemini Watcher (Simple - No Dependencies):**
-   ```bash
-   cd .server
-   python3 gemini-watcher-simple.py
-   ```
-   - Uses only Python built-in libraries (no pip required)
-   - Monitors `.server/claude-inbox/` for messages from Claude
-   - Saves responses to `.server/gemini-outbox/`
-   - Works immediately for testing
-
-2. **Configure Real Gemini Integration:**
-
-   See `.server/GEMINI-SETUP.md` for detailed instructions. Quick options:
-
-   **Option A - Google Gemini API (No pip needed):**
-   - Uses built-in `urllib.request` library
-   - Get API key from: https://makersuite.google.com/app/apikey
-   - Edit `get_gemini_response()` in `gemini-watcher-simple.py`
-
-   **Option B - Gemini CLI:**
-   - Install a `gemini` command that accepts: `gemini "question"`
-   - Modify `get_gemini_response()` to call your CLI
-
-   **Option C - Full Featured (requires pip):**
-   - Use `gemini-watcher.py` instead
-   - Requires: `pip3 install google-generativeai`
-
-#### **Claude Monitoring (Optional - Terminal Display):**
-
-**Claude Watcher** is an optional terminal monitoring tool:
-```bash
-cd .server
-python3 claude-watcher.py
-```
-- Displays Gemini's responses in real-time in terminal
-- Logs conversation to `conversation-history.txt`
-- **Not required** - MCP tool `read_gemini_messages()` is the primary method
-
-#### **Current Communication Flow:**
-
-```
-Claude writes message → .server/claude-inbox/<timestamp>-claude.txt
-    ↓
-Gemini watcher detects new file
-    ↓
-(Placeholder: Would call Gemini API/CLI here)
-    ↓
-Gemini watcher writes response → .server/gemini-outbox/<timestamp>-gemini.txt
-    ↓
-Claude checks via MCP tool: read_gemini_messages()
-    ↓
-Returns formatted message(s) to Claude
-```
-
-#### **Message Directories:**
+### **Message Directories:**
 - `.server/claude-inbox/` - Messages from Claude to Gemini
 - `.server/gemini-outbox/` - Messages from Gemini to Claude
-- `.server/gemini-notifications/` - Notification triggers (for watcher)
-- `.server/message-metadata.json` - Message status tracking
-- `.server/conversation-context.json` - Last 10 messages
+- `.server/.claude-mcp-last-check` - Timestamp of Claude's last message check
+- `.server/.gemini-mcp-last-check` - Timestamp of Gemini's last message check
 
-#### **Complete Documentation:**
+### **Complete Documentation:**
 - **System Overview:** `.server/COMMUNICATION-SYSTEM.md`
-- **MCP Server:** `gemini-mcp-server/README.md`
-- **Bridge Server:** `.server/README.md`
+- **Gemini MCP Server:** `gemini-mcp-server/README.md`
+- **Claude MCP Server:** `claude-mcp-server/README.md`
 
 ---
 

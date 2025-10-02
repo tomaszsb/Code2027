@@ -42,31 +42,14 @@ Thumbs.db
 # *.py
 # *.js
 
-# AI-AI Bridge Infrastructure
+# AI-AI MCP Communication Infrastructure
 # Message queues and runtime files (don't commit conversations)
 /.server/claude-inbox/
 /.server/gemini-outbox/
-/.server/gemini-notifications/
-/.server/archive/
-/.server/.claude-last-check
-/.server/.gemini-last-check
 /.server/.claude-mcp-last-check
-/.server/message-metadata.json
-/.server/conversation-context.json
-/.server/conversation-history.txt
-/.server/bridge.pid
-/.server/gemini.pid
+/.server/.gemini-mcp-last-check
 
-# Temporary files
-/.server/.gemini-processed.json
-/.server/.claude-processed.json
-/.server/message-to-gemini.json
-/.server/temp-message.txt
-
-# Keep these for version control (infrastructure code):
-# - .server/hybrid-ai-bridge.js (bridge server)
-# - .server/gemini-watcher-simple.py (watcher)
-# - .server/claude-watcher.py (monitor)
+# Keep these for version control (MCP servers and docs):
+# - gemini-mcp-server/ (MCP server for Claude)
+# - claude-mcp-server/ (MCP server for Gemini)
 # - .server/*.md (documentation)
-# - gemini-mcp-server/ (MCP server)
-# - check-mailbox.py, gemini-context.py (hook scripts)
