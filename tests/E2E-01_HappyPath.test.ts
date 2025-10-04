@@ -95,7 +95,7 @@ describe('E2E-01: Happy Path', () => {
     expect(player.projectScope).toBe(0);
     expect(player.hand).toHaveLength(0);
     expect(player.visitType).toBe('First');
-    expect(initialGameState.turn).toBe(0); // Game starts at turn 0
+    expect(initialGameState.globalTurnCount).toBe(0); // Game starts at turn 0
     expect(initialGameState.globalActionLog).toHaveLength(0); // Empty initially
 
     // Mock dice roll to return 4 consistently
@@ -129,7 +129,7 @@ describe('E2E-01: Happy Path', () => {
     expect(finalPlayer.money).toBe(0); // No money changes during this basic turn
 
     // Game state assertions
-    expect(finalGameState.turn).toBe(1); // Turn should have advanced to 1
+    expect(finalGameState.globalTurnCount).toBe(1); // Turn should have advanced to 1
     expect(finalGameState.globalActionLog.length).toBeGreaterThan(0); // Should have action log entries
 
     // Verify dice roll was called and controlled

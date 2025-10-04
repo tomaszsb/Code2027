@@ -306,7 +306,7 @@ export class TurnService implements ITurnService {
           playerName: this.stateService.getPlayer(winnerId || gameState.currentPlayerId)?.name || 'Unknown',
           action: 'gameEnd',
           winCondition: 'turn_limit',
-          finalTurn: gameState.turn
+          finalTurn: gameState.globalTurnCount
         });
       }
       
@@ -360,13 +360,12 @@ export class TurnService implements ITurnService {
       });
     }
 
-    // Log turn end for current player (display as 1-based instead of 0-based)
-    const displayTurn = gameState.turn + 1;
-    this.loggingService.info(`Turn ${displayTurn} ended`, {
+    // Log turn end for current player (use globalTurnCount + 1 to match turn_start numbering)
+    this.loggingService.info(`Turn ${gameState.globalTurnCount + 1} ended`, {
       playerId: currentPlayer.id,
       playerName: currentPlayer.name,
       action: 'turn_end',
-      turn: displayTurn,
+      turn: gameState.globalTurnCount + 1,
       space: currentPlayer.currentSpace
     });
 
@@ -407,11 +406,13 @@ export class TurnService implements ITurnService {
       nextPlayer = this.stateService.getGameState().players[nextPlayerIndex]; // Get fresh player data
     }
 
+    // Advance turn counter BEFORE changing current player (so turn increments for correct player)
+    this.stateService.advanceTurn();
+
     // Update the current player in the game state
     this.stateService.setCurrentPlayer(nextPlayer.id);
 
-    // Advance turn counter and reset turn flags
-    this.stateService.advanceTurn();
+    // Reset turn flags
     this.stateService.clearPlayerHasMoved();
     this.stateService.clearPlayerHasRolledDice();
     this.stateService.clearTurnActions();
@@ -419,7 +420,7 @@ export class TurnService implements ITurnService {
     // Send End Turn notification for the previous player AFTER all state changes are complete
     if (this.notificationService) {
       const prevGameState = this.stateService.getGameState();
-      const turnNumber = prevGameState.turn - 1; // Previous turn that just ended
+      const turnNumber = prevGameState.globalTurnCount; // Previous turn that just ended
       this.notificationService.notify(
         {
           short: 'Turn Ended',
@@ -470,17 +471,7 @@ export class TurnService implements ITurnService {
         action: 'turn_start',
         turn: gameState.globalTurnCount + 1,
         playerTurnNumber: playerTurnNumber,
-        space: player.currentSpace,
-        visibility: 'player'
-      });
-
-      // Log space entry as the first action of the turn (moved from MovementService for proper sequence)
-      this.loggingService.info(`${player.name} entered space: ${player.currentSpace} (${player.visitType} visit)`, {
-        playerId: player.id,
-        playerName: player.name,
-        action: 'space_entry',
         spaceName: player.currentSpace,
-        visitType: player.visitType,
         visibility: 'player'
       });
 
@@ -491,11 +482,7 @@ export class TurnService implements ITurnService {
       // 2. Lock UI to prevent player actions during arrival processing
       this.stateService.updateGameState({ isProcessingArrival: true });
 
-      // 3. Save snapshot for Try Again feature BEFORE processing effects
-      this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
-      console.log(`📸 Saved Try Again snapshot for ${player.name} at ${player.currentSpace} before space effects`);
-
-      // Mark game as fully initialized now that snapshots are available
+      // 3. Mark game as fully initialized (enables Try Again feature)
       if (!this.stateService.isInitialized()) {
         this.stateService.markAsInitialized();
         console.log('🎯 Game marked as fully initialized - Try Again now available');
@@ -504,7 +491,12 @@ export class TurnService implements ITurnService {
       // 4. Process space effects (including space entry logging as first effect)
       await this.processSpaceEffectsAfterMovement(player.id, player.currentSpace, player.visitType, false);
 
-      // 5. Unlock UI after processing is complete
+      // 5. Save snapshot for Try Again feature AFTER processing effects
+      // This ensures the snapshot captures state after first-visit effects have been applied
+      this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
+      console.log(`📸 Saved Try Again snapshot for ${player.name} at ${player.currentSpace} after space effects`);
+
+      // 6. Unlock UI after processing is complete
       this.stateService.updateGameState({ isProcessingArrival: false });
 
       // Handle movement choices after effects are processed
@@ -1194,11 +1186,21 @@ export class TurnService implements ITurnService {
       newMoney -= feeAmount;
       console.log(`Player ${player.name} pays ${value}% fee (${feeAmount}) based on condition: ${effect.condition}`);
     } else if (effect.effect_action === 'add_per_amount') {
-      // This is typically used with money - add money based on some calculation
-      // For now, implement a basic version - can be enhanced based on condition parsing
-      const additionalAmount = value; // Placeholder logic
+      // Calculate based on condition (e.g., "per_200k" = per $200,000)
+      let additionalAmount = value;
+
+      if (effect.condition === 'per_200k') {
+        // Calculate amount based on total borrowed (sum of all loan principals)
+        const totalBorrowed = player.loans?.reduce((sum, loan) => sum + loan.principal, 0) || 0;
+        const multiplier = Math.floor(totalBorrowed / 200000);
+        additionalAmount = value * multiplier;
+        console.log(`Player ${player.name} gains ${additionalAmount} money (${value} per $200K, borrowed ${totalBorrowed})`);
+      } else {
+        // For other conditions, use value directly (fallback)
+        console.warn(`Unknown add_per_amount condition: ${effect.condition}, using base value`);
+      }
+
       newMoney += additionalAmount;
-      console.log(`Player ${player.name} gains ${additionalAmount} per amount based on condition: ${effect.condition}`);
     }
     
     newMoney = Math.max(0, newMoney); // Ensure money doesn't go below 0
@@ -1227,11 +1229,21 @@ export class TurnService implements ITurnService {
     } else if (effect.effect_action === 'subtract') {
       newTime -= value;
     } else if (effect.effect_action === 'add_per_amount') {
-      // Add time based on some calculation (e.g., per $200K borrowed)
-      // For now, implement basic version - can be enhanced based on condition parsing
-      const additionalTime = value; // Placeholder logic
+      // Calculate based on condition (e.g., "per_200k" = per $200,000)
+      let additionalTime = value;
+
+      if (effect.condition === 'per_200k') {
+        // Calculate time based on total borrowed (sum of all loan principals)
+        const totalBorrowed = player.loans?.reduce((sum, loan) => sum + loan.principal, 0) || 0;
+        const multiplier = Math.floor(totalBorrowed / 200000);
+        additionalTime = value * multiplier;
+        console.log(`Player ${player.name} gains ${additionalTime} time (${value} per $200K, borrowed ${totalBorrowed})`);
+      } else {
+        // For other conditions, use value directly (fallback)
+        console.warn(`Unknown add_per_amount condition: ${effect.condition}, using base value`);
+      }
+
       newTime += additionalTime;
-      console.log(`Player ${player.name} gains ${additionalTime} time per amount based on condition: ${effect.condition}`);
     }
     
     newTime = Math.max(0, newTime); // Ensure time doesn't go below 0
@@ -2004,10 +2016,11 @@ export class TurnService implements ITurnService {
         return true;
       }
 
-      // Direction conditions (for movement or targeting)
+      // Direction conditions (for card transfer targeting)
       if (conditionLower === 'to_left' || conditionLower === 'to_right') {
-        // These would need game board context to evaluate properly
-        // For now, return true (placeholder implementation)
+        // These are targeting directives, not boolean conditions
+        // The actual target resolution happens in EffectEngineService
+        // For condition evaluation, we always return true (effect should be processed)
         return true;
       }
 

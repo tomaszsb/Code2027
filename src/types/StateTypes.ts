@@ -15,7 +15,9 @@ export interface ActionLogEntry {
   // Transactional logging fields for "Try Again" support
   isCommitted: boolean; // true if action is part of canonical game history
   explorationSessionId: string; // unique ID grouping all actions from a single exploratory attempt
-  // Simplified turn context
+  // Enhanced turn context
+  gameRound: number; // Which game round this occurred in
+  turnWithinRound: number; // Which turn within that round
   globalTurnNumber: number; // Absolute turn number across all players
   playerTurnNumber: number; // This player's individual turn number (1st, 2nd, 3rd, etc.)
   // Visibility control
@@ -69,7 +71,9 @@ export interface GameState {
   currentPlayerId: string | null;
   gamePhase: GamePhase;
   turn: number; // Deprecated but kept for backwards compatibility
-  // Simplified turn tracking system
+  // New turn tracking system
+  gameRound: number; // Current game round (1, 2, 3...)
+  turnWithinRound: number; // Current turn within round (1-4 for 4 players)
   globalTurnCount: number; // Total turns taken across all players (1, 2, 3, 4, 5, 6...)
   // Track individual player turn counts for statistics
   playerTurnCounts: { [playerId: string]: number }; // How many turns each player has taken total

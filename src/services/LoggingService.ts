@@ -90,7 +90,9 @@ export class LoggingService implements ILoggingService {
       },
       isCommitted,
       explorationSessionId: sessionId,
-      // Simplified turn context
+      // Enhanced turn context
+      gameRound: gameState.gameRound,
+      turnWithinRound: gameState.turnWithinRound,
       globalTurnNumber: turnContext.globalTurnNumber,
       playerTurnNumber: turnContext.playerTurnNumber,
       // Visibility control

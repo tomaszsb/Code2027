@@ -38,6 +38,7 @@ export function GameLayout(): JSX.Element {
   const [shouldAutoShowMovementPath, setShouldAutoShowMovementPath] = useState<boolean>(false);
   const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
   
   // State tracking for TurnControlsWithActions component
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
@@ -247,6 +248,9 @@ export function GameLayout(): JSX.Element {
     setIsSpaceExplorerVisible(!isSpaceExplorerVisible);
   };
 
+  // Handler for game log toggle
+  const handleToggleGameLog = () => setIsGameLogVisible(prev => !prev);
+
   // Action handlers for TurnControlsWithActions component
   const handleRollDice = async () => {
     if (!currentPlayerId) return;
@@ -393,10 +397,11 @@ export function GameLayout(): JSX.Element {
           gridColumn: '1 / -1',
           gridRow: '1'
         }}>
-          <ProjectProgress 
-            players={players} 
+          <ProjectProgress
+            players={players}
             currentPlayerId={currentPlayerId}
             dataService={dataService}
+            onToggleGameLog={handleToggleGameLog}
           />
         </div>
       )}
@@ -528,23 +533,25 @@ export function GameLayout(): JSX.Element {
       </div>
 
       {/* Bottom Panel - Additional UI Elements */}
-      <div 
-        style={{
-          gridColumn: '1 / -1',
-          gridRow: gamePhase === 'PLAY' ? '3' : '2',
-          background: colors.secondary.bg,
-          border: `2px solid ${colors.secondary.light}`,
-          borderRadius: '8px',
-          padding: '15px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: colors.secondary.main,
-          minHeight: '80px'
-        }}
-      >
-        <GameLog />
-      </div>
+      {isGameLogVisible && (
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            gridRow: gamePhase === 'PLAY' ? '3' : '2',
+            background: colors.secondary.bg,
+            border: `2px solid ${colors.secondary.light}`,
+            borderRadius: '8px',
+            padding: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.secondary.main,
+            minHeight: '80px'
+          }}
+        >
+          <GameLog />
+        </div>
+      )}
 
 
       {/* Conditional rendering based on game phase */}

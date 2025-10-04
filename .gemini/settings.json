@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ai-bridge": {
+      "command": "python3",
+      "args": []
+    }
+  }
+}

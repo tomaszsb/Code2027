@@ -9,13 +9,14 @@ interface ProjectProgressProps {
   players: Player[];
   currentPlayerId: string | null;
   dataService: IDataService;
+  onToggleGameLog: () => void;
 }
 
 /**
  * ProjectProgress component displays global project progress for all players.
  * Shows current phase, overall progress, and player positions in the project lifecycle.
  */
-export function ProjectProgress({ players, currentPlayerId, dataService }: ProjectProgressProps): JSX.Element {
+export function ProjectProgress({ players, currentPlayerId, dataService, onToggleGameLog }: ProjectProgressProps): JSX.Element {
   const currentPlayer = players.find(p => p.id === currentPlayerId);
   
   // Get dynamic phase order from data service
@@ -160,9 +161,30 @@ export function ProjectProgress({ players, currentPlayerId, dataService }: Proje
         🚀 Project Progress Overview
       </div>
 
-      {/* Overall Progress Bar */}
-      <div style={progressBarContainerStyle}>
-        <div style={progressBarFillStyle}></div>
+      {/* Overall Progress Bar with Toggle Button */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '12px'
+      }}>
+        <div style={{ ...progressBarContainerStyle, flex: 1, marginBottom: 0 }}>
+          <div style={progressBarFillStyle}></div>
+        </div>
+        <button onClick={onToggleGameLog} style={{
+          padding: '6px 12px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          backgroundColor: colors.primary.main,
+          color: colors.white,
+          border: `2px solid ${colors.white}`,
+          borderRadius: '8px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          whiteSpace: 'nowrap'
+        }}>
+          📜 Log
+        </button>
       </div>
 
       {/* Phase Indicators */}

@@ -115,11 +115,22 @@ export function TurnControlsWithActions({
     return unsubscribe;
   }, [stateService]);
 
-  // Handle movement choice selection (NEW: Just selects destination, doesn't move)
+  // Handle movement choice selection (just selects destination, doesn't move yet)
   const handleMovementChoice = (destinationId: string) => {
+    // Toggle selection (clicking same destination deselects it)
+    const newSelection = selectedDestination === destinationId ? null : destinationId;
+    stateService.selectDestination(newSelection);
+
+    console.log(`🎯 TurnControlsWithActions: Selected destination: ${newSelection || 'none'}`);
+  };
+
+  // Handle confirming the movement choice
+  const handleConfirmMovement = () => {
+    if (!selectedDestination || !movementChoice) return;
+
     // Find the option label for the selected destination
-    const selectedOption = movementChoice?.options.find(option => option.id === destinationId);
-    const optionLabel = selectedOption?.label || destinationId;
+    const selectedOption = movementChoice.options.find(option => option.id === selectedDestination);
+    const optionLabel = selectedOption?.label || selectedDestination;
 
     // Send notification for the movement choice
     if (notificationService) {
@@ -132,20 +143,17 @@ export function TurnControlsWithActions({
         {
           playerId: currentPlayer.id,
           playerName: currentPlayer.name,
-          actionType: `move_${destinationId}`
+          actionType: `move_${selectedDestination}`
         }
       );
     }
 
     // Resolve the choice with the choice service
-    if (choiceService && movementChoice) {
-      choiceService.resolveChoice(movementChoice.id, destinationId);
+    if (choiceService) {
+      choiceService.resolveChoice(movementChoice.id, selectedDestination);
     }
 
-    const newSelection = selectedDestination === destinationId ? null : destinationId;
-    stateService.selectDestination(newSelection);
-
-    console.log(`🎯 TurnControlsWithActions: Selected destination: ${newSelection || 'none'}`);
+    console.log(`✅ TurnControlsWithActions: Confirmed movement to: ${selectedDestination}`);
   };
 
 
@@ -323,6 +331,39 @@ export function TurnControlsWithActions({
               </button>
             );
           })}
+
+          {/* Confirm Move Button - only show when a destination is selected */}
+          {selectedDestination && (
+            <button
+              onClick={handleConfirmMovement}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                marginTop: '8px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                backgroundColor: colors.success.main,
+                color: colors.white,
+                border: `2px solid ${colors.white}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = colors.success.dark;
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = colors.success.main;
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+              }}
+            >
+              ✅ Confirm Move
+            </button>
+          )}
         </div>
       )}
 

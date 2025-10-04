@@ -205,18 +205,28 @@ export class StateService implements IStateService {
 
   advanceTurn(): GameState {
     const currentPlayerId = this.currentState.currentPlayerId;
+    const numPlayers = this.currentState.players.length;
 
     // Handle case where no current player is set (for backwards compatibility)
-    if (!currentPlayerId) {
+    if (!currentPlayerId || numPlayers === 0) {
       // Just increment the legacy turn counter and global count
       const newState: GameState = {
         ...this.currentState,
         turn: this.currentState.turn + 1,
-        globalTurnCount: this.currentState.globalTurnCount + 1
+        globalTurnCount: this.currentState.globalTurnCount + 1,
       };
       this.currentState = newState;
       this.notifyListeners();
       return { ...newState };
+    }
+
+    // New turn and round logic
+    let newGameRound = this.currentState.gameRound;
+    let newTurnWithinRound = this.currentState.turnWithinRound + 1;
+
+    if (newTurnWithinRound > numPlayers) {
+      newTurnWithinRound = 1;
+      newGameRound += 1;
     }
 
     // Calculate new turn tracking values (simplified)
@@ -226,14 +236,15 @@ export class StateService implements IStateService {
     const currentPlayerTurnCount = (this.currentState.playerTurnCounts[currentPlayerId] || 0) + 1;
     const updatedPlayerTurnCounts = {
       ...this.currentState.playerTurnCounts,
-      [currentPlayerId]: currentPlayerTurnCount
+      [currentPlayerId]: currentPlayerTurnCount,
     };
 
     const newState: GameState = {
       ...this.currentState,
-      turn: this.currentState.turn + 1, // Keep for backwards compatibility
+      gameRound: newGameRound,
+      turnWithinRound: newTurnWithinRound,
       globalTurnCount: newGlobalTurnCount,
-      playerTurnCounts: updatedPlayerTurnCounts
+      playerTurnCounts: updatedPlayerTurnCounts,
     };
 
     this.currentState = newState;
@@ -944,7 +955,9 @@ export class StateService implements IStateService {
       currentPlayerId: null,
       gamePhase: 'SETUP',
       turn: 0, // Deprecated but kept for backwards compatibility
-      // Simplified turn tracking system
+      // New turn tracking system
+      gameRound: 1, // Start at round 1
+      turnWithinRound: 1, // Start at turn 1 within the round
       globalTurnCount: 0,
       // Track individual player turn counts for statistics
       playerTurnCounts: {},

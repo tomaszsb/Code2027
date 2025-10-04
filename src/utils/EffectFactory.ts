@@ -381,17 +381,17 @@ export class EffectFactory {
         break;
         
       case 'AUCTION':
-        // Create LOG effect as placeholder for auction mechanic
+        // Reserved for future auction mechanic
+        // No auction spaces currently exist in game data
         effects.push({
           effectType: 'LOG',
           payload: {
-            message: `Auction would start here for player ${playerId} at ${spaceName}`,
-            level: 'INFO',
+            message: `Auction mechanic not implemented (triggered at ${spaceName})`,
+            level: 'WARN',
             source: spaceSource,
             action: 'space_effect'
           }
         });
-        console.log(`   Generated LOG effect: Auction placeholder`);
         break;
         
       default:
@@ -697,9 +697,9 @@ export class EffectFactory {
     
     // Handle percentage effects (e.g., "10% of current")
     if (cleanEffect.includes('%')) {
-      // TODO: Handle percentage-based money effects
-      // This would require current player state to calculate percentage
-      console.warn(`EFFECT_FACTORY: Percentage money effects not yet implemented: ${moneyEffect}`);
+      // NOTE: Percentage-based money effects not supported in current card set
+      // If future cards need this, will require passing player state to this method
+      console.warn(`EFFECT_FACTORY: Percentage effects not implemented: ${moneyEffect}`);
       return 0;
     }
 

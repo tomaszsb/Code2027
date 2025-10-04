@@ -13,10 +13,17 @@ interface PlayerTurnGroup {
   actions: ActionLogEntry[];
 }
 
+interface SpaceGroup {
+  spaceName: string;
+  visitType: 'First' | 'Subsequent';
+  playerTurns: PlayerTurnGroup[];
+}
+
 export function GameLog(): JSX.Element {
   const { stateService } = useGameContext();
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [expandedPlayerTurns, setExpandedPlayerTurns] = useState<{ [turnKey: string]: boolean }>({});
+  const [expandedSpaces, setExpandedSpaces] = useState<{ [spaceKey: string]: boolean }>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to state changes to get the global action log (filtered for player visibility)
@@ -76,17 +83,20 @@ export function GameLog(): JSX.Element {
     return colorArray[hash % colorArray.length];
   };
 
-  // Group log entries by player turn in chronological order (no rounds)
-  const groupLogEntries = (entries: ActionLogEntry[]): PlayerTurnGroup[] => {
+  // Group log entries by player turn, then group player turns by space
+  const groupLogEntries = (entries: ActionLogEntry[]): SpaceGroup[] => {
     // Sort entries by timestamp to ensure proper chronological order
     const sortedEntries = [...entries].sort((a, b) =>
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
+    // Filter out setup turns (globalTurnNumber <= 0) before grouping
+    const gameplayEntries = sortedEntries.filter(entry => entry.globalTurnNumber > 0);
+
     // Group entries by player and global turn number
     const playerTurnMap = new Map<string, ActionLogEntry[]>();
 
-    sortedEntries.forEach(entry => {
+    gameplayEntries.forEach(entry => {
       const turnKey = `${entry.playerId}-${entry.globalTurnNumber}`;
       if (!playerTurnMap.has(turnKey)) {
         playerTurnMap.set(turnKey, []);
@@ -99,15 +109,23 @@ export function GameLog(): JSX.Element {
     playerTurnMap.forEach((turnEntries, turnKey) => {
       if (turnEntries.length === 0) return;
 
-      const firstEntry = turnEntries[0];
-      const playerColor = getEntryColor(firstEntry);
+      // Find the turn_start action as the definitive source of turn data
+      const turnStartAction = turnEntries.find(e => e.type === 'turn_start');
+
+      // Skip this group if no turn_start action found (malformed data)
+      if (!turnStartAction) {
+        console.warn(`No turn_start action found for turn key: ${turnKey}`);
+        return;
+      }
+
+      const playerColor = getEntryColor(turnStartAction);
 
       playerTurns.push({
-        playerId: firstEntry.playerId,
-        playerName: firstEntry.playerName,
+        playerId: turnStartAction.playerId,
+        playerName: turnStartAction.playerName,
         playerColor,
-        globalTurnNumber: firstEntry.globalTurnNumber,
-        playerTurnNumber: firstEntry.playerTurnNumber,
+        globalTurnNumber: turnStartAction.globalTurnNumber,
+        playerTurnNumber: turnStartAction.playerTurnNumber,
         actions: turnEntries.sort((a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
@@ -117,7 +135,49 @@ export function GameLog(): JSX.Element {
     // Sort player turns by global turn number (chronological order)
     playerTurns.sort((a, b) => a.globalTurnNumber - b.globalTurnNumber);
 
-    return playerTurns;
+    // Group player turns by space visit (new group when space changes from previous turn)
+    const spaces: SpaceGroup[] = [];
+    let currentSpaceName: string | null = null;
+    let currentVisitType: 'First' | 'Subsequent' | null = null;
+    let currentSpaceGroup: PlayerTurnGroup[] = [];
+
+    playerTurns.forEach(playerTurn => {
+      // Get the space name and visit type from the turn_start action
+      const turnStartAction = playerTurn.actions.find(action => action.type === 'turn_start');
+      const spaceName = turnStartAction?.details?.spaceName || 'Unknown Space';
+      const visitType = turnStartAction?.details?.visitType || 'First';
+
+      // If space name changed, create a new group
+      if (spaceName !== currentSpaceName) {
+        // Save previous group if it exists
+        if (currentSpaceName !== null && currentSpaceGroup.length > 0) {
+          spaces.push({
+            spaceName: currentSpaceName,
+            visitType: currentVisitType || 'First',
+            playerTurns: [...currentSpaceGroup]
+          });
+        }
+
+        // Start new group
+        currentSpaceName = spaceName;
+        currentVisitType = visitType;
+        currentSpaceGroup = [playerTurn];
+      } else {
+        // Same space, add to current group
+        currentSpaceGroup.push(playerTurn);
+      }
+    });
+
+    // Don't forget the last group
+    if (currentSpaceName !== null && currentSpaceGroup.length > 0) {
+      spaces.push({
+        spaceName: currentSpaceName,
+        visitType: currentVisitType || 'First',
+        playerTurns: [...currentSpaceGroup]
+      });
+    }
+
+    return spaces;
   };
 
   // Toggle player turn expansion
@@ -128,15 +188,23 @@ export function GameLog(): JSX.Element {
     }));
   };
 
-  // Memoize player turn groups calculation for performance
-  const playerTurnGroups = useMemo(() => groupLogEntries(actionLog), [actionLog]);
+  // Toggle space expansion
+  const toggleSpace = (spaceName: string) => {
+    setExpandedSpaces(prev => ({
+      ...prev,
+      [spaceName]: !prev[spaceName]
+    }));
+  };
+
+  // Memoize space groups calculation for performance
+  const spaceGroups = useMemo(() => groupLogEntries(actionLog), [actionLog]);
 
   // Auto-scroll to bottom when new log entries are added
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [playerTurnGroups]);
+  }, [spaceGroups]);
 
   return (
     <div style={{
@@ -157,7 +225,7 @@ export function GameLog(): JSX.Element {
         fontSize: '14px',
         color: colors.text.secondary
       }}>
-        📜 Game Log ({actionLog.length} entries, {playerTurnGroups.length} turns)
+        📜 Game Log ({actionLog.length} entries, {spaceGroups.length} visits)
       </div>
 
       {/* Scrollable content */}
@@ -178,8 +246,56 @@ export function GameLog(): JSX.Element {
             No actions yet. Start playing to see the game log!
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {playerTurnGroups.map((playerTurn, turnIndex) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {spaceGroups.map((space, spaceIndex) => {
+              const spaceKey = `space-${spaceIndex}`;
+              const isSpaceExpanded = expandedSpaces[spaceKey] !== undefined
+                ? expandedSpaces[spaceKey]
+                : false; // Spaces start collapsed
+
+              return (
+                <div key={spaceKey} style={{ marginBottom: '8px' }}>
+                  {/* Space Header */}
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: colors.primary.light,
+                      border: `2px solid ${colors.primary.main}`,
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      color: colors.primary.dark,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onClick={() => toggleSpace(spaceKey)}
+                  >
+                    <span style={{ fontSize: '11px', userSelect: 'none' }}>
+                      {isSpaceExpanded ? '▼' : '▶'}
+                    </span>
+                    <span>📍 {space.spaceName} ({space.visitType === 'First' ? '1' : 'S'})</span>
+                    <span style={{
+                      marginLeft: 'auto',
+                      fontSize: '11px',
+                      fontWeight: 'normal',
+                      color: colors.secondary.dark
+                    }}>
+                      {space.playerTurns.length} visits
+                    </span>
+                  </div>
+
+                  {/* Player Turns within Space */}
+                  {isSpaceExpanded && (
+                    <div style={{
+                      marginLeft: '12px',
+                      marginTop: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      {space.playerTurns.map((playerTurn) => {
               const turnKey = `${playerTurn.playerId}-${playerTurn.globalTurnNumber}`;
               const isTurnExpanded = expandedPlayerTurns[turnKey] !== undefined
                 ? expandedPlayerTurns[turnKey]
@@ -248,7 +364,11 @@ export function GameLog(): JSX.Element {
                   </div>
 
                   {/* Player's Actions - Only Visible When Turn is Expanded */}
-                  {isTurnExpanded && playerTurn.actions.slice(1).map((action, actionIndex) => (
+                  {/* Filter out space entry logs since space name is shown in group header */}
+                  {isTurnExpanded && playerTurn.actions
+                    .slice(1)
+                    .filter(action => !(action.type === 'space_effect' && action.description?.includes('entered space')))
+                    .map((action, actionIndex) => (
                     <div
                       key={`${turnKey}-action-${actionIndex}`}
                       style={{
@@ -301,6 +421,11 @@ export function GameLog(): JSX.Element {
                       )}
                     </div>
                   ))}
+                </div>
+              );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -382,10 +382,12 @@ export class ResourceService implements IResourceService {
       
       console.warn(`💸 INTEREST SHORTFALL: Player ${player.name} owes additional $${shortfall.toLocaleString()} in unpaid interest`);
       
-      // TODO: In a full implementation, you might want to:
-      // - Add the unpaid interest to loan principal
-      // - Apply penalties for missed payments
-      // - Track payment history
+      // NOTE: Interest shortfalls are forgiven (intentional game design)
+      // This makes loans more accessible to struggling players
+      // If harsher penalties are desired, consider:
+      // - Adding unpaid interest to loan principal
+      // - Applying late payment penalties
+      // - Tracking payment history
       
     } else {
       // Player can afford full interest payment

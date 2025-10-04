@@ -1,3 +1,76 @@
+## ✅ **PHASE COMPLETION: Game Log Polish & Bug Fixes**
+*Status: COMPLETED - October 4, 2025*
+
+**Objective**: Resolve critical data and rendering bugs in the Game Log and implement UI/UX enhancements based on Owner feedback.
+
+- **✅ Bug Fixes**: Resolved a long-standing, complex series of bugs causing the Game Log to display incorrect data ("Unknown Space", incorrect turn numbers). The root causes were a combination of stale server cache, incorrect data properties, and flawed frontend rendering logic.
+- **✅ UI Feature**: Implemented a new feature to hide the Game Log by default.
+- **✅ UI Feature**: Added a "Toggle Log" button inside the Project Progress panel to control Game Log visibility.
+- **✅ UI Polish**: Added a `(1)`/`(S)` indicator to log entries to show "First" or "Subsequent" visits.
+- **✅ Bug Fix**: Corrected a filter to properly hide redundant "entered space" messages from the log's action list.
+
+---
+
+## ✅ **PHASE COMPLETION: Communication System Enhancements**
+*Status: COMPLETED - September 30, 2025*
+
+**Objective**: Improve the AI-to-AI communication protocol and user oversight tools to streamline collaboration.
+
+- **✅ Task 1: Automatic Mailbox Checking** - Implemented automatic message checking for both AIs at the start of each turn.
+- **✅ Task 2: Pending Message Flag** - Implemented an explicit 'pending' flag in message metadata for the bridge UI.
+- **✅ Task 3: Approve/Reject Endpoints** - Created backend API routes for the new bridge UI buttons.
+- **✅ Task 4: Deploy Bridge UI** - Restarted the bridge server to deploy the new web interface.
+
+---
+
+## ✅ **PHASE COMPLETION: Turn Numbering System Fix**
+*Status: COMPLETED - October 3, 2025*
+
+**Objective**: Fix the confusing and incorrect turn numbering system in the game log to properly distinguish between game rounds, player turns, and individual actions.
+
+**Problem Statement**: Current game log shows inconsistent turn numbers, system logs cluttering player view, and no clear distinction between game rounds vs individual player actions.
+
+- **[✅] Backend**: `StateService.ts` and `TurnService.ts` updated to remove deprecated `turn` property and use `globalTurnCount`.
+- **[✅] Frontend**: `GameLog.tsx` updated to group player turns into collapsible rounds.
+- **[✅] Verification**: Final fix applied to TurnService.ts:421 (notification system now uses `globalTurnCount`).
+- **[✅] Testing**: All TurnService tests (23/23) and E2E tests passing.
+
+**Result**: Turn numbering system fully migrated to new `globalTurnCount` system. All deprecated `turn` property usages eliminated from active code paths.
+
+---
+
+## ✅ **PHASE COMPLETION: Per_200K Calculation Fix & Snapshot Timing Fix**
+*Status: COMPLETED - October 3, 2025*
+
+**Objective**: Fix per_200K calculation bug affecting BANK-FUND-REVIEW space effects and resolve snapshot timing issue preventing first-visit effects from processing.
+
+### **Per_200K Calculation Bug Fix**
+**Problem**: BANK-FUND-REVIEW space effect "1 day per $200K borrowed" was adding fixed value (1 time) instead of scaling by loan amount.
+
+- **[✅] Root Cause Identified**: TurnService.ts:1198 and 1231 used base `value` instead of calculating scaled amount based on loan principals
+- **[✅] Fix Implemented**: Added proper per_200K calculation:
+  ```typescript
+  const totalBorrowed = player.loans?.reduce((sum, loan) => sum + loan.principal, 0) || 0;
+  const multiplier = Math.floor(totalBorrowed / 200000);
+  additionalTime = value * multiplier;
+  ```
+- **[✅] Location**: TurnService.ts:1199-1247 (money effects) and 1242-1254 (time effects)
+
+### **Snapshot Timing Bug Fix**
+**Problem**: Snapshots were saved BEFORE processing space effects, causing `processSpaceEffectsAfterMovement()` to skip effects on first visit.
+
+- **[✅] Root Cause Identified**: TurnService.startTurn() line 494 saved snapshot, then line 504 processed effects which found snapshot and skipped
+- **[✅] Fix Implemented**: Moved `savePreSpaceEffectSnapshot()` call to AFTER `processSpaceEffectsAfterMovement()`
+- **[✅] Location**: TurnService.ts:502-505
+- **[✅] Verification**: E2E-01_HappyPath.test.ts still passes (no regression)
+
+### **Key Learning**
+Time effects process when LEAVING a space (via `processLeavingSpaceEffects()`), not when arriving. This represents time spent at the location.
+
+**Result**: Both bugs fixed and verified. Space effects now process correctly on first visit AND scale properly based on loan amounts.
+
+---
+
 ## ✅ **PHASE COMPLETION: Game Log & Turn Sequence Overhaul**
 *Status: COMPLETED September 25, 2025*
 
@@ -20,23 +93,6 @@ A full-stack refactor of the game logging system and core turn logic.
 - ✅ **Documentation**: Updated `TECHNICAL_DEEP_DIVE.md` and `testing-guide.md` with complete architecture documentation.
 
 **Result**: Game log now maintains 100% accuracy with abandoned "Try Again" sessions preserved for analysis but excluded from canonical history.
-
----
-
-## 🚀 CURRENT PHASE: Turn Numbering System Fix
-*Status: Planned - September 28, 2025*
-
-**Objective**: Fix the confusing and incorrect turn numbering system in the game log to properly distinguish between game rounds, player turns, and individual actions.
-
-**Problem Statement**: Current game log shows inconsistent turn numbers, system logs cluttering player view, and no clear distinction between game rounds vs individual player actions.
-
-- **[ ] Architecture**: Design proper turn tracking system with game rounds, turns within rounds, and global turn counters.
-- **[ ] Types**: Add new turn tracking fields to `GameState` and `ActionLogEntry` types.
-- **[ ] Services**: Update `TurnService` to properly track game rounds and player turn progression.
-- **[ ] Logging**: Add visibility levels to hide system/debug logs from player view.
-- **[ ] UI**: Redesign `GameLog.tsx` to display proper turn hierarchy (rounds → players → actions).
-- **[ ] Testing**: Implement tests for multi-player turn progression scenarios.
-- **[ ] Migration**: Ensure backwards compatibility with existing game states and logs.
 
 ---
 

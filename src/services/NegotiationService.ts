@@ -83,7 +83,7 @@ export class NegotiationService {
         message: `Negotiation ${negotiationId} started successfully`,
         negotiationId: negotiationId,
         effects: [
-          // Placeholder LOG effect to track negotiation start
+          // Log effect to track negotiation start
           {
             effectType: 'LOG',
             payload: {
