@@ -7,13 +7,27 @@ Managed JSON-based communication system between Claude and Gemini using automate
 
 ## Components
 
-### 1. Message Directories
-- **`.server/claude-inbox/`** - Incoming messages for Claude (from Gemini)
-- **`.server/claude-outbox/`** - Outgoing messages from Claude (to Gemini)
-- **`.server/gemini-outbox/`** - Outgoing messages from Gemini (to Claude)
-- **`.server/gemini-outbox/.processing/`** - Messages being processed by Claude's client
-- **`.server/gemini-outbox/.processed/`** - Successfully processed messages (archived)
-- **`.server/gemini-outbox/.malformed/`** - Invalid messages that failed validation
+### 1. Message Directories (Three-Directory System)
+
+**Directory Flow:** inbox → `.processing/` → `.unread/` → `.read/`
+
+#### Claude's Directories:
+- **`.server/gemini-outbox/`** - Claude's inbox (Gemini's outbox)
+  - **`.processing/`** - Client actively processing (atomic operation)
+  - **`.unread/`** - **CLIENT PROCESSED, WAITING FOR CLAUDE LLM TO READ**
+  - **`.read/`** - Claude LLM has read and responded
+  - **`.malformed/`** - Invalid messages that failed validation
+- **`.server/claude-outbox/`** - Claude's outbox (Gemini's inbox)
+  - **`.processing/`** - Gemini's client processing
+  - **`.unread/`** - **CLIENT PROCESSED, WAITING FOR GEMINI LLM TO READ**
+  - **`.read/`** - Gemini LLM has read and responded
+  - **`.malformed/`** - Invalid messages
+
+#### Gemini's Directories:
+- **`.server/claude-outbox/`** - Gemini's inbox (Claude's outbox)
+  - (Same subdirectory structure as above)
+- **`.server/gemini-outbox/`** - Gemini's outbox (Claude's inbox)
+  - (Same subdirectory structure as above)
 
 ### 2. Communication Client (mcp_client.py)
 **Location:** `code2027/mcp_client.py`
@@ -27,12 +41,14 @@ Managed JSON-based communication system between Claude and Gemini using automate
 - Archives processed messages to `.processed/` directory
 - Moves malformed messages to `.malformed/` directory
 
-**Message Processing Pipeline:**
-1. Scan inbox for `*.json` files
-2. Move to `.processing/` to prevent duplicates
-3. Validate against schema
-4. Send ACK response
-5. Archive to `.processed/` or `.malformed/`
+**Three-Directory Message Pipeline:**
+1. **Client scans inbox** for `*.json` files (root directory only, excludes hidden files)
+2. **Move to `.processing/`** for atomic operation (prevents race conditions)
+3. **Validate against schema** - if invalid, move to `.malformed/` and send error
+4. **Send ACK response** (unless message type is 'ack' or 'error' to prevent loops)
+5. **Move to `.unread/`** - CLIENT DONE, WAITING FOR LLM
+6. **LLM reads from `.unread/`** - This is YOUR responsibility!
+7. **LLM moves to `.read/`** after responding - Mark as processed
 
 **JSON Schema:**
 ```json
@@ -65,40 +81,53 @@ Managed JSON-based communication system between Claude and Gemini using automate
 
 ---
 
-## Message Workflow
+## Message Workflow (Three-Directory System)
 
 ### Sending a Message (Claude → Gemini)
 ```bash
-# Create JSON message
-cat > ".server/claude-outbox/claude-$(date -u +%Y%m%d-%H%M%S).json" << 'EOF'
-{
-  "message_id": "claude-YYYYMMDD-HHMMSS",
-  "timestamp": "2025-10-04T23:00:00Z",
-  "sender": "claude",
-  "recipient": "gemini",
-  "type": "status_update",
-  "payload": {
-    "content": "Your message here"
-  }
-}
-EOF
+# Use Python helper script (recommended - handles JSON properly)
+python3 .server/send_to_gemini.py query "Your message here"
+python3 .server/send_to_gemini.py status_update "Update message"
+python3 .server/send_to_gemini.py task "Task description"
 ```
 
-### Receiving Messages (Automated)
-- **Claude's client (`mcp_client.py`)** automatically:
-  1. Polls `.server/gemini-outbox/` every 5 seconds
-  2. Validates and processes JSON messages
-  3. Sends ACK responses to Gemini
-  4. Archives to `.processed/` directory
+### Receiving Messages - **LLM RESPONSIBILITIES**
 
-- **Gemini's client** (symmetric setup) does the same for Claude's messages
+#### For Claude (Reading from Gemini):
+```bash
+# 1. Check .unread/ directory for new messages
+ls -lt .server/gemini-outbox/.unread/*.json
 
-### Message Acknowledgment Flow
-1. Sender writes JSON message to recipient's inbox
-2. Recipient's client detects new message
-3. Client validates message schema
-4. Client sends ACK response with original message_id
-5. Client archives original message to `.processed/`
+# 2. Read the message
+cat .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json
+
+# 3. After responding, move to .read/
+mv .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json \
+   .server/gemini-outbox/.read/
+```
+
+#### For Gemini (Reading from Claude):
+```bash
+# 1. Check .unread/ directory for new messages
+ls -lt .server/claude-outbox/.unread/*.json
+
+# 2. Read the message
+cat .server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.json
+
+# 3. After responding, move to .read/
+mv .server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.json \
+   .server/claude-outbox/.read/
+```
+
+### Three-Directory Message Flow
+1. **Sender (LLM)** writes JSON message to outbox root directory
+2. **Recipient's client** detects new message (polls every 5 seconds)
+3. **Client moves** to `.processing/` for atomic operation
+4. **Client validates** message schema
+5. **Client sends ACK** response (unless message is already ACK/error)
+6. **Client moves** to `.unread/` - **CLIENT WORK COMPLETE**
+7. **Recipient (LLM)** reads from `.unread/` directory - **YOUR JOB!**
+8. **Recipient (LLM)** moves to `.read/` after responding - **YOUR JOB!**
 
 ---
 
@@ -129,57 +158,72 @@ EOF
 To clear all messages and start fresh:
 
 ```bash
-# 1. Stop client
+# 1. Stop both clients
 ./ai-collab.sh stop
+# (Gemini runs equivalent command on their side)
 
-# 2. Clear all message files
-rm -f .server/claude-inbox/*.json
+# 2. Clear all message files (three-directory system)
 rm -f .server/claude-outbox/*.json
 rm -f .server/gemini-outbox/*.json
-rm -rf .server/gemini-outbox/.processed/*
+rm -rf .server/claude-outbox/.processing/*
+rm -rf .server/claude-outbox/.unread/*
+rm -rf .server/claude-outbox/.read/*
+rm -rf .server/claude-outbox/.malformed/*
 rm -rf .server/gemini-outbox/.processing/*
+rm -rf .server/gemini-outbox/.unread/*
+rm -rf .server/gemini-outbox/.read/*
 rm -rf .server/gemini-outbox/.malformed/*
 
 # 3. Restart client
 ./ai-collab.sh start
+# (Gemini runs equivalent command on their side)
 ```
 
 ---
 
-## Testing the System
+## Testing the System (Three-Directory Flow)
 
-### Test 1: Send Message (Gemini → Claude)
+### Test 1: Send Message (Claude → Gemini)
 ```bash
-# Gemini sends a test message
-cat > ".server/gemini-outbox/gemini-test-001.json" << 'EOF'
-{
-  "message_id": "gemini-test-001",
-  "timestamp": "2025-10-04T23:00:00Z",
-  "sender": "gemini",
-  "recipient": "claude",
-  "type": "query",
-  "payload": {
-    "content": "Test message from Gemini"
-  }
-}
-EOF
+# Claude sends test message using Python helper
+python3 .server/send_to_gemini.py query "Test message from Claude"
 ```
 **Expected:**
-- Claude's `mcp_client.py` detects the message within 5 seconds
-- Message is validated and moved to `.processing/`
-- ACK response sent to `.server/claude-inbox/`
-- Original message archived to `.processed/`
+1. Message written to `.server/claude-outbox/claude-YYYYMMDD-HHMMSS.json`
+2. Gemini's client detects within 5 seconds
+3. Gemini's client moves to `.processing/`, validates, sends ACK
+4. Gemini's client moves to `.unread/`
+5. **Gemini LLM checks `.server/claude-outbox/.unread/` and reads message**
 
-### Test 2: Verify Message Processing
+### Test 2: Verify Three-Directory Flow
 ```bash
-# Check processed messages
-ls -lt .server/gemini-outbox/.processed/
+# Check where message landed after client processing
+ls -lt .server/claude-outbox/.unread/  # Should show recent message
 
-# Check ACK responses
-ls -lt .server/claude-inbox/
+# Check Gemini sent ACK
+ls -lt .server/gemini-outbox/.unread/  # Should show ACK message
+
+# After LLM reads and responds, check .read/
+ls -lt .server/claude-outbox/.read/    # Should show moved message
 ```
 
-### Test 3: Check Client Status
+### Test 3: LLM Read and Respond Workflow
+```bash
+# 1. Check for new messages in YOUR inbox's .unread/ directory
+ls -lt .server/gemini-outbox/.unread/*.json
+
+# 2. Read the message
+cat .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json
+
+# 3. Respond using Python helper
+python3 .server/send_to_gemini.py status_update "Received your message!"
+
+# 4. Move read message to .read/ directory
+mv .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json \
+   .server/gemini-outbox/.read/
+```
+
+### Test 4: Check Client Status
 ```bash
 ./ai-collab.sh status
 ```
@@ -200,12 +244,20 @@ If not running:
 
 ### Messages not being processed
 1. Check client is running: `./ai-collab.sh status`
-2. Check for JSON files in inbox: `ls .server/gemini-outbox/*.json`
-3. Check processing directories:
-   - `.server/gemini-outbox/.processing/` - Currently being processed
-   - `.server/gemini-outbox/.processed/` - Successfully processed
+2. Check for JSON files in inbox root: `ls .server/gemini-outbox/*.json`
+3. Check three-directory flow:
+   - `.server/gemini-outbox/.processing/` - Currently being processed (should be empty)
+   - `.server/gemini-outbox/.unread/` - **CLIENT PROCESSED, WAITING FOR YOU TO READ**
+   - `.server/gemini-outbox/.read/` - You have read and responded
    - `.server/gemini-outbox/.malformed/` - Failed validation
-4. Check client logs (if redirected to file)
+4. Check debug logs: `cat .server/mcp_client_debug.log`
+
+### "I can't see any messages!"
+**Most common issue:** You're checking the wrong directory!
+- ❌ DON'T check inbox root: `.server/gemini-outbox/*.json`
+- ✅ DO check `.unread/`: `.server/gemini-outbox/.unread/*.json`
+
+The client has already moved messages to `.unread/` - that's where YOU read from!
 
 ### Invalid message schema
 - Messages must be valid JSON
@@ -224,50 +276,66 @@ rm -f .server/claude_client.pid
 
 ## Message Cleanup
 
-Archive old processed messages:
+Archive old read messages:
 ```bash
-# Archive processed messages older than 7 days
-find .server/gemini-outbox/.processed/ -name "*.json" -mtime +7 -delete
+# Archive read messages older than 7 days
+find .server/gemini-outbox/.read/ -name "*.json" -mtime +7 -delete
+find .server/claude-outbox/.read/ -name "*.json" -mtime +7 -delete
 
-# Clear all processed messages (caution!)
-rm -f .server/gemini-outbox/.processed/*.json
+# Clear all read messages (caution!)
+rm -f .server/gemini-outbox/.read/*.json
+rm -f .server/claude-outbox/.read/*.json
 ```
 
 ---
 
 ## Architecture Overview
 
-**Managed JSON Communication with ACK Workflow:**
+**Three-Directory JSON Communication with ACK Workflow:**
 
 ```
-Claude                                    Gemini
-  |                                         |
-  | Writes JSON to                         | Writes JSON to
-  | .server/claude-outbox/                 | .server/gemini-outbox/
-  |                                         |
-  v                                         v
-mcp_client.py (Gemini's)              mcp_client.py (Claude's)
-  |                                         |
-  | Polls claude-outbox/                   | Polls gemini-outbox/
-  | Validates messages                      | Validates messages
-  | Sends ACK responses                     | Sends ACK responses
-  | Archives to .processed/                 | Archives to .processed/
-  |                                         |
-  v                                         v
-Gemini receives Claude's                Claude receives Gemini's
-messages automatically                  messages automatically
+Claude LLM                                           Gemini LLM
+    |                                                     |
+    | 1. Writes JSON to                                  | 1. Writes JSON to
+    | .server/claude-outbox/                             | .server/gemini-outbox/
+    |                                                     |
+    v                                                     v
+mcp_client_gemini.py (Gemini's client)            mcp_client.py (Claude's client)
+    |                                                     |
+    | 2. Polls claude-outbox/ every 5s                   | 2. Polls gemini-outbox/ every 5s
+    | 3. Moves to .processing/                           | 3. Moves to .processing/
+    | 4. Validates schema                                | 4. Validates schema
+    | 5. Sends ACK to gemini-outbox/                     | 5. Sends ACK to claude-outbox/
+    | 6. Moves to .unread/                               | 6. Moves to .unread/
+    |                                                     |
+    v                                                     v
+.server/claude-outbox/.unread/                    .server/gemini-outbox/.unread/
+    |                                                     |
+    | 7. Gemini LLM reads from .unread/                  | 7. Claude LLM reads from .unread/
+    | 8. Gemini responds                                 | 8. Claude responds
+    | 9. Gemini moves to .read/                          | 9. Claude moves to .read/
+    |                                                     |
+    v                                                     v
+Gemini has Claude's message                       Claude has Gemini's message
 ```
 
 **Key Features:**
-- ✅ **Symmetric architecture:** Both AIs have identical polling clients
-- ✅ **Automated processing:** Background clients handle all message operations
-- ✅ **JSON validation:** Schema-based message validation
-- ✅ **Acknowledgment workflow:** Automatic ACK responses for message confirmation
-- ✅ **Reliable archival:** Processed messages archived, malformed messages isolated
+- ✅ **Three-directory system:** inbox → `.processing/` → `.unread/` → `.read/`
+- ✅ **Atomic operations:** `.processing/` prevents race conditions
+- ✅ **Symmetric architecture:** Both AIs have identical polling clients and workflows
+- ✅ **Clear LLM responsibilities:** LLMs read from `.unread/`, move to `.read/` after responding
+- ✅ **Automated client processing:** Background clients handle validation, ACKs, routing
+- ✅ **JSON validation:** Schema-based message validation with `.malformed/` isolation
+- ✅ **Acknowledgment workflow:** Automatic ACK responses (with infinite loop prevention)
 - ✅ **Process management:** `ai-collab.sh` for easy start/stop/status
+
+**Critical Understanding:**
+- **Client's job:** Receive → Validate → ACK → Route to `.unread/`
+- **LLM's job:** Read from `.unread/` → Respond → Move to `.read/`
+- **Don't check inbox root** - messages are in `.unread/` subdirectory!
 
 ---
 
-**Version:** 5.0 (Managed JSON Communication)
-**Last Updated:** October 4, 2025
-**Authors:** Claude (implementation), Gemini (design & review)
+**Version:** 6.0 (Three-Directory System)
+**Last Updated:** October 5, 2025
+**Authors:** Claude & Gemini (collaborative design and implementation)

@@ -62,10 +62,11 @@ Under AI team management, the `code2027` project has successfully completed all 
 *   **Unified Effect Engine:** A key strategic success was the design and implementation of a centralized engine. This engine now handles all game logic (from cards, spaces, and actions) in a standardized, data-driven way, making the system more maintainable and extensible.
 *   **Feature Implementation:** All high-priority gameplay mechanics from the expanded data sets were implemented on the new architecture. This includes complex features like choice-based movement, duration-based effects, turn control, and multi-player targeting.
 *   **Testing and Stabilization:** A comprehensive End-to-End testing suite was created and executed. This process successfully validated the stability of the new system and was instrumental in identifying and resolving several critical integration bugs.
+*   **AI-to-AI Communication System:** Successfully established a robust, transparent, and conversational AI-to-AI communication system between Gemini and Claude, utilizing a three-directory message flow and unified logging for user visibility.
 
 ### Current State:
 
-The project is in a production-ready, well-documented, and highly maintainable state. All development phases including P2 and P3 features have been successfully completed with comprehensive testing and performance optimizations.
+The project is in a production-ready, well-documented, and highly maintainable state. All development phases including P2 and P3 features have been successfully completed with comprehensive testing and performance optimizations. The AI-to-AI communication system is fully operational, enabling seamless collaboration.
 
 ## 6. Project Status: Test Suite Maintenance
 
@@ -125,19 +126,27 @@ The project's test suite is fully stabilized, optimized, and reliable with all 4
 **Risk Assessment**: Green/Yellow/Red with explanation
 ```
 
-## Communication Protocol (v4.0 - JSON-Based & Managed)
+## Communication Protocol (v5.0 - Three-Directory System & Unified Logging)
 
-**[Protocol upgraded on 2025-10-05 for enhanced reliability, structure, and management.]**
+**[Protocol upgraded on 2025-10-05 for robust, transparent, and conversational AI-to-AI communication.]**
 
-Our communication is now asynchronous, JSON-based, and managed by dedicated client scripts to ensure stability, clear context, and robust delivery between our separate sessions.
+Our communication is now asynchronous, JSON-based, and managed by dedicated client scripts with a refined three-directory system to ensure stability, clear context, and robust delivery between our separate sessions.
+
+### Message Flow (Three-Directory System):
+- **`inbox/`**: Brand new messages (client hasn't processed yet).
+- **`.unread/`**: Messages client has processed and ACKed, but LLM hasn't read yet.
+- **`.read/`**: Messages LLM has fully processed.
+
+### Unified Logging for User Visibility:
+- Both clients use unified logging functions (`send_to_claude.py` and `send_to_gemini.py`) to ensure user visibility of all sent messages in the terminal.
 
 **To Send a Message to Claude:**
-- I will write a new, timestamped **JSON file** containing my message to the following directory:
+- I will use the `send_to_claude.py` script, which writes a timestamped **JSON file** containing my message to:
   - `/mnt/d/unravel/current_game/code2027/.server/gemini-outbox/`
 
 **To Check for Messages from Claude:**
-- I will automatically check for new timestamped **JSON files** in the following directory:
-  - `/mnt/d/unravel/current_game/code2027/.server/claude-inbox/`
+- I will automatically check for new **JSON files** in the following directory:
+  - `/mnt/d/unravel/current_game/code2027/.server/claude-outbox/.unread/`
 - I will process all messages written since my last check before responding to the user.
 
 This ensures that I always have the latest context from Claude and that my instructions to him are delivered reliably.

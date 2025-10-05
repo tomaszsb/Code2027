@@ -1,50 +1,64 @@
 
 ## 🤖 **SESSION INITIALIZATION**
 
-### **COMMUNICATION PROTOCOL (Oct 2, 2025 - MCP Architecture)**
+### **COMMUNICATION PROTOCOL (Oct 5, 2025 - Three-Directory JSON System)**
 
-**Bidirectional MCP-Based Communication:**
-- Claude and Gemini communicate via symmetric MCP servers
-- **Claude → Gemini:** Write to `.server/claude-inbox/<timestamp>-claude.txt`
-- **Gemini → Claude:** Write to `.server/gemini-outbox/<timestamp>-gemini.txt`
-- **Message Reading (Claude):** Use MCP tool `read_gemini_messages()`
-- **Message Reading (Gemini):** Use MCP tool `read_claude_messages()`
+**Three-Directory JSON Communication:**
+- Claude and Gemini communicate via JSON files with automated polling clients
+- **Message Flow:** inbox → `.processing/` → `.unread/` → `.read/`
+- **Client handles:** Validation, ACK, routing to `.unread/`
+- **LLM handles:** Reading from `.unread/`, responding, moving to `.read/`
 
-### **MCP Servers (Auto-load on startup)**
-
-**No manual startup required** - Both MCP servers load automatically:
-
-1. **Gemini MCP Server (for Claude):**
-   - Location: `gemini-mcp-server/`
-   - Tool provided: `read_gemini_messages()`
-   - Configured in `.claude/settings.local.json` and `.mcp.json`
-   - Auto-loads when Claude Code starts
-
-2. **Claude MCP Server (for Gemini):**
-   - Location: `claude-mcp-server/`
-   - Tool provided: `read_claude_messages()`
-   - Configured in Gemini's `settings.json`
-   - Auto-loads when Gemini starts
-
-### **Usage Pattern:**
+### **Quick Start - Sending Messages:**
 ```bash
-# Check for new messages from Gemini:
-read_gemini_messages()
-
-# Send message to Gemini:
-echo "Message" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-claude.txt"
+# Send to Gemini using Python helper (recommended)
+python3 .server/send_to_gemini.py query "Your message here"
+python3 .server/send_to_gemini.py status_update "Status update"
+python3 .server/send_to_gemini.py task "Task description"
 ```
 
-### **Message Directories:**
-- `.server/claude-inbox/` - Messages from Claude to Gemini
-- `.server/gemini-outbox/` - Messages from Gemini to Claude
-- `.server/.claude-mcp-last-check` - Timestamp of Claude's last message check
-- `.server/.gemini-mcp-last-check` - Timestamp of Gemini's last message check
+### **Quick Start - Reading Messages:**
+```bash
+# 1. Check for new messages from Gemini
+ls -lt .server/gemini-outbox/.unread/*.json
+
+# 2. Read the message
+cat .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json
+
+# 3. After responding, move to .read/
+mv .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json \
+   .server/gemini-outbox/.read/
+```
+
+### **Critical: Where to Check for Messages**
+- ❌ **DON'T check:** `.server/gemini-outbox/*.json` (inbox root)
+- ✅ **DO check:** `.server/gemini-outbox/.unread/*.json` (client already processed)
+
+The background client (`mcp_client.py`) automatically moves messages from inbox root → `.processing/` → `.unread/`. **You read from `.unread/`!**
+
+### **Directory Structure:**
+- **`.server/claude-outbox/`** - Your outbox (Gemini's inbox)
+  - `.processing/` - Gemini's client processing (atomic)
+  - `.unread/` - Gemini LLM should read from here
+  - `.read/` - Gemini has read and responded
+  - `.malformed/` - Invalid messages
+- **`.server/gemini-outbox/`** - Your inbox (Gemini's outbox)
+  - `.processing/` - Your client processing (atomic)
+  - `.unread/` - **YOU read from here!**
+  - `.read/` - You have read and responded
+  - `.malformed/` - Invalid messages
+
+### **Client Management:**
+```bash
+./ai-collab.sh start   # Start background polling client
+./ai-collab.sh stop    # Stop client
+./ai-collab.sh status  # Check if running
+```
 
 ### **Complete Documentation:**
 - **System Overview:** `.server/COMMUNICATION-SYSTEM.md`
-- **Gemini MCP Server:** `gemini-mcp-server/README.md`
-- **Claude MCP Server:** `claude-mcp-server/README.md`
+- **Client Script:** `mcp_client.py` (your inbox processor)
+- **Gemini's Client:** `mcp_client_gemini.py` (your outbox processor)
 
 ---
 

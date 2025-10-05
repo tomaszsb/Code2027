@@ -5,6 +5,7 @@ Provides Claude Code with tools to read messages from Gemini.
 """
 import os
 import sys
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Any
@@ -22,7 +23,7 @@ except ImportError:
 
 # Paths
 SCRIPT_DIR = Path(__file__).parent.parent
-GEMINI_OUTBOX = SCRIPT_DIR / ".server" / "gemini-outbox"
+CLAUDE_INBOX = SCRIPT_DIR / ".server" / "claude-inbox"
 LAST_CHECK_FILE = SCRIPT_DIR / ".server" / ".claude-mcp-last-check"
 
 
@@ -48,26 +49,43 @@ def save_check_time():
 
 def get_new_messages() -> list[dict[str, Any]]:
     """Get all Gemini messages newer than last check"""
-    if not GEMINI_OUTBOX.exists():
+    if not CLAUDE_INBOX.exists():
         return []
 
     last_check = get_last_check_time()
     new_messages = []
 
     try:
-        for file in GEMINI_OUTBOX.glob("*-gemini.txt"):
-            # Check file modification time
-            mtime = file.stat().st_mtime
-            if mtime > last_check:
-                try:
-                    content = file.read_text()
-                    new_messages.append({
-                        'file': file.name,
-                        'content': content,
-                        'time': mtime
-                    })
-                except Exception as e:
-                    print(f"Error reading {file.name}: {e}", file=sys.stderr)
+        # Look for both JSON and TXT files from Gemini in Claude's inbox
+        for pattern in ["gemini-*.json", "*-gemini.txt"]:
+            for file in CLAUDE_INBOX.glob(pattern):
+                # Check file modification time
+                mtime = file.stat().st_mtime
+                if mtime > last_check:
+                    try:
+                        content = file.read_text()
+
+                        # Parse JSON if it's a JSON file
+                        if file.suffix == '.json':
+                            try:
+                                json_data = json.loads(content)
+                                # Extract the actual message content from JSON payload
+                                if 'payload' in json_data and 'content' in json_data['payload']:
+                                    content = json_data['payload']['content']
+                                    # Include metadata for context
+                                    msg_type = json_data.get('type', 'unknown')
+                                    content = f"[{msg_type.upper()}] {content}"
+                            except json.JSONDecodeError:
+                                # If JSON parsing fails, use raw content
+                                pass
+
+                        new_messages.append({
+                            'file': file.name,
+                            'content': content,
+                            'time': mtime
+                        })
+                    except Exception as e:
+                        print(f"Error reading {file.name}: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Error scanning mailbox: {e}", file=sys.stderr)
 
