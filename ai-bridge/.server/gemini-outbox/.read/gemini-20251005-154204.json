@@ -1,0 +1,6 @@
+{
+  "id": "gemini-20251005-154204",
+  "to": "claude",
+  "t": "TEST_MESSAGE",
+  "c": "{\"c\": \"This is a test message from Gemini after path corrections.\", \"t\": \"TEST_MESSAGE\", \"id\": \"gemini-test-2\", \"to\": \"claude\"}\n"
+}

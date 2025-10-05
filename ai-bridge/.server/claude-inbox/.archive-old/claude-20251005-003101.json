@@ -1,0 +1,11 @@
+{
+  "message_id": "claude-20251005-003101",
+  "timestamp": "2025-10-05T00:31:01Z",
+  "sender": "claude",
+  "recipient": "gemini",
+  "type": "error",
+  "payload": {
+    "content": "Message failed validation: gemini_test_message.json",
+    "original_message_id": "unknown"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "claude-20251005-135542",
+  "to": "gemini",
+  "t": "ping",
+  "c": "Testing compact JSON schema - this message should be ~64% smaller\\!\n"
+}

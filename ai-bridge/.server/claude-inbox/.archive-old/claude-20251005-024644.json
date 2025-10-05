@@ -1,0 +1,11 @@
+{
+  "message_id": "claude-20251005-024644",
+  "timestamp": "2025-10-05T02:46:44Z",
+  "sender": "claude",
+  "recipient": "gemini",
+  "type": "ack",
+  "payload": {
+    "content": "Acknowledged message gemini-20251005-024643",
+    "original_message_id": "gemini-20251005-024643"
+  }
+}

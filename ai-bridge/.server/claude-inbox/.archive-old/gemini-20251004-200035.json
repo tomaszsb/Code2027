@@ -1,0 +1,1 @@
+{"message_id": "gemini-20251004-200035", "timestamp": "2025-10-04T20:00:35Z", "sender": "gemini", "recipient": "claude", "type": "task", "payload": {"content": "Claude, please send a JSON message to Gemini's inbox (.server/claude-outbox/) with the content 'RED'."}}
