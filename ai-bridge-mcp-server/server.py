@@ -2,9 +2,12 @@
 """
 Bidirectional AI Bridge MCP Server
 Provides both Claude and Gemini with tools to read each other's messages.
+Updated for three-directory JSON communication system (Oct 5, 2025)
 """
 import os
 import sys
+import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Any
@@ -20,11 +23,18 @@ except ImportError:
     sys.exit(1)
 
 
-# Paths
+# Paths - Updated for three-directory JSON system
 SCRIPT_DIR = Path(__file__).parent.parent
 SERVER_DIR = SCRIPT_DIR / ".server"
-GEMINI_OUTBOX = SERVER_DIR / "gemini-outbox"
-CLAUDE_INBOX = SERVER_DIR / "claude-inbox"
+
+# Claude reads from Gemini's outbox
+GEMINI_OUTBOX_UNREAD = SERVER_DIR / "gemini-outbox" / ".unread"
+GEMINI_OUTBOX_READ = SERVER_DIR / "gemini-outbox" / ".read"
+
+# Gemini reads from Claude's outbox
+CLAUDE_OUTBOX_UNREAD = SERVER_DIR / "claude-outbox" / ".unread"
+CLAUDE_OUTBOX_READ = SERVER_DIR / "claude-outbox" / ".read"
+
 CLAUDE_LAST_CHECK = SERVER_DIR / ".claude-mcp-last-check"
 GEMINI_LAST_CHECK = SERVER_DIR / ".gemini-mcp-last-check"
 
@@ -51,32 +61,49 @@ def save_check_time(ai_name: str):
         print(f"Error saving check time: {e}", file=sys.stderr)
 
 
-def get_new_messages(inbox_dir: Path, file_pattern: str, last_check: float) -> list[dict[str, Any]]:
-    """Get all messages newer than last check from specified inbox"""
-    if not inbox_dir.exists():
+def get_new_messages(unread_dir: Path, read_dir: Path) -> list[dict[str, Any]]:
+    """Get all JSON messages from .unread/ directory and move them to .read/"""
+    if not unread_dir.exists():
         return []
 
     new_messages = []
 
     try:
-        for file in inbox_dir.glob(file_pattern):
-            # Check file modification time
-            mtime = file.stat().st_mtime
-            if mtime > last_check:
-                try:
-                    content = file.read_text()
-                    new_messages.append({
-                        'file': file.name,
-                        'content': content,
-                        'time': mtime
-                    })
-                except Exception as e:
-                    print(f"Error reading {file.name}: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error scanning inbox: {e}", file=sys.stderr)
+        # Get all JSON files in .unread/
+        json_files = sorted(unread_dir.glob("*.json"), key=lambda f: f.stat().st_mtime)
 
-    # Sort by time (oldest first)
-    new_messages.sort(key=lambda x: x['time'])
+        for file in json_files:
+            try:
+                # Parse JSON message
+                with open(file, 'r') as f:
+                    message_data = json.load(f)
+
+                # Extract content from payload
+                content = message_data.get('payload', {}).get('content', '')
+                message_id = message_data.get('message_id', file.stem)
+                msg_type = message_data.get('type', 'unknown')
+                timestamp = message_data.get('timestamp', '')
+
+                new_messages.append({
+                    'file': file.name,
+                    'message_id': message_id,
+                    'type': msg_type,
+                    'timestamp': timestamp,
+                    'content': content,
+                    'time': file.stat().st_mtime
+                })
+
+                # Move to .read/ directory
+                read_dir.mkdir(parents=True, exist_ok=True)
+                dest = read_dir / file.name
+                shutil.move(str(file), str(dest))
+
+            except Exception as e:
+                print(f"Error processing {file.name}: {e}", file=sys.stderr)
+
+    except Exception as e:
+        print(f"Error scanning .unread/ directory: {e}", file=sys.stderr)
+
     return new_messages
 
 
@@ -91,7 +118,9 @@ def format_messages(messages: list[dict[str, Any]], sender_name: str) -> str:
     formatted = [header, "=" * 60, ""]
 
     for i, msg in enumerate(messages, 1):
-        formatted.append(f"**Message {i}/{count}** (from {msg['file']}):")
+        formatted.append(f"**Message {i}/{count}** [{msg['type']}]")
+        formatted.append(f"ID: {msg['message_id']}")
+        formatted.append(f"Time: {msg['timestamp']}")
         formatted.append("")
         # Truncate long messages for preview
         content = msg['content'].strip()
@@ -138,9 +167,8 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Handle tool calls"""
     if name == "read_gemini_messages":
-        # Claude is reading Gemini's messages
-        last_check = get_last_check_time("claude")
-        new_messages = get_new_messages(GEMINI_OUTBOX, "*-gemini.txt", last_check)
+        # Claude is reading Gemini's messages from gemini-outbox/.unread/
+        new_messages = get_new_messages(GEMINI_OUTBOX_UNREAD, GEMINI_OUTBOX_READ)
         save_check_time("claude")
         formatted = format_messages(new_messages, "Gemini")
 
@@ -152,9 +180,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         ]
 
     elif name == "read_claude_messages":
-        # Gemini is reading Claude's messages
-        last_check = get_last_check_time("gemini")
-        new_messages = get_new_messages(CLAUDE_INBOX, "*-claude.txt", last_check)
+        # Gemini is reading Claude's messages from claude-outbox/.unread/
+        new_messages = get_new_messages(CLAUDE_OUTBOX_UNREAD, CLAUDE_OUTBOX_READ)
         save_check_time("gemini")
         formatted = format_messages(new_messages, "Claude")
 
