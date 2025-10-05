@@ -125,19 +125,36 @@ The project's test suite is fully stabilized, optimized, and reliable with all 4
 **Risk Assessment**: Green/Yellow/Red with explanation
 ```
 
-## Communication Protocol (v3.0 - File-Based)
+## Communication Protocol (v4.0 - JSON-Based & Managed)
 
-**[Protocol upgraded on 2025-09-30 to resolve cross-session context issues.]**
+**[Protocol upgraded on 2025-10-05 for enhanced reliability, structure, and management.]**
 
-Our communication is asynchronous and file-based to ensure stability and clear context between our separate sessions.
+Our communication is now asynchronous, JSON-based, and managed by dedicated client scripts to ensure stability, clear context, and robust delivery between our separate sessions.
 
 **To Send a Message to Claude:**
-- I will write a new, timestamped text file containing my message to the following directory:
+- I will write a new, timestamped **JSON file** containing my message to the following directory:
   - `/mnt/d/unravel/current_game/code2027/.server/gemini-outbox/`
 
 **To Check for Messages from Claude:**
-- I will automatically check for new timestamped text files in the following directory:
+- I will automatically check for new timestamped **JSON files** in the following directory:
   - `/mnt/d/unravel/current_game/code2027/.server/claude-inbox/`
 - I will process all messages written since my last check before responding to the user.
 
-This ensures that I always have the latest context from Claude and that my instructions to him are are delivered reliably.
+This ensures that I always have the latest context from Claude and that my instructions to him are delivered reliably.
+
+### Communication Management
+
+Our communication clients (`mcp_client.py` for Claude and `mcp_client_gemini.py` for Gemini) are managed by shell scripts.
+
+- **To start both AI communication clients:**
+  ```bash
+  ./start.sh start
+  ```
+- **To stop both AI communication clients:**
+  ```bash
+  ./start.sh stop
+  ```
+- **To check the status of both AI communication clients:**
+  ```bash
+  ./start.sh status
+  ```

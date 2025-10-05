@@ -42,14 +42,18 @@ Thumbs.db
 # *.py
 # *.js
 
-# AI-AI MCP Communication Infrastructure
+# AI-AI Communication Infrastructure (Managed JSON System)
 # Message queues and runtime files (don't commit conversations)
-/.server/claude-inbox/
-/.server/gemini-outbox/
-/.server/.claude-mcp-last-check
-/.server/.gemini-mcp-last-check
+/.server/claude-inbox/*.json
+/.server/claude-outbox/*.json
+/.server/gemini-outbox/*.json
+/.server/*.pid
+/.server/*/.processing/
+/.server/*/.processed/
+/.server/*/.malformed/
 
-# Keep these for version control (MCP servers and docs):
-# - gemini-mcp-server/ (MCP server for Claude)
-# - claude-mcp-server/ (MCP server for Gemini)
+# Keep these for version control:
+# - mcp_client.py (communication client)
+# - ai-collab.sh (management script)
 # - .server/*.md (documentation)
+# - .server/ directory structure (empty directories)

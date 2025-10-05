@@ -1,58 +1,67 @@
 # AI-to-AI Communication System Documentation
 
 ## Overview
-Bidirectional MCP-based communication system between Claude and Gemini using native Model Context Protocol servers for real-time message exchange.
+Managed JSON-based communication system between Claude and Gemini using automated polling clients with acknowledgment workflows for reliable message exchange.
 
 ---
 
 ## Components
 
 ### 1. Message Directories
-- **`.server/claude-inbox/`** - Messages from Claude to Gemini
-- **`.server/gemini-outbox/`** - Messages from Gemini to Claude
-- **`.server/gemini-notifications/`** - Notifications for Gemini watcher
-- **`.server/message-metadata.json`** - Message status tracking (pending/approved/rejected)
-- **`.server/conversation-context.json`** - Conversation history (last 10 messages)
+- **`.server/claude-inbox/`** - Incoming messages for Claude (from Gemini)
+- **`.server/claude-outbox/`** - Outgoing messages from Claude (to Gemini)
+- **`.server/gemini-outbox/`** - Outgoing messages from Gemini (to Claude)
+- **`.server/gemini-outbox/.processing/`** - Messages being processed by Claude's client
+- **`.server/gemini-outbox/.processed/`** - Successfully processed messages (archived)
+- **`.server/gemini-outbox/.malformed/`** - Invalid messages that failed validation
 
-### 2. Gemini MCP Server (for Claude to read Gemini's messages)
-**Location:** `gemini-mcp-server/`
-**File:** `server.py`
-**Protocol:** Model Context Protocol (stdio)
-**Tool Provided:** `read_gemini_messages()`
+### 2. Communication Client (mcp_client.py)
+**Location:** `code2027/mcp_client.py`
+**Language:** Python 3
+**Function:** Automated polling client for JSON message processing
 
-**Function:**
-- Checks `.server/gemini-outbox/` for new messages from Gemini
-- Tracks last check in `.server/.claude-mcp-last-check`
-- Returns formatted list of unread messages
-- Native Claude Code integration
+**Features:**
+- Polls `.server/gemini-outbox/` for new JSON messages every 5 seconds
+- Validates messages against JSON schema
+- Sends automatic ACK responses for valid messages
+- Archives processed messages to `.processed/` directory
+- Moves malformed messages to `.malformed/` directory
 
-**Configuration:** Enabled in `.claude/settings.local.json` and `.mcp.json`
+**Message Processing Pipeline:**
+1. Scan inbox for `*.json` files
+2. Move to `.processing/` to prevent duplicates
+3. Validate against schema
+4. Send ACK response
+5. Archive to `.processed/` or `.malformed/`
 
-**Usage (Claude side):**
-```python
-# Call the MCP tool to check for new messages
-read_gemini_messages()
+**JSON Schema:**
+```json
+{
+  "message_id": "string (unique identifier)",
+  "timestamp": "string (ISO 8601 format)",
+  "sender": "claude|gemini",
+  "recipient": "claude|gemini",
+  "type": "task|status_update|query|ack|error",
+  "payload": {
+    "content": "string (message content)",
+    "original_message_id": "string (optional, for ACK/error)"
+  }
+}
 ```
 
-### 3. Claude MCP Server (for Gemini to read Claude's messages)
-**Location:** `claude-mcp-server/`
-**File:** `server.py`
-**Protocol:** Model Context Protocol (stdio)
-**Tool Provided:** `read_claude_messages()`
+### 3. Management Script (ai-collab.sh)
+**Location:** `code2027/ai-collab.sh`
+**Purpose:** Start/stop/status management for communication client
 
-**Function:**
-- Checks `.server/claude-inbox/` for new messages from Claude
-- Tracks last check in `.server/.gemini-mcp-last-check`
-- Returns formatted list of unread messages
-- Native Gemini integration
+**Commands:**
+- `./ai-collab.sh start` - Start mcp_client.py in background
+- `./ai-collab.sh stop` - Stop the background client
+- `./ai-collab.sh status` - Check if client is running
 
-**Configuration:** Gemini configures this in his `settings.json`
-
-**Usage (Gemini side):**
-```python
-# Call the MCP tool to check for new messages
-read_claude_messages()
-```
+**Process Management:**
+- Stores PID in `.server/claude_client.pid`
+- Ensures correct working directory
+- Handles stale PID files
 
 ---
 
@@ -60,149 +69,205 @@ read_claude_messages()
 
 ### Sending a Message (Claude → Gemini)
 ```bash
-echo "Message content" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-claude.txt"
+# Create JSON message
+cat > ".server/claude-outbox/claude-$(date -u +%Y%m%d-%H%M%S).json" << 'EOF'
+{
+  "message_id": "claude-YYYYMMDD-HHMMSS",
+  "timestamp": "2025-10-04T23:00:00Z",
+  "sender": "claude",
+  "recipient": "gemini",
+  "type": "status_update",
+  "payload": {
+    "content": "Your message here"
+  }
+}
+EOF
 ```
 
-### Sending a Message (Gemini → Claude)
-```bash
-echo "Message content" > ".server/gemini-outbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-gemini.txt"
-```
+### Receiving Messages (Automated)
+- **Claude's client (`mcp_client.py`)** automatically:
+  1. Polls `.server/gemini-outbox/` every 5 seconds
+  2. Validates and processes JSON messages
+  3. Sends ACK responses to Gemini
+  4. Archives to `.processed/` directory
 
-### Message Reading
-- **Claude:** Calls `read_gemini_messages()` to check for new messages from Gemini
-- **Gemini:** Calls `read_claude_messages()` to check for new messages from Claude
-- Both AIs can check on-demand, no automatic polling
+- **Gemini's client** (symmetric setup) does the same for Claude's messages
+
+### Message Acknowledgment Flow
+1. Sender writes JSON message to recipient's inbox
+2. Recipient's client detects new message
+3. Client validates message schema
+4. Client sends ACK response with original message_id
+5. Client archives original message to `.processed/`
 
 ---
 
 ## Starting the System
 
-### MCP Servers (Auto-load)
-Both MCP servers are automatically loaded when Claude Code and Gemini start:
+### Start Communication Client
+```bash
+# From code2027 directory
+./ai-collab.sh start
+```
 
-**Claude's configuration (`.claude/settings.local.json` and `.mcp.json`):**
-- Loads `gemini-mcp-server` at startup
-- Provides `read_gemini_messages()` tool
+**What happens:**
+- Launches `mcp_client.py` in background
+- Stores process ID in `.server/claude_client.pid`
+- Begins polling for messages every 5 seconds
 
-**Gemini's configuration (his `settings.json`):**
-- Loads `claude-mcp-server` at startup
-- Provides `read_claude_messages()` tool
+### Stop Communication Client
+```bash
+./ai-collab.sh stop
+```
 
-**No manual startup required** - MCP servers are managed by the respective AI environments.
+### Check Client Status
+```bash
+./ai-collab.sh status
+```
 
 ### Fresh Start / Reset
 To clear all messages and start fresh:
 
 ```bash
-# 1. Clear all message files
-rm -f .server/claude-inbox/*.txt
-rm -f .server/gemini-outbox/*.txt
+# 1. Stop client
+./ai-collab.sh stop
 
-# 2. Reset tracking timestamps
-rm -f .server/.claude-mcp-last-check
-rm -f .server/.gemini-mcp-last-check
+# 2. Clear all message files
+rm -f .server/claude-inbox/*.json
+rm -f .server/claude-outbox/*.json
+rm -f .server/gemini-outbox/*.json
+rm -rf .server/gemini-outbox/.processed/*
+rm -rf .server/gemini-outbox/.processing/*
+rm -rf .server/gemini-outbox/.malformed/*
+
+# 3. Restart client
+./ai-collab.sh start
 ```
 
 ---
 
 ## Testing the System
 
-### Test 1: Send Message (Claude → Gemini)
+### Test 1: Send Message (Gemini → Claude)
 ```bash
-echo "Test message from Claude" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-claude.txt"
+# Gemini sends a test message
+cat > ".server/gemini-outbox/gemini-test-001.json" << 'EOF'
+{
+  "message_id": "gemini-test-001",
+  "timestamp": "2025-10-04T23:00:00Z",
+  "sender": "gemini",
+  "recipient": "claude",
+  "type": "query",
+  "payload": {
+    "content": "Test message from Gemini"
+  }
+}
+EOF
 ```
-**Expected:** Gemini should see this on next turn
+**Expected:**
+- Claude's `mcp_client.py` detects the message within 5 seconds
+- Message is validated and moved to `.processing/`
+- ACK response sent to `.server/claude-inbox/`
+- Original message archived to `.processed/`
 
-### Test 2: Send Message (Gemini → Claude)
+### Test 2: Verify Message Processing
 ```bash
-echo "Test message from Gemini" > ".server/gemini-outbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-gemini.txt"
-```
-**Expected:** Claude can read via `read_gemini_messages()` MCP tool
+# Check processed messages
+ls -lt .server/gemini-outbox/.processed/
 
-### Test 3: Read Messages (Claude)
-Use the MCP tool in Claude Code:
-```python
-read_gemini_messages()
+# Check ACK responses
+ls -lt .server/claude-inbox/
 ```
-**Expected:** Returns formatted list of new messages from Gemini
 
-### Test 4: Read Messages (Gemini)
-Use the MCP tool in Gemini:
-```python
-read_claude_messages()
+### Test 3: Check Client Status
+```bash
+./ai-collab.sh status
 ```
-**Expected:** Returns formatted list of new messages from Claude
+**Expected:** "Claude's communication client is running."
 
 ---
 
 ## Troubleshooting
 
-### MCP tool not available (Claude)
-- Verify `gemini-mcp-server` configured in `.claude/settings.local.json` and `.mcp.json`
-- Check dependencies: MCP server should have all required packages
-- Restart Claude Code to load MCP servers
-- Test: Try calling `read_gemini_messages()` tool
+### Client not running
+```bash
+./ai-collab.sh status
+```
+If not running:
+```bash
+./ai-collab.sh start
+```
 
-### MCP tool not available (Gemini)
-- Verify `claude-mcp-server` configured in Gemini's `settings.json`
-- Check server path is correct
-- Restart Gemini to load MCP servers
-- Test: Try calling `read_claude_messages()` tool
+### Messages not being processed
+1. Check client is running: `./ai-collab.sh status`
+2. Check for JSON files in inbox: `ls .server/gemini-outbox/*.json`
+3. Check processing directories:
+   - `.server/gemini-outbox/.processing/` - Currently being processed
+   - `.server/gemini-outbox/.processed/` - Successfully processed
+   - `.server/gemini-outbox/.malformed/` - Failed validation
+4. Check client logs (if redirected to file)
 
-### Messages not appearing
-- Check message files exist in appropriate directory:
-  - `.server/claude-inbox/` for Claude's messages
-  - `.server/gemini-outbox/` for Gemini's messages
-- Check timestamp tracking files:
-  - `.server/.claude-mcp-last-check` (Claude's last read)
-  - `.server/.gemini-mcp-last-check` (Gemini's last read)
-- Messages are only shown once (new messages since last check)
+### Invalid message schema
+- Messages must be valid JSON
+- All required fields must be present: `message_id`, `timestamp`, `sender`, `recipient`, `type`, `payload`
+- `payload.content` is required
+- Invalid messages moved to `.malformed/` directory
+
+### Stale PID file
+```bash
+# Remove stale PID and restart
+rm -f .server/claude_client.pid
+./ai-collab.sh start
+```
 
 ---
 
 ## Message Cleanup
 
-Manual cleanup only:
+Archive old processed messages:
 ```bash
-# Clear all messages
-rm -f .server/claude-inbox/*.txt
-rm -f .server/gemini-outbox/*.txt
+# Archive processed messages older than 7 days
+find .server/gemini-outbox/.processed/ -name "*.json" -mtime +7 -delete
 
-# Reset tracking
-rm -f .server/.claude-mcp-last-check
-rm -f .server/.gemini-mcp-last-check
+# Clear all processed messages (caution!)
+rm -f .server/gemini-outbox/.processed/*.json
 ```
 
 ---
 
 ## Architecture Overview
 
-**Bidirectional MCP Communication:**
+**Managed JSON Communication with ACK Workflow:**
 
 ```
-Claude                              Gemini
-  |                                   |
-  | read_gemini_messages()           | read_claude_messages()
-  | (via gemini-mcp-server)          | (via claude-mcp-server)
-  |                                   |
-  v                                   v
-.server/gemini-outbox/          .server/claude-inbox/
-  ^                                   ^
-  |                                   |
-  | (writes messages)                 | (writes messages)
-  |                                   |
-Gemini                             Claude
+Claude                                    Gemini
+  |                                         |
+  | Writes JSON to                         | Writes JSON to
+  | .server/claude-outbox/                 | .server/gemini-outbox/
+  |                                         |
+  v                                         v
+mcp_client.py (Gemini's)              mcp_client.py (Claude's)
+  |                                         |
+  | Polls claude-outbox/                   | Polls gemini-outbox/
+  | Validates messages                      | Validates messages
+  | Sends ACK responses                     | Sends ACK responses
+  | Archives to .processed/                 | Archives to .processed/
+  |                                         |
+  v                                         v
+Gemini receives Claude's                Claude receives Gemini's
+messages automatically                  messages automatically
 ```
 
 **Key Features:**
-- ✅ **Symmetric architecture:** Both AIs have identical capabilities
-- ✅ **Native MCP integration:** No external servers or processes needed
-- ✅ **On-demand checking:** AIs check for messages when needed
-- ✅ **File-based exchange:** Simple, reliable text file messaging
-- ✅ **Timestamp tracking:** Each AI tracks their own last check time
+- ✅ **Symmetric architecture:** Both AIs have identical polling clients
+- ✅ **Automated processing:** Background clients handle all message operations
+- ✅ **JSON validation:** Schema-based message validation
+- ✅ **Acknowledgment workflow:** Automatic ACK responses for message confirmation
+- ✅ **Reliable archival:** Processed messages archived, malformed messages isolated
+- ✅ **Process management:** `ai-collab.sh` for easy start/stop/status
 
 ---
 
-**Version:** 4.0 (Pure MCP Architecture)
-**Last Updated:** October 2, 2025
-**Authors:** Claude (implementation), Gemini (review)
+**Version:** 5.0 (Managed JSON Communication)
+**Last Updated:** October 4, 2025
+**Authors:** Claude (implementation), Gemini (design & review)
