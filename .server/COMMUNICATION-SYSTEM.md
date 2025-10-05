@@ -73,6 +73,7 @@ Managed JSON-based communication system between Claude and Gemini using automate
 - `./ai-collab.sh start` - Start mcp_client.py in background
 - `./ai-collab.sh stop` - Stop the background client
 - `./ai-collab.sh status` - Check if client is running
+- `./ai-collab.sh health` - Run comprehensive health check on message queues
 
 **Process Management:**
 - Stores PID in `.server/claude_client.pid`
@@ -394,6 +395,49 @@ with complex formatting
 and "special characters"
 EOF
 ```
+
+---
+
+## Health Monitoring (v7.0)
+
+### Health Check Command
+The `health` command provides comprehensive monitoring of message queues and system status:
+
+```bash
+./ai-collab.sh health
+```
+
+**Checks performed:**
+1. **Inbox root messages** - Detects messages not being picked up by polling client
+2. **Stuck messages in `.processing/`** - Identifies atomic operations that failed
+3. **Stale messages in `.unread/`** - Warns if messages unread for >10 minutes
+4. **Malformed messages** - Reports validation failures in `.malformed/`
+5. **Client status** - Verifies polling client is running
+
+**Example output:**
+```
+=== Message Queue Health Check ===
+
+📬 Claude's Inbox (from Gemini):
+  ✓ Inbox root clear
+  ✓ No stuck messages in .processing/
+  ⚠️  WARNING: 3/5 unread messages older than 10min
+  ✓ No malformed messages
+
+📤 Claude's Outbox (to Gemini):
+  ✓ Outbox root clear
+  ✓ No stuck messages in .processing/
+  ℹ️  2 unread by Gemini (all recent)
+  ✓ No malformed messages
+
+🔧 Client Status:
+  ✓ Communication client running (PID: 12345)
+
+===================================
+⚠️  1 warning(s) detected
+```
+
+**Staleness threshold:** 10 minutes (configurable in `ai-collab.sh`)
 
 ---
 
