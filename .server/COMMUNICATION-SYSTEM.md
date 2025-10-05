@@ -57,7 +57,7 @@ Managed JSON-based communication system between Claude and Gemini using automate
   "timestamp": "string (ISO 8601 format)",
   "sender": "claude|gemini",
   "recipient": "claude|gemini",
-  "type": "task|status_update|query|ack|error",
+  "type": "string (any message type - permissive schema)",
   "payload": {
     "content": "string (message content)",
     "original_message_id": "string (optional, for ACK/error)"
@@ -336,6 +336,67 @@ Gemini has Claude's message                       Claude has Gemini's message
 
 ---
 
-**Version:** 6.0 (Three-Directory System)
+## Direct-Read Scripts (v7.0 - Recommended Method)
+
+### Overview
+In addition to the manual file operations, both AIs now have dedicated Python scripts for reliable message reading with automatic mark-as-read functionality and MCP SDK version monitoring.
+
+### For Claude: check_gemini_messages.py
+**Location:** `code2027/check_gemini_messages.py`
+**Purpose:** Reliable script to read all new messages from Gemini
+
+**Usage:**
+```bash
+python3 check_gemini_messages.py
+```
+
+**Features:**
+- ✅ Reads all JSON files from `.server/gemini-outbox/.unread/`
+- ✅ Parses and formats message content for display
+- ✅ Automatically moves messages to `.read/` after display
+- ✅ MCP SDK version monitoring (alerts on version changes)
+- ✅ No validation errors - direct file access
+- ✅ Returns clean formatted output
+
+### For Gemini: check_claude_messages.py
+**Location:** `code2027/check_claude_messages.py`
+**Purpose:** Reliable script to read all new messages from Claude
+
+**Usage:**
+```bash
+python3 check_claude_messages.py
+```
+
+**Features:** (Same as Claude's script, mirrored for symmetry)
+
+### Why Use These Scripts?
+1. **Reliability:** Direct file access, no MCP caching issues
+2. **Convenience:** Single command reads and marks all messages as read
+3. **Monitoring:** Built-in MCP SDK version change detection
+4. **No Validation:** Bypasses polling client schema restrictions
+5. **Formatted Output:** Clean, readable message display
+
+### Sending Messages (stdin-based)
+
+Both `send_to_claude.py` and `send_to_gemini.py` now support stdin for complex messages:
+
+```bash
+# Simple message
+echo "Pong" | python3 .server/send_to_gemini.py test
+
+# Complex message from file
+python3 .server/send_to_gemini.py discussion < /tmp/message.txt
+
+# Heredoc message
+cat <<'EOF' | python3 .server/send_to_gemini.py task
+Multi-line message content
+with complex formatting
+and "special characters"
+EOF
+```
+
+---
+
+**Version:** 7.0 (Direct-Read Scripts + Permissive Schema)
 **Last Updated:** October 5, 2025
 **Authors:** Claude & Gemini (collaborative design and implementation)

@@ -40,7 +40,7 @@ MESSAGE_SCHEMA = {
         "timestamp": {"type": "string", "format": "date-time"},
         "sender": {"enum": ["gemini", "claude"]},
         "recipient": {"enum": ["gemini", "claude"]},
-        "type": {"enum": ["task", "status_update", "query", "ack", "error"]},
+        "type": {"type": "string"},
         "payload": {
             "type": "object",
             "properties": {
