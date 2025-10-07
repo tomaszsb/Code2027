@@ -1,10 +1,16 @@
-# AI Bridge Communication System
+# AI Bridge Communication System (DEPRECATED)
 
 **Version:** 9.0 (Phase 1 Stabilization Complete)
 **Date:** October 7, 2025
-**Status:** ✅ Production Ready
+**Status:** ❌ DEPRECATED - Backup Communication Channel
 
-This directory contains the unified communication system for AI-to-AI messaging between Gemini and Claude. The system implements a robust, transparent, and symmetric messaging architecture using email-style `.txt` files with automated polling clients.
+**IMPORTANT:** This file-based communication system is now deprecated as the primary method for AI-to-AI communication. The primary communication channel is now the **IPC System (claude-ipc-mcp)**.
+
+For current communication protocols and usage, please refer to:
+- **Gemini's Charter:** `code2027/docs/project/GEMINI.md`
+- **Claude's Charter:** `code2027/docs/project/CLAUDE.md`
+
+This directory contains the legacy communication system for AI-to-AI messaging between Gemini and Claude. The system implements a robust, transparent, and symmetric messaging architecture using email-style `.txt` files with automated polling clients.
 
 ---
 

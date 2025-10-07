@@ -62,11 +62,10 @@ Under AI team management, the `code2027` project has successfully completed all 
 *   **Unified Effect Engine:** A key strategic success was the design and implementation of a centralized engine. This engine now handles all game logic (from cards, spaces, and actions) in a standardized, data-driven way, making the system more maintainable and extensible.
 *   **Feature Implementation:** All high-priority gameplay mechanics from the expanded data sets were implemented on the new architecture. This includes complex features like choice-based movement, duration-based effects, turn control, and multi-player targeting.
 *   **Testing and Stabilization:** A comprehensive End-to-End testing suite was created and executed. This process successfully validated the stability of the new system and was instrumental in identifying and resolving several critical integration bugs.
-*   **AI-to-AI Communication System:** Successfully established a robust, transparent, and conversational AI-to-AI communication system between Gemini and Claude, utilizing a three-directory message flow and unified logging for user visibility.
-
+    *   **AI-to-AI Communication System:** Successfully established and verified a robust, transparent, and conversational AI-to-AI communication system between Gemini and Claude. This now includes both a file-based messaging system (v9.0 protocol with three-directory message flow and unified logging) and a functional IPC channel. (Updated: October 7, 2025)
 ### Current State:
 
-The project is in a production-ready, well-documented, and highly maintainable state. All development phases including P2 and P3 features have been successfully completed with comprehensive testing and performance optimizations. The AI-to-AI communication system is fully operational, enabling seamless collaboration.
+The project is in a production-ready, well-documented, and highly maintainable state. All development phases including P2 and P3 features have been successfully completed with comprehensive testing and performance optimizations. The AI-to-AI communication system is fully operational, enabling seamless collaboration. Claude is currently reviewing project documentation and preparing a comprehensive update plan.
 
 ## 6. Project Status: Test Suite Maintenance
 
@@ -126,112 +125,58 @@ The project's test suite is fully stabilized, optimized, and reliable with all 4
 **Risk Assessment**: Green/Yellow/Red with explanation
 ```
 
-## Communication Protocol (v9.0 - Phase 1 Stabilization Complete)
+## Communication Protocol (IPC-Only - Phase 2 Stabilization)
 
-**[Protocol updated on 2025-10-07 - Unified system with email-style format exclusive.]**
+**[Protocol updated on 2025-10-07 - IPC-only communication as primary.]**
 
-To ensure robust and transparent AI-to-AI communication, Gemini and Claude utilize a **unified, bidirectional messaging system** with email-style `.txt` files. The system features symmetric tools, automated polling clients, and clean architecture.
+To ensure robust and transparent AI-to-AI communication, Gemini and Claude will now primarily utilize the **IPC Communication (claude-ipc-mcp) system**. The file-based system will be deprecated and used only as a backup.
 
-### Key Components:
+### Key Points (IPC-Only Communication):
 
-1. **Unified MCP Server:** Single server (`unified-mcp-server`) provides both `read_gemini_messages()` and `read_claude_messages()` tools
-2. **Send Scripts:** `send_to_gemini.py` (Claude) and `send_to_claude.py` (Gemini) create messages in email format
-3. **Polling Clients:** `mcp_client.py` (Claude) and `mcp_client_gemini.py` (Gemini) process messages every 5 seconds
-4. **Three-Directory Workflow:** Outbox root → `.processing/` → `.unread/` → `.read/`
+*   **✅ Primary Channel:** IPC (claude-ipc-mcp) is now the primary communication method.
+*   **✅ Reliability:** More robust and reliable for cross-environment AI communication.
+*   **✅ Simplicity:** Eliminates the complexities of file-based polling and manual archiving.
+*   **✅ Session Startup:** Requires `register(instance_id="gemini")` at the start of each session.
 
-### Message Format (Email-Style .txt):
+### **Session Startup (Required Each Session):**
 
-```
-ID: [sender]-[YYYYMMDD-HHMMSS]
-From: [claude|gemini]
-To: [claude|gemini]
-Subject: [message-type]
-
-Message content here.
-Can use any characters without escaping.
-Multi-line content supported.
-No JSON issues with special characters: $(), \, ", ', etc.
-```
-
-### File Naming Convention:
-
-`[sender]-[YYYYMMDD-HHMMSS].txt`
-
-### Workflow for Sending Messages (Gemini → Claude):
-
-1.  **Use Send Script:** Create message via send script (DO NOT write files directly)
-    ```bash
-    echo "Your message content" | python3 ai-bridge/.server/send_to_claude.py message_type
-    ```
-2.  **Script Creates File:** Send script writes email-style `.txt` file to **outbox root** (`ai-bridge/.server/gemini-outbox/`)
-3.  **Polling Client Processes:** Claude's polling client (`mcp_client.py`) detects file within 5 seconds
-4.  **Atomic Movement:** Client moves file through `.processing/` to `.unread/` (prevents race conditions)
-5.  **Claude Reads:** Claude uses MCP tool `read_gemini_messages()` to read from `.unread/`
-6.  **Auto-Archive:** MCP tool automatically moves message to `.read/` after displaying
-
-### Workflow for Reading Messages (Gemini reading from Claude):
-
-1.  **Use MCP Tool (Recommended):**
-    ```bash
-    read_claude_messages()
-    ```
-    - Reads all messages from `ai-bridge/.server/claude-outbox/.unread/`
-    - Automatically moves to `.read/` after displaying
-
-2.  **Manual Reading (Alternative):**
-    ```bash
-    # Check for new messages
-    ls -lt ai-bridge/.server/claude-outbox/.unread/*.txt
-
-    # Read message
-    cat ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt
-
-    # Move to .read/ after responding
-    mv ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt \
-       ai-bridge/.server/claude-outbox/.read/
-    ```
-
-### Directory Structure:
-
-**Gemini's Outbox (Claude's Inbox):**
-- `ai-bridge/.server/gemini-outbox/` (root) - Send script writes here
-- `ai-bridge/.server/gemini-outbox/.processing/` - Claude's client processing (atomic)
-- `ai-bridge/.server/gemini-outbox/.unread/` - Claude reads from here
-- `ai-bridge/.server/gemini-outbox/.read/` - Claude has processed
-
-**Claude's Outbox (Gemini's Inbox):**
-- `ai-bridge/.server/claude-outbox/` (root) - Claude's send script writes here
-- `ai-bridge/.server/claude-outbox/.processing/` - Gemini's client processing (atomic)
-- `ai-bridge/.server/claude-outbox/.unread/` - **YOU read from here!**
-- `ai-bridge/.server/claude-outbox/.read/` - You have processed
-
-### Client Management:
+At the start of each session, you must register with the IPC system. Additionally, at the beginning of *every user interaction*, you must check for new messages.
 
 ```bash
-# Start your polling client
-ai-bridge/management/ai-collab-gemini.sh start
-
-# Check status
-ai-bridge/management/ai-collab-gemini.sh stop
-
-# Health check
-ai-bridge/management/ai-collab-gemini.sh health
+register(instance_id="gemini")
+check(instance_id="gemini") # Check for messages at the start of every user interaction
 ```
 
-### Key Points (v9.0 Changes):
+### **Proactive Communication Protocol:**
 
-*   **✅ Unified MCP Server:** Replaced 3 separate servers with single bidirectional implementation
-*   **✅ Email Format Only:** JSON support removed - cleaner, no escaping issues
-*   **✅ Send Scripts Required:** DO NOT write directly to `.unread/` - use send scripts
-*   **✅ Symmetric Architecture:** Both AIs have identical tools and capabilities
-*   **✅ Three-Directory Flow:** Outbox root → `.processing/` → `.unread/` → `.read/`
-*   **✅ MCP Tools Preferred:** Use `read_claude_messages()` instead of manual file operations
-*   **✅ Polling Clients Auto-Process:** Background clients handle validation and routing
+To ensure effective and timely communication, Gemini adheres to the following protocol:
 
-### Complete Documentation:
+1.  **Check Messages at Start of Every User Interaction:** Before processing any user request, Gemini will always execute `check(instance_id="gemini")` to retrieve any pending messages from Claude.
+2.  **Respond to Claude BEFORE User Request:** If new messages from Claude are found, Gemini will prioritize responding to Claude's messages and coordinating with him *before* proceeding with the user's original request.
+3.  **Limitation: No Background Auto-Polling:** Due to the request-response nature of our environment, Gemini cannot automatically poll for messages in the background. Proactive communication relies on being triggered by user interactions.
 
-*   **System Overview:** `ai-bridge/.server/COMMUNICATION-SYSTEM.md` (v9.0 - comprehensive guide)
-*   **Unified MCP Server:** `ai-bridge/mcp-servers/unified-mcp-server/README.md`
-*   **Integration Tests:** `ai-bridge/tests/test_integration.py` (32 tests, all passing)
-*   **Polling Client (Claude):** `ai-bridge/clients/mcp_client.py`
-*   **Polling Client (Gemini):** `ai-bridge/clients/mcp_client_gemini.py`
+### **Sending Messages (IPC):**
+
+```bash
+send(from_id="gemini", to_id="claude", content="Your message here")
+```
+
+### **Checking for Messages (IPC):**
+
+```bash
+check(instance_id="gemini")
+```
+
+### **Listing Active Instances (IPC):**
+
+```bash
+list_instances()
+```
+
+### **Deprecated Communication Channel: File-based (ai-bridge)**
+
+*   **Status:** Deprecated for primary communication. Available as a backup.
+*   **Reason for Deprecation:** Proved more complex and less reliable for automated processing than the IPC system.
+*   **Mechanism:** Email-style `.txt` files exchanged via a three-directory workflow.
+*   **Tools:** `send_to_claude.py` (for Gemini to send), `mcp_client_gemini.py` (Gemini's polling client).
+*   **Manual Workflow (if used as backup):** Manual `ls`/`cat`/`mv` for reading and archiving.

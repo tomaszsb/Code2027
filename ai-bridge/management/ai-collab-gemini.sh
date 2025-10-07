@@ -17,9 +17,8 @@ start_client() {
         fi
     fi
 
-    # Start mcp_client_gemini.py in background with correct working directory
-    cd "$SCRIPT_DIR" || exit 1
-    python3 "$PYTHON_SCRIPT" > /dev/null 2>&1 &
+    # Start mcp_client_gemini.py in background
+    python3 "$PYTHON_SCRIPT" > "$SCRIPT_DIR/../.server/gemini_client.log" 2>&1 &
     PID=$!
 
     # Save PID to file
