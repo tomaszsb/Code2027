@@ -66,8 +66,9 @@ export class LoggingService implements ILoggingService {
       globalTurnNumber = gameState.globalTurnCount || 1;
     } else {
       // Regular gameplay entries: use actual turn counts
-      playerTurnNumber = gameState.playerTurnCounts[playerId] || 1;
-      globalTurnNumber = gameState.globalTurnCount || 1;
+      // Use turn from payload if provided (e.g., turn_start logs), otherwise use current state
+      playerTurnNumber = payload.playerTurnNumber || gameState.playerTurnCounts[playerId] || 1;
+      globalTurnNumber = payload.turn || gameState.globalTurnCount || 1;
     }
 
     const turnContext = {

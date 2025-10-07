@@ -10,6 +10,7 @@ interface CardReplacementModalProps {
   player: Player | null;
   cardType: CardType;
   maxReplacements: number;
+  newCardType?: CardType; // The type of card the player will receive
   onReplace: (selectedCardIds: string[], newCardType: CardType) => void;
   onCancel: () => void;
 }
@@ -23,12 +24,13 @@ export function CardReplacementModal({
   player,
   cardType,
   maxReplacements,
+  newCardType,
   onReplace,
   onCancel
 }: CardReplacementModalProps): JSX.Element | null {
-  const { dataService } = useGameContext();
+  const { dataService, stateService } = useGameContext();
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
-  const [replacementCardType, setReplacementCardType] = useState<CardType>('W');
+  const [replacementCardType, setReplacementCardType] = useState<CardType>(newCardType || 'W');
 
   if (!isOpen || !player) {
     return null;
@@ -217,10 +219,28 @@ export function CardReplacementModal({
           <p style={{
             color: colors.text.slate[500],
             margin: 0,
-            fontSize: '16px'
+            fontSize: '16px',
+            marginBottom: newCardType ? '12px' : 0
           }}>
-            Select up to {maxReplacements} card{maxReplacements > 1 ? 's' : ''} to replace with new {getCardTypeName(replacementCardType)} cards
+            Select up to {maxReplacements} card{maxReplacements > 1 ? 's' : ''} to replace
           </p>
+          {newCardType && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: colors.primary.lighter,
+              borderRadius: '8px',
+              border: `2px solid ${getCardTypeColor(newCardType)}`,
+              marginTop: '8px'
+            }}>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: colors.text.darkSlate
+              }}>
+                {getCardTypeIcon(newCardType)} You will receive a new <strong>{getCardTypeName(newCardType)}</strong> card
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -290,6 +310,29 @@ export function CardReplacementModal({
                           }}>
                             Cost: {card ? FormatUtils.formatCardCost(card.cost || 0) : 'Unknown'}
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (cardId) {
+                                stateService.showCardModal(cardId);
+                              }
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              backgroundColor: colors.primary.main,
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                          >
+                            📋 Details
+                          </button>
                         </div>
                         {isSelected && (
                           <div style={{

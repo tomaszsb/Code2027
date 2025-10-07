@@ -95,7 +95,6 @@ export function TurnControlsWithActions({
 
       // Cache movement choice and movement state to prevent UI flicker
       setIsMoving(gameState.isMoving);
-      setSelectedDestination(gameState.selectedDestination);
 
       if (gameState.awaitingChoice?.type === 'MOVEMENT') {
         setMovementChoice(gameState.awaitingChoice);
@@ -119,41 +118,48 @@ export function TurnControlsWithActions({
   const handleMovementChoice = (destinationId: string) => {
     // Toggle selection (clicking same destination deselects it)
     const newSelection = selectedDestination === destinationId ? null : destinationId;
-    stateService.selectDestination(newSelection);
+    setSelectedDestination(newSelection);
 
     console.log(`🎯 TurnControlsWithActions: Selected destination: ${newSelection || 'none'}`);
   };
 
-  // Handle confirming the movement choice
-  const handleConfirmMovement = () => {
-    if (!selectedDestination || !movementChoice) return;
+  // Handle End Turn with movement confirmation
+  const handleEndTurnWithMovement = async () => {
+    // If a destination is selected, confirm the movement first
+    if (selectedDestination && movementChoice) {
+      // Find the option label for the selected destination
+      const selectedOption = movementChoice.options.find(option => option.id === selectedDestination);
+      const optionLabel = selectedOption?.label || selectedDestination;
 
-    // Find the option label for the selected destination
-    const selectedOption = movementChoice.options.find(option => option.id === selectedDestination);
-    const optionLabel = selectedOption?.label || selectedDestination;
+      // Send notification for the movement choice
+      if (notificationService) {
+        notificationService.notify(
+          {
+            short: `→ ${optionLabel}`,
+            medium: `🚶 Moving to ${optionLabel}`,
+            detailed: `${currentPlayer.name} chose to move to ${optionLabel}`
+          },
+          {
+            playerId: currentPlayer.id,
+            playerName: currentPlayer.name,
+            actionType: `move_${selectedDestination}`
+          }
+        );
+      }
 
-    // Send notification for the movement choice
-    if (notificationService) {
-      notificationService.notify(
-        {
-          short: `→ ${optionLabel}`,
-          medium: `🚶 Moving to ${optionLabel}`,
-          detailed: `${currentPlayer.name} chose to move to ${optionLabel}`
-        },
-        {
-          playerId: currentPlayer.id,
-          playerName: currentPlayer.name,
-          actionType: `move_${selectedDestination}`
-        }
-      );
+      // Resolve the choice with the choice service
+      if (choiceService) {
+        choiceService.resolveChoice(movementChoice.id, selectedDestination);
+      }
+
+      console.log(`✅ TurnControlsWithActions: Confirmed movement to: ${selectedDestination}`);
+
+      // Clear the selection
+      setSelectedDestination(null);
     }
 
-    // Resolve the choice with the choice service
-    if (choiceService) {
-      choiceService.resolveChoice(movementChoice.id, selectedDestination);
-    }
-
-    console.log(`✅ TurnControlsWithActions: Confirmed movement to: ${selectedDestination}`);
+    // Proceed with end turn
+    await onEndTurn();
   };
 
 
@@ -205,14 +211,20 @@ export function TurnControlsWithActions({
 
   // All players can take actions when it's their turn - currentPlayer is guaranteed to exist
   const isCurrentPlayersTurn = true;
+
+  // Check if the current space requires manual dice roll
+  const currentSpaceData = dataService.getSpaceByName(currentPlayer.currentSpace);
+  const requiresManualDiceRoll = currentSpaceData?.config?.requires_dice_roll ?? true; // Default to true if not specified
+
   const canRollDice = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                      !isProcessingTurn && !isProcessingArrival && !hasPlayerRolledDice && !hasPlayerMovedThisTurn &&
                      // Allow dice rolling during movement choices - they're independent actions
                      !(awaitingChoice && movementChoice?.type !== 'MOVEMENT') &&
-                     currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION'; // Hide dice roll for funding space
+                     currentPlayer.currentSpace !== 'OWNER-FUND-INITIATION' && // Hide dice roll for funding space
+                     requiresManualDiceRoll; // Hide dice roll for automatic dice roll spaces
   const canEndTurn = gamePhase === 'PLAY' && isCurrentPlayersTurn &&
                     !isProcessingTurn && !isProcessingArrival && hasPlayerRolledDice && actionCounts.completed >= actionCounts.required &&
-                    !movementChoice; // Disable end turn if movement choice pending
+                    (!movementChoice || selectedDestination !== null); // Allow end turn if destination is selected
 
 
   // Get contextual dice roll button text using centralized utility
@@ -331,45 +343,12 @@ export function TurnControlsWithActions({
               </button>
             );
           })}
-
-          {/* Confirm Move Button - only show when a destination is selected */}
-          {selectedDestination && (
-            <button
-              onClick={handleConfirmMovement}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                marginTop: '8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                backgroundColor: colors.success.main,
-                color: colors.white,
-                border: `2px solid ${colors.white}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = colors.success.dark;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = colors.success.main;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-              }}
-            >
-              ✅ Confirm Move
-            </button>
-          )}
         </div>
       )}
 
       {/* Combined Controls and Actions */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', backgroundColor: colors.secondary.bg, borderRadius: '6px', border: `1px solid ${colors.secondary.border}` }}>
-        
+
         {/* Roll Dice - show button if can roll, otherwise show completed action */}
         {canRollDice ? (
           <button
@@ -525,7 +504,7 @@ export function TurnControlsWithActions({
         {/* End Turn - always show for current player, but disable when actions incomplete */}
         {isCurrentPlayersTurn && (
           <button
-            onClick={canEndTurn ? onEndTurn : undefined}
+            onClick={canEndTurn ? handleEndTurnWithMovement : undefined}
             disabled={!canEndTurn}
             style={{
               padding: '4px 8px',

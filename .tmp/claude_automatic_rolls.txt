@@ -1,0 +1,25 @@
+Hi Claude,
+
+Following up on the clarification regarding `requires_dice_roll` for Life cards, we need to implement automatic dice rolls for these scenarios and ensure the UI reflects this.
+
+**Goal:** For spaces where a dice roll is required for a Life card (L-card) but `requires_dice_roll` is set to "No" in `Spaces.csv`, the game should automatically perform the dice roll without player interaction, and the "Roll Dice" button should not be displayed.
+
+**Required Changes:**
+
+**Part 1: UI - Hide "Roll Dice" Button for Automatic Rolls**
+
+1.  **Modify `canRollDice` logic:** In `src/components/game/TurnControlsWithActions.tsx`, update the `canRollDice` condition.
+    *   It currently checks if the player *can* roll.
+    *   It needs to *also* check the `requires_dice_roll` flag from the current space's data.
+    *   The button should only be visible if `requires_dice_roll` is `Yes` for the current space.
+    *   You will need to retrieve the `requires_dice_roll` property for `currentPlayer.currentSpace` from the `dataService`.
+
+**Part 2: Game Logic - Trigger Automatic Dice Roll**
+
+1.  **Identify Automatic Roll Scenarios:** In `src/services/TurnService.ts`, within the `startTurn` or `processTurnEffects` function, identify where to check for spaces that have:
+    *   `requires_dice_roll = No`
+    *   AND contain a dice-conditional card effect (e.g., "Draw 1 if you roll a 1") for an L-card.
+2.  **Trigger Automatic Roll:** For these scenarios, the game should automatically call the logic to perform the dice roll and apply the associated card effect (e.g., `applyDiceRollChanceEffect`).
+3.  **Avoid Interference:** Ensure this automatic roll logic does not interfere with spaces where `requires_dice_roll = Yes` (where the player explicitly presses the button). The automatic roll should only happen if `requires_dice_roll` is `No`.
+
+Please prioritize this change. Let me know if you have any questions.

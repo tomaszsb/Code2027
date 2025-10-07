@@ -3,6 +3,8 @@ import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Choice } from '../../types/CommonTypes';
 import { NotificationUtils } from '../../utils/NotificationUtils';
+import { CardReplacementModal } from './CardReplacementModal';
+import { CardType } from '../../types/DataTypes';
 
 export function ChoiceModal(): JSX.Element {
   const { stateService, choiceService, notificationService } = useGameContext();
@@ -64,6 +66,37 @@ export function ChoiceModal(): JSX.Element {
   // Don't render if no choice is awaiting or if it's a MOVEMENT choice (handled by TurnControls)
   if (!awaitingChoice || awaitingChoice.type === 'MOVEMENT') {
     return <></>;
+  }
+
+  // Handle CARD_REPLACEMENT choice with dedicated modal
+  if (awaitingChoice.type === 'CARD_REPLACEMENT') {
+    const gameState = stateService.getGameState();
+    const player = gameState.players.find(p => p.id === awaitingChoice.playerId);
+
+    // Extract card type from first option ID (e.g., "E001" -> "E")
+    const cardType = awaitingChoice.options[0]?.id?.charAt(0) as CardType || 'E';
+    const maxReplacements = awaitingChoice.options.length;
+    const newCardType = awaitingChoice.metadata?.newCardType as CardType | undefined;
+
+    return (
+      <CardReplacementModal
+        isOpen={true}
+        player={player || null}
+        cardType={cardType}
+        maxReplacements={maxReplacements}
+        newCardType={newCardType}
+        onReplace={(selectedCardIds, replacementType) => {
+          // Handle single card selection (current system supports one at a time)
+          if (selectedCardIds.length > 0) {
+            handleChoiceClick(selectedCardIds[0]);
+          }
+        }}
+        onCancel={() => {
+          // For now, we require a selection - can't cancel
+          console.log('Card replacement cancelled (not supported yet)');
+        }}
+      />
+    );
   }
 
   return (

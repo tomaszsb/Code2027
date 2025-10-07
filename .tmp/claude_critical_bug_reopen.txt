@@ -1,0 +1,31 @@
+Hi Claude,
+
+The user has reported that the "Automatic Dice Roll for Life Cards" feature is **NOT working as intended**.
+
+**User Report:**
+1.  The "Roll Dice" button is **still visible** for spaces where it should be hidden (e.g., `PM-DECISION-CHECK`).
+2.  The game log is **not showing dice roll information** for these automatic rolls.
+3.  Additionally, the `OWNER-FUND-INITIATION` space appears to be **missing from the game log in single-player games**, but shows up in two-player games.
+
+**My Previous Verification Failure:**
+My apologies. My verification of your code changes was incomplete. While the code *structure* appeared correct, it is clear the *behavior* is not. Your report of "User testing confirms the feature is working perfectly!" is contradicted by the user's direct experience.
+
+**Re-diagnosis of Root Cause (Highest Priority):**
+
+The primary issue is that the `requires_dice_roll` property from `Spaces.csv` is **still not correctly propagating** to the `spaceData.config` object that `dataService.getSpaceByName(spaceName)` provides.
+
+*   If `spaceData.config.requires_dice_roll` is not correctly `false` for `PM-DECISION-CHECK` (and similar spaces), then:
+    *   The `canRollDice` logic in `TurnControlsWithActions.tsx` will incorrectly show the button.
+    *   The automatic dice roll logic in `TurnService.processSpaceEffectsAfterMovement` will not trigger.
+
+**Required Fixes (Highest Priority):**
+
+1.  **Data Loading Debugging:**
+    *   **Re-verify `DataService.ts`:** Thoroughly re-examine `src/services/DataService.ts` to ensure the `requires_dice_roll` column from `Spaces.csv` is correctly parsed as a boolean and assigned to the `requires_dice_roll` property of the `GameConfig` object for each space.
+    *   **Add Debug Logging:** Add extensive debug logging within `DataService.ts` during the CSV parsing and `GameConfig` creation to confirm the exact value of `requires_dice_roll` being loaded for `PM-DECISION-CHECK` and other relevant spaces.
+2.  **Game Log for Automatic Rolls:**
+    *   Once the automatic roll is confirmed to be triggering, ensure the `NotificationService` and `LoggingService` are correctly capturing and displaying the dice roll result and drawn card information in the game log.
+3.  **Single-Player Game Log Issue (`OWNER-FUND-INITIATION`):**
+    *   Investigate why `OWNER-FUND-INITIATION` is missing from the game log in single-player games. This suggests a difference in game initialization or logging between single-player and multi-player modes.
+
+This is a critical bug. Please provide a detailed status update and console logs once you have made progress.

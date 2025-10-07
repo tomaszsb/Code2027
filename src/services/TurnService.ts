@@ -472,7 +472,9 @@ export class TurnService implements ITurnService {
         turn: gameState.globalTurnCount + 1,
         playerTurnNumber: playerTurnNumber,
         spaceName: player.currentSpace,
-        visibility: 'player'
+        visitType: player.visitType,
+        visibility: 'player',
+        isCommitted: true  // Force turn_start to be immediately visible in log
       });
 
       // 1. Start new exploration session for transactional logging
@@ -767,15 +769,15 @@ export class TurnService implements ITurnService {
     }
   }
 
-  private applySpaceEffect(
-    playerId: string, 
-    effect: SpaceEffect, 
+  private async applySpaceEffect(
+    playerId: string,
+    effect: SpaceEffect,
     currentState: GameState
-  ): GameState {
+  ): Promise<GameState> {
     // Apply effect based on type
     switch (effect.effect_type) {
       case 'cards':
-        return this.applySpaceCardEffect(playerId, effect);
+        return await this.applySpaceCardEffect(playerId, effect);
       
       case 'money':
         return this.applySpaceMoneyEffect(playerId, effect);
@@ -951,7 +953,7 @@ export class TurnService implements ITurnService {
     return this.stateService.getGameState();
   }
 
-  private applySpaceCardEffect(playerId: string, effect: SpaceEffect): GameState {
+  private async applySpaceCardEffect(playerId: string, effect: SpaceEffect): Promise<GameState> {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -1051,16 +1053,22 @@ export class TurnService implements ITurnService {
           };
         });
 
-        // Use ChoiceService to create the choice
-        this.choiceService.createChoice(
+        // Use ChoiceService to create the choice and await player selection
+        const selectedCardId = await this.choiceService.createChoice(
           playerId,
           'CARD_REPLACEMENT',
           `Choose ${replaceCount} E card${replaceCount !== 1 ? 's' : ''} to replace:`,
-          options
+          options,
+          { newCardType: 'E' } // Pass the new card type as metadata
         );
 
-        // Note: The actual replacement will be handled by choice resolution
-        // For now, we'll mark it as completed to allow turn progression
+        console.log(`Player selected card ${selectedCardId} for replacement`);
+
+        // Perform the actual card replacement
+        this.cardService.replaceCard(playerId, selectedCardId, 'E');
+
+        // Clear the choice from state after resolution
+        this.stateService.clearAwaitingChoice();
       }
 
       return this.stateService.getGameState();
@@ -1323,13 +1331,48 @@ export class TurnService implements ITurnService {
 
         // Use the CardService to draw cards
         try {
-          this.cardService.drawCards(playerId, cardType, cardCount, 'dice_roll_chance',
+          const drawnCardIds = this.cardService.drawCards(playerId, cardType, cardCount, 'dice_roll_chance',
             `Manual effect: Drew ${cardCount} ${cardType} card(s) on dice roll ${diceRoll}`);
+
+          // Get the card names for better feedback
+          const cardNames = drawnCardIds.map(cardId => {
+            const cardData = this.dataService.getCardById(cardId);
+            return cardData ? cardData.card_name : cardId;
+          });
+
+          // Log dice roll result to game log
+          if (cardNames.length > 0) {
+            const cardList = cardNames.join(', ');
+            this.loggingService.info(`🎲 ${player.name} rolled ${diceRoll} and drew: ${cardList}`, {
+              playerId: player.id,
+              playerName: player.name,
+              action: 'dice_roll',
+              diceValue: diceRoll,
+              spaceName: player.currentSpace,
+              description: `Automatic dice roll - drew ${cardCount} ${cardType} card(s)`
+            });
+          }
+
+          // Set UI completion message
+          this.stateService.setDiceRollCompletion(`Rolled ${diceRoll} - Drew ${cardCount} ${cardType} card(s)`);
         } catch (error) {
           console.warn(`Failed to draw ${cardType} cards:`, error);
         }
       } else {
         console.log(`🎲 Dice roll ${diceRoll} does not match trigger ${triggerRoll}. No cards drawn.`);
+
+        // Log dice roll result to game log
+        this.loggingService.info(`🎲 ${player.name} rolled ${diceRoll} (needed ${triggerRoll} to draw ${cardType} card) - No card drawn`, {
+          playerId: player.id,
+          playerName: player.name,
+          action: 'dice_roll',
+          diceValue: diceRoll,
+          spaceName: player.currentSpace,
+          description: `Automatic dice roll - no match`
+        });
+
+        // Set UI completion message for non-matching roll
+        this.stateService.setDiceRollCompletion(`Rolled ${diceRoll} - No card drawn`);
       }
     } else {
       console.warn(`Unknown dice_roll_chance effect format: ${effect.effect_action}`);
@@ -1341,7 +1384,7 @@ export class TurnService implements ITurnService {
   /**
    * Trigger a manual space effect for the current player
    */
-  triggerManualEffect(playerId: string, effectType: string): GameState {
+  async triggerManualEffect(playerId: string, effectType: string): Promise<GameState> {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -1371,7 +1414,7 @@ export class TurnService implements ITurnService {
     let newState = this.stateService.getGameState();
 
     if (effectType === 'cards') {
-      newState = this.applySpaceCardEffect(playerId, manualEffect);
+      newState = await this.applySpaceCardEffect(playerId, manualEffect);
     } else if (effectType === 'money') {
       newState = this.applySpaceMoneyEffect(playerId, manualEffect);
     } else if (effectType === 'time') {
@@ -1402,9 +1445,9 @@ export class TurnService implements ITurnService {
   /**
    * Trigger manual effect with modal feedback - similar to rollDiceWithFeedback
    */
-  triggerManualEffectWithFeedback(playerId: string, effectType: string): TurnEffectResult {
+  async triggerManualEffectWithFeedback(playerId: string, effectType: string): Promise<TurnEffectResult> {
     console.log(`🔧 TurnService.triggerManualEffectWithFeedback - Starting for player ${playerId}, effect: ${effectType}`);
-    
+
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
@@ -1414,7 +1457,7 @@ export class TurnService implements ITurnService {
     const beforePlayer = beforeState.players.find(p => p.id === playerId)!;
 
     // Trigger the manual effect
-    this.triggerManualEffect(playerId, effectType);
+    await this.triggerManualEffect(playerId, effectType);
 
     const afterState = this.stateService.getGameState();
     const afterPlayer = afterState.players.find(p => p.id === playerId)!;
@@ -2103,6 +2146,26 @@ export class TurnService implements ITurnService {
 
       // Filter space effects based on conditions (e.g., scope_le_4M, scope_gt_4M)
       const conditionFilteredEffects = this.filterSpaceEffectsByCondition(spaceEffectsData, currentPlayer);
+
+      // Check for automatic dice roll scenarios BEFORE filtering out manual effects
+      // If the space has requires_dice_roll=false but has a dice_roll_chance effect, automatically trigger it
+      const spaceData = this.dataService.getSpaceByName(spaceName);
+
+      if (spaceData?.config && !spaceData.config.requires_dice_roll) {
+        const diceRollChanceEffect = conditionFilteredEffects.find(effect =>
+          effect.effect_type === 'dice_roll_chance'
+        );
+
+        if (diceRollChanceEffect) {
+          console.log(`🎲 Automatic dice roll triggered for ${spaceName} (requires_dice_roll=false with dice_roll_chance effect)`);
+
+          // Perform the automatic dice roll
+          await this.applyDiceRollChanceEffect(playerId, diceRollChanceEffect);
+
+          // Mark that dice has been rolled
+          this.stateService.setPlayerHasRolledDice();
+        }
+      }
 
       // Filter out manual effects and time effects - manual effects are triggered by buttons, time effects on leaving space
       const filteredSpaceEffects = conditionFilteredEffects.filter(effect =>

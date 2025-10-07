@@ -1,0 +1,17 @@
+Hi Claude,
+
+The user has reported that the automatic dice roll for Life cards is still not triggering, and the "Roll Dice" button is still visible for `PM-DECISION-CHECK`, despite our recent changes.
+
+**Root Cause Analysis:**
+Upon reviewing the console logs and the code, it appears the `requires_dice_roll` property from `Spaces.csv` is not being correctly loaded into the `GameConfig` object (or equivalent data structure) that `dataService.getSpaceByName(spaceName)` provides. Consequently, the condition `!spaceData.config.requires_dice_roll` in `TurnService.processSpaceEffectsAfterMovement` is not evaluating as expected, preventing the automatic roll and button hiding.
+
+**Required Fixes:**
+
+1.  **Verify `GameConfig` Definition:**
+    *   Ensure the `GameConfig` interface (likely in `src/types/DataTypes.ts`) includes a `requires_dice_roll: boolean;` property.
+2.  **Update `DataService` Parsing:**
+    *   In `src/services/DataService.ts`, locate the logic responsible for parsing `Spaces.csv` and creating `GameConfig` objects.
+    *   Ensure that the `requires_dice_roll` column from `Spaces.csv` is correctly parsed and assigned to the `requires_dice_roll` property of the corresponding `GameConfig` object. It should be a boolean value.
+3.  **Re-test:** After this fix, the automatic dice roll logic in `TurnService` and the button hiding logic in `TurnControlsWithActions` should function correctly as intended.
+
+This is a critical bug that prevents the feature from working. Please prioritize this fix.

@@ -117,7 +117,7 @@ describe('buttonFormatting', () => {
 
       const result = formatManualEffectButton(effect);
       expect(result).toEqual({
-        text: 'Roll for Bonus Cards',
+        text: 'Roll for Bonus Card',
         icon: '🎲'
       });
     });

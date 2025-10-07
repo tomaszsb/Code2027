@@ -126,38 +126,112 @@ The project's test suite is fully stabilized, optimized, and reliable with all 4
 **Risk Assessment**: Green/Yellow/Red with explanation
 ```
 
-## Communication Protocol (v7.0 - Direct-Read Scripts)
+## Communication Protocol (v9.0 - Phase 1 Stabilization Complete)
 
-**[Protocol upgraded on 2025-10-05 for maximum reliability and simplicity.]**
+**[Protocol updated on 2025-10-07 - Unified system with email-style format exclusive.]**
 
-Our communication is now primarily managed by direct-read Python scripts that are robust, transparent, and bypass the unreliable native MCP tools. The underlying three-directory file system (`inbox`, `.unread`, `.read`) is still used.
+To ensure robust and transparent AI-to-AI communication, Gemini and Claude utilize a **unified, bidirectional messaging system** with email-style `.txt` files. The system features symmetric tools, automated polling clients, and clean architecture.
 
-### Communication Efficiency Optimization (Phase 1 & 2 Complete)
+### Key Components:
 
-**Status:** ✅ **COMPLETED - October 5, 2025**
+1. **Unified MCP Server:** Single server (`unified-mcp-server`) provides both `read_gemini_messages()` and `read_claude_messages()` tools
+2. **Send Scripts:** `send_to_gemini.py` (Claude) and `send_to_claude.py` (Gemini) create messages in email format
+3. **Polling Clients:** `mcp_client.py` (Claude) and `mcp_client_gemini.py` (Gemini) process messages every 5 seconds
+4. **Three-Directory Workflow:** Outbox root → `.processing/` → `.unread/` → `.read/`
 
-We have successfully implemented two phases of communication efficiency optimization, resulting in a significant reduction in communication overhead.
+### Message Format (Email-Style .txt):
 
-*   **Phase 1: Compact Message Schema**
-    *   **Objective:** Reduce message file sizes by adopting a compact JSON schema.
-    *   **Achievement:** Message file sizes reduced from ~280 bytes to ~84 bytes, achieving approximately 70% reduction.
-    *   **Implementation:** Both `ai-bridge/clients/mcp_client.py` and `ai-bridge/clients/mcp_client_gemini.py` were updated to support both old and compact schemas.
+```
+ID: [sender]-[YYYYMMDD-HHMMSS]
+From: [claude|gemini]
+To: [claude|gemini]
+Subject: [message-type]
 
-*   **Phase 2: Eliminate ACK Messages**
-    *   **Objective:** Further reduce message traffic by removing explicit ACK messages.
-    *   **Achievement:** 50% message count reduction by disabling ACK generation in both clients.
-    *   **Implementation:** The `send_ack()` call was removed from the `process_message()` function in both `ai-bridge/clients/mcp_client.py` and `ai-bridge/clients/mcp_client_gemini.py`.
+Message content here.
+Can use any characters without escaping.
+Multi-line content supported.
+No JSON issues with special characters: $(), \, ", ', etc.
+```
 
-**Overall Result:** A total of approximately 85% communication overhead reduction has been achieved.
+### File Naming Convention:
 
-### To Send a Message to Claude:
-- I will use the `ai-bridge/.server/send_to_claude.py` script.
-- This script now accepts the message content via **stdin**, allowing for complex, multi-line messages.
-- It writes a timestamped JSON file to: `/mnt/d/unravel/current_game/code2027/ai-bridge/.server/gemini-outbox/`
+`[sender]-[YYYYMMDD-HHMMSS].txt`
 
-### To Check for Messages from Claude:
-- I directly read the `/mnt/d/unravel/current_game/code2027/ai-bridge/.server/claude-outbox/.unread/` directory.
-- If messages are present, I read their content and then move them to the `.read` directory.
+### Workflow for Sending Messages (Gemini → Claude):
 
-### Health and Monitoring:
-- The background polling clients (`ai-bridge/clients/mcp_client_gemini.py`) have been updated with a permissive schema to prevent validation errors with new message types.
+1.  **Use Send Script:** Create message via send script (DO NOT write files directly)
+    ```bash
+    echo "Your message content" | python3 ai-bridge/.server/send_to_claude.py message_type
+    ```
+2.  **Script Creates File:** Send script writes email-style `.txt` file to **outbox root** (`ai-bridge/.server/gemini-outbox/`)
+3.  **Polling Client Processes:** Claude's polling client (`mcp_client.py`) detects file within 5 seconds
+4.  **Atomic Movement:** Client moves file through `.processing/` to `.unread/` (prevents race conditions)
+5.  **Claude Reads:** Claude uses MCP tool `read_gemini_messages()` to read from `.unread/`
+6.  **Auto-Archive:** MCP tool automatically moves message to `.read/` after displaying
+
+### Workflow for Reading Messages (Gemini reading from Claude):
+
+1.  **Use MCP Tool (Recommended):**
+    ```bash
+    read_claude_messages()
+    ```
+    - Reads all messages from `ai-bridge/.server/claude-outbox/.unread/`
+    - Automatically moves to `.read/` after displaying
+
+2.  **Manual Reading (Alternative):**
+    ```bash
+    # Check for new messages
+    ls -lt ai-bridge/.server/claude-outbox/.unread/*.txt
+
+    # Read message
+    cat ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt
+
+    # Move to .read/ after responding
+    mv ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt \
+       ai-bridge/.server/claude-outbox/.read/
+    ```
+
+### Directory Structure:
+
+**Gemini's Outbox (Claude's Inbox):**
+- `ai-bridge/.server/gemini-outbox/` (root) - Send script writes here
+- `ai-bridge/.server/gemini-outbox/.processing/` - Claude's client processing (atomic)
+- `ai-bridge/.server/gemini-outbox/.unread/` - Claude reads from here
+- `ai-bridge/.server/gemini-outbox/.read/` - Claude has processed
+
+**Claude's Outbox (Gemini's Inbox):**
+- `ai-bridge/.server/claude-outbox/` (root) - Claude's send script writes here
+- `ai-bridge/.server/claude-outbox/.processing/` - Gemini's client processing (atomic)
+- `ai-bridge/.server/claude-outbox/.unread/` - **YOU read from here!**
+- `ai-bridge/.server/claude-outbox/.read/` - You have processed
+
+### Client Management:
+
+```bash
+# Start your polling client
+ai-bridge/management/ai-collab-gemini.sh start
+
+# Check status
+ai-bridge/management/ai-collab-gemini.sh stop
+
+# Health check
+ai-bridge/management/ai-collab-gemini.sh health
+```
+
+### Key Points (v9.0 Changes):
+
+*   **✅ Unified MCP Server:** Replaced 3 separate servers with single bidirectional implementation
+*   **✅ Email Format Only:** JSON support removed - cleaner, no escaping issues
+*   **✅ Send Scripts Required:** DO NOT write directly to `.unread/` - use send scripts
+*   **✅ Symmetric Architecture:** Both AIs have identical tools and capabilities
+*   **✅ Three-Directory Flow:** Outbox root → `.processing/` → `.unread/` → `.read/`
+*   **✅ MCP Tools Preferred:** Use `read_claude_messages()` instead of manual file operations
+*   **✅ Polling Clients Auto-Process:** Background clients handle validation and routing
+
+### Complete Documentation:
+
+*   **System Overview:** `ai-bridge/.server/COMMUNICATION-SYSTEM.md` (v9.0 - comprehensive guide)
+*   **Unified MCP Server:** `ai-bridge/mcp-servers/unified-mcp-server/README.md`
+*   **Integration Tests:** `ai-bridge/tests/test_integration.py` (32 tests, all passing)
+*   **Polling Client (Claude):** `ai-bridge/clients/mcp_client.py`
+*   **Polling Client (Gemini):** `ai-bridge/clients/mcp_client_gemini.py`

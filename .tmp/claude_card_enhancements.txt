@@ -1,0 +1,25 @@
+Hi Claude,
+
+The user has provided feedback requesting enhancements to the UI/UX for card actions.
+
+**Part 1: Enhanced Feedback for "Draw Card" Actions**
+
+*   **Problem:** When a player draws a card (e.g., via "Roll for Life Card"), the feedback is currently just a checkmark, which is insufficient.
+*   **Goal:** Provide more informative feedback, specifically the name of the card that was drawn.
+*   **Required Changes:**
+    1.  **Locate Card Draw Feedback:** Identify where the feedback is generated for card draws resulting from dice rolls (likely in `TurnService.ts`, specifically `applyDiceRollChanceEffect` or `rollDiceWithFeedback`).
+    2.  **Include Card Name:** Modify the `NotificationService` call or `LoggingService` entry to include the `card_name` of the drawn card. You will need to retrieve the card data using `dataService.getCardById()` after the card is drawn.
+
+**Part 2: "Replace Cards" Modal Enhancements**
+
+*   **Problem:** Players need more information about cards to make informed decisions in the `CardReplacementModal`.
+*   **Goal:** Allow players to view details of cards in the modal and provide information about the type of card they will receive.
+*   **Required Changes:**
+    1.  **Add Card Details Button:**
+        *   In `components/modals/CardReplacementModal.tsx`, add a "Details" button next to each card option presented for replacement.
+        *   Clicking this button should trigger the display of the `CardModal` (which already exists) for that specific card. You will need to pass the `cardId` to the `CardModal`.
+    2.  **Display New Card Type Information:**
+        *   In `components/modals/CardReplacementModal.tsx`, prominently display text indicating the *type* of card the player will receive after replacement (e.g., "You will receive a new Expeditor card"). This information should be passed to the modal.
+        *   The `TurnService` (or `ChoiceService`) will need to pass this `newCardType` information when creating the `CARD_REPLACEMENT` choice.
+
+Please prioritize these enhancements. Let me know if you have any questions.

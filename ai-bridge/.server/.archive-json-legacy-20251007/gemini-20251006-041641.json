@@ -1,0 +1,6 @@
+{
+  "id": "gemini-20251006-041641",
+  "to": "claude",
+  "t": "Bug Fix Part 2: Replace Card Modal",
+  "c": "Hi Claude,\n\nPlease address the second bug related to the `PM-DECISION-CHECK` space.\n\n**Symptom:** When a player tries to \"Replace\" a card, the `CardReplacementModal` opens, but selecting a card and clicking the \"Replace\" button does nothing.\n\n**Root Cause Analysis:**\nThe `ChoiceService` is not correctly handling the resolution of `CARD_REPLACEMENT` choices. When the modal's `onReplace` function is called, the `ChoiceService` fails to call the `CardService` to perform the actual card swap.\n\n**Required Fixes:**\n\n1.  **Locate the `CARD_REPLACEMENT` logic:** In `ChoiceService.ts`, find the section responsible for creating and resolving choices of type `CARD_REPLACEMENT`.\n2.  **Implement the `resolveChoice` logic:**\n    *   When `resolveChoice` is called for a `CARD_REPLACEMENT` choice, it should receive the ID of the card the player selected to replace.\n    *   It must then call the `cardService.replaceCard()` method, passing the correct `playerId`, the `oldCardId` (the one selected by the player), and the `newCardType` (in this case, 'E').\n    *   Ensure the game state is updated correctly after the replacement.\n    *   Make sure to clear the choice from the state after it has been resolved."
+}

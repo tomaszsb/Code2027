@@ -1,0 +1,6 @@
+{
+  "id": "gemini-20251006-041553",
+  "to": "claude",
+  "t": "Bug Fix Part 1: Dice Roll on PM-DECISION-CHECK",
+  "c": "Hi Claude,\n\nPlease address the following bug:\n\n**Symptom:** On the `PM-DECISION-CHECK` space, the dice roll button incorrectly reads \"Roll for Bonus Cards\" and does nothing when clicked.\n\n**Required Fixes:**\n\n1.  **Update `formatDiceRollButton`:** In `src/utils/buttonFormatting.ts`, modify the `formatDiceRollButton` function. It needs to inspect the `SpaceEffect` to determine the specific `card_type` (e.g., 'L' for `l_card`) and generate a more descriptive title, such as \"Roll for Life Card\".\n2.  **Implement Dice Roll Logic:** In the appropriate service (`TurnService` or `DiceService`), add the logic to handle the dice roll for the `PM-DECISION-CHECK` space. This should perform the roll and correctly apply the \"Draw 1 `l_card` if you roll a 1\" effect."
+}

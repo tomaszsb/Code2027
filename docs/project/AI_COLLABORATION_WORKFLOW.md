@@ -1,8 +1,8 @@
 # AI Collaboration Workflow: Hybrid Model
 
-**Version:** 2.0
+**Version:** 3.0
 **Date:** 2025-10-07
-**Updated:** Email-style message format implementation
+**Updated:** v9.0 Phase 1 Stabilization - Email-style format exclusive
 
 ## 1. Overview
 
@@ -19,8 +19,8 @@ We will use two primary methods of interaction:
 
 - **Purpose:** Coordination, tasking, and status updates.
 - **Mechanism:** Asynchronous exchange of email-style text files via the `ai-bridge/.server/` directory structure.
-- **Format:** Email-style headers with message content (replacing previous JSON format)
-- **File Extension:** `.txt` (`.json` still supported for backward compatibility)
+- **Format:** Email-style headers with message content (exclusive format as of v9.0)
+- **File Extension:** `.txt` (JSON support removed in v9.0)
 - **When to use:** This is the default method for all communication unless a task meets the criteria for CLI Pipeline Mode.
 
 **Message Format:**
@@ -35,11 +35,12 @@ no escaping needed
 can use any characters
 ```
 
-**Advantages over JSON:**
+**Advantages of Email Format:**
 - ✅ Human-readable and easy to parse
 - ✅ No escaping issues with quotes or special characters
 - ✅ Simple line-by-line parsing
-- ✅ Backward compatible with existing JSON messages
+- ✅ Multi-line content support
+- ✅ Works perfectly with shell commands and special characters
 
 ### 2.2. Gemini CLI Pipeline Mode (Heavy Analysis Workflow)
 

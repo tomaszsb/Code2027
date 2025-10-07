@@ -1,71 +1,73 @@
 
 ## 🤖 **SESSION INITIALIZATION**
 
-### **COMMUNICATION PROTOCOL (Oct 7, 2025 - Email-Style Format v8.0)**
+### **COMMUNICATION PROTOCOL (Oct 7, 2025 - v9.0 Phase 1 Stabilization)**
 
-**Email-Style Message Communication:**
-- Claude and Gemini communicate via email-style `.txt` files with automated polling clients
-- **Backward compatible** with JSON `.json` files during transition
-- **Message Flow:** Write to `.unread/` → Polling client validates → Recipient reads → Move to `.read/`
+**✅ UNIFIED SYSTEM - Email-Style Format Exclusive:**
+- Claude and Gemini communicate via email-style `.txt` files (JSON support removed)
+- **Unified MCP Server:** Single bidirectional server with symmetric tools
+- **Message Flow:** Send scripts → Outbox root → Polling client → `.unread/` → MCP tool reads → `.read/`
 - **Polling clients:** `mcp_client.py` (Claude) and `mcp_client_gemini.py` (Gemini) run in background
-- **LLM workflow:** Write to `.unread/`, read from `.unread/`, move to `.read/` after responding
+- **MCP Tools:** `read_gemini_messages()` (for Claude) / `read_claude_messages()` (for Gemini)
 
 ### **Quick Start - Sending Messages:**
 ```bash
-# Create email-style message directly in .unread/ directory
-cat > ai-bridge/.server/claude-outbox/.unread/claude-$(date +%Y%m%d-%H%M%S).txt << 'EOF'
-ID: claude-$(date +%Y%m%d-%H%M%S)
-From: claude
-To: gemini
-Subject: Your message type here
+# Use send scripts (automatically creates email-style .txt in outbox root)
+echo "Your message content" | python3 ai-bridge/.server/send_to_gemini.py message_type
 
-Your message content here.
-Can use any characters without escaping.
-EOF
+# Example:
+echo "Status update: Phase 1 complete" | python3 ai-bridge/.server/send_to_gemini.py status_update
 ```
 
 ### **Quick Start - Reading Messages:**
 ```bash
-# 1. Check for new messages from Gemini (both .txt and .json during transition)
-ls -lt ai-bridge/.server/gemini-outbox/.unread/
+# Option 1: Use MCP Tool (Recommended)
+read_gemini_messages()
+
+# Option 2: Manual file reading
+# 1. Check for new messages (polling client moves them to .unread/)
+ls -lt ai-bridge/.server/gemini-outbox/.unread/*.txt
 
 # 2. Read the message
 cat ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt
 
-# 3. After responding, move to .read/
-mv ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt \
-   ai-bridge/.server/gemini-outbox/.read/
+# 3. MCP tool automatically moves to .read/ after reading
 ```
 
 ### **Critical Workflow:**
-- ✅ **Write messages to:** `ai-bridge/.server/claude-outbox/.unread/` (not the root!)
-- ✅ **Read messages from:** `ai-bridge/.server/gemini-outbox/.unread/`
-- ✅ **After reading:** Move to `.read/` directory to mark as processed
-- ℹ️ **Background clients are always running** - they validate and monitor messages
+- ✅ **Send messages:** Use `send_to_gemini.py` script (creates .txt in outbox root)
+- ✅ **Polling client:** Automatically moves messages to `.unread/` within 5 seconds
+- ✅ **Read messages:** Use MCP tool `read_gemini_messages()` (reads from `.unread/`, moves to `.read/`)
+- ✅ **DO NOT write directly to .unread/** - Use send scripts instead
+- ℹ️ **Background clients must be running** - Start with `ai-collab.sh start`
 
 ### **Directory Structure:**
 - **`ai-bridge/.server/claude-outbox/`** - Your outbox (Gemini's inbox)
-  - `.processing/` - Gemini's client processing (atomic)
-  - `.unread/` - Gemini LLM should read from here
+  - **Root:** Send scripts write here (picked up by Gemini's client within 5s)
+  - `.processing/` - Gemini's client processing (atomic, temporary)
+  - `.unread/` - Gemini reads from here via MCP tool
   - `.read/` - Gemini has read and responded
-  - `.malformed/` - Invalid messages
+  - `.malformed/` - Invalid messages (parser failures)
 - **`ai-bridge/.server/gemini-outbox/`** - Your inbox (Gemini's outbox)
-  - `.processing/` - Your client processing (atomic)
-  - `.unread/` - **YOU read from here!**
+  - **Root:** Gemini's send script writes here
+  - `.processing/` - Your client processing (atomic, temporary)
+  - `.unread/` - **YOU read from here via MCP tool!**
   - `.read/` - You have read and responded
   - `.malformed/` - Invalid messages
 
 ### **Client Management:**
 ```bash
-./ai-bridge/management/ai-collab.sh start   # Start background polling client
-./ai-bridge/management/ai-collab.sh stop    # Stop client
-./ai-bridge/management/ai-collab.sh status  # Check if running
+ai-bridge/management/ai-collab.sh start   # Start your polling client
+ai-bridge/management/ai-collab.sh stop    # Stop client
+ai-bridge/management/ai-collab.sh status  # Check if running
+ai-bridge/management/ai-collab.sh health  # Health check
 ```
 
 ### **Complete Documentation:**
-- **System Overview:** `ai-bridge/.server/COMMUNICATION-SYSTEM.md`
+- **System Overview:** `ai-bridge/.server/COMMUNICATION-SYSTEM.md` (v9.0)
+- **Unified MCP Server:** `ai-bridge/mcp-servers/unified-mcp-server/README.md`
 - **Client Script:** `ai-bridge/clients/mcp_client.py` (your inbox processor)
-- **Gemini's Client:** `ai-bridge/clients/mcp_client_gemini.py` (your outbox processor)
+- **Gemini's Client:** `ai-bridge/clients/mcp_client_gemini.py` (processes your outbox)
 
 ---
 

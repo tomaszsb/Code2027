@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TurnControlsWithActions } from '../../src/components/game/TurnControlsWithActions';
@@ -83,21 +83,22 @@ describe('TurnControlsWithActions', () => {
     mockServices.dataService.getDiceOutcome.mockReturnValue({});
   });
 
-  it('should call notificationService.notify when movement choice button is clicked', () => {
+  it('should call notificationService.notify when movement choice button is clicked', async () => {
     const mockProps = {
       currentPlayer: mockCurrentPlayer,
       gamePhase: 'PLAY' as GamePhase,
       isProcessingTurn: false,
+      isProcessingArrival: false,
       hasPlayerMovedThisTurn: false,
       hasPlayerRolledDice: true,
       hasCompletedManualActions: false,
       awaitingChoice: true,
-      actionCounts: { required: 1, completed: 0 },
+      actionCounts: { required: 1, completed: 1 },
       completedActions: { diceRoll: '🎲 Rolled 3', manualActions: {} },
       feedbackMessage: '',
       buttonFeedback: {},
       onRollDice: vi.fn(),
-      onEndTurn: vi.fn(),
+      onEndTurn: vi.fn().mockResolvedValue(undefined),
       onManualEffect: vi.fn(),
       onNegotiate: vi.fn(),
       onOpenNegotiationModal: vi.fn(),
@@ -117,11 +118,22 @@ describe('TurnControlsWithActions', () => {
     });
     expect(movementButton).toBeInTheDocument();
 
-    // Click the movement choice button
+    // Click the movement choice button to select it
     fireEvent.click(movementButton);
 
-    // Assert that notificationService.notify was called
-    expect(mockServices.notificationService.notify).toHaveBeenCalledTimes(1);
+    // Movement is not confirmed until End Turn is clicked
+    // Find and click the End Turn button (use getAllByText and filter for button element)
+    const endTurnElements = screen.getAllByText((content, node) => {
+      return node?.textContent?.includes('End Turn');
+    });
+    const endTurnButton = endTurnElements.find(el => el.tagName === 'BUTTON');
+    if (!endTurnButton) throw new Error('End Turn button not found');
+    fireEvent.click(endTurnButton);
+
+    // Wait for notification to be called
+    await waitFor(() => {
+      expect(mockServices.notificationService.notify).toHaveBeenCalledTimes(1);
+    });
 
     // Assert that it was called with the correct arguments
     expect(mockServices.notificationService.notify).toHaveBeenCalledWith(

@@ -1,202 +1,343 @@
-# AI-to-AI Communication System
+# AI-to-AI Communication System (.server directory)
 
-**Complete Documentation:** See `COMMUNICATION-SYSTEM.md` for detailed workflow and troubleshooting.
+**Version:** 9.0 (Phase 1 Stabilization Complete)
+**Date:** October 7, 2025
+**Status:** ✅ Production Ready
+
+**Complete Documentation:** See [COMMUNICATION-SYSTEM.md](COMMUNICATION-SYSTEM.md) for detailed workflow and troubleshooting.
 
 ---
 
 ## 🎯 Overview
 
-The system provides **two complementary methods** for Claude to receive messages from Gemini:
+This `.server/` directory is the central message queue system for AI-to-AI communication between Claude and Gemini. It uses:
 
-1. **MCP Server** (Recommended) - Native Claude Code integration via tools
-2. **Bridge Server** - HTTP-based message management with web UI
+- **Email-style .txt format** (no JSON escaping issues)
+- **Unified MCP Server** (symmetric bidirectional tools)
+- **Polling clients** (automated message processing)
+- **Three-directory workflow** (atomic operations)
+
+---
+
+## 📁 Directory Structure
+
+```
+.server/
+├── claude-outbox/                    # Claude → Gemini messages
+│   ├── [root]                        # Send script writes here
+│   ├── .processing/                  # Gemini's client processing (atomic)
+│   ├── .unread/                      # Gemini reads from here
+│   ├── .read/                        # Gemini has processed
+│   └── .malformed/                   # Validation failures
+│
+├── gemini-outbox/                    # Gemini → Claude messages
+│   ├── [root]                        # Send script writes here
+│   ├── .processing/                  # Claude's client processing (atomic)
+│   ├── .unread/                      # Claude reads from here
+│   ├── .read/                        # Claude has processed
+│   └── .malformed/                   # Validation failures
+│
+├── send_to_claude.py                 # Gemini's send script
+├── send_to_gemini.py                 # Claude's send script
+├── COMMUNICATION-SYSTEM.md           # Complete system documentation
+├── .claude-mcp-last-check            # Claude's MCP tool tracking
+├── .gemini-mcp-last-check            # Gemini's MCP tool tracking
+├── .archive-docs/                    # Archived protocol versions
+├── .archive-malformed-YYYYMMDD/      # Archived malformed messages
+└── .archive-json-legacy-YYYYMMDD/    # Archived JSON messages
+```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Start the Bridge Server
+### Send a Message
 
-**Auto-started by Claude on session initialization:**
+**Claude → Gemini:**
 ```bash
-cd code2027
-node .server/hybrid-ai-bridge.js &
+echo "Your message" | python3 .server/send_to_gemini.py message_type
 ```
 
-- **Port:** localhost:3003
-- **Web UI:** http://localhost:3003/index.html
-- **Purpose:** Message storage, approval workflow, conversation history
-
-### 2. Configure MCP Server
-
-**Already configured in `.claude/settings.local.json`:**
-```json
-{
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["gemini-bridge"]
-}
+**Gemini → Claude:**
+```bash
+echo "Your message" | python3 .server/send_to_claude.py message_type
 ```
 
-**Installation:**
+### Read Messages
+
+**Claude (use MCP tool):**
 ```bash
-cd gemini-mcp-server
-pip install -r requirements.txt
+read_gemini_messages()
 ```
 
-### 3. Start Gemini Watcher (for Gemini's side)
-
+**Gemini (use MCP tool):**
 ```bash
-cd .server
-python3 gemini-watcher-simple.py
+read_claude_messages()
+```
+
+**Alternative (manual reading):**
+```bash
+# Check .unread/ directory
+ls -lt .server/gemini-outbox/.unread/*.txt
+
+# Read message
+cat .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt
+
+# Move to .read/ after processing
+mv .server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt .server/gemini-outbox/.read/
 ```
 
 ---
 
-## 📡 Communication Methods
+## 📡 Message Format
 
-### Method 1: MCP Server (Claude reads Gemini)
+**Email-Style (.txt):**
+```
+ID: sender-YYYYMMDD-HHMMSS
+From: claude|gemini
+To: claude|gemini
+Subject: message-type
 
-**Claude's side:**
-- Use MCP tool: `read_gemini_messages()`
-- Returns new messages from `.server/gemini-outbox/`
-- Tracks last check in `.server/.claude-mcp-last-check`
+Message content here.
+Multi-line supported.
+No escaping needed: $(), \, ", ', etc.
+```
 
-**Advantages:**
-- Native Claude Code tool integration
-- On-demand message checking
-- Clean separation of concerns
-
-### Method 2: Bridge Server (Message Management)
-
-**Endpoints:**
-- `GET /messages` - All messages with metadata
-- `POST /communicate` - Send message (supports modes: claude/gemini/both/mention)
-- `POST /message/approve` - Approve a message
-- `POST /message/reject` - Reject a message
-- `GET /context` - Conversation history (last 10 messages)
-- `POST /context/clear` - Clear conversation history
-
-**Advantages:**
-- Web-based message oversight
-- Approve/reject workflow
-- Conversation history tracking
-- Message metadata management
+**Why Email Format?**
+- ✅ No JSON escaping issues
+- ✅ Human-readable
+- ✅ Special characters work perfectly
+- ✅ Multi-line support
 
 ---
 
 ## 🔄 Message Workflow
 
-### Claude → Gemini
+**Complete Flow:**
 
-**1. Claude writes message:**
-```bash
-echo "Message content" > ".server/claude-inbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-claude.txt"
-```
+1. **Sender:** Use send script
+   ```bash
+   echo "content" | python3 .server/send_to_gemini.py type
+   ```
 
-**2. Gemini watcher detects:**
-- Monitors `claude-inbox/` directory
-- Processes new messages
-- (Placeholder: Would call Gemini API/CLI here)
+2. **Send Script:** Creates `.txt` file in outbox root
+   - `claude-outbox/claude-YYYYMMDD-HHMMSS.txt`
 
-**3. Gemini responds:**
-```bash
-echo "Response" > ".server/gemini-outbox/$(date -u +%Y-%m-%dT%H-%M-%S%z)-gemini.txt"
-```
+3. **Polling Client:** Detects file (within 5 seconds)
+   - Gemini's client monitors Claude's outbox
 
-### Gemini → Claude
+4. **Atomic Processing:** Client moves through directories
+   - `outbox/` → `.processing/` → `.unread/`
 
-**1. Gemini writes message** (to `gemini-outbox/`)
+5. **Recipient Reads:** Uses MCP tool
+   ```bash
+   read_claude_messages()
+   ```
 
-**2. Claude reads via:**
-- **Option A:** MCP tool `read_gemini_messages()`
-- **Option B:** Web UI at http://localhost:3003/index.html
-
-**3. User reviews** (Web UI):
-- Approve/reject messages
-- Add comments
-- Track conversation
-
----
-
-## 🗂️ Directory Structure
-
-```
-.server/
-├── claude-inbox/          # Messages from Claude → Gemini
-├── gemini-outbox/         # Messages from Gemini → Claude
-├── gemini-notifications/  # Notification triggers for watcher
-├── archive/              # Approved messages >3 days old
-├── message-metadata.json # Message status (pending/approved/rejected)
-└── conversation-context.json # Last 10 messages
-```
+6. **Auto-Archive:** MCP tool moves to `.read/`
 
 ---
 
 ## 🛠️ Components
 
-### Active Components
+### Send Scripts
 
-1. **hybrid-ai-bridge.js** - HTTP server, file watching, message management
-2. **gemini-mcp-server/server.py** - MCP tool for reading Gemini messages
-3. **gemini-watcher-simple.py** - Gemini-side message processor
+**`send_to_gemini.py`** - Claude sends messages
+- Creates email-style `.txt` files
+- Writes to `claude-outbox/` root
+- Picked up by Gemini's polling client
 
-### Optional Components
+**`send_to_claude.py`** - Gemini sends messages
+- Creates email-style `.txt` files
+- Writes to `gemini-outbox/` root
+- Picked up by Claude's polling client
 
-4. **claude-watcher.py** - Terminal display of Gemini messages (optional monitoring)
+### Polling Clients (in `../clients/`)
 
-### Legacy Components (Inactive)
+**`mcp_client.py`** - Claude's client
+- Polls `gemini-outbox/` every 5 seconds
+- Validates and moves to `.unread/`
+- Runs in background
 
-5. **check-mailbox.py** - Hook-based auto-check (not configured)
-6. **gemini-context.py** - Hook for `ask gemini:` syntax (not configured)
+**`mcp_client_gemini.py`** - Gemini's client
+- Polls `claude-outbox/` every 5 seconds
+- Validates and moves to `.unread/`
+- Runs in background
+
+### MCP Server (in `../mcp-servers/unified-mcp-server/`)
+
+**`server.py`** - Unified bidirectional server
+- `read_gemini_messages()` for Claude
+- `read_claude_messages()` for Gemini
+- Reads from `.unread/`, moves to `.read/`
+- Email format parser (no JSON support)
 
 ---
 
-## 📊 Web Interface
+## 📊 Three-Directory System
 
-**URL:** http://localhost:3003/index.html
+**Why three directories?**
 
-**Features:**
-- View all messages chronologically
-- Color-coded by sender (Claude = blue, Gemini = pink)
-- Status badges (Approved/Pending/Rejected)
-- Approve/reject pending messages
-- Add comments to messages
-- Filter by status
-- Auto-refresh every 2 seconds
+1. **Outbox Root** - Send scripts write here
+   - Easy to create messages
+   - Client scans for new files
+
+2. **.processing/** - Atomic operation
+   - Prevents race conditions
+   - Client exclusively locks file
+   - Validates message format
+
+3. **.unread/** - Ready for LLM
+   - Client's work complete
+   - LLM reads from here
+   - Clear separation of concerns
+
+4. **.read/** - Archive
+   - Message has been processed
+   - Keeps history
+   - Can be cleaned up periodically
+
+**Benefits:**
+- ✅ Atomic operations (no data loss)
+- ✅ Clear state transitions
+- ✅ Easy debugging (see where message is)
+- ✅ No race conditions
+
+---
+
+## 🔧 Client Management
+
+**Start Claude's client:**
+```bash
+../management/ai-collab.sh start
+```
+
+**Start Gemini's client:**
+```bash
+../management/ai-collab-gemini.sh start
+```
+
+**Check status:**
+```bash
+../management/ai-collab.sh status
+```
+
+**Health check:**
+```bash
+../management/ai-collab.sh health
+```
+
+---
+
+## 🧪 Testing
+
+**Run integration tests:**
+```bash
+cd ..
+python3 tests/test_integration.py
+```
+
+**Expected:**
+```
+✓ 32/32 tests passing
+✅ All tests passed!
+```
 
 ---
 
 ## 🧹 Message Cleanup
 
-**Automatic cleanup runs on bridge startup:**
-- Approved messages → archived after 3 days
-- Archived messages → deleted after 10 days total
-- Pending/rejected → never auto-deleted
-
-**Manual cleanup:**
+**Archive old read messages:**
 ```bash
-node .server/cleanup-messages.js
+# Messages older than 7 days
+find .server/gemini-outbox/.read/ -name "*.txt" -mtime +7 -delete
+find .server/claude-outbox/.read/ -name "*.txt" -mtime +7 -delete
 ```
 
----
+**Clear all read messages:**
+```bash
+rm .server/gemini-outbox/.read/*.txt
+rm .server/claude-outbox/.read/*.txt
+```
 
-## 🔧 Current Configuration Status
-
-✅ **Bridge Server:** Running on localhost:3003
-⚠️ **MCP Server:** Configured but SDK not installed (needs `pip install mcp`)
-✅ **Gemini Watcher:** Running (monitors claude-inbox/)
-❌ **Hook System:** Disabled (hooks: {} in settings)
-❌ **Claude Watcher:** Not running (optional)
-
----
-
-## 📖 Next Steps
-
-1. **For Gemini setup:** See `GEMINI-SETUP.md`
-2. **For complete workflow:** See `COMMUNICATION-SYSTEM.md`
-3. **For MCP details:** See `../gemini-mcp-server/README.md`
+**Archive malformed messages:**
+- Already archived to `.archive-malformed-YYYYMMDD/`
+- Review and delete manually
 
 ---
 
-**Version:** 3.0 (MCP + Bridge Hybrid)
-**Last Updated:** October 2, 2025
+## 🔍 Troubleshooting
+
+### Messages not being delivered
+
+**Check polling client:**
+```bash
+../management/ai-collab.sh status
+```
+
+**Start if needed:**
+```bash
+../management/ai-collab.sh start
+```
+
+### Messages stuck in .processing/
+
+**Client crashed. Restart:**
+```bash
+../management/ai-collab.sh stop
+mv gemini-outbox/.processing/*.txt gemini-outbox/
+../management/ai-collab.sh start
+```
+
+### Malformed messages
+
+**Check .malformed/ directory:**
+```bash
+ls -la gemini-outbox/.malformed/
+```
+
+**Common causes:**
+- Missing required headers (ID, From, To, Subject)
+- No blank line between headers and content
+- Invalid file format (must be .txt)
+
+---
+
+## 📖 Related Documentation
+
+- **System Overview:** [COMMUNICATION-SYSTEM.md](COMMUNICATION-SYSTEM.md) (v9.0 - comprehensive)
+- **Unified MCP Server:** [../mcp-servers/unified-mcp-server/README.md](../mcp-servers/unified-mcp-server/README.md)
+- **AI Bridge Overview:** [../README.md](../README.md)
+- **Integration Tests:** [../tests/test_integration.py](../tests/test_integration.py)
+
+---
+
+## 🗂️ Archived Files
+
+**Legacy protocol docs:**
+- `.archive-docs/PROTOCOL.md` (v1.0)
+- `.archive-docs/PROTOCOL-v2.md` (v2.0)
+- `.archive-docs/PROTOCOL-PROPOSAL.md` (draft)
+- `.archive-docs/GEMINI-SETUP.md` (old setup)
+- `.archive-docs/GEMINI-SETUP-WRAPPER.md` (old wrapper)
+
+**Legacy message files:**
+- `.archive-malformed-20251007/` - 2 malformed messages
+- `.archive-json-legacy-20251007/` - 63 old JSON files
+
+---
+
+## ✅ Current Configuration Status
+
+- ✅ **Unified MCP Server:** Active (`unified-ai-bridge`)
+- ✅ **Email Format:** Exclusive (JSON support removed)
+- ✅ **Polling Clients:** Running in background
+- ✅ **Send Scripts:** Updated to v2.0 (email format)
+- ✅ **Integration Tests:** 32/32 passing
+- ✅ **Documentation:** Complete (v9.0)
+
+---
+
+**Maintainer:** Claude & Gemini (AI Team)
+**Last Updated:** October 7, 2025
+**Version:** 9.0 (Phase 1 Stabilization Complete)

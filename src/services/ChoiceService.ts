@@ -25,23 +25,24 @@ export class ChoiceService implements IChoiceService {
    * Create a new choice and return a promise that resolves when the choice is made
    */
   async createChoice(
-    playerId: string, 
-    type: Choice['type'], 
-    prompt: string, 
-    options: Choice['options']
+    playerId: string,
+    type: Choice['type'],
+    prompt: string,
+    options: Choice['options'],
+    metadata?: Choice['metadata']
   ): Promise<string> {
     // Generate unique ID for this choice
     const choiceId = this.generateChoiceId();
-    
+
     // Validate inputs
     if (!playerId) {
       throw new Error('Player ID is required for choice creation');
     }
-    
+
     if (!options || options.length === 0) {
       throw new Error('At least one option is required for choice creation');
     }
-    
+
     // Validate that all options have required properties
     for (const option of options) {
       if (!option.id || !option.label) {
@@ -55,7 +56,8 @@ export class ChoiceService implements IChoiceService {
       playerId,
       type,
       prompt,
-      options
+      options,
+      ...(metadata && { metadata })
     };
 
     console.log(`🎯 Choice Created [${playerId}]: ${type} - "${prompt}"`);

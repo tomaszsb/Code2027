@@ -53,7 +53,18 @@ export function formatManualEffectButton(effect: SpaceEffect): ButtonInfo {
   if (isCardEffect) {
     text = `Pick up ${count} ${cardType} card${count !== 1 ? 's' : ''}`;
   } else if (effect.effect_type === 'dice_roll_chance') {
-    text = 'Roll for Bonus Cards';
+    // Parse card type from effect_action (e.g., "draw_l_on_1" -> "L")
+    const match = effect.effect_action.match(/draw_([a-z])_on_/i);
+    const rollCardType = match ? match[1].toUpperCase() : 'Bonus';
+    const cardTypeNames: { [key: string]: string } = {
+      'L': 'Life',
+      'E': 'Expeditor',
+      'W': 'Worktype',
+      'T': 'Time',
+      'M': 'Money'
+    };
+    const cardName = cardTypeNames[rollCardType] || rollCardType;
+    text = `Roll for ${cardName} Card`;
   } else if (effect.effect_type === 'turn') {
     text = effect.description || 'End Turn';
   } else {

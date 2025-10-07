@@ -268,7 +268,7 @@ export interface ITurnService {
   // Feedback methods for UI components
   rollDiceWithFeedback(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
   rerollDice(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
-  triggerManualEffectWithFeedback(playerId: string, effectType: string): import('./StateTypes').TurnEffectResult;
+  triggerManualEffectWithFeedback(playerId: string, effectType: string): Promise<import('./StateTypes').TurnEffectResult>;
   performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
   tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }>;
   handleAutomaticFunding(playerId: string): import('./StateTypes').TurnEffectResult;
@@ -375,9 +375,9 @@ export interface IGameRulesService {
 
 export interface IChoiceService {
   // Choice creation and resolution methods
-  createChoice(playerId: string, type: Choice['type'], prompt: string, options: Choice['options']): Promise<string>;
+  createChoice(playerId: string, type: Choice['type'], prompt: string, options: Choice['options'], metadata?: Choice['metadata']): Promise<string>;
   resolveChoice(choiceId: string, selection: string): boolean;
-  
+
   // Choice query methods
   getActiveChoice(): Choice | null;
   hasActiveChoice(): boolean;

@@ -1,100 +1,361 @@
-# AI Bridge Communication Protocol
+# AI Bridge Communication System
 
-This directory contains the core components for the AI-to-AI communication protocol between Gemini and Claude. It implements a robust, transparent, and conversational messaging system based on a three-directory JSON file structure.
+**Version:** 9.0 (Phase 1 Stabilization Complete)
+**Date:** October 7, 2025
+**Status:** ✅ Production Ready
+
+This directory contains the unified communication system for AI-to-AI messaging between Gemini and Claude. The system implements a robust, transparent, and symmetric messaging architecture using email-style `.txt` files with automated polling clients.
+
+---
+
+## Quick Links
+
+- **📖 Complete Documentation:** [COMMUNICATION-SYSTEM.md](.server/COMMUNICATION-SYSTEM.md)
+- **🔧 Unified MCP Server:** [mcp-servers/unified-mcp-server/README.md](mcp-servers/unified-mcp-server/README.md)
+- **🧪 Integration Tests:** [tests/test_integration.py](tests/test_integration.py) (32 tests passing)
+
+---
 
 ## Directory Structure
 
-- **`clients/`**: Contains the Python client scripts responsible for polling inboxes, processing messages, and sending responses.
-  - `mcp_client.py`: Claude's Message Communication Protocol client.
-  - `mcp_client_gemini.py`: Gemini's Message Communication Protocol client.
-  - `check_claude_messages.py`: Script for Gemini to check Claude's messages.
-  - `check_gemini_messages.py`: Script for Claude to check Gemini's messages.
-  - `check-mailbox.py`: General mailbox checking script.
-
-- **`management/`**: Contains shell scripts for managing the AI clients (starting, stopping, checking status).
-  - `ai-collab.sh`: Management script for Claude's client.
-  - `ai-collab-gemini.sh`: Management script for Gemini's client.
-  - `start-ai-collab.bat`, `start-ai-collab.sh`: Scripts to start both clients.
-  - `stop-ai-collab.bat`, `stop-ai-collab.sh`: Scripts to stop both clients.
-
-- **`.server/`**: This hidden directory acts as the central message queue system.
-  - `claude-inbox/`: Claude's inbox (messages from Gemini).
-  - `claude-outbox/`: Claude's outbox (messages to Gemini).
-  - `gemini-inbox/`: Gemini's inbox (messages from Claude).
-  - `gemini-outbox/`: Gemini's outbox (messages to Claude).
-  - Each inbox/outbox contains subdirectories for message lifecycle management:
-    - `.processing/`: Messages temporarily moved here during client processing.
-    - `.unread/`: Processed messages waiting for the LLM to read.
-    - `.read/`: Messages that have been read and responded to by the LLM.
-    - `.malformed/`: Messages that failed JSON schema validation.
-  - `send_to_claude.py`: Python helper script for sending messages to Claude.
-  - `send_to_gemini.py`: Python helper script for sending messages to Gemini.
-  - `COMMUNICATION-SYSTEM.md`: Detailed documentation of the communication system.
-  - `PROTOCOL.md`, `PROTOCOL-v2.md`, `PROTOCOL-PROPOSAL.md`: Protocol evolution documents.
-  - `README.md`: README for the .server directory (if any specific to it).
-  - Other client-related files (PID files, logs, etc.).
-
-- **`utils/`**: Contains utility files.
-  - `.mcp.json`: Message Communication Protocol configuration.
-
-## Three-Directory JSON Communication System
-
-Claude and Gemini communicate by exchanging JSON files within a structured three-directory system. This ensures atomic operations and clear message lifecycle management.
-
-**Message Flow:**
-1.  A sender creates a JSON message file in the recipient's inbox root directory.
-2.  The recipient's client (`mcp_client.py` or `mcp_client_gemini.py`) polls its inbox root.
-3.  Upon detecting a new message, the client atomically moves it to the `.processing/` subdirectory.
-4.  The client validates the message against a JSON schema. If valid, it moves the message to `.unread/`. If malformed, it moves to `.malformed/`.
-5.  The respective LLM (Claude or Gemini) reads messages from its `.unread/` directory.
-6.  After processing and generating a response, the LLM moves the original message to `.read/`.
-
-## Quick Start Guide
-
-### For Gemini (to communicate with Claude):
-
-**1. Send a Message to Claude:**
-```bash
-python3 ai-bridge/.server/send_to_claude.py STATUS_UPDATE "Your message content here"
-# Example: python3 ai-bridge/.server/send_to_claude.py query "What is the status of the game?"
 ```
-
-**2. Check for Messages from Claude:**
-```bash
-ls -lt ai-bridge/.server/claude-outbox/.unread/*.json
-# Read a message: cat ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.json
-# After processing, move to .read/: mv ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.json ai-bridge/.server/claude-outbox/.read/
-```
-
-**3. Manage Gemini's Client:**
-```bash
-./ai-bridge/management/ai-collab-gemini.sh start
-./ai-bridge/management/ai-collab-gemini.sh stop
-./ai-bridge/management/ai-collab-gemini.sh status
-```
-
-### For Claude (to communicate with Gemini):
-
-**1. Send a Message to Gemini:**
-```bash
-python3 ai-bridge/.server/send_to_gemini.py STATUS_UPDATE "Your message content here"
-# Example: python3 ai-bridge/.server/send_to_gemini.py planning_response "Here is my plan..."
-```
-
-**2. Check for Messages from Gemini:**
-```bash
-ls -lt ai-bridge/.server/gemini-outbox/.unread/*.json
-# Read a message: cat ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json
-# After processing, move to .read/: mv ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json ai-bridge/.server/gemini-outbox/.read/
-```
-
-**3. Manage Claude's Client:**
-```bash
-./ai-bridge/management/ai-collab.sh start
-./ai-bridge/management/ai-collab.sh stop
-./ai-bridge/management/ai-collab.sh status
+ai-bridge/
+├── .server/                           # Central message queue system
+│   ├── claude-outbox/                 # Claude → Gemini messages
+│   │   ├── .processing/               # Client processing (atomic)
+│   │   ├── .unread/                   # Ready for Gemini to read
+│   │   ├── .read/                     # Gemini has processed
+│   │   └── .malformed/                # Validation failures
+│   ├── gemini-outbox/                 # Gemini → Claude messages
+│   │   ├── .processing/               # Client processing (atomic)
+│   │   ├── .unread/                   # Ready for Claude to read
+│   │   ├── .read/                     # Claude has processed
+│   │   └── .malformed/                # Validation failures
+│   ├── send_to_claude.py              # Send script for Gemini
+│   ├── send_to_gemini.py              # Send script for Claude
+│   ├── COMMUNICATION-SYSTEM.md        # Complete system documentation
+│   └── .archive-docs/                 # Archived protocol versions
+│
+├── clients/                           # Polling client scripts
+│   ├── mcp_client.py                  # Claude's polling client
+│   └── mcp_client_gemini.py           # Gemini's polling client
+│
+├── management/                        # Client management scripts
+│   ├── ai-collab.sh                   # Claude's client manager
+│   └── ai-collab-gemini.sh            # Gemini's client manager
+│
+├── mcp-servers/                       # MCP server implementations
+│   ├── unified-mcp-server/            # ✅ Active: Unified bidirectional server
+│   │   ├── server.py                  # Main MCP server (350 lines)
+│   │   ├── README.md                  # Complete server documentation
+│   │   └── requirements.txt           # Python dependencies
+│   └── .deprecated/                   # Old servers (archived)
+│       ├── gemini-mcp-server/
+│       ├── claude-mcp-server/
+│       └── ai-bridge-mcp-server/
+│
+├── tests/                             # Integration test suite
+│   └── test_integration.py            # 32 tests (all passing)
+│
+└── utils/                             # Utility files
+    └── .mcp.json                      # MCP server configuration
 ```
 
 ---
 
-**Note:** The `ai-bridge/.server/` directory is a critical component of this communication system. It should not be directly modified or deleted without understanding its role in message routing and processing.
+## System Overview
+
+### Key Components
+
+1. **Unified MCP Server** (`unified-mcp-server`)
+   - Symmetric bidirectional tools
+   - `read_gemini_messages()` for Claude
+   - `read_claude_messages()` for Gemini
+   - Email format parser (no JSON issues)
+
+2. **Send Scripts** (`.server/`)
+   - `send_to_gemini.py` - Claude sends messages
+   - `send_to_claude.py` - Gemini sends messages
+   - Creates email-style `.txt` files
+   - No escaping needed for special characters
+
+3. **Polling Clients** (`clients/`)
+   - Background processes (run every 5 seconds)
+   - Validates and routes messages
+   - Three-directory atomic workflow
+   - Handles both `.txt` files
+
+4. **Management Scripts** (`management/`)
+   - Start/stop/status/health commands
+   - Process management
+   - Health monitoring
+
+---
+
+## Message Format (Email-Style .txt)
+
+```
+ID: sender-YYYYMMDD-HHMMSS
+From: claude|gemini
+To: claude|gemini
+Subject: message-type
+
+Message content here.
+Can span multiple lines.
+No escaping needed: $(), \, ", ', etc.
+```
+
+**Benefits:**
+- ✅ Human-readable
+- ✅ No JSON escaping issues
+- ✅ Multi-line support
+- ✅ Special characters work perfectly
+
+---
+
+## Quick Start Guide
+
+### For Claude (to communicate with Gemini)
+
+**1. Send a Message:**
+```bash
+echo "Your message content" | python3 ai-bridge/.server/send_to_gemini.py message_type
+
+# Examples:
+echo "Status update: Tests passing" | python3 ai-bridge/.server/send_to_gemini.py status_update
+echo "What's your progress?" | python3 ai-bridge/.server/send_to_gemini.py query
+```
+
+**2. Read Messages (Recommended - MCP Tool):**
+```bash
+read_gemini_messages()
+```
+
+**3. Read Messages (Alternative - Manual):**
+```bash
+# Check for new messages
+ls -lt ai-bridge/.server/gemini-outbox/.unread/*.txt
+
+# Read a message
+cat ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt
+
+# Move to .read/ after responding
+mv ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt \
+   ai-bridge/.server/gemini-outbox/.read/
+```
+
+**4. Manage Your Client:**
+```bash
+# Start polling client (runs in background)
+ai-bridge/management/ai-collab.sh start
+
+# Check status
+ai-bridge/management/ai-collab.sh status
+
+# Stop client
+ai-bridge/management/ai-collab.sh stop
+
+# Health check
+ai-bridge/management/ai-collab.sh health
+```
+
+---
+
+### For Gemini (to communicate with Claude)
+
+**1. Send a Message:**
+```bash
+echo "Your message content" | python3 ai-bridge/.server/send_to_claude.py message_type
+
+# Examples:
+echo "Bug fix complete" | python3 ai-bridge/.server/send_to_claude.py status_update
+echo "Please review this code" | python3 ai-bridge/.server/send_to_claude.py review_request
+```
+
+**2. Read Messages (Recommended - MCP Tool):**
+```bash
+read_claude_messages()
+```
+
+**3. Read Messages (Alternative - Manual):**
+```bash
+# Check for new messages
+ls -lt ai-bridge/.server/claude-outbox/.unread/*.txt
+
+# Read a message
+cat ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt
+
+# Move to .read/ after responding
+mv ai-bridge/.server/claude-outbox/.unread/claude-YYYYMMDD-HHMMSS.txt \
+   ai-bridge/.server/claude-outbox/.read/
+```
+
+**4. Manage Your Client:**
+```bash
+# Start polling client
+ai-bridge/management/ai-collab-gemini.sh start
+
+# Check status
+ai-bridge/management/ai-collab-gemini.sh status
+
+# Stop client
+ai-bridge/management/ai-collab-gemini.sh stop
+
+# Health check
+ai-bridge/management/ai-collab-gemini.sh health
+```
+
+---
+
+## Message Flow (Three-Directory System)
+
+**Complete Workflow:**
+
+1. **Sender:** Use send script → Creates `.txt` file in outbox **root**
+2. **Polling Client:** Detects file within 5 seconds
+3. **Atomic Move:** Client moves to `.processing/` (prevents race conditions)
+4. **Validation:** Client parses email format, validates headers
+5. **Route to .unread/:** Valid messages moved to `.unread/`
+6. **MCP Tool Reads:** Recipient uses MCP tool to read from `.unread/`
+7. **Auto-Archive:** MCP tool moves to `.read/` after displaying
+
+**Why Three Directories?**
+- `.processing/` - Atomic operations, prevents concurrent access
+- `.unread/` - Clear separation: client done, LLM reads
+- `.read/` - Archive of processed messages
+
+---
+
+## Architecture Highlights (v9.0)
+
+### Phase 1 Stabilization Achievements
+
+✅ **Unified MCP Server**
+- Consolidated 3 separate servers into 1
+- Symmetric architecture (both AIs have identical capabilities)
+- Clean codebase (350 lines, well-documented)
+
+✅ **Email Format Migration**
+- Eliminated JSON escaping issues
+- No more double-encoding errors
+- Special characters work perfectly
+
+✅ **Path Standardization**
+- All references use `ai-bridge/.server/`
+- Consistent directory structure
+- Clear documentation
+
+✅ **Comprehensive Testing**
+- 32 integration tests (all passing)
+- End-to-end validation
+- Parser tests, workflow tests, config tests
+
+✅ **Documentation**
+- Complete system guide (COMMUNICATION-SYSTEM.md v9.0)
+- Server-specific README (unified-mcp-server)
+- Updated charter files (CLAUDE.md, GEMINI.md)
+
+---
+
+## Testing
+
+Run integration tests:
+```bash
+cd ai-bridge
+python3 tests/test_integration.py
+```
+
+**Expected output:**
+```
+============================================================
+Communication System v9.0 - Integration Tests
+============================================================
+✓ 32/32 tests passing
+✅ All tests passed!
+```
+
+---
+
+## Troubleshooting
+
+### Messages not being delivered
+
+**Check polling client is running:**
+```bash
+ai-bridge/management/ai-collab.sh status
+```
+
+**Start client if needed:**
+```bash
+ai-bridge/management/ai-collab.sh start
+```
+
+### Messages stuck in .processing/
+
+**Client crashed during processing. Restart:**
+```bash
+ai-bridge/management/ai-collab.sh stop
+mv ai-bridge/.server/gemini-outbox/.processing/*.txt ai-bridge/.server/gemini-outbox/
+ai-bridge/management/ai-collab.sh start
+```
+
+### Health check shows warnings
+
+**Run comprehensive health check:**
+```bash
+ai-bridge/management/ai-collab.sh health
+```
+
+**Common issues:**
+- Client not running → Start with `ai-collab.sh start`
+- Stale messages in .unread/ → Read and move to .read/
+- Malformed messages → Check `.malformed/` directory
+
+---
+
+## Migration from v8.0
+
+If you're upgrading from v8.0:
+
+1. **Update configuration:**
+   - `.claude/settings.local.json` - Change to `"unified-ai-bridge"`
+   - `ai-bridge/utils/.mcp.json` - Update server path
+
+2. **Restart clients:**
+   ```bash
+   ai-bridge/management/ai-collab.sh stop
+   ai-bridge/management/ai-collab.sh start
+   ```
+
+3. **Restart Claude Code** to load new MCP configuration
+
+4. **Archive old JSON messages:**
+   - Old JSON files moved to `.archive-json-legacy-YYYYMMDD/`
+
+5. **Use send scripts instead of direct writes:**
+   - ❌ OLD: Write directly to `.unread/`
+   - ✅ NEW: Use `send_to_gemini.py` / `send_to_claude.py`
+
+---
+
+## Related Documentation
+
+- **System Overview:** [.server/COMMUNICATION-SYSTEM.md](.server/COMMUNICATION-SYSTEM.md) - Complete v9.0 guide
+- **Unified MCP Server:** [mcp-servers/unified-mcp-server/README.md](mcp-servers/unified-mcp-server/README.md)
+- **Claude Charter:** [docs/project/CLAUDE.md](../docs/project/CLAUDE.md)
+- **Gemini Charter:** [docs/project/GEMINI.md](../docs/project/GEMINI.md)
+- **Integration Tests:** [tests/test_integration.py](tests/test_integration.py)
+
+---
+
+## Version History
+
+- **v9.0** (Oct 7, 2025) - Phase 1 stabilization: Unified server, email format exclusive
+- **v8.0** (Oct 6, 2025) - Email format migration (incomplete)
+- **v7.0-v1.0** - Earlier versions (archived in `.server/.archive-docs/`)
+
+---
+
+**Maintainer:** Claude & Gemini (AI Team)
+**Last Updated:** October 7, 2025
+**Status:** ✅ Production Ready
