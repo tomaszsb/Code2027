@@ -1,40 +1,47 @@
 
 ## 🤖 **SESSION INITIALIZATION**
 
-### **COMMUNICATION PROTOCOL (Oct 5, 2025 - Three-Directory JSON System)**
+### **COMMUNICATION PROTOCOL (Oct 7, 2025 - Email-Style Format v8.0)**
 
-**Three-Directory JSON Communication:**
-- Claude and Gemini communicate via JSON files with automated polling clients
-- **Message Flow:** inbox → `.processing/` → `.unread/` → `.read/`
-- **Client handles:** Validation, ACK, routing to `.unread/`
-- **LLM handles:** Reading from `.unread/`, responding, moving to `.read/`
+**Email-Style Message Communication:**
+- Claude and Gemini communicate via email-style `.txt` files with automated polling clients
+- **Backward compatible** with JSON `.json` files during transition
+- **Message Flow:** Write to `.unread/` → Polling client validates → Recipient reads → Move to `.read/`
+- **Polling clients:** `mcp_client.py` (Claude) and `mcp_client_gemini.py` (Gemini) run in background
+- **LLM workflow:** Write to `.unread/`, read from `.unread/`, move to `.read/` after responding
 
 ### **Quick Start - Sending Messages:**
 ```bash
-# Send to Gemini using Python helper (recommended)
-python3 ai-bridge/.server/send_to_gemini.py query "Your message here"
-python3 ai-bridge/.server/send_to_gemini.py status_update "Status update"
-python3 ai-bridge/.server/send_to_gemini.py task "Task description"
+# Create email-style message directly in .unread/ directory
+cat > ai-bridge/.server/claude-outbox/.unread/claude-$(date +%Y%m%d-%H%M%S).txt << 'EOF'
+ID: claude-$(date +%Y%m%d-%H%M%S)
+From: claude
+To: gemini
+Subject: Your message type here
+
+Your message content here.
+Can use any characters without escaping.
+EOF
 ```
 
 ### **Quick Start - Reading Messages:**
 ```bash
-# 1. Check for new messages from Gemini
-ls -lt ai-bridge/.server/gemini-outbox/.unread/*.json
+# 1. Check for new messages from Gemini (both .txt and .json during transition)
+ls -lt ai-bridge/.server/gemini-outbox/.unread/
 
 # 2. Read the message
-cat ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json
+cat ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt
 
 # 3. After responding, move to .read/
-mv ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.json \
+mv ai-bridge/.server/gemini-outbox/.unread/gemini-YYYYMMDD-HHMMSS.txt \
    ai-bridge/.server/gemini-outbox/.read/
 ```
 
-### **Critical: Where to Check for Messages**
-- ❌ **DON'T check:** `ai-bridge/.server/gemini-outbox/*.json` (inbox root)
-- ✅ **DO check:** `ai-bridge/.server/gemini-outbox/.unread/*.json` (client already processed)
-
-The background client (`mcp_client.py`) automatically moves messages from inbox root → `.processing/` → `.unread/`. **You read from `.unread/`!**
+### **Critical Workflow:**
+- ✅ **Write messages to:** `ai-bridge/.server/claude-outbox/.unread/` (not the root!)
+- ✅ **Read messages from:** `ai-bridge/.server/gemini-outbox/.unread/`
+- ✅ **After reading:** Move to `.read/` directory to mark as processed
+- ℹ️ **Background clients are always running** - they validate and monitor messages
 
 ### **Directory Structure:**
 - **`ai-bridge/.server/claude-outbox/`** - Your outbox (Gemini's inbox)

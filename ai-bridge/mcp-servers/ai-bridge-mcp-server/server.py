@@ -24,7 +24,7 @@ except ImportError:
 
 
 # Paths - Updated for three-directory JSON system
-SCRIPT_DIR = Path(__file__).parent.parent
+SCRIPT_DIR = Path(__file__).parent.parent.parent
 SERVER_DIR = SCRIPT_DIR / ".server"
 
 # Claude reads from Gemini's outbox
@@ -37,6 +37,102 @@ CLAUDE_OUTBOX_READ = SERVER_DIR / "claude-outbox" / ".read"
 
 CLAUDE_LAST_CHECK = SERVER_DIR / ".claude-mcp-last-check"
 GEMINI_LAST_CHECK = SERVER_DIR / ".gemini-mcp-last-check"
+
+
+def parse_email_format(content: str) -> Optional[Dict[str, Any]]:
+    """Parse email-style message format
+
+    Format:
+    ID: message-id
+    From: sender
+    To: recipient
+    Subject: title
+
+    message content
+    """
+    lines = content.split('\n')
+    headers = {}
+    content_lines = []
+    in_content = False
+
+    for line in lines:
+        if not in_content:
+            if line.strip() == '':
+                in_content = True
+                continue
+            if ':' in line:
+                key, value = line.split(':', 1)
+                headers[key.strip().lower()] = value.strip()
+        else:
+            content_lines.append(line)
+
+    # Validate required headers
+    required = ['id', 'from', 'to', 'subject']
+    if not all(h in headers for h in required):
+        return None
+
+    return {
+        'id': headers['id'],
+        'from': headers['from'],
+        'to': headers['to'],
+        't': headers['subject'],
+        'c': '\n'.join(content_lines).strip()
+    }
+
+
+def parse_json_format(content: str) -> Optional[Dict[str, Any]]:
+    """Parse JSON message format (backward compatibility)"""
+    try:
+        message = json.loads(content)
+        # Support both compact and old format
+        if 'id' in message and 'to' in message and 't' in message and 'c' in message:
+            return message
+        # Old format - normalize
+        if 'message_id' in message:
+            return {
+                'id': message['message_id'],
+                'from': message.get('sender', 'unknown'),
+                'to': message.get('recipient', 'unknown'),
+                't': message.get('type', 'unknown'),
+                'c': message.get('payload', {}).get('content', '')
+            }
+        return None
+    except json.JSONDecodeError:
+        return None
+
+
+def parse_message_file(filepath: Path) -> Optional[Dict[str, Any]]:
+    """Parse message file - supports both email and JSON formats"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Try email format first
+        if filepath.suffix == '.txt':
+            message = parse_email_format(content)
+            if message:
+                return message
+
+        # Try JSON format (backward compatibility)
+        if filepath.suffix == '.json':
+            message = parse_json_format(content)
+            if message:
+                return message
+
+        # Try JSON even for .txt files during transition
+        message = parse_json_format(content)
+        if message:
+            return message
+
+        # Try email format even for .json files during transition
+        message = parse_email_format(content)
+        if message:
+            return message
+
+        return None
+    except Exception as e:
+        # log_debug(f"Error parsing file {filepath}: {e}") # Removed log_debug as it's not defined here
+        return None
 
 
 def get_last_check_time(ai_name: str) -> float:
@@ -70,26 +166,22 @@ def get_new_messages(unread_dir: Path, read_dir: Path) -> list[dict[str, Any]]:
 
     try:
         # Get all JSON files in .unread/
-        json_files = sorted(unread_dir.glob("*.json"), key=lambda f: f.stat().st_mtime)
+        json_files = sorted(unread_dir.glob("*.txt"), key=lambda f: f.stat().st_mtime)
 
         for file in json_files:
             try:
-                # Parse JSON message
-                with open(file, 'r') as f:
-                    message_data = json.load(f)
+                message = parse_message_file(file)
 
-                # Extract content from payload
-                content = message_data.get('payload', {}).get('content', '')
-                message_id = message_data.get('message_id', file.stem)
-                msg_type = message_data.get('type', 'unknown')
-                timestamp = message_data.get('timestamp', '')
+                if not message:
+                    print(f"Error: Malformed message in {file.name}", file=sys.stderr)
+                    continue
 
                 new_messages.append({
                     'file': file.name,
-                    'message_id': message_id,
-                    'type': msg_type,
-                    'timestamp': timestamp,
-                    'content': content,
+                    'message_id': message['id'],
+                    'type': message['t'], # 't' is subject/type
+                    'timestamp': datetime.fromtimestamp(file.stat().st_mtime).isoformat(), # Use file modification time as timestamp
+                    'content': message['c'],
                     'time': file.stat().st_mtime
                 })
 
@@ -122,7 +214,6 @@ def format_messages(messages: list[dict[str, Any]], sender_name: str) -> str:
         formatted.append(f"ID: {msg['message_id']}")
         formatted.append(f"Time: {msg['timestamp']}")
         formatted.append("")
-        # Truncate long messages for preview
         content = msg['content'].strip()
         if len(content) > 1000:
             content = content[:1000] + "\n\n... (truncated)"
