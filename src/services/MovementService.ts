@@ -75,15 +75,6 @@ export class MovementService implements IMovementService {
       throw new Error(`Player with ID ${playerId} not found`);
     }
 
-    // Clear Try Again flag - player is making deliberate movement
-    if (player.usedTryAgain) {
-      this.stateService.updatePlayer({
-        id: playerId,
-        usedTryAgain: false
-      });
-      console.log(`🔄 Cleared Try Again flag for ${player.name} - making deliberate movement`);
-    }
-
     // Validate move is legal
     const validMoves = this.getValidMoves(playerId);
     if (!validMoves.includes(destinationSpace)) {

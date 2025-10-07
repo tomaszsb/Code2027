@@ -9,6 +9,9 @@ import { TurnControlsWithActions } from './TurnControlsWithActions';
 import { useGameContext } from '../../context/GameContext';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiscardedCardsModal } from '../modals/DiscardedCardsModal';
+import { ResponsiveSheet } from '../modals/ResponsiveSheet';
+import { SpaceExplorerPanel } from './SpaceExplorerPanel';
+import { MovementPathVisualization } from './MovementPathVisualization';
 
 interface PlayerStatusItemProps {
   player: Player;
@@ -193,55 +196,53 @@ export function PlayerStatusItem({
     background: isCurrentPlayer ? `linear-gradient(135deg, ${colors.primary.light}, ${colors.primary.lighter})` : colors.white,
     border: isCurrentPlayer ? `3px solid ${colors.primary.main}` : `2px solid ${colors.secondary.border}`,
     borderRadius: '12px',
-    padding: '16px',
+    padding: '12px',
     marginBottom: '12px',
-    transition: 'all 0.3s ease',
+    transition: 'box-shadow 0.3s ease, border-color 0.3s ease', // Only animate visual properties
     position: 'relative' as const,
-    boxShadow: isCurrentPlayer 
-      ? '0 8px 24px rgba(33, 150, 243, 0.4)' 
+    boxShadow: isCurrentPlayer
+      ? '0 8px 24px rgba(33, 150, 243, 0.4)'
       : '0 4px 12px rgba(0, 0, 0, 0.12)',
-    // Size to content instead of fixed dimensions
-    height: (showFinancialStatus || showCardPortfolio) ? 'auto' : 'auto',
-    minHeight: isCurrentPlayer ? '200px' : '120px',
+    // True 16:9 landscape aspect ratio enforced
+    width: '100%',
+    maxWidth: '100%',
+    aspectRatio: '16 / 9', // 16:9 landscape (wider than tall)
     margin: '0 0 12px 0',
-    display: 'inline-flex',
-    flexDirection: (showFinancialStatus || showCardPortfolio) ? 'column' as const : 'row' as const,
-    alignItems: (showFinancialStatus || showCardPortfolio) ? 'stretch' : 'stretch',
-    overflow: 'visible'
-  };
-
-  // Left section styles (Avatar and name) - NO WIDTH CONTROLS
-  const leftSectionStyle = {
     display: 'flex',
     flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-    paddingRight: '8px',
-    marginRight: '8px'
+    alignItems: 'stretch',
+    overflow: 'hidden', // Hide overflow - internal sections will scroll
+    boxSizing: 'border-box' as const
   };
 
+
   const avatarStyle = {
-    fontSize: '1.8rem',
+    fontSize: '2.5rem',
     marginBottom: '4px',
     display: 'block'
   };
 
   const nameStyle = {
-    fontSize: '0.8rem',
+    fontSize: '1rem',
     fontWeight: 'bold' as const,
     color: isCurrentPlayer ? colors.primary.text : colors.success.text,
     textAlign: 'center' as const,
-    lineHeight: '1.1'
+    lineHeight: '1.1',
+    maxWidth: '80px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const
   };
 
-  // Middle section styles (Stats and space info) - SIZE TO CONTENT
+  // Middle section styles (Stats and space info) - SCROLLABLE for variable content
   const middleSectionStyle = {
-    flex: '0 1 auto',
+    flex: 1, // Take up remaining space
     display: 'flex',
     flexDirection: 'column' as const,
-    justifyContent: 'space-between',
-    overflow: 'visible'
+    justifyContent: 'flex-start',
+    overflow: 'auto', // Enable scrolling for variable location story content
+    minHeight: 0, // Allow shrinking below content size
+    paddingRight: '4px' // Space for scrollbar
   };
 
   const statsRowStyle = {
@@ -253,14 +254,15 @@ export function PlayerStatusItem({
   const statItemStyle = {
     background: 'rgba(248, 249, 250, 0.9)',
     border: '1px solid rgba(0, 0, 0, 0.1)',
-    borderRadius: '8px',
-    padding: '8px 12px',
+    borderRadius: '6px',
+    padding: '4px 6px',
     textAlign: 'center' as const,
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    flex: '1 1 0'
   };
 
   const statLabelStyle = {
-    fontSize: '0.7rem',
+    fontSize: '0.8rem',
     color: colors.secondary.main,
     fontWeight: 'bold' as const,
     textTransform: 'uppercase' as const,
@@ -274,27 +276,29 @@ export function PlayerStatusItem({
     color: colors.text.primary
   };
 
-  // Right section styles (Actions) - NO WIDTH CONTROLS
+  // Right section styles - Avatar, Buttons & Turn Controls
   const rightSectionStyle = {
     flex: '0 0 auto',
-    borderLeft: isCurrentPlayer ? '2px solid rgba(33, 150, 243, 0.5)' : 'none',
-    paddingLeft: isCurrentPlayer ? '4px' : '0',
-    marginLeft: isCurrentPlayer ? '4px' : '0',
+    minWidth: isCurrentPlayer ? '140px' : '100px',
+    maxWidth: isCurrentPlayer ? '140px' : '100px',
+    borderLeft: '2px solid rgba(0, 0, 0, 0.1)',
+    paddingLeft: '8px',
     display: 'flex',
     flexDirection: 'column' as const,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    overflow: 'visible',
-    minHeight: '100%'
+    overflow: 'visible'
   };
 
-  // Main content container style adjustments when expanded
+  // Main content container style - optimized for 16:9 landscape
   const mainContentStyle = {
     display: 'flex',
     flexDirection: 'row' as const,
     alignItems: 'stretch',
     flex: 1,
-    minHeight: isCurrentPlayer ? '180px' : '100px'
+    minHeight: 0,
+    overflow: 'hidden',
+    gap: '6px' // Add spacing between sections
   };
 
 
@@ -304,160 +308,7 @@ export function PlayerStatusItem({
 
       {/* Main Content Container */}
       <div style={mainContentStyle}>
-        {/* Left Section: Avatar and Name */}
-        <div style={leftSectionStyle}>
-          <div style={avatarStyle}>
-            {player.avatar}
-          </div>
-          <div style={nameStyle}>
-            {player.name}
-          </div>
-          
-          {/* Action Buttons Row - only show for current player */}
-          {isCurrentPlayer && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              marginTop: '8px',
-              width: '100%'
-            }}>
-              {/* View Rules Button */}
-              <button
-                onClick={onOpenRulesModal}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  color: colors.white,
-                  backgroundColor: colors.purple.main,
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  transition: 'all 0.2s ease',
-                  minWidth: '70px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.purple.dark;
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.purple.main;
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                title="View game rules"
-              >
-                <span>📋</span>
-                <span>Rules</span>
-              </button>
-
-              {/* Space Explorer Button */}
-              <button
-                onClick={onToggleSpaceExplorer}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  color: colors.white,
-                  backgroundColor: isSpaceExplorerVisible ? colors.success.main : colors.secondary.main,
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  transition: 'all 0.2s ease',
-                  minWidth: '70px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? colors.success.dark : colors.secondary.darker;
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isSpaceExplorerVisible ? colors.success.main : colors.secondary.main;
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                title="Toggle space explorer panel"
-              >
-                <span>🔍</span>
-                <span>Explorer</span>
-              </button>
-
-              {/* Available Paths Button */}
-              <button
-                onClick={onToggleMovementPath}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  color: colors.white,
-                  backgroundColor: isMovementPathVisible ? colors.primary.main : colors.secondary.main,
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  transition: 'all 0.2s ease',
-                  minWidth: '70px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? colors.primary.dark : colors.secondary.darker;
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isMovementPathVisible ? colors.primary.main : colors.secondary.main;
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                title="Toggle available movement paths"
-              >
-                <span>🧭</span>
-                <span>Available Paths</span>
-              </button>
-
-              {/* Discarded Cards Button */}
-              <button
-                onClick={() => setShowDiscardedCards(true)}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  color: colors.white,
-                  backgroundColor: colors.warning.main,
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '2px',
-                  transition: 'all 0.2s ease',
-                  minWidth: '70px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.warning.dark;
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.warning.main;
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                title="View discarded cards"
-              >
-                <span>🗂️</span>
-                <span>Discarded</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Middle Section: Stats and Space Info */}
+        {/* Left Section: Stats and Space Info (expanded) */}
         <div style={middleSectionStyle}>
           {/* Top row: Money and Time stats */}
           <div style={statsRowStyle}>
@@ -496,7 +347,7 @@ export function PlayerStatusItem({
                 📊 {FormatUtils.formatMoney(player.money)}
               </div>
               <div style={{
-                fontSize: '0.7rem',
+                fontSize: '0.8rem',
                 color: financialStatus.isDeficit ? colors.danger.main : colors.success.main,
                 fontWeight: 'bold',
                 marginTop: '2px'
@@ -511,7 +362,7 @@ export function PlayerStatusItem({
               {/* Time Cost Warning - appears above current time when current player has time cost */}
               {isCurrentPlayer && spaceTimeCost > 0 && (
                 <div style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.8rem',
                   fontWeight: 'bold',
                   color: colors.warning.dark,
                   backgroundColor: colors.warning.light,
@@ -525,7 +376,7 @@ export function PlayerStatusItem({
                   justifyContent: 'center',
                   gap: '2px'
                 }}>
-                  <span style={{ fontSize: '0.8rem' }}>⚠️</span>
+                  <span>⚠️</span>
                   <span>Cost: {spaceTimeCost}d</span>
                 </div>
               )}
@@ -570,7 +421,7 @@ export function PlayerStatusItem({
               animation: 'fadeIn 0.3s ease-in-out'
             }}>
               <div style={{
-                fontSize: '0.75rem',
+                fontSize: '0.8rem',
                 fontWeight: 'bold',
                 color: colors.primary.dark,
                 marginBottom: '4px',
@@ -584,7 +435,7 @@ export function PlayerStatusItem({
                 <span>Action Notification</span>
               </div>
               <div style={{
-                fontSize: '0.85rem',
+                fontSize: '0.9rem',
                 color: colors.primary.text,
                 lineHeight: '1.4',
                 fontWeight: '500'
@@ -613,7 +464,7 @@ export function PlayerStatusItem({
               }}>
                 {/* Location Header */}
                 <div style={{
-                  fontSize: '0.75rem',
+                  fontSize: '0.8rem',
                   fontWeight: 'bold',
                   color: colors.brown.main,
                   marginBottom: '8px',
@@ -626,7 +477,7 @@ export function PlayerStatusItem({
                 {/* Story Content */}
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
-                    fontSize: '0.7rem',
+                    fontSize: '0.8rem',
                     fontWeight: 'bold',
                     color: colors.warning.text,
                     marginBottom: '4px'
@@ -634,7 +485,7 @@ export function PlayerStatusItem({
                     Story:
                   </div>
                   <div style={{
-                    fontSize: '0.8rem',
+                    fontSize: '0.9rem',
                     color: colors.brown.dark,
                     lineHeight: '1.4',
                     fontStyle: story === 'No story available for this space.' ? 'italic' : 'normal'
@@ -647,7 +498,7 @@ export function PlayerStatusItem({
                 {actionDescription && (
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{
-                      fontSize: '0.7rem',
+                      fontSize: '0.8rem',
                       fontWeight: 'bold',
                       color: colors.danger.text,
                       marginBottom: '4px'
@@ -655,7 +506,7 @@ export function PlayerStatusItem({
                       Action Required:
                     </div>
                     <div style={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.9rem',
                       color: colors.brown.dark,
                       lineHeight: '1.4'
                     }}>
@@ -668,7 +519,7 @@ export function PlayerStatusItem({
                 {outcomeDescription && (
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{
-                      fontSize: '0.7rem',
+                      fontSize: '0.8rem',
                       fontWeight: 'bold',
                       color: colors.success.text,
                       marginBottom: '4px'
@@ -676,7 +527,7 @@ export function PlayerStatusItem({
                       Potential Outcomes:
                     </div>
                     <div style={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.9rem',
                       color: colors.brown.dark,
                       lineHeight: '1.4'
                     }}>
@@ -687,7 +538,7 @@ export function PlayerStatusItem({
 
                 {/* Current Location Footer */}
                 <div style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.8rem',
                   color: colors.brown.text,
                   fontStyle: 'italic',
                   borderTop: '1px solid rgba(139, 69, 19, 0.2)',
@@ -703,8 +554,68 @@ export function PlayerStatusItem({
 
         </div>
 
-        {/* Right Section: Turn Controls */}
+        {/* Right Section: Avatar, Buttons & Turn Controls */}
         <div style={rightSectionStyle}>
+          {/* Avatar and Name at top */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginBottom: '8px'
+          }}>
+            <div style={avatarStyle}>
+              {player.avatar}
+            </div>
+            <div style={nameStyle}>
+              {player.name}
+            </div>
+          </div>
+
+          {/* Action Buttons - show for current player */}
+          {isCurrentPlayer && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              marginBottom: '8px',
+              width: '100%'
+            }}>
+              <button onClick={onOpenRulesModal} style={{
+                padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
+                color: colors.white, backgroundColor: colors.purple.main,
+                border: 'none', borderRadius: '4px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+              }}>
+                <span>📋</span><span>Rules</span>
+              </button>
+              <button onClick={onToggleSpaceExplorer} style={{
+                padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
+                color: colors.white, backgroundColor: isSpaceExplorerVisible ? colors.success.main : colors.secondary.main,
+                border: 'none', borderRadius: '4px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+              }}>
+                <span>🔍</span><span>Explorer</span>
+              </button>
+              <button onClick={onToggleMovementPath} style={{
+                padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
+                color: colors.white, backgroundColor: isMovementPathVisible ? colors.primary.main : colors.secondary.main,
+                border: 'none', borderRadius: '4px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+              }}>
+                <span>🧭</span><span>Paths</span>
+              </button>
+              <button onClick={() => setShowDiscardedCards(true)} style={{
+                padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
+                color: colors.white, backgroundColor: colors.warning.main,
+                border: 'none', borderRadius: '4px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+              }}>
+                <span>🗂️</span><span>Discarded</span>
+              </button>
+            </div>
+          )}
+
+          {/* Turn Controls */}
           {isCurrentPlayer ? (
             <div style={{
               background: colors.white,
@@ -712,16 +623,13 @@ export function PlayerStatusItem({
               borderRadius: '4px',
               padding: '4px',
               boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-              minHeight: '120px',
-              fontSize: '10px',
+              fontSize: '0.75rem',
               overflow: 'visible'
             }}>
-              <TurnControlsWithActions 
-                // Legacy props
+              <TurnControlsWithActions
                 onOpenNegotiationModal={onOpenNegotiationModal}
                 playerId={player.id}
                 playerName={player.name}
-                // All the new props from GameLayout
                 currentPlayer={currentPlayer}
                 gamePhase={gamePhase}
                 isProcessingTurn={isProcessingTurn}
@@ -749,8 +657,7 @@ export function PlayerStatusItem({
               padding: '6px',
               textAlign: 'center',
               color: colors.danger.text,
-              fontSize: '10px',
-              minHeight: '120px',
+              fontSize: '0.9rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -762,33 +669,27 @@ export function PlayerStatusItem({
         </div>
       </div>
 
-      {/* Financial Status Display */}
-      {showFinancialStatus && (
-        <div style={{
-          animation: 'fadeIn 0.3s ease-in-out',
-          transform: 'translateY(0)',
-          transition: 'all 0.3s ease-in-out'
-        }}>
-          <FinancialStatusDisplay player={player} />
-        </div>
-      )}
+      {/* Financial Status - Responsive Sheet */}
+      <ResponsiveSheet
+        isOpen={showFinancialStatus}
+        onClose={() => setShowFinancialStatus(false)}
+        title="Financial Status"
+      >
+        <FinancialStatusDisplay player={player} />
+      </ResponsiveSheet>
 
-
-      {/* Card Portfolio Dashboard */}
-      {showCardPortfolio && (
-        <div style={{
-          animation: 'fadeIn 0.3s ease-in-out',
-          transform: 'translateY(0)',
-          transition: 'all 0.3s ease-in-out'
-        }}>
-          <CardPortfolioDashboard 
-            player={player} 
-            isCurrentPlayer={isCurrentPlayer}
-            onOpenCardDetailsModal={onOpenCardDetailsModal}
-          />
-        </div>
-      )}
-
+      {/* Card Portfolio - Responsive Sheet */}
+      <ResponsiveSheet
+        isOpen={showCardPortfolio}
+        onClose={() => setShowCardPortfolio(false)}
+        title="Card Portfolio"
+      >
+        <CardPortfolioDashboard
+          player={player}
+          isCurrentPlayer={isCurrentPlayer}
+          onOpenCardDetailsModal={onOpenCardDetailsModal}
+        />
+      </ResponsiveSheet>
 
       {/* Discarded Cards Modal */}
       <DiscardedCardsModal
@@ -797,6 +698,30 @@ export function PlayerStatusItem({
         onClose={() => setShowDiscardedCards(false)}
         onOpenCardDetailsModal={onOpenCardDetailsModal}
       />
+
+      {/* Space Explorer - Responsive Sheet */}
+      <ResponsiveSheet
+        isOpen={isSpaceExplorerVisible}
+        onClose={onToggleSpaceExplorer}
+        title="Space Explorer"
+      >
+        <SpaceExplorerPanel
+          isVisible={true}
+          onToggle={onToggleSpaceExplorer}
+        />
+      </ResponsiveSheet>
+
+      {/* Movement Path - Responsive Sheet */}
+      <ResponsiveSheet
+        isOpen={isMovementPathVisible}
+        onClose={onToggleMovementPath}
+        title="Available Movement Paths"
+      >
+        <MovementPathVisualization
+          isVisible={true}
+          onToggle={onToggleMovementPath}
+        />
+      </ResponsiveSheet>
     </div>
   );
 }

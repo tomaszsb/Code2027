@@ -641,19 +641,21 @@ export class StateService implements IStateService {
   // Action tracking methods
   updateActionCounts(): void {
     if (!this.currentState.currentPlayerId) return;
-    
+
     const currentPlayer = this.currentState.players.find(p => p.id === this.currentState.currentPlayerId);
     if (!currentPlayer || !this.dataService.isLoaded()) return;
-    
+
     const actionCounts = this.calculateRequiredActions(currentPlayer);
-    
+
+    console.log(`🎯 updateActionCounts: ${currentPlayer.name} - required: ${actionCounts.required}, completed: ${actionCounts.completed}, hasRolled: ${this.currentState.hasPlayerRolledDice}, space: ${currentPlayer.currentSpace}`);
+
     this.currentState = {
       ...this.currentState,
       requiredActions: actionCounts.required,
       completedActionCount: actionCounts.completed,
       availableActionTypes: actionCounts.availableTypes
     };
-    
+
     this.notifyListeners();
   }
   
@@ -698,9 +700,11 @@ export class StateService implements IStateService {
         required++;
 
         // Check if this specific manual action has been completed
-        if (this.currentState.completedActions.manualActions[effect.effect_type]) {
+        const isCompleted = !!this.currentState.completedActions.manualActions[effect.effect_type];
+        if (isCompleted) {
           completed++;
         }
+        console.log(`  🎯 Manual effect ${effect.effect_type}: ${isCompleted ? 'completed' : 'pending'}`);
       });
       
       // Always require dice roll as a basic action (if not already counted from space config)
@@ -923,12 +927,17 @@ export class StateService implements IStateService {
     // 9. Set this.currentState = newState
     this.currentState = newState;
 
-    // 10. Call this.notifyListeners()
+    // 10. Recalculate action counts for the reverted player
+    // This ensures requiredActions is properly set based on the current space
+    // (not just hardcoded to 1 from line 920)
+    this.updateActionCounts();
+
+    // 11. Call this.notifyListeners()
     this.notifyListeners();
 
     console.log(`✅ Player ${playerId} reverted to snapshot state`);
 
-    // 11. Return the new state
+    // 12. Return the new state
     return newState;
   }
 

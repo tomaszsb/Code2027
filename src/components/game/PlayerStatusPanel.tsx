@@ -87,8 +87,12 @@ export function PlayerStatusPanel({
     borderRadius: '8px',
     padding: '8px',
     height: '100%',
-    overflow: 'visible' as const, // Changed from 'auto' to 'visible'
-    boxSizing: 'border-box' as const
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'auto' as const, // Enable scrolling for stable container
+    boxSizing: 'border-box' as const,
+    display: 'flex',
+    flexDirection: 'column' as const
   };
 
   const headerStyle = {

@@ -195,7 +195,7 @@ export class TurnService implements ITurnService {
    * Handle movement and advance to next player
    * This is for the "End Turn" button
    */
-  async endTurnWithMovement(force: boolean = false): Promise<{ nextPlayerId: string }> {
+  async endTurnWithMovement(force: boolean = false, skipAutoMove: boolean = false): Promise<{ nextPlayerId: string }> {
     console.log(`🏁 TurnService.endTurnWithMovement - Starting`);
     
     try {
@@ -233,8 +233,8 @@ export class TurnService implements ITurnService {
       console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
       await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
-      // Handle single-step movement (no choices) - but skip if player used Try Again
-      if (!currentPlayer.usedTryAgain) {
+      // Handle single-step movement (no choices) - but skip if requested (e.g., after Try Again)
+      if (!skipAutoMove) {
         const validMoves = this.movementService.getValidMoves(currentPlayer.id);
         if (validMoves.length === 1) {
           // Only one move available - perform automatic movement
@@ -242,7 +242,7 @@ export class TurnService implements ITurnService {
           await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
         }
       } else {
-        console.log(`🔄 Skipping auto-movement for ${currentPlayer.name} - used Try Again`);
+        console.log(`🔄 Skipping auto-movement for ${currentPlayer.name} - skip requested`);
       }
 
       // Check for win condition before ending turn
@@ -1661,17 +1661,6 @@ export class TurnService implements ITurnService {
       // This handles all the complex state reconstruction, action flag resets, and penalty application
       this.stateService.revertPlayerToSnapshot(playerId, timePenalty);
 
-      // 7. Set flag to prevent automatic movement on next turn
-      const gameState = this.stateService.getGameState();
-      const playerToUpdate = gameState.players.find(p => p.id === playerId);
-      if (playerToUpdate) {
-        this.stateService.updatePlayer({
-          id: playerId,
-          usedTryAgain: true
-        });
-      }
-
-
       console.log(`✅ ${snapshotPlayer.name} reverted to ${snapshotPlayer.currentSpace} with ${timePenalty} day penalty`);
 
       // 6. DO NOT save a new snapshot - preserve the original clean snapshot for multiple Try Again attempts
@@ -1698,7 +1687,7 @@ export class TurnService implements ITurnService {
       }
 
       // 10. Return success - state reversion has reset turn flags automatically
-      // Signal that turn should advance after Try Again (player's turn is complete)
+      // Signal that turn should advance after Try Again (player retries NEXT turn)
       return {
         success: true,
         message: successMessage,
@@ -1795,15 +1784,6 @@ export class TurnService implements ITurnService {
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
-    }
-
-    // Clear Try Again flag - player is taking deliberate action
-    if (currentPlayer.usedTryAgain) {
-      this.stateService.updatePlayer({
-        id: playerId,
-        usedTryAgain: false
-      });
-      console.log(`🔄 Cleared Try Again flag for ${currentPlayer.name} - taking deliberate action`);
     }
 
     const beforeState = this.stateService.getGameState();
@@ -2412,7 +2392,7 @@ export class TurnService implements ITurnService {
    */
   handleAutomaticFunding(playerId: string): TurnEffectResult {
     console.log(`💰 TurnService.handleAutomaticFunding - Starting for player ${playerId}`);
-    
+
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);

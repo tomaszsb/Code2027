@@ -72,6 +72,38 @@ export function TurnControlsWithActions({
 }: TurnControlsWithActionsProps): JSX.Element {
   const { dataService, stateService, choiceService, notificationService } = useGameContext();
 
+  // Add custom scrollbar styles
+  useEffect(() => {
+    const styleId = 'turn-controls-scrollbar-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        /* Custom scrollbar for turn controls */
+        .turn-controls-scrollable::-webkit-scrollbar {
+          width: 8px;
+        }
+        .turn-controls-scrollable::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+        }
+        .turn-controls-scrollable::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 4px;
+        }
+        .turn-controls-scrollable::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+        /* Firefox scrollbar */
+        .turn-controls-scrollable {
+          scrollbar-width: thin;
+          scrollbar-color: #888 #f1f1f1;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // Movement choice state
   const [currentChoice, setCurrentChoice] = useState<Choice | null>(null);
   const [movementChoice, setMovementChoice] = useState<Choice | null>(null);
@@ -347,7 +379,21 @@ export function TurnControlsWithActions({
       )}
 
       {/* Combined Controls and Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px', backgroundColor: colors.secondary.bg, borderRadius: '6px', border: `1px solid ${colors.secondary.border}` }}>
+      <div
+        className="turn-controls-scrollable"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          padding: '6px',
+          backgroundColor: colors.secondary.bg,
+          borderRadius: '6px',
+          border: `1px solid ${colors.secondary.border}`,
+          maxHeight: '400px',
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
 
         {/* Roll Dice - show button if can roll, otherwise show completed action */}
         {canRollDice ? (

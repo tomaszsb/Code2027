@@ -247,7 +247,7 @@ export interface ITurnService {
   
   // Separate dice and movement methods
   rollDiceAndProcessEffects(playerId: string): Promise<{ diceRoll: number }>;
-  endTurnWithMovement(force?: boolean): Promise<{ nextPlayerId: string }>;
+  endTurnWithMovement(force?: boolean, skipAutoMove?: boolean): Promise<{ nextPlayerId: string }>;
   
   // Turn validation methods  
   canPlayerTakeTurn(playerId: string): boolean;

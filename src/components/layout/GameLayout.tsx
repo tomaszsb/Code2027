@@ -15,6 +15,7 @@ import { ProjectProgress } from '../game/ProjectProgress';
 import { MovementPathVisualization } from '../game/MovementPathVisualization';
 import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { GameLog } from '../game/GameLog';
+import { DataEditor } from '../editor/DataEditor';
 import { useGameContext } from '../../context/GameContext';
 import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { NotificationUtils } from '../../utils/NotificationUtils';
@@ -39,6 +40,7 @@ export function GameLayout(): JSX.Element {
   const [isSpaceExplorerVisible, setIsSpaceExplorerVisible] = useState<boolean>(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
+  const [isDataEditorOpen, setIsDataEditorOpen] = useState<boolean>(false);
   
   // State tracking for TurnControlsWithActions component
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
@@ -50,6 +52,7 @@ export function GameLayout(): JSX.Element {
   const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
   const [turnNumber, setTurnNumber] = useState<number>(0);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [justUsedTryAgain, setJustUsedTryAgain] = useState<boolean>(false);
   const [gameStateCompletedActions, setGameStateCompletedActions] = useState<{
     diceRoll: string | undefined;
     manualActions: { [key: string]: string };
@@ -84,7 +87,7 @@ export function GameLayout(): JSX.Element {
       style.textContent = `
         .game-interface-responsive {
           display: grid;
-          grid-template-columns: max-content 1fr;
+          grid-template-columns: 1280px 1fr;
           column-gap: 8px;
           row-gap: 4px;
           height: 100vh;
@@ -93,18 +96,34 @@ export function GameLayout(): JSX.Element {
           box-sizing: border-box;
           overflow: hidden;
         }
-        
-        @media (max-width: 1400px) {
+
+        @media (max-width: 1920px) {
           .game-interface-responsive {
-            grid-template-columns: max-content 1fr;
+            grid-template-columns: 1120px 1fr;
             column-gap: 6px;
             padding: 4px;
           }
         }
-        
+
+        @media (max-width: 1600px) {
+          .game-interface-responsive {
+            grid-template-columns: 960px 1fr;
+            column-gap: 6px;
+            padding: 4px;
+          }
+        }
+
+        @media (max-width: 1400px) {
+          .game-interface-responsive {
+            grid-template-columns: 800px 1fr;
+            column-gap: 6px;
+            padding: 4px;
+          }
+        }
+
         @media (max-width: 1200px) {
           .game-interface-responsive {
-            grid-template-columns: max-content 1fr;
+            grid-template-columns: 640px 1fr;
             column-gap: 4px;
             padding: 2px;
           }
@@ -254,6 +273,7 @@ export function GameLayout(): JSX.Element {
   // Action handlers for TurnControlsWithActions component
   const handleRollDice = async () => {
     if (!currentPlayerId) return;
+    setJustUsedTryAgain(false); // Clear Try Again flag when player takes action
     setIsProcessingTurn(true);
     try {
       const result = await turnService.rollDiceWithFeedback(currentPlayerId);
@@ -292,8 +312,9 @@ export function GameLayout(): JSX.Element {
     if (!currentPlayerId) return;
     setIsProcessingTurn(true);
     try {
-      const result = await turnService.endTurnWithMovement();
+      const result = await turnService.endTurnWithMovement(false, justUsedTryAgain);
       console.log(`End turn completed for player ${currentPlayerId}:`, result);
+      setJustUsedTryAgain(false); // Reset flag after ending turn
     } catch (error) {
       console.error("Error ending turn:", error);
     } finally {
@@ -303,6 +324,7 @@ export function GameLayout(): JSX.Element {
 
   const handleManualEffect = async (effectType: string) => {
     if (!currentPlayerId) return;
+    setJustUsedTryAgain(false); // Clear Try Again flag when player takes action
     setIsProcessingTurn(true);
     try {
       const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
@@ -316,6 +338,7 @@ export function GameLayout(): JSX.Element {
 
   const handleAutomaticFunding = async () => {
     if (!currentPlayerId) return;
+    setJustUsedTryAgain(false); // Clear Try Again flag when player takes action
     setIsProcessingTurn(true);
     try {
       const result = await turnService.handleAutomaticFunding(currentPlayerId);
@@ -337,8 +360,9 @@ export function GameLayout(): JSX.Element {
 
       // If Try Again indicates turn should advance, move to next player
       if (result.success && result.shouldAdvanceTurn) {
+        setJustUsedTryAgain(true); // Set flag to skip auto-movement
         console.log('🔄 Try Again complete - advancing to next player');
-        const nextResult = await turnService.endTurnWithMovement(true);
+        const nextResult = await turnService.endTurnWithMovement(true, true);
         console.log(`Next player's turn: ${nextResult.nextPlayerId}`);
       }
     } catch (error) {
@@ -614,21 +638,30 @@ export function GameLayout(): JSX.Element {
         cardService={cardService}
       />
       
-      {/* MovementPathVisualization - DISABLED: Using board-based movement indicators instead */}
-      {false && gamePhase === 'PLAY' && !isAnyModalOpen() && (
-        <MovementPathVisualization 
-          isVisible={isMovementPathVisible}
-          onToggle={handleToggleMovementPath}
-        />
-      )}
+      {isDataEditorOpen && <DataEditor onClose={() => setIsDataEditorOpen(false)} />}
+
+      <button
+        onClick={() => setIsDataEditorOpen(true)}
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 1000,
+          background: colors.secondary.main,
+          color: 'white',
+          border: 'none',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          fontSize: '24px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+        }}
+        title="Open Data Editor"
+      >
+        ⚙️
+      </button>
       
-      {/* SpaceExplorerPanel - only during PLAY phase */}
-      {gamePhase === 'PLAY' && (
-        <SpaceExplorerPanel
-          isVisible={isSpaceExplorerVisible}
-          onToggle={handleToggleSpaceExplorer}
-        />
-      )}
     </div>
   );
 }

@@ -175,7 +175,6 @@ export interface PlayerUpdateData {
     skipTurns: number;
     canReRoll?: boolean;
   };
-  usedTryAgain?: boolean;
   activeEffects?: ActiveEffect[];
   loans?: import('./DataTypes').Loan[];
   score?: number;
