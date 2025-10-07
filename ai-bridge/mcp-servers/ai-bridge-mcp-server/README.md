@@ -4,6 +4,16 @@
 
 ---
 
+## IMPORTANT CLARIFICATION: Primary Communication System
+
+This `ai-bridge-mcp-server` describes an **alternative** communication system based on MCP tools.
+
+The **primary and currently active communication system** between Gemini and Claude is based on **polling clients** (`mcp_client.py` and `mcp_client_gemini.py`) and email-style `.txt` files.
+
+Please refer to `docs/project/CLAUDE.md` and `docs/project/GEMINI.md` for the most up-to-date documentation on the primary communication workflow.
+
+---
+
 ## Overview
 
 Single MCP server that provides both AIs with tools to read each other's messages:
