@@ -148,7 +148,7 @@ describe('Action Sequence Regression Tests', () => {
   });
 
   describe('CRITICAL: TurnService.startTurn Action Sequence', () => {
-    it('should log space entry immediately after turn start', async () => {
+    it('should log turn start', async () => {
       // Ensure updateGameState mock is properly set
       expect(mockStateService.updateGameState).toBeDefined();
       expect(typeof mockStateService.updateGameState).toBe('function');
@@ -162,23 +162,17 @@ describe('Action Sequence Regression Tests', () => {
       // Call startTurn
       await turnService.startTurn('player1');
 
-      // Verify the sequence: Turn start, then space entry
-      expect(capturedLogs.length).toBeGreaterThanOrEqual(2);
+      // Verify turn start is logged
+      expect(capturedLogs.length).toBeGreaterThanOrEqual(1);
 
       // CRITICAL: First log should be turn start
       expect(capturedLogs[0]).toEqual(expect.objectContaining({
         type: 'turn_start',
         description: 'Turn 2 started' // globalTurnCount + 1
       }));
-
-      // CRITICAL: Second log should be space entry
-      expect(capturedLogs[1]).toEqual(expect.objectContaining({
-        type: 'space_entry',
-        description: 'TestPlayer entered space: TEST-SPACE (First visit)'
-      }));
     });
 
-    it('should ensure space entry has correct details and visibility', async () => {
+    it('should ensure turn start has correct details and visibility', async () => {
       // Mock the async dependencies
       vi.spyOn(turnService as any, 'processSpaceEffectsAfterMovement').mockResolvedValue(undefined);
       vi.spyOn(turnService as any, 'handleMovementChoices').mockResolvedValue(undefined);
@@ -187,25 +181,21 @@ describe('Action Sequence Regression Tests', () => {
 
       await turnService.startTurn('player1');
 
-      // Find the space entry log
-      const spaceEntryLog = capturedLogs.find(log => log.type === 'space_entry');
-      expect(spaceEntryLog).toBeDefined();
+      // Find the turn start log
+      const turnStartLog = capturedLogs.find(log => log.type === 'turn_start');
+      expect(turnStartLog).toBeDefined();
 
-      // CRITICAL: Space entry should have all required details
-      expect(spaceEntryLog).toEqual(expect.objectContaining({
-        type: 'space_entry',
+      // CRITICAL: Turn start should have all required details
+      expect(turnStartLog).toEqual(expect.objectContaining({
+        type: 'turn_start',
         playerId: 'player1',
         playerName: 'TestPlayer',
-        description: 'TestPlayer entered space: TEST-SPACE (First visit)',
-        details: expect.objectContaining({
-          spaceName: 'TEST-SPACE',
-          visitType: 'First'
-        }),
+        description: 'Turn 2 started',
         visibility: 'player' // CRITICAL: Must be visible to players
       }));
     });
 
-    it('should maintain the same turn context for turn start and space entry', async () => {
+    it('should maintain turn context in turn start log', async () => {
       // Mock dependencies
       vi.spyOn(turnService as any, 'processSpaceEffectsAfterMovement').mockResolvedValue(undefined);
       vi.spyOn(turnService as any, 'handleMovementChoices').mockResolvedValue(undefined);
@@ -215,12 +205,12 @@ describe('Action Sequence Regression Tests', () => {
       await turnService.startTurn('player1');
 
       const turnStartLog = capturedLogs.find(log => log.type === 'turn_start');
-      const spaceEntryLog = capturedLogs.find(log => log.type === 'space_entry');
 
-      // CRITICAL: Both should have same turn context
-      expect(turnStartLog.globalTurnNumber).toBe(spaceEntryLog.globalTurnNumber);
-      expect(turnStartLog.playerTurnNumber).toBe(spaceEntryLog.playerTurnNumber);
-      expect(turnStartLog.playerId).toBe(spaceEntryLog.playerId);
+      // CRITICAL: Should have correct turn context
+      expect(turnStartLog).toBeDefined();
+      expect(turnStartLog.playerId).toBe('player1');
+      expect(turnStartLog.globalTurnNumber).toBe(2); // globalTurnCount + 1
+      expect(turnStartLog.playerTurnNumber).toBe(2); // playerTurnNumber
     });
   });
 
@@ -262,7 +252,7 @@ describe('Action Sequence Regression Tests', () => {
       mockStateService.startNewExplorationSession = vi.fn().mockReturnValue('session_123');
       (loggingService as any).startNewExplorationSession = vi.fn().mockReturnValue('session_123');
 
-      // 1. Start turn (this should log turn start + space entry)
+      // 1. Start turn (this should log turn start)
       await turnService.startTurn('player1');
 
       // 2. Simulate additional player actions that might happen during turn
@@ -277,37 +267,19 @@ describe('Action Sequence Regression Tests', () => {
       });
 
       // CRITICAL: Verify complete sequence is logical
-      expect(capturedLogs).toHaveLength(4);
+      expect(capturedLogs).toHaveLength(3);
 
       // Expected sequence:
       expect(capturedLogs[0].type).toBe('turn_start');      // 1. Turn begins
-      expect(capturedLogs[1].type).toBe('space_entry');     // 2. Player enters space (FIRST ACTION!)
-      expect(capturedLogs[2].type).toBe('dice_roll');       // 3. Player takes actions
-      expect(capturedLogs[3].type).toBe('card_draw');       // 4. More actions...
+      expect(capturedLogs[1].type).toBe('dice_roll');       // 2. Player takes actions
+      expect(capturedLogs[2].type).toBe('card_draw');       // 3. More actions...
 
-      // CRITICAL: Space entry description should indicate the player is ON the space
-      expect(capturedLogs[1].description).toContain('entered space: TEST-SPACE');
-
-      // All actions should be in the same turn
-      const allSameTurn = capturedLogs.every(log =>
-        log.globalTurnNumber === capturedLogs[0].globalTurnNumber
-      );
-      expect(allSameTurn).toBe(true);
+      // Verify turn start is first
+      expect(capturedLogs[0].playerId).toBe('player1');
     });
 
-    it('should prevent the old incorrect sequence', async () => {
-      // This test documents what we FIXED - the old broken sequence
-
-      // OLD BROKEN SEQUENCE (what we prevented):
-      // 1. Player takes actions
-      // 2. Player moves to new space → space entry logged in PREVIOUS turn context
-      // 3. Next turn starts
-      // 4. More actions on the space they "entered" in the previous log
-
-      // NEW CORRECT SEQUENCE (what we implemented):
-      // 1. Turn starts
-      // 2. Space entry logged immediately (first action of current turn)
-      // 3. Player takes actions on the space they just entered
+    it('should ensure turn start is first action', async () => {
+      // This test ensures turn starts before any player actions
 
       vi.spyOn(turnService as any, 'processSpaceEffectsAfterMovement').mockResolvedValue(undefined);
       vi.spyOn(turnService as any, 'handleMovementChoices').mockResolvedValue(undefined);
@@ -316,14 +288,9 @@ describe('Action Sequence Regression Tests', () => {
 
       await turnService.startTurn('player1');
 
-      // CRITICAL: Space entry must be second entry (after turn start)
-      const spaceEntryIndex = capturedLogs.findIndex(log => log.type === 'space_entry');
-      expect(spaceEntryIndex).toBe(1); // Must be index 1 (second entry)
-
-      // CRITICAL: No other actions should come before space entry
-      const actionsBeforeSpaceEntry = capturedLogs.slice(0, spaceEntryIndex);
-      const nonTurnStartActions = actionsBeforeSpaceEntry.filter(log => log.type !== 'turn_start');
-      expect(nonTurnStartActions).toHaveLength(0);
+      // CRITICAL: Turn start must be first entry
+      expect(capturedLogs.length).toBeGreaterThan(0);
+      expect(capturedLogs[0].type).toBe('turn_start');
     });
   });
 

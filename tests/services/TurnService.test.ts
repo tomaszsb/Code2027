@@ -456,8 +456,8 @@ describe('TurnService', () => {
       // Act
       await turnService.endTurn();
 
-      // Assert
-      expect(callOrder).toEqual(['setCurrentPlayer', 'advanceTurn', 'clearPlayerHasMoved']);
+      // Assert - advanceTurn is called BEFORE setCurrentPlayer (see TurnService.ts line 410-413)
+      expect(callOrder).toEqual(['advanceTurn', 'setCurrentPlayer', 'clearPlayerHasMoved']);
     });
 
     it('should handle state service errors gracefully', async () => {

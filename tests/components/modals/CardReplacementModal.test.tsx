@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { CardReplacementModal } from '../../../src/components/modals/CardReplacementModal';
 import { Player, Card } from '../../../src/types/DataTypes';
 import { DataService } from '../../../src/services/DataService';
@@ -52,12 +52,12 @@ describe('CardReplacementModal', () => {
     loans: []
   };
 
-  const mockOnReplace = jest.fn();
-  const mockOnCancel = jest.fn();
+  const mockOnReplace = vi.fn();
+  const mockOnCancel = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (mockDataService.getCardById as jest.Mock).mockImplementation((id: string) => {
+    vi.clearAllMocks();
+    (mockDataService.getCardById as Mock).mockImplementation((id: string) => {
       if (id === 'W1') return mockCard1;
       if (id === 'W2') return mockCard2;
       return null;
@@ -359,7 +359,7 @@ describe('CardReplacementModal', () => {
       hand: ['B1']
     };
 
-    (mockDataService.getCardById as jest.Mock).mockReturnValue({
+    (mockDataService.getCardById as Mock).mockReturnValue({
       id: 'B1',
       card_name: 'Marketing Campaign',
       card_type: 'B',
@@ -391,7 +391,7 @@ describe('CardReplacementModal', () => {
       description: 'This is a very long description that should be truncated when displayed in the card replacement modal because it exceeds the 80 character limit and would make the UI look bad'
     };
 
-    (mockDataService.getCardById as jest.Mock).mockReturnValue(longDescCard);
+    (mockDataService.getCardById as Mock).mockReturnValue(longDescCard);
 
     const playerWithLongCard: Player = {
       ...mockPlayer,
