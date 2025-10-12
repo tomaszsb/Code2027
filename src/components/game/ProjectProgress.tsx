@@ -10,13 +10,14 @@ interface ProjectProgressProps {
   currentPlayerId: string | null;
   dataService: IDataService;
   onToggleGameLog: () => void;
+  onOpenRulesModal: () => void;
 }
 
 /**
  * ProjectProgress component displays global project progress for all players.
  * Shows current phase, overall progress, and player positions in the project lifecycle.
  */
-export function ProjectProgress({ players, currentPlayerId, dataService, onToggleGameLog }: ProjectProgressProps): JSX.Element {
+export function ProjectProgress({ players, currentPlayerId, dataService, onToggleGameLog, onOpenRulesModal }: ProjectProgressProps): JSX.Element {
   const currentPlayer = players.find(p => p.id === currentPlayerId);
   
   // Get dynamic phase order from data service
@@ -161,16 +162,34 @@ export function ProjectProgress({ players, currentPlayerId, dataService, onToggl
         🚀 Project Progress Overview
       </div>
 
-      {/* Overall Progress Bar with Toggle Button */}
+      {/* Overall Progress Bar with Action Buttons */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
+        gap: '8px',
         marginBottom: '12px'
       }}>
         <div style={{ ...progressBarContainerStyle, flex: 1, marginBottom: 0 }}>
           <div style={progressBarFillStyle}></div>
         </div>
+        <button onClick={onOpenRulesModal} style={{
+          padding: '6px 12px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          backgroundColor: colors.purple.main,
+          color: colors.white,
+          border: `2px solid ${colors.white}`,
+          borderRadius: '8px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <span>📋</span>
+          <span style={{ display: window.innerWidth >= 768 ? 'inline' : 'none' }}>Rules</span>
+        </button>
         <button onClick={onToggleGameLog} style={{
           padding: '6px 12px',
           fontSize: '11px',
@@ -181,9 +200,13 @@ export function ProjectProgress({ players, currentPlayerId, dataService, onToggl
           borderRadius: '8px',
           cursor: 'pointer',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
         }}>
-          📜 Log
+          <span>📜</span>
+          <span style={{ display: window.innerWidth >= 768 ? 'inline' : 'none' }}>Log</span>
         </button>
       </div>
 

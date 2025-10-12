@@ -580,14 +580,6 @@ export function PlayerStatusItem({
               marginBottom: '8px',
               width: '100%'
             }}>
-              <button onClick={onOpenRulesModal} style={{
-                padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
-                color: colors.white, backgroundColor: colors.purple.main,
-                border: 'none', borderRadius: '4px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-              }}>
-                <span>📋</span><span>Rules</span>
-              </button>
               <button onClick={onToggleSpaceExplorer} style={{
                 padding: '6px 10px', fontSize: '0.75rem', fontWeight: 'bold',
                 color: colors.white, backgroundColor: isSpaceExplorerVisible ? colors.success.main : colors.secondary.main,

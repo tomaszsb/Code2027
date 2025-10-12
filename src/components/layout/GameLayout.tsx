@@ -10,6 +10,7 @@ import { NegotiationModal } from '../modals/NegotiationModal';
 import { RulesModal } from '../modals/RulesModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
 import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
+import { PlayerPanel } from '../player/PlayerPanel';
 import { GameBoard } from '../game/GameBoard';
 import { ProjectProgress } from '../game/ProjectProgress';
 import { MovementPathVisualization } from '../game/MovementPathVisualization';
@@ -27,7 +28,38 @@ import { Card } from '../../types/DataTypes';
  * This provides the main grid-based layout for the game application.
  */
 export function GameLayout(): JSX.Element {
-  const { stateService, dataService, cardService, turnService, movementService, notificationService } = useGameContext();
+  const {
+    stateService,
+    dataService,
+    cardService,
+    turnService,
+    movementService,
+    notificationService,
+    choiceService,
+    effectEngineService,
+    loggingService,
+    negotiationService,
+    playerActionService,
+    gameRulesService,
+    resourceService
+  } = useGameContext();
+
+  // Create service container for new PlayerPanel component
+  const gameServices = {
+    stateService,
+    dataService,
+    cardService,
+    turnService,
+    movementService,
+    notificationService,
+    choiceService,
+    effectEngineService,
+    loggingService,
+    negotiationService,
+    playerActionService,
+    gameRulesService,
+    resourceService
+  };
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
@@ -426,21 +458,43 @@ export function GameLayout(): JSX.Element {
             currentPlayerId={currentPlayerId}
             dataService={dataService}
             onToggleGameLog={handleToggleGameLog}
+            onOpenRulesModal={handleOpenRulesModal}
           />
         </div>
       )}
-      {/* Left Panel - Player Status */}
-      <div 
+      {/* Left Panel - Player Status (Split for A/B Testing) */}
+      <div
         style={{
           gridColumn: '1',
           gridRow: gamePhase === 'PLAY' ? '2' : '1',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          overflow: 'visible'
+        }}
+      >
+        {/* OLD UI - PlayerStatusPanel */}
+        <div style={{
+          flex: '1',
           background: colors.background.light,
           border: `2px solid ${colors.secondary.border}`,
           borderRadius: '8px',
           padding: gamePhase === 'PLAY' ? '0' : '15px',
-          overflow: 'visible'
-        }}
-      >
+          overflow: 'visible',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            background: colors.danger.main,
+            color: colors.white,
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontSize: '0.7rem',
+            fontWeight: 'bold',
+            zIndex: 10
+          }}>OLD UI</div>
 {gamePhase === 'PLAY' && currentPlayerId ? (() => {
           const currentPlayer = players.find(p => p.id === currentPlayerId);
 
@@ -504,6 +558,52 @@ export function GameLayout(): JSX.Element {
             </div>
           </>
         )}
+        </div>
+
+        {/* NEW UI - PlayerPanel (Mobile-First Redesign) */}
+        <div style={{
+          flex: '1',
+          background: colors.background.light,
+          border: `3px solid ${colors.success.main}`,
+          borderRadius: '8px',
+          padding: gamePhase === 'PLAY' ? '0' : '15px',
+          overflow: 'visible',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            background: colors.success.main,
+            color: colors.white,
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontSize: '0.7rem',
+            fontWeight: 'bold',
+            zIndex: 10
+          }}>NEW UI</div>
+          {gamePhase === 'PLAY' && currentPlayerId ? (
+            <PlayerPanel
+              gameServices={gameServices}
+              playerId={currentPlayerId}
+              onToggleSpaceExplorer={handleToggleSpaceExplorer}
+              onToggleMovementPath={handleToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
+              onTryAgain={handleTryAgain}
+              playerNotification={playerNotifications[currentPlayerId]}
+              onRollDice={handleRollDice}
+              completedActions={completedActions}
+            />
+          ) : (
+            <>
+              <h3>👤 New Player Panel</h3>
+              <div style={{ color: colors.text.secondary }}>
+                Mobile-first UI will be displayed here
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Center Panel - Game Board */}
