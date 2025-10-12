@@ -1,0 +1,3 @@
+[submodule "claude-ipc-mcp"]
+	path = claude-ipc-mcp
+	url = https://github.com/jdez427/claude-ipc-mcp.git
