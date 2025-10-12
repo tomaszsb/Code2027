@@ -34,7 +34,7 @@ describe('ExpandableSection', () => {
 
     it('should render the icon', () => {
       render(<ExpandableSection {...defaultProps} />);
-      expect(screen.getByTestId('section-icon')).toBeInTheDocument();
+      expect(screen.getByText('💰')).toBeInTheDocument();
     });
 
     it('should render children when expanded', () => {
@@ -77,12 +77,12 @@ describe('ExpandableSection', () => {
 
     it('should show collapse icon when expanded', () => {
       render(<ExpandableSection {...defaultProps} isExpanded={true} />);
-      expect(screen.getByTestId('collapse-icon')).toBeInTheDocument();
+      expect(screen.getByText('▼')).toBeInTheDocument();
     });
 
     it('should show expand icon when collapsed', () => {
       render(<ExpandableSection {...defaultProps} isExpanded={false} />);
-      expect(screen.getByTestId('expand-icon')).toBeInTheDocument();
+      expect(screen.getByText('▶')).toBeInTheDocument();
     });
   });
 
