@@ -136,7 +136,6 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
 
     try {
       const result = await gameServices.turnService.triggerManualEffectWithFeedback(playerId, effectType);
-      console.log(`🎴 CardsSection: Manual effect result:`, result);
 
       // Trigger the onManualEffectResult callback if provided
       if (onManualEffectResult && result) {

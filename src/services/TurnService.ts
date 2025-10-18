@@ -1662,9 +1662,6 @@ export class TurnService implements ITurnService {
     // Create effect description for modal
     const effects: DiceResultEffect[] = [];
 
-    console.log(`🔍 Building feedback for effectType: ${effectType}`);
-    console.log(`🔍 Manual effect details:`, manualEffect);
-
     if (effectType === 'cards') {
       const cardType = manualEffect.effect_action.replace('draw_', '').replace('replace_', '').toUpperCase();
       const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
@@ -1673,8 +1670,6 @@ export class TurnService implements ITurnService {
       const beforeHand = beforePlayer.hand || [];
       const afterHand = afterPlayer.hand || [];
       const drawnCardIds = afterHand.filter(cardId => !beforeHand.includes(cardId));
-
-      console.log(`🔍 Card details - Type: ${cardType}, Count: ${count}, DrawnCardIds:`, drawnCardIds);
 
       effects.push({
         type: 'cards',
@@ -1706,9 +1701,6 @@ export class TurnService implements ITurnService {
 
     const summary = effects.map(e => e.description).join(', ');
 
-    console.log(`🔍 Final effects array:`, effects);
-    console.log(`🔍 Summary:`, summary);
-
     // Log manual action to action history
     this.loggingService.info(summary, {
       playerId: currentPlayer.id,
@@ -1734,16 +1726,13 @@ export class TurnService implements ITurnService {
       );
     }
 
-    const result = {
+    return {
       diceValue: 0, // No dice roll for manual effects
       spaceName: currentPlayer.currentSpace,
       effects,
       summary,
       hasChoices: false
     };
-
-    console.log(`🔍 Returning TurnEffectResult:`, result);
-    return result;
   }
 
   /**

@@ -323,25 +323,17 @@ export function GameLayout(): JSX.Element {
   };
 
   const handleManualEffect = async (effectType: string) => {
-    console.log(`🎯 handleManualEffect CALLED with effectType: ${effectType}`);
     if (!currentPlayerId) return;
     setJustUsedTryAgain(false); // Clear Try Again flag when player takes action
     setIsProcessingTurn(true);
     try {
-      console.log(`🎯 About to call triggerManualEffectWithFeedback`);
       const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
-      console.log(`🎯 Manual effect ${effectType} completed for player ${currentPlayerId}:`, result);
-      console.log(`Result effects:`, result?.effects);
-      console.log(`Should show modal:`, result && result.effects && result.effects.length > 0);
 
       // Show modal if there are effects to display
       if (result && result.effects && result.effects.length > 0) {
-        console.log(`Opening DiceResultModal with result:`, result);
         setDiceResult(result);
         setIsDiceResultModalOpen(true);
         // Notification already sent by TurnService
-      } else {
-        console.warn(`No effects to display in modal for manual effect ${effectType}`);
       }
     } catch (error) {
       console.error("Error triggering manual effect:", error);
@@ -478,7 +470,6 @@ export function GameLayout(): JSX.Element {
             onRollDice={handleRollDice}
             onAutomaticFunding={handleAutomaticFunding}
             onManualEffectResult={(result) => {
-              console.log(`🎴 GameLayout received manual effect result:`, result);
               if (result && result.effects && result.effects.length > 0) {
                 setDiceResult(result);
                 setIsDiceResultModalOpen(true);
