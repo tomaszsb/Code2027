@@ -6,13 +6,72 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 - **Player Panel UI Refactor (October 12, 2025):**
-  - Replaced the static player panel with a dynamic, component-based system using a new `ExpandableSection` component.
+  - Replaced the static player panel with a dynamic, component-based system using individual section components (e.g., `FinancesSection`, `TimeSection`, `CardsSection`).
   - Implemented a three-column header layout (Title, Actions, Summary) for all panel sections to improve information density and usability on all screen sizes.
   - Action buttons are now centered in the header and always visible.
   - Section summary text is now right-aligned for better readability.
   - Implemented an "exclusive accordion" for the Cards section, where opening one card type collapses others.
   - Iteratively refined UI spacing and button padding based on user feedback for a tighter, more compact design.
 
+### Features (October 13, 2025)
+- **Journey Timeline Enhancement:**
+  - Added detailed visit tracking with days spent per space
+  - Implemented `SpaceVisitRecord` interface to track entry/exit times and duration
+  - Updated `TimeSection` to display days spent badges (e.g., "5d") for previously visited spaces
+  - `MovementService` now automatically calculates and records time spent when leaving spaces
+  - Backward compatible with existing saved games using the legacy `visitedSpaces` array
+
+- **E Card Usability Features:**
+  - Added visual phase restriction indicators for E cards based on current space phase
+  - Implemented "Play Card" button for E cards that are currently playable
+  - Added phase validation badges (green ✓ for playable, red ✗ for restricted cards)
+  - Added helpful restriction messages explaining when cards can be used
+  - Checks card `phase_restriction` field against current space's phase from GameConfig
+  - Supports phase types: DESIGN, CONSTRUCTION, FUNDING, REGULATORY, or "Any"
+
 ### Bug Fixes
 - **Critical `End Turn` Bug (October 12, 2025):**
-  - Fixed a game-breaking bug where the "End Turn" button was calling the wrong service method (`endTurn` instead of `endTurnWithMovement`), preventing the game from advancing to the next player.
+  - Fixed a game-breaking bug in the `NextStepButton` component where it was calling the wrong service method (`turnService.endTurn()` instead of `turnService.endTurnWithMovement()`), preventing the game from advancing to the next player.
+
+- **Card Money Sources Bug (October 13, 2025):**
+  - Fixed bug in `CardService` where B (Bank) and I (Investment) cards were not adding money when played
+  - Root cause: Code was checking for non-existent `loan_amount` and `investment_amount` CSV fields
+  - Solution: Updated to use the correct `cost` field from Cards.csv with proper type checking
+  - Money now correctly flows through `ResourceService` and appears in `moneySources.bankLoans` or `moneySources.investmentDeals`
+
+- **Get Funding Button Handler (October 13, 2025):**
+  - Fixed "Get Funding" button at `OWNER-FUND-INITIATION` space not triggering funding
+  - Root cause: Button was calling `onRollDice` handler instead of dedicated funding handler
+  - Solution: Added `onAutomaticFunding` prop chain from GameLayout → PlayerPanel → FinancesSection
+  - Button now correctly calls `TurnService.handleAutomaticFunding()` to draw and apply funding cards
+
+- **Movement Choice Premature Turn End Bug (October 16, 2025):**
+  - Fixed bug where players could end their turn on decision spaces (like PM-DECISION-CHECK) before completing all required actions
+  - Root cause 1: Movement intent wasn't being set when player selected a destination, so `moveIntent` was null at turn end
+  - Root cause 2: `TurnControlsWithActions.tsx` had logic that incorrectly allowed ending turn immediately after selecting a movement destination
+  - Solution 1: Added `setPlayerMoveIntent()` calls in `TurnService.handleMovementChoices()` and `restoreMovementChoiceIfNeeded()`
+  - Solution 2: Removed the `movementChoice && selectedDestination !== null` bypass from `hasCompletedPrimaryAction` logic
+  - Players now must complete all required actions (dice roll + manual effects) before ending turn on decision spaces
+
+### Features (October 18, 2025)
+- **Card Feedback Modal Enhancements:**
+  - DiceResultModal now displays the actual names of cards drawn/removed/replaced (e.g., "Market Research", "New plumbing systems")
+  - Card names appear below effect summaries in italics for better readability
+  - Extended modal coverage to ALL card operations:
+    - Dice rolls with card effects (already working, now enhanced with names)
+    - Automatic funding at OWNER-FUND-INITIATION (now shows modal)
+    - Manual card draws (Draw E cards, Draw W cards, etc. now show modals)
+  - Added `data.cardIds` field to `EffectResult` for passing card IDs from Effect Engine
+  - Added `cardIds` field to `DiceResultEffect` for modal display
+  - Implemented callback chain: CardsSection → PlayerPanel → GameLayout for manual effect modals
+  - Clear visual distinction: draw (+), remove (-), replace (↔) symbols
+
+### Refactoring (October 16, 2025)
+- **Data-Driven Space Configuration:**
+  - Added `special_action` field to `SpaceContent` interface for future special space behaviors
+  - Updated `DataService.parseSpaceContentCsv()` to parse `special_action` from SPACE_CONTENT.csv column 8
+  - Removed hardcoded `OWNER-FUND-INITIATION` checks in `TurnControlsWithActions.tsx`:
+    - `canRollDice` now uses `requiresManualDiceRoll` from GAME_CONFIG.csv instead of hardcoded space name
+    - `hasCompletedPrimaryAction` now uses `!requiresManualDiceRoll` instead of checking space name
+  - All space-specific behaviors now driven by CSV configuration rather than hardcoded logic
+  - Improves maintainability and makes it easier to add new special spaces without code changes
