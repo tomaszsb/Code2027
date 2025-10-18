@@ -3,6 +3,8 @@ import { ExpandableSection } from '../ExpandableSection';
 import { ActionButton } from '../ActionButton';
 import { IServiceContainer } from '../../../types/ServiceContracts';
 import { CardType } from '../../../types/DataTypes';
+import { DiscardedCardsModal } from '../../modals/DiscardedCardsModal';
+import { CardDetailsModal } from '../../modals/CardDetailsModal';
 import './CardsSection.css';
 
 /**
@@ -23,6 +25,9 @@ export interface CardsSectionProps {
 
   /** Callback to handle dice roll action */
   onRollDice?: () => Promise<void>;
+
+  /** Callback to handle manual effect results (to show modal) */
+  onManualEffectResult?: (result: import('../../../types/StateTypes').TurnEffectResult) => void;
 
   /** Completed actions tracking */
   completedActions?: {
@@ -76,6 +81,7 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   isExpanded,
   onToggle,
   onRollDice,
+  onManualEffectResult,
   completedActions = { manualActions: {} }
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -83,12 +89,18 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   const [isRollingDice, setIsRollingDice] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [expandedCardType, setExpandedCardType] = useState<CardType | null>(null);
+  const [showDiscardedModal, setShowDiscardedModal] = useState(false);
+  const [selectedCardForDetails, setSelectedCardForDetails] = useState<string | null>(null);
 
   // Get player state
   const player = gameServices.stateService.getPlayer(playerId);
   if (!player) {
     return null;
   }
+
+  // Get current space phase for E card validation
+  const currentSpaceConfig = gameServices.dataService.getGameConfigBySpace(player.currentSpace);
+  const currentPhase = currentSpaceConfig?.phase;
 
   // Get ALL manual effects for cards from current space
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
@@ -123,7 +135,13 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
     setError(null);
 
     try {
-      await gameServices.turnService.triggerManualEffectWithFeedback(playerId, effectType);
+      const result = await gameServices.turnService.triggerManualEffectWithFeedback(playerId, effectType);
+      console.log(`🎴 CardsSection: Manual effect result:`, result);
+
+      // Trigger the onManualEffectResult callback if provided
+      if (onManualEffectResult && result) {
+        onManualEffectResult(result);
+      }
     } catch (err) {
       setError(`Failed to perform ${effectType} action. Please try again.`);
       console.error(`Manual effect error (${effectType}):`, err);
@@ -212,8 +230,15 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   ) : undefined;
 
   const handleViewDiscarded = () => {
-    // TODO: Implement discard pile modal/drawer
-    console.log('View discarded cards - to be implemented');
+    setShowDiscardedModal(true);
+  };
+
+  const handleCardDetailsOpen = (cardId: string) => {
+    setSelectedCardForDetails(cardId);
+  };
+
+  const handleCardDetailsClose = () => {
+    setSelectedCardForDetails(null);
   };
 
   const handleRetry = () => {
@@ -240,6 +265,32 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
     }
   };
 
+  // Check if an E card can be played based on phase restriction
+  const canPlayCard = (card: any): boolean => {
+    if (card.card_type !== 'E') return false;
+
+    // If no phase restriction or restriction is "Any", card can always be played
+    if (!card.phase_restriction || card.phase_restriction === 'Any') return true;
+
+    // Otherwise, check if current phase matches the restriction
+    return currentPhase?.toUpperCase() === card.phase_restriction.toUpperCase();
+  };
+
+  // Handle playing a card
+  const handlePlayCard = async (cardId: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await gameServices.cardService.playCard(playerId, cardId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to play card. Please try again.');
+      console.error(`Card play error:`, err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Summary content - always visible
   const summary = (
     <span>
@@ -256,19 +307,20 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   );
 
   return (
-    <ExpandableSection
-      title="CARDS"
-      icon="🎴"
-      hasAction={hasCardActions}
-      isExpanded={isExpanded}
-      onToggle={onToggle}
-      ariaControls="cards-content"
-      isLoading={isLoading}
-      error={error || undefined}
-      onRetry={error ? handleRetry : undefined}
-      headerActions={headerActions}
-      summary={summary}
-    >
+    <>
+      <ExpandableSection
+        title="CARDS"
+        icon="🎴"
+        hasAction={hasCardActions}
+        isExpanded={isExpanded}
+        onToggle={onToggle}
+        ariaControls="cards-content"
+        isLoading={isLoading}
+        error={error || undefined}
+        onRetry={error ? handleRetry : undefined}
+        headerActions={headerActions}
+        summary={summary}
+      >
       <div className="cards-content" id="cards-content">
 
         {/* Card List - grouped by type */}
@@ -341,6 +393,37 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
                                     <span className="detail-value">{item.card.duration_turns} turns</span>
                                   </div>
                                 )}
+
+                                {/* E Card Phase Restriction */}
+                                {item.card.card_type === 'E' && item.card.phase_restriction && (
+                                  <div className="card-detail-row">
+                                    <span className="detail-label">Phase:</span>
+                                    <span className={`detail-value phase-badge ${canPlayCard(item.card) ? 'phase-badge--active' : 'phase-badge--inactive'}`}>
+                                      {item.card.phase_restriction}
+                                      {canPlayCard(item.card) ? ' ✓' : ' ✗'}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Play Card Button for E Cards */}
+                                {item.card.card_type === 'E' && canPlayCard(item.card) && (
+                                  <div className="card-action-row">
+                                    <ActionButton
+                                      label="Play Card"
+                                      variant="primary"
+                                      onClick={() => handlePlayCard(item.id)}
+                                      disabled={isLoading}
+                                      isLoading={isLoading}
+                                      ariaLabel={`Play ${item.card.card_name}`}
+                                    />
+                                  </div>
+                                )}
+                                {item.card.card_type === 'E' && !canPlayCard(item.card) && item.card.phase_restriction !== 'Any' && (
+                                  <div className="card-restriction-message">
+                                    Can only be played during {item.card.phase_restriction} phase
+                                    {currentPhase && ` (Current: ${currentPhase})`}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -369,5 +452,22 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
         </div>
       </div>
     </ExpandableSection>
+
+      {/* Discarded Cards Modal */}
+      <DiscardedCardsModal
+        player={player}
+        isVisible={showDiscardedModal}
+        onClose={() => setShowDiscardedModal(false)}
+        onOpenCardDetailsModal={handleCardDetailsOpen}
+      />
+
+      {/* Card Details Modal */}
+      {selectedCardForDetails && (
+        <CardDetailsModal
+          cardId={selectedCardForDetails}
+          onClose={handleCardDetailsClose}
+        />
+      )}
+    </>
   );
 };

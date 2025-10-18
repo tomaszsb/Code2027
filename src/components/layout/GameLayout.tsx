@@ -5,6 +5,7 @@ import { colors } from '../../styles/theme';
 import { CardModal } from '../modals/CardModal';
 import { CardDetailsModal } from '../modals/CardDetailsModal';
 import { ChoiceModal } from '../modals/ChoiceModal';
+import { DiceResultModal } from '../modals/DiceResultModal';
 import { EndGameModal } from '../modals/EndGameModal';
 import { NegotiationModal } from '../modals/NegotiationModal';
 import { RulesModal } from '../modals/RulesModal';
@@ -72,6 +73,8 @@ export function GameLayout(): JSX.Element {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
   const [isDataEditorOpen, setIsDataEditorOpen] = useState<boolean>(false);
+  const [isDiceResultModalOpen, setIsDiceResultModalOpen] = useState<boolean>(false);
+  const [diceResult, setDiceResult] = useState<any>(null);
 
   // State tracking for processing and notifications
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
@@ -273,7 +276,11 @@ export function GameLayout(): JSX.Element {
       const currentPlayer = players.find(p => p.id === currentPlayerId);
 
       if (currentPlayer) {
-        // Use unified notification system
+        // Show dice result modal with detailed feedback
+        setDiceResult(result);
+        setIsDiceResultModalOpen(true);
+
+        // Also use unified notification system for the banner
         notificationService.notify(
           NotificationUtils.createDiceRollNotification(result.diceValue, result.effects || [], currentPlayer.name),
           {
@@ -316,12 +323,26 @@ export function GameLayout(): JSX.Element {
   };
 
   const handleManualEffect = async (effectType: string) => {
+    console.log(`🎯 handleManualEffect CALLED with effectType: ${effectType}`);
     if (!currentPlayerId) return;
     setJustUsedTryAgain(false); // Clear Try Again flag when player takes action
     setIsProcessingTurn(true);
     try {
+      console.log(`🎯 About to call triggerManualEffectWithFeedback`);
       const result = await turnService.triggerManualEffectWithFeedback(currentPlayerId, effectType);
-      console.log(`Manual effect ${effectType} completed for player ${currentPlayerId}:`, result);
+      console.log(`🎯 Manual effect ${effectType} completed for player ${currentPlayerId}:`, result);
+      console.log(`Result effects:`, result?.effects);
+      console.log(`Should show modal:`, result && result.effects && result.effects.length > 0);
+
+      // Show modal if there are effects to display
+      if (result && result.effects && result.effects.length > 0) {
+        console.log(`Opening DiceResultModal with result:`, result);
+        setDiceResult(result);
+        setIsDiceResultModalOpen(true);
+        // Notification already sent by TurnService
+      } else {
+        console.warn(`No effects to display in modal for manual effect ${effectType}`);
+      }
     } catch (error) {
       console.error("Error triggering manual effect:", error);
     } finally {
@@ -336,6 +357,14 @@ export function GameLayout(): JSX.Element {
     try {
       const result = await turnService.handleAutomaticFunding(currentPlayerId);
       console.log(`Automatic funding completed for player ${currentPlayerId}:`, result);
+
+      // Show modal with funding details
+      if (result && result.effects && result.effects.length > 0) {
+        setDiceResult(result);
+        setIsDiceResultModalOpen(true);
+
+        // Notification is already sent by TurnService
+      }
     } catch (error) {
       console.error("Error handling automatic funding:", error);
     } finally {
@@ -448,6 +477,13 @@ export function GameLayout(): JSX.Element {
             playerNotification={playerNotifications[currentPlayerId]}
             onRollDice={handleRollDice}
             onAutomaticFunding={handleAutomaticFunding}
+            onManualEffectResult={(result) => {
+              console.log(`🎴 GameLayout received manual effect result:`, result);
+              if (result && result.effects && result.effects.length > 0) {
+                setDiceResult(result);
+                setIsDiceResultModalOpen(true);
+              }
+            }}
             completedActions={completedActions}
           />
         ) : (
@@ -566,7 +602,14 @@ export function GameLayout(): JSX.Element {
       
       {/* ChoiceModal - always rendered, visibility controlled by state */}
       <ChoiceModal />
-      
+
+      {/* DiceResultModal - shows detailed dice roll feedback */}
+      <DiceResultModal
+        isOpen={isDiceResultModalOpen}
+        result={diceResult}
+        onClose={() => setIsDiceResultModalOpen(false)}
+      />
+
       {/* EndGameModal - always rendered, visibility controlled by state */}
       <EndGameModal />
       

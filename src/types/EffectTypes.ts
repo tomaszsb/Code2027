@@ -225,6 +225,10 @@ export interface EffectResult {
   effectType: Effect['effectType'];
   error?: string;
   resultingEffects?: Effect[];  // Some effects may trigger additional effects
+  data?: {
+    cardIds?: string[];  // IDs of cards that were drawn, removed, or affected
+    [key: string]: any;  // Allow for other effect-specific data
+  };
 }
 
 /**

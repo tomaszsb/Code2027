@@ -4,7 +4,7 @@ import { INotificationService } from './NotificationService';
 import { GameState, Player, DiceResultEffect, TurnEffectResult } from '../types/StateTypes';
 import { DiceEffect, SpaceEffect, Movement, CardType, VisitType } from '../types/DataTypes';
 import { EffectFactory } from '../utils/EffectFactory';
-import { EffectContext } from '../types/EffectTypes';
+import { EffectContext, Effect } from '../types/EffectTypes';
 import { formatManualEffectButton, formatDiceRollFeedback, formatActionFeedback } from '../utils/buttonFormatting';
 
 export class TurnService implements ITurnService {
@@ -815,8 +815,9 @@ export class TurnService implements ITurnService {
 
   /**
    * Process ONLY dice effects (not space effects) for a dice roll
+   * Returns the effects that were generated for feedback purposes and the processing results
    */
-  async processDiceRollEffects(playerId: string, diceRoll: number): Promise<GameState> {
+  async processDiceRollEffects(playerId: string, diceRoll: number): Promise<{ gameState: GameState, generatedEffects: Effect[], effectResults?: import('../types/EffectTypes').BatchEffectResult }> {
     const currentPlayer = this.stateService.getPlayer(playerId);
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
@@ -825,17 +826,17 @@ export class TurnService implements ITurnService {
     console.log(`🎲 Processing dice roll effects for ${currentPlayer.name} on ${currentPlayer.currentSpace} (rolled ${diceRoll})`);
 
     try {
-      // Get ONLY dice effect data from DataService  
+      // Get ONLY dice effect data from DataService
       const diceEffectsData = this.dataService.getDiceEffects(
-        currentPlayer.currentSpace, 
+        currentPlayer.currentSpace,
         currentPlayer.visitType
       );
-      
+
       if (diceEffectsData.length === 0) {
         console.log(`ℹ️ No dice effects to process for ${currentPlayer.currentSpace}`);
-        return this.stateService.getGameState();
+        return { gameState: this.stateService.getGameState(), generatedEffects: [], effectResults: undefined };
       }
-      
+
       // Generate ONLY effects from dice roll using EffectFactory
       const diceEffects = EffectFactory.createEffectsFromDiceRoll(
         diceEffectsData,
@@ -844,15 +845,15 @@ export class TurnService implements ITurnService {
         diceRoll,
         currentPlayer.name
       );
-      
+
       console.log(`🎲 Generated ${diceEffects.length} dice effects from roll ${diceRoll}`);
-      
+
       if (diceEffects.length > 0) {
         if (!this.effectEngineService) {
           console.error(`❌ EffectEngineService not available - cannot process ${diceEffects.length} dice effects`);
           throw new Error('EffectEngineService not initialized - dice effects cannot be processed');
         }
-        
+
         // Create effect processing context for dice effects only
         const effectContext: EffectContext = {
           source: 'dice_roll',
@@ -865,20 +866,22 @@ export class TurnService implements ITurnService {
             playerName: currentPlayer.name
           }
         };
-        
+
         // Process ONLY dice effects through the Effect Engine
         console.log(`🔧 Processing ${diceEffects.length} dice effects through Effect Engine...`);
         const processingResult = await this.effectEngineService.processEffects(diceEffects, effectContext);
-        
+
         if (!processingResult.success) {
           console.error(`❌ Failed to process some dice effects: ${processingResult.errors.join(', ')}`);
           // Log errors but don't throw - some effects may have succeeded
         } else {
           console.log(`✅ All dice effects processed successfully: ${processingResult.successfulEffects}/${processingResult.totalEffects} effects completed`);
         }
+
+        return { gameState: this.stateService.getGameState(), generatedEffects: diceEffects, effectResults: processingResult };
       }
 
-      return this.stateService.getGameState();
+      return { gameState: this.stateService.getGameState(), generatedEffects: diceEffects, effectResults: undefined };
     } catch (error) {
       console.error(`❌ Error processing dice effects for ${currentPlayer.name}:`, error);
       throw error;
@@ -1658,15 +1661,28 @@ export class TurnService implements ITurnService {
 
     // Create effect description for modal
     const effects: DiceResultEffect[] = [];
-    
+
+    console.log(`🔍 Building feedback for effectType: ${effectType}`);
+    console.log(`🔍 Manual effect details:`, manualEffect);
+
     if (effectType === 'cards') {
-      const cardType = manualEffect.effect_action.replace('draw_', '').toUpperCase();
+      const cardType = manualEffect.effect_action.replace('draw_', '').replace('replace_', '').toUpperCase();
       const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
+
+      // Determine which cards were drawn by comparing before/after hands
+      const beforeHand = beforePlayer.hand || [];
+      const afterHand = afterPlayer.hand || [];
+      const drawnCardIds = afterHand.filter(cardId => !beforeHand.includes(cardId));
+
+      console.log(`🔍 Card details - Type: ${cardType}, Count: ${count}, DrawnCardIds:`, drawnCardIds);
+
       effects.push({
         type: 'cards',
         description: `You picked up ${count} ${cardType} cards!`,
         cardType: cardType,
-        cardCount: count
+        cardCount: count,
+        cardAction: 'draw',
+        cardIds: drawnCardIds
       });
     } else if (effectType === 'money') {
       const action = manualEffect.effect_action; // 'add' or 'subtract'
@@ -1689,6 +1705,9 @@ export class TurnService implements ITurnService {
     }
 
     const summary = effects.map(e => e.description).join(', ');
+
+    console.log(`🔍 Final effects array:`, effects);
+    console.log(`🔍 Summary:`, summary);
 
     // Log manual action to action history
     this.loggingService.info(summary, {
@@ -1715,13 +1734,16 @@ export class TurnService implements ITurnService {
       );
     }
 
-    return {
+    const result = {
       diceValue: 0, // No dice roll for manual effects
       spaceName: currentPlayer.currentSpace,
       effects,
       summary,
       hasChoices: false
     };
+
+    console.log(`🔍 Returning TurnEffectResult:`, result);
+    return result;
   }
 
   /**
@@ -2018,63 +2040,49 @@ export class TurnService implements ITurnService {
 
     const beforeMoney = currentPlayer.money;
     const beforeTime = currentPlayer.timeSpent;
-    // Track card counts by type before processing
-    const beforeCards: Record<string, number> = {
-      W: this.cardService.getPlayerCardCount(playerId, 'W'),
-      B: this.cardService.getPlayerCardCount(playerId, 'B'),
-      E: this.cardService.getPlayerCardCount(playerId, 'E'),
-      L: this.cardService.getPlayerCardCount(playerId, 'L'),
-      I: this.cardService.getPlayerCardCount(playerId, 'I')
-    };
 
-    // Process effects using the dice-only method (not space effects)
-    await this.processDiceRollEffects(playerId, diceRoll);
+    // Process effects using the dice-only method and get the generated effects and results
+    const { gameState, generatedEffects, effectResults } = await this.processDiceRollEffects(playerId, diceRoll);
 
-    // Capture changes after processing
-    const afterPlayer = this.stateService.getPlayer(playerId);
-    if (!afterPlayer) return;
+    // Convert generated effects to DiceResultEffect format, enriched with card IDs from results
+    generatedEffects.forEach((effect, index) => {
+      // Get the corresponding result to access card IDs
+      const effectResult = effectResults?.results[index];
 
-    // Track money changes
-    const moneyChange = afterPlayer.money - beforeMoney;
-    if (moneyChange !== 0) {
-      effects.push({
-        type: 'money',
-        description: moneyChange > 0 ? 'Received project funding' : 'Paid project costs',
-        value: moneyChange
-      });
-    }
-
-    // Track time changes
-    const timeChange = afterPlayer.timeSpent - beforeTime;
-    if (timeChange !== 0) {
-      effects.push({
-        type: 'time',
-        description: timeChange > 0 ? 'Project delayed' : 'Gained efficiency',
-        value: timeChange
-      });
-    }
-
-    // Track card changes
-    Object.keys(beforeCards).forEach(cardType => {
-      const before = beforeCards[cardType];
-      const after = this.cardService.getPlayerCardCount(playerId, cardType as CardType);
-      const cardChange = after - before;
-      
-      if (cardChange > 0) {
+      if (effect.effectType === 'CARD_DRAW') {
         effects.push({
           type: 'cards',
-          description: `Drew ${this.getCardTypeName(cardType)} cards`,
-          cardType: cardType,
-          cardCount: cardChange
+          description: `Drew ${effect.payload.count} ${this.getCardTypeName(effect.payload.cardType)} card${effect.payload.count > 1 ? 's' : ''}`,
+          cardType: effect.payload.cardType,
+          cardCount: effect.payload.count,
+          cardAction: 'draw',
+          cardIds: effectResult?.data?.cardIds || []
         });
-      } else if (cardChange < 0) {
+      } else if (effect.effectType === 'CARD_DISCARD') {
         effects.push({
           type: 'cards',
-          description: `Used ${this.getCardTypeName(cardType)} cards`,
-          cardType: cardType,
-          cardCount: Math.abs(cardChange)
+          description: `Removed ${effect.payload.count || effect.payload.cardIds.length} ${this.getCardTypeName(effect.payload.cardType || 'card')} card${(effect.payload.count || effect.payload.cardIds.length) > 1 ? 's' : ''}`,
+          cardType: effect.payload.cardType,
+          cardCount: effect.payload.count || effect.payload.cardIds.length,
+          cardAction: 'remove',
+          cardIds: effectResult?.data?.cardIds || effect.payload.cardIds || []
         });
+      } else if (effect.effectType === 'RESOURCE_CHANGE') {
+        if (effect.payload.resource === 'MONEY') {
+          effects.push({
+            type: 'money',
+            description: effect.payload.amount > 0 ? 'Received project funding' : 'Paid project costs',
+            value: effect.payload.amount
+          });
+        } else if (effect.payload.resource === 'TIME') {
+          effects.push({
+            type: 'time',
+            description: effect.payload.amount > 0 ? 'Project delayed' : 'Gained efficiency',
+            value: effect.payload.amount
+          });
+        }
       }
+      // Skip LOG effects - they're for internal tracking
     });
 
     // Check for movement choices
@@ -2624,7 +2632,9 @@ export class TurnService implements ITurnService {
         type: 'cards',
         description: `${fundingDescription} - ${fundingCardType} card awarded and applied!`,
         cardType: fundingCardType,
-        cardCount: 1
+        cardCount: 1,
+        cardAction: 'draw',
+        cardIds: result.drawnCardId ? [result.drawnCardId] : []
       }];
 
       // Generate detailed feedback message for non-dice action and store it in state

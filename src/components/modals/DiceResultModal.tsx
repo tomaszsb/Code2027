@@ -2,6 +2,7 @@ import React from 'react';
 import { colors } from '../../styles/theme';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiceResultEffect, TurnEffectResult } from '../../types/StateTypes';
+import { useGameContext } from '../../context/GameContext';
 
 // Re-export for convenience
 export type DiceRollResult = TurnEffectResult;
@@ -19,6 +20,8 @@ interface DiceResultModalProps {
  * Matches the comprehensive feedback system from code2026
  */
 export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResultModalProps): JSX.Element | null {
+  const { dataService } = useGameContext();
+
   if (!isOpen || !result) {
     return null;
   }
@@ -83,17 +86,39 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
 
   const renderEffect = (effect: DiceResultEffect, index: number) => {
     const icon = getEffectIcon(effect.type);
-    const color = getEffectColor(effect.type);
+    let color = getEffectColor(effect.type);
+
+    // Use warning color for card removals
+    if (effect.type === 'cards' && effect.cardAction === 'remove') {
+      color = colors.warning.main;
+    }
     
     let formattedValue = '';
     if (effect.type === 'money' && effect.value !== undefined) {
       const formatted = FormatUtils.formatResourceChange(effect.value, 'money');
       formattedValue = formatted.text;
     } else if (effect.type === 'time' && effect.value !== undefined) {
-      const formatted = FormatUtils.formatResourceChange(effect.value, 'time');  
+      const formatted = FormatUtils.formatResourceChange(effect.value, 'time');
       formattedValue = formatted.text;
     } else if (effect.type === 'cards' && effect.cardCount && effect.cardType) {
-      formattedValue = `+${effect.cardCount} ${effect.cardType} card${effect.cardCount > 1 ? 's' : ''}`;
+      // Format based on card action type
+      const action = effect.cardAction || 'draw';
+      if (action === 'draw') {
+        formattedValue = `+${effect.cardCount} ${effect.cardType} card${effect.cardCount > 1 ? 's' : ''}`;
+      } else if (action === 'remove') {
+        formattedValue = `-${effect.cardCount} ${effect.cardType} card${effect.cardCount > 1 ? 's' : ''}`;
+      } else if (action === 'replace') {
+        formattedValue = `↔ ${effect.cardCount} ${effect.cardType} card${effect.cardCount > 1 ? 's' : ''}`;
+      }
+    }
+
+    // Get card names if card IDs are available
+    let cardNames: string[] = [];
+    if (effect.type === 'cards' && effect.cardIds && effect.cardIds.length > 0) {
+      cardNames = effect.cardIds.map(cardId => {
+        const card = dataService.getCardById(cardId);
+        return card ? card.card_name : cardId;
+      });
     }
 
     return (
@@ -118,6 +143,11 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           <div style={{ color: colors.secondary.main, fontSize: '14px' }}>
             {effect.description}
           </div>
+          {cardNames.length > 0 && (
+            <div style={{ color: colors.text.primary, fontSize: '13px', marginTop: '6px', fontStyle: 'italic' }}>
+              {cardNames.join(', ')}
+            </div>
+          )}
         </div>
       </div>
     );

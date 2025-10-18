@@ -291,7 +291,8 @@ export class EffectEngineService implements IEffectEngineService {
                 return {
                   success: true,
                   effectType: effect.effectType,
-                  resultingEffects: playCardEffects
+                  resultingEffects: playCardEffects,
+                  data: { cardIds: drawnCards }
                 };
               }
               
@@ -313,6 +314,7 @@ export class EffectEngineService implements IEffectEngineService {
               return {
                 success: true,
                 effectType: effect.effectType,
+                data: { cardIds: drawnCards },
                 resultingEffects: [{
                   effectType: 'LOG',
                   payload: {
@@ -365,7 +367,7 @@ export class EffectEngineService implements IEffectEngineService {
             
             try {
               const discardResult = await this.cardService.discardCards(payload.playerId, cardIdsToDiscard, source, reason);
-              
+
               if (!discardResult) {
                 return {
                   success: false,
@@ -373,9 +375,13 @@ export class EffectEngineService implements IEffectEngineService {
                   error: `Failed to discard cards for player ${payload.playerId}: Card discard operation failed`
                 };
               }
-              
+
               console.log(`    ✅ Successfully discarded ${cardIdsToDiscard.length} card(s)`);
-              success = true;
+              return {
+                success: true,
+                effectType: effect.effectType,
+                data: { cardIds: cardIdsToDiscard }
+              };
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Unknown card discard error';
               return {

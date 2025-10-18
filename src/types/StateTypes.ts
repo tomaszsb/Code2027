@@ -153,6 +153,7 @@ export interface PlayerUpdateData {
   currentSpace?: string;
   visitType?: 'First' | 'Subsequent';
   visitedSpaces?: string[];
+  spaceVisitLog?: import('./DataTypes').SpaceVisitRecord[];
   money?: number;
   timeSpent?: number;
   projectScope?: number;
@@ -178,6 +179,9 @@ export interface PlayerUpdateData {
   activeEffects?: ActiveEffect[];
   loans?: import('./DataTypes').Loan[];
   score?: number;
+  moneySources?: import('./DataTypes').MoneySources;
+  expenditures?: import('./DataTypes').Expenditures;
+  moveIntent?: string | null;
 }
 
 export type PlayerCards = {
@@ -197,6 +201,8 @@ export interface DiceResultEffect {
   value?: number;
   cardType?: string;
   cardCount?: number;
+  cardAction?: 'draw' | 'remove' | 'replace';  // For cards: what action was performed
+  cardIds?: string[];  // IDs of the actual cards that were drawn/removed
   moveOptions?: string[];
 }
 

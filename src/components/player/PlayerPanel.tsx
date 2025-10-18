@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IServiceContainer } from '../../types/ServiceContracts';
 import { FinancesSection } from './sections/FinancesSection';
 import { TimeSection } from './sections/TimeSection';
@@ -6,6 +6,7 @@ import { CardsSection } from './sections/CardsSection';
 import { CurrentCardSection } from './sections/CurrentCardSection';
 import { ProjectScopeSection } from './sections/ProjectScopeSection';
 import { NextStepButton } from './NextStepButton';
+import { Choice } from '../../types/CommonTypes';
 import './PlayerPanel.css';
 
 /**
@@ -38,6 +39,12 @@ export interface PlayerPanelProps {
 
   /** Callback to handle dice roll action */
   onRollDice?: () => Promise<void>;
+
+  /** Callback to handle automatic funding at OWNER-FUND-INITIATION space */
+  onAutomaticFunding?: () => Promise<void>;
+
+  /** Callback to handle manual effect results (to show modal) */
+  onManualEffectResult?: (result: import('../../types/StateTypes').TurnEffectResult) => void;
 
   /** Completed actions tracking */
   completedActions?: {
@@ -89,6 +96,8 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
   onTryAgain,
   playerNotification,
   onRollDice,
+  onAutomaticFunding,
+  onManualEffectResult,
   completedActions = { manualActions: {} }
 }) => {
   // Section expand/collapse state
@@ -97,6 +106,60 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
   const [isFinancesExpanded, setIsFinancesExpanded] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
   const [isCardsExpanded, setIsCardsExpanded] = useState(false);
+
+  // Movement choice state
+  const [movementChoice, setMovementChoice] = useState<Choice | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
+
+  // Subscribe to game state for movement choices
+  useEffect(() => {
+    const unsubscribe = gameServices.stateService.subscribe((gameState) => {
+      // Only track movement choices for this player
+      if (gameState.currentPlayerId === playerId && gameState.awaitingChoice?.type === 'MOVEMENT') {
+        setMovementChoice(gameState.awaitingChoice);
+
+        // Check if player already has moveIntent set (from previous selection)
+        const player = gameState.players.find(p => p.id === playerId);
+        if (player?.moveIntent) {
+          setSelectedDestination(player.moveIntent);
+        } else {
+          setSelectedDestination(null);
+        }
+      } else if (gameState.currentPlayerId === playerId && !gameState.awaitingChoice) {
+        setMovementChoice(null);
+        setSelectedDestination(null);
+      }
+    });
+
+    // Initialize with current state
+    const gameState = gameServices.stateService.getGameState();
+    if (gameState.currentPlayerId === playerId && gameState.awaitingChoice?.type === 'MOVEMENT') {
+      setMovementChoice(gameState.awaitingChoice);
+      const player = gameState.players.find(p => p.id === playerId);
+      if (player?.moveIntent) {
+        setSelectedDestination(player.moveIntent);
+      }
+    }
+
+    return unsubscribe;
+  }, [gameServices.stateService, playerId]);
+
+  // Handle movement choice selection
+  const handleMovementChoice = (destinationId: string) => {
+    // Allow changing selection until End Turn is pressed
+    if (selectedDestination === destinationId) {
+      console.log(`🎯 PlayerPanel: Same destination clicked: ${destinationId}, no change needed`);
+      return;
+    }
+
+    console.log(`🎯 PlayerPanel: ${selectedDestination ? 'Changing' : 'Selecting'} destination: ${destinationId}`);
+    setSelectedDestination(destinationId);
+
+    // Resolve the choice immediately (can be changed until End Turn is pressed)
+    if (movementChoice) {
+      gameServices.choiceService.resolveChoice(movementChoice.id, destinationId);
+    }
+  };
 
   // Get player data for header
   const player = gameServices.stateService.getPlayer(playerId);
@@ -140,6 +203,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
         isExpanded={isFinancesExpanded}
         onToggle={() => setIsFinancesExpanded(!isFinancesExpanded)}
         onRollDice={onRollDice}
+        onAutomaticFunding={onAutomaticFunding}
         completedActions={completedActions}
       />
 
@@ -157,8 +221,61 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
         isExpanded={isCardsExpanded}
         onToggle={() => setIsCardsExpanded(!isCardsExpanded)}
         onRollDice={onRollDice}
+        onManualEffectResult={onManualEffectResult}
         completedActions={completedActions}
       />
+
+      {/* Movement Choice Buttons */}
+      {movementChoice && (
+        <div style={{
+          padding: '6px',
+          backgroundColor: '#e3f2fd',
+          border: '2px solid #2196f3',
+          borderRadius: '6px',
+          margin: '4px 0'
+        }}>
+          <div style={{
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: '#1976d2',
+            textAlign: 'center',
+            marginBottom: '4px'
+          }}>
+            🚶 Choose Your Destination
+          </div>
+          {movementChoice.options.map((option, index) => {
+            const isSelected = selectedDestination === option.id;
+
+            return (
+              <button
+                key={index}
+                onClick={() => handleMovementChoice(option.id)}
+                disabled={false}
+                style={{
+                  padding: '4px 8px',
+                  margin: '2px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  backgroundColor: isSelected ? '#4caf50' : '#2196f3',
+                  color: 'white',
+                  border: isSelected ? '2px solid #2e7d32' : 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: 1,
+                  boxSizing: 'border-box',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                }}
+              >
+                {isSelected ? '✅ ' : '🎯 '}{option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Bottom Row - Try Again (left) and End Turn (right) */}
       <div className="player-panel__bottom">
