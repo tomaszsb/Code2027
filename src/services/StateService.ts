@@ -269,7 +269,8 @@ export class StateService implements IStateService {
       currentPlayerId: nextPlayerId,
       hasPlayerMovedThisTurn: false,
       hasPlayerRolledDice: false,
-      selectedDestination: null
+      selectedDestination: null,
+      awaitingChoice: null // Clear any pending choices from previous player
     };
 
     this.currentState = newState;
@@ -427,6 +428,9 @@ export class StateService implements IStateService {
       awaitingChoice: choice
     };
 
+    // Recalculate action counts when a choice is set
+    this.updateActionCounts();
+
     console.log(`🔄 StateService: About to notify ${this.listeners.length} subscribers about choice update`);
     this.notifyListeners();
     console.log(`✅ StateService: Subscribers notified about choice update`);
@@ -437,11 +441,14 @@ export class StateService implements IStateService {
     if (this.currentState.awaitingChoice) {
       console.log(`🎯 Clearing awaiting choice: ${this.currentState.awaitingChoice.id}`);
     }
-    
+
     this.currentState = {
       ...this.currentState,
       awaitingChoice: null
     };
+
+    // Recalculate action counts when a choice is cleared
+    this.updateActionCounts();
 
     this.notifyListeners();
     return this.currentState;
@@ -464,6 +471,37 @@ export class StateService implements IStateService {
     };
     this.notifyListeners();
     return this.currentState;
+  }
+
+  setPlayerMoveIntent(playerId: string, destination: string | null): GameState {
+    console.log(`🎯 Setting move intent for player ${playerId}: ${destination}`);
+
+    const playerIndex = this.currentState.players.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) {
+      throw new Error(`Player with ID "${playerId}" not found`);
+    }
+
+    const updatedPlayer = {
+      ...this.currentState.players[playerIndex],
+      moveIntent: destination
+    };
+
+    const newPlayers = [...this.currentState.players];
+    newPlayers[playerIndex] = updatedPlayer;
+
+    const newState: GameState = {
+      ...this.currentState,
+      players: newPlayers
+    };
+
+    this.currentState = newState;
+
+    // Recalculate action counts when moveIntent is set
+    // This ensures End Turn button state is correct regardless of action order
+    this.updateActionCounts();
+
+    this.notifyListeners();
+    return { ...this.currentState };
   }
 
   setPlayerHasMoved(): GameState {
@@ -667,7 +705,9 @@ export class StateService implements IStateService {
     try {
       // Check if dice roll is required for this space
       const spaceConfig = this.dataService.getGameConfigBySpace(player.currentSpace);
-      if (spaceConfig && spaceConfig.requires_dice_roll) {
+      const requiresDiceRoll = spaceConfig?.requires_dice_roll ?? true; // Default to true if not specified
+
+      if (requiresDiceRoll) {
         availableTypes.push('dice');
         required++;
         // Check if dice has been rolled
@@ -675,13 +715,13 @@ export class StateService implements IStateService {
           completed++;
         }
       }
-      
+
       // Check for space effects on this space
       const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
       const manualEffects = spaceEffects.filter(effect => effect.trigger_type === 'manual');
       const automaticEffects = spaceEffects.filter(effect => effect.trigger_type !== 'manual');
-      
-      
+
+
       // Log automatic effects for debugging, but don't count them as separate actions
       // Automatic effects are triggered by space entry and don't require separate player actions
       automaticEffects.forEach((effect, index) => {
@@ -706,17 +746,6 @@ export class StateService implements IStateService {
         }
         console.log(`  🎯 Manual effect ${effect.effect_type}: ${isCompleted ? 'completed' : 'pending'}`);
       });
-      
-      // Always require dice roll as a basic action (if not already counted from space config)
-      if (!availableTypes.includes('dice')) {
-        availableTypes.push('dice_roll');
-        required++;
-        if (this.currentState.hasPlayerRolledDice) {
-          completed++;
-        }
-      }
-      
-      // Note: We always have at least the dice roll action, so required should never be 0
       
     } catch (error) {
       console.error('Error calculating required actions:', error);
@@ -1025,6 +1054,12 @@ export class StateService implements IStateService {
       currentSpace: startingSpace,
       visitType: 'First',
       visitedSpaces: [startingSpace], // Track starting space as first visited
+      spaceVisitLog: [{
+        spaceName: startingSpace,
+        daysSpent: 0,
+        entryTurn: 1,
+        entryTime: 0
+      }], // Track detailed visit history with time spent per space
       money: 0, // Players start with no money, get funding from owner and loans later
       timeSpent: 0,
       projectScope: 0, // Players start with no project scope, calculated from W cards
@@ -1035,7 +1070,18 @@ export class StateService implements IStateService {
       turnModifiers: { skipTurns: 0 },
       activeEffects: [],
       loans: [], // Start with no loans
-      score: 0 // Initialize score to 0
+      score: 0, // Initialize score to 0
+      moneySources: {
+        ownerFunding: 0,
+        bankLoans: 0,
+        investmentDeals: 0,
+        other: 0
+      },
+      expenditures: {
+        design: 0,
+        fees: 0,
+        construction: 0
+      }
     };
   }
 

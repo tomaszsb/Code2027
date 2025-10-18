@@ -112,13 +112,12 @@ export class TurnService implements ITurnService {
       console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
       await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
-      // Handle movement based on current space
-      console.log(`🎮 TurnService.takeTurn - Handling movement...`);
-      await this.movementService.handleMovementChoiceV2(playerId);
+      // Note: Movement now happens in endTurnWithMovement()
+      // This allows proper separation of intent (set during turn) from action (executed at turn end)
       const newGameState = this.stateService.getGameState();
 
-      // Mark that the player has moved this turn
-      console.log(`🎮 TurnService.takeTurn - Marking player as moved`);
+      // Mark that the player has completed their action
+      console.log(`🎮 TurnService.takeTurn - Marking player action completed`);
       this.stateService.setPlayerHasMoved();
 
       console.log(`🎮 TurnService.takeTurn - Turn completed successfully`);
@@ -224,22 +223,32 @@ export class TurnService implements ITurnService {
 
       console.log(`🏁 TurnService.endTurnWithMovement - Moving player ${currentPlayer.name} from ${currentPlayer.currentSpace}`);
 
-      // Check if there's already an awaiting choice
-      if (gameState.awaitingChoice && gameState.awaitingChoice.type === 'MOVEMENT') {
-        throw new Error('Cannot end turn: Player must resolve the pending movement choice first');
-      }
+      // Note: Movement choices are resolved by the UI before calling endTurnWithMovement
+      // The choice may still be in state (for UI display), but the promise has been resolved
+      // and the movement intent has been set, so we can proceed
 
       // Process leaving space effects BEFORE movement (time spent on current space)
       console.log(`🚪 Processing leaving space effects for ${currentPlayer.name} leaving ${currentPlayer.currentSpace}`);
       await this.processLeavingSpaceEffects(currentPlayer.id, currentPlayer.currentSpace, currentPlayer.visitType);
 
-      // Handle single-step movement (no choices) - but skip if requested (e.g., after Try Again)
+      // Handle movement - check for player's move intent first
       if (!skipAutoMove) {
-        const validMoves = this.movementService.getValidMoves(currentPlayer.id);
-        if (validMoves.length === 1) {
-          // Only one move available - perform automatic movement
-          console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
-          await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
+        // Check if player has set a movement intent
+        if (currentPlayer.moveIntent) {
+          // Execute the intended move
+          console.log(`🎯 Executing player's intended move to: ${currentPlayer.moveIntent}`);
+          await this.movementService.movePlayer(currentPlayer.id, currentPlayer.moveIntent);
+
+          // Clear the move intent after execution
+          this.stateService.setPlayerMoveIntent(currentPlayer.id, null);
+        } else {
+          // No intent set - fall back to auto-move for single destinations
+          const validMoves = this.movementService.getValidMoves(currentPlayer.id);
+          if (validMoves.length === 1) {
+            // Only one move available - perform automatic movement
+            console.log(`🚶 Auto-moving player ${currentPlayer.name} to ${validMoves[0]} (end-of-turn move)`);
+            await this.movementService.movePlayer(currentPlayer.id, validMoves[0]);
+          }
         }
       } else {
         console.log(`🔄 Skipping auto-movement for ${currentPlayer.name} - skip requested`);
@@ -453,6 +462,9 @@ export class TurnService implements ITurnService {
   public async startTurn(playerId: string): Promise<void> {
     console.log(`🎬 TurnService.startTurn - Starting unified turn logic for player ${playerId}`);
 
+    // Clear any old choices from the previous turn
+    this.stateService.clearAwaitingChoice();
+
     try {
       const player = this.stateService.getPlayer(playerId);
       if (!player) {
@@ -535,8 +547,29 @@ export class TurnService implements ITurnService {
         const playerName = player?.name || 'Unknown Player';
         console.log(`🎯 Player ${playerName} is at a choice space with ${validMoves.length} options - creating movement choice`);
 
-        // This will create the choice and wait for player input
-        await this.movementService.handleMovementChoiceV2(playerId);
+        // Create choice for player to set their movement intent
+        const options = validMoves.map(destination => ({
+          id: destination,
+          label: destination
+        }));
+
+        const prompt = `Choose your destination from ${player?.currentSpace}:`;
+
+        // Wait for player to make their choice
+        const selectedDestination = await this.choiceService.createChoice(
+          playerId,
+          'MOVEMENT',
+          prompt,
+          options
+        );
+
+        console.log(`✅ Player ${playerName} selected destination: ${selectedDestination}`);
+
+        // Set the player's movement intent so it can be executed at turn end
+        this.stateService.setPlayerMoveIntent(playerId, selectedDestination);
+
+        // Don't clear the choice here - let the UI keep showing the selected option
+        // It will be cleared when the next turn starts
       } else {
         // 0 or 1 moves - no choice needed, turn proceeds normally
         console.log(`🎬 TurnService.startTurn - No choice needed (${validMoves.length} valid moves)`);
@@ -544,6 +577,89 @@ export class TurnService implements ITurnService {
     } catch (error) {
       // If movement service fails, log but don't crash the turn
       console.warn(`🎬 TurnService.startTurn - Error checking for movement choices:`, error);
+    }
+  }
+
+  /**
+   * Restores movement choice if the current space requires one
+   * Used after completing manual effects that clear the choice state
+   * @private
+   */
+  private async restoreMovementChoiceIfNeeded(playerId: string): Promise<void> {
+    console.log(`🔄 TurnService.restoreMovementChoiceIfNeeded - Checking if movement choice needs restoration for player ${playerId}`);
+
+    try {
+      // Check if the player's current space requires a movement choice
+      const validMoves = this.movementService.getValidMoves(playerId);
+
+      // Defensive check - ensure validMoves is an array
+      if (!validMoves || !Array.isArray(validMoves)) {
+        console.log(`🔄 No valid moves data available for player ${playerId}`);
+        return;
+      }
+
+      if (validMoves.length > 1) {
+        const player = this.stateService.getPlayer(playerId);
+        const playerName = player?.name || 'Unknown Player';
+
+        // Check if player already has a move intent set
+        if (player?.moveIntent) {
+          console.log(`🔄 Player ${playerName} already has move intent: ${player.moveIntent} - restoring choice for UI display only`);
+
+          // Restore the choice to UI state so buttons show, but don't wait for resolution
+          // since the intent is already set
+          const options = validMoves.map(destination => ({
+            id: destination,
+            label: destination
+          }));
+
+          const prompt = `Choose your destination from ${player?.currentSpace}:`;
+
+          // Create the choice in state for UI display (the moveIntent is already set)
+          const choice = {
+            id: `choice_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            playerId,
+            type: 'MOVEMENT' as const,
+            prompt,
+            options
+          };
+
+          this.stateService.setAwaitingChoice(choice);
+          console.log(`🔄 Movement choice restored to UI state (intent already set to ${player.moveIntent})`);
+          return;
+        }
+
+        console.log(`🔄 Restoring movement choice for ${playerName} (${validMoves.length} options)`);
+
+        // Create choice for player to set their movement intent
+        const options = validMoves.map(destination => ({
+          id: destination,
+          label: destination
+        }));
+
+        const prompt = `Choose your destination from ${player?.currentSpace}:`;
+
+        // Create the choice (don't await - just set it in state)
+        // The UI will show the choice and wait for player selection
+        this.choiceService.createChoice(
+          playerId,
+          'MOVEMENT',
+          prompt,
+          options
+        ).then(selectedDestination => {
+            const player = this.stateService.getPlayer(playerId);
+            const playerName = player?.name || 'Unknown Player';
+            console.log(`✅ Player ${playerName} selected destination (restored): ${selectedDestination}`);
+            this.stateService.setPlayerMoveIntent(playerId, selectedDestination);
+        }).catch(error => {
+          // Handle error silently - choice might be resolved later
+          console.log(`🔄 Movement choice created (will be resolved when player selects destination)`);
+        });
+      } else {
+        console.log(`🔄 No movement choice needed (${validMoves.length} valid moves)`);
+      }
+    } catch (error) {
+      console.warn(`🔄 Error restoring movement choice:`, error);
     }
   }
 
@@ -777,8 +893,8 @@ export class TurnService implements ITurnService {
     // Apply effect based on type
     switch (effect.effect_type) {
       case 'cards':
-        return await this.applySpaceCardEffect(playerId, effect);
-      
+        return await this.applySpaceCardEffect(playerId, effect, effect.effect_type);
+
       case 'money':
         return this.applySpaceMoneyEffect(playerId, effect);
       
@@ -953,7 +1069,7 @@ export class TurnService implements ITurnService {
     return this.stateService.getGameState();
   }
 
-  private async applySpaceCardEffect(playerId: string, effect: SpaceEffect): Promise<GameState> {
+  private async applySpaceCardEffect(playerId: string, effect: SpaceEffect, effectType: string): Promise<GameState> {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -967,52 +1083,82 @@ export class TurnService implements ITurnService {
     if (action === 'draw_w') {
       // Use CardService for W card draws (includes action logging)
       this.cardService.drawCards(
-        playerId, 
-        'W', 
-        value, 
-        'manual_effect', 
+        playerId,
+        'W',
+        value,
+        'manual_effect',
         `Manual action: Draw ${value} W card${value !== 1 ? 's' : ''}`
       );
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'draw_b') {
       // Use CardService for B card draws (includes action logging)
       this.cardService.drawCards(
-        playerId, 
-        'B', 
-        value, 
-        'manual_effect', 
+        playerId,
+        'B',
+        value,
+        'manual_effect',
         `Manual action: Draw ${value} B card${value !== 1 ? 's' : ''}`
       );
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'draw_e') {
       // Use CardService for E card draws (includes action logging)
       this.cardService.drawCards(
-        playerId, 
-        'E', 
-        value, 
-        'manual_effect', 
+        playerId,
+        'E',
+        value,
+        'manual_effect',
         `Manual action: Draw ${value} E card${value !== 1 ? 's' : ''}`
       );
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'draw_l') {
       // Use CardService for L card draws (includes action logging)
       this.cardService.drawCards(
-        playerId, 
-        'L', 
-        value, 
-        'manual_effect', 
+        playerId,
+        'L',
+        value,
+        'manual_effect',
         `Manual action: Draw ${value} L card${value !== 1 ? 's' : ''}`
       );
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'draw_i') {
       // Use CardService for I card draws (includes action logging)
       this.cardService.drawCards(
-        playerId, 
-        'I', 
-        value, 
-        'manual_effect', 
+        playerId,
+        'I',
+        value,
+        'manual_effect',
         `Manual action: Draw ${value} I card${value !== 1 ? 's' : ''}`
       );
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'replace_e') {
       // Replace E cards - create choice if player has multiple E cards
@@ -1059,7 +1205,7 @@ export class TurnService implements ITurnService {
           'CARD_REPLACEMENT',
           `Choose ${replaceCount} E card${replaceCount !== 1 ? 's' : ''} to replace:`,
           options,
-          { newCardType: 'E' } // Pass the new card type as metadata
+          { newCardType: 'E', replaceCount: replaceCount } // Pass the new card type and count as metadata
         );
 
         console.log(`Player selected card ${selectedCardId} for replacement`);
@@ -1071,12 +1217,21 @@ export class TurnService implements ITurnService {
         this.stateService.clearAwaitingChoice();
       }
 
+      // IMPORTANT: Mark action as complete BEFORE restoring movement choice
+      // This ensures action counts are correct when movement buttons re-appear
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+
+      // BUG FIX: Restore movement choice if this space requires one
+      // This fixes the bug where completing a card action clears the movement choice
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'replace_l') {
       // Replace L cards using CardService (includes action logging)
       const currentLCards = this.cardService.getPlayerCards(playerId, 'L');
       const replaceCount = Math.min(value, currentLCards.length);
-      
+
       if (replaceCount > 0) {
         // Use CardService for replacement (discard old + draw new)
         this.cardService.discardCards(
@@ -1086,22 +1241,27 @@ export class TurnService implements ITurnService {
           `Manual action: Replace ${replaceCount} L cards - removing old cards`
         );
         this.cardService.drawCards(
-          playerId, 
-          'L', 
-          replaceCount, 
-          'manual_effect', 
+          playerId,
+          'L',
+          replaceCount,
+          'manual_effect',
           `Manual action: Replace ${replaceCount} L cards - adding new cards`
         );
       } else {
         console.log(`Player ${player.name} has no L cards to replace`);
       }
-      
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'return_e') {
       // Return E cards using CardService (includes action logging)
       const currentECards = this.cardService.getPlayerCards(playerId, 'E');
       const returnCount = Math.min(value, currentECards.length);
-      
+
       if (returnCount > 0) {
         this.cardService.discardCards(
           playerId,
@@ -1112,13 +1272,18 @@ export class TurnService implements ITurnService {
       } else {
         console.log(`Player ${player.name} has no E cards to return`);
       }
-      
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'return_l') {
       // Return L cards using CardService (includes action logging)
       const currentLCards = this.cardService.getPlayerCards(playerId, 'L');
       const returnCount = Math.min(value, currentLCards.length);
-      
+
       if (returnCount > 0) {
         this.cardService.discardCards(
           playerId,
@@ -1129,14 +1294,25 @@ export class TurnService implements ITurnService {
       } else {
         console.log(`Player ${player.name} has no L cards to return`);
       }
-      
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
+
       return this.stateService.getGameState();
     } else if (action === 'transfer') {
       // Transfer cards to another player
       const targetPlayer = this.getTargetPlayer(playerId, effect.condition);
-      
+
       if (!targetPlayer) {
         console.log(`Player ${player.name} could not transfer cards - no target player found`);
+
+        // Mark action as complete BEFORE restoring movement choice
+        const { text: buttonText } = formatManualEffectButton(effect);
+        this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+        await this.restoreMovementChoiceIfNeeded(playerId);
+
         return this.stateService.getGameState();
       }
 
@@ -1166,6 +1342,11 @@ export class TurnService implements ITurnService {
       } else {
         console.log(`Player ${player.name} has no cards to transfer`);
       }
+
+      // Mark action as complete BEFORE restoring movement choice
+      const { text: buttonText } = formatManualEffectButton(effect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      await this.restoreMovementChoiceIfNeeded(playerId);
 
       return this.stateService.getGameState();
     }
@@ -1414,7 +1595,7 @@ export class TurnService implements ITurnService {
     let newState = this.stateService.getGameState();
 
     if (effectType === 'cards') {
-      newState = await this.applySpaceCardEffect(playerId, manualEffect);
+      newState = await this.applySpaceCardEffect(playerId, manualEffect, effectType);
     } else if (effectType === 'money') {
       newState = this.applySpaceMoneyEffect(playerId, manualEffect);
     } else if (effectType === 'time') {
@@ -1434,10 +1615,13 @@ export class TurnService implements ITurnService {
       console.warn(`⚠️ Unknown manual effect type: ${effectType}`);
     }
 
-    // Mark that player has completed a manual action with specific type and message
-    const { text: buttonText } = formatManualEffectButton(manualEffect);
-    this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
-    
+    // Mark action as complete for non-card effects (money, time, dice_roll_chance)
+    // Card effects handle this inside applySpaceCardEffect (before restoreMovementChoiceIfNeeded)
+    if (effectType !== 'cards') {
+      const { text: buttonText } = formatManualEffectButton(manualEffect);
+      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+    }
+
     console.log(`🔧 Manual ${effectType} effect completed for player ${player.name}`);
     return this.stateService.getGameState();
   }
@@ -2142,8 +2326,10 @@ export class TurnService implements ITurnService {
           // Perform the automatic dice roll
           await this.applyDiceRollChanceEffect(playerId, diceRollChanceEffect);
 
-          // Mark that dice has been rolled
-          this.stateService.setPlayerHasRolledDice();
+          // BUG FIX: Do NOT set hasPlayerRolledDice for automatic dice effects
+          // This flag should only be set when the player MANUALLY clicks "Roll Dice"
+          // Automatic dice effects are just background mechanics, not player actions
+          // Setting this flag incorrectly causes the UI to think actions are complete when they're not
         }
       }
 
