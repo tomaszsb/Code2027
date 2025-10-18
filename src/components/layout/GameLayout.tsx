@@ -9,7 +9,6 @@ import { EndGameModal } from '../modals/EndGameModal';
 import { NegotiationModal } from '../modals/NegotiationModal';
 import { RulesModal } from '../modals/RulesModal';
 import { PlayerSetup } from '../setup/PlayerSetup';
-import { PlayerStatusPanel } from '../game/PlayerStatusPanel';
 import { PlayerPanel } from '../player/PlayerPanel';
 import { GameBoard } from '../game/GameBoard';
 import { ProjectProgress } from '../game/ProjectProgress';
@@ -73,17 +72,10 @@ export function GameLayout(): JSX.Element {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
   const [isDataEditorOpen, setIsDataEditorOpen] = useState<boolean>(false);
-  
-  // State tracking for TurnControlsWithActions component
+
+  // State tracking for processing and notifications
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
-  const [isProcessingArrival, setIsProcessingArrival] = useState<boolean>(false);
-  const [hasPlayerMovedThisTurn, setHasPlayerMovedThisTurn] = useState<boolean>(false);
-  const [hasPlayerRolledDice, setHasPlayerRolledDice] = useState<boolean>(false);
-  const [hasCompletedManualActions, setHasCompletedManualActions] = useState<boolean>(false);
-  const [awaitingChoice, setAwaitingChoice] = useState<boolean>(false);
-  const [actionCounts, setActionCounts] = useState<{ required: number; completed: number }>({ required: 0, completed: 0 });
   const [turnNumber, setTurnNumber] = useState<number>(0);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [justUsedTryAgain, setJustUsedTryAgain] = useState<boolean>(false);
   const [gameStateCompletedActions, setGameStateCompletedActions] = useState<{
     diceRoll: string | undefined;
@@ -96,7 +88,6 @@ export function GameLayout(): JSX.Element {
 
   // Use actual game state completed actions for UI display
   const completedActions = gameStateCompletedActions;
-  const feedbackMessage = ''; // No longer used - messages go to player notifications
 
   // Subscribe to NotificationService updates
   useEffect(() => {
@@ -165,17 +156,14 @@ export function GameLayout(): JSX.Element {
     }
   }, []);
 
-  // Subscribe to game state changes to track phase transitions and turn controls state
+  // Subscribe to game state changes to track phase transitions and notifications
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
       const previousPlayerId = currentPlayerId;
-      const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
-      const previousCurrentPlayer = players.find(p => p.id === currentPlayerId);
 
       setGamePhase(gameState.gamePhase);
       setPlayers(gameState.players);
       setCurrentPlayerId(gameState.currentPlayerId);
-      // Track active modal state
       setActiveModal(gameState.activeModal?.type || null);
 
       // Track turn changes for notification clearing
@@ -187,31 +175,15 @@ export function GameLayout(): JSX.Element {
       const turnChanged = previousTurn !== gameState.turn;
 
       if (playerChanged || turnChanged) {
-        notificationService.clearAllNotifications(); // Clear all notifications on turn change
-        setButtonFeedback({}); // Manually clear React state that drives completedActions
-        setPlayerNotifications({}); // Also clear player notifications
+        notificationService.clearAllNotifications();
+        setButtonFeedback({});
+        setPlayerNotifications({});
       }
-
-      // Track turn control state for TurnControlsWithActions
-      setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
-      setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
-      setHasCompletedManualActions(Object.keys(gameState.completedActions.manualActions).length > 0);
-      setAwaitingChoice(gameState.awaitingChoice !== null);
-      setIsProcessingArrival(gameState.isProcessingArrival || false);
 
       // Update completed actions from game state
       setGameStateCompletedActions(gameState.completedActions);
-
-      // Update action counts from game state
-      setActionCounts({
-        required: gameState.requiredActions || 1,
-        completed: gameState.completedActionCount || 0
-      });
-
-      // Track initialization state
-      setIsInitialized(gameState.isInitialized || false);
     });
-    
+
     // Initialize with current state
     const currentState = stateService.getGameState();
     setGamePhase(currentState.gamePhase);
@@ -219,25 +191,14 @@ export function GameLayout(): JSX.Element {
     setCurrentPlayerId(currentState.currentPlayerId);
     setActiveModal(currentState.activeModal?.type || null);
     setTurnNumber(currentState.turn);
-
-    // Initialize turn control state
-    setHasPlayerMovedThisTurn(currentState.hasPlayerMovedThisTurn || false);
-    setHasPlayerRolledDice(currentState.hasPlayerRolledDice || false);
-    setHasCompletedManualActions(Object.keys(currentState.completedActions.manualActions).length > 0);
-    setAwaitingChoice(currentState.awaitingChoice !== null);
     setGameStateCompletedActions(currentState.completedActions);
-    setActionCounts({
-      required: currentState.requiredActions || 1,
-      completed: currentState.completedActionCount || 0
-    });
-    setIsInitialized(currentState.isInitialized || false);
 
     return () => {
       unsubscribe();
       // Clean up all notifications on unmount
       notificationService.clearAllNotifications();
     };
-  }, [stateService]);
+  }, [stateService, currentPlayerId, turnNumber, notificationService]);
 
   // NOTE: Auto-show movement path logic disabled - using board-based movement indicators instead
 
@@ -462,148 +423,41 @@ export function GameLayout(): JSX.Element {
           />
         </div>
       )}
-      {/* Left Panel - Player Status (Split for A/B Testing) */}
+      {/* Left Panel - Player Panel (Mobile-First UI) */}
       <div
         style={{
           gridColumn: '1',
           gridRow: gamePhase === 'PLAY' ? '2' : '1',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          overflow: 'visible'
-        }}
-      >
-        {/* OLD UI - PlayerStatusPanel */}
-        <div style={{
-          flex: '1',
           background: colors.background.light,
-          border: `2px solid ${colors.secondary.border}`,
+          border: `3px solid ${colors.primary.main}`,
           borderRadius: '8px',
           padding: gamePhase === 'PLAY' ? '0' : '15px',
           overflow: 'visible',
           position: 'relative'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            background: colors.danger.main,
-            color: colors.white,
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontSize: '0.7rem',
-            fontWeight: 'bold',
-            zIndex: 10
-          }}>OLD UI</div>
-{gamePhase === 'PLAY' && currentPlayerId ? (() => {
-          const currentPlayer = players.find(p => p.id === currentPlayerId);
-
-          // Show loading state if game is not fully initialized
-          if (!isInitialized) {
-            return (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '200px',
-                fontSize: '18px',
-                color: colors.text.secondary
-              }}>
-                🎯 Initializing game...
-              </div>
-            );
-          }
-
-          return currentPlayer ? (
-            <PlayerStatusPanel
-              onOpenNegotiationModal={handleOpenNegotiationModal}
-              onOpenRulesModal={handleOpenRulesModal}
-              onOpenCardDetailsModal={handleOpenCardDetailsModal}
-              onToggleSpaceExplorer={handleToggleSpaceExplorer}
-              onToggleMovementPath={handleToggleMovementPath}
-              isSpaceExplorerVisible={isSpaceExplorerVisible}
-              isMovementPathVisible={isMovementPathVisible}
-              // Player data
-              players={players}
-              currentPlayerId={currentPlayerId}
-              playerNotifications={playerNotifications}
-              // TurnControlsWithActions props - guaranteed non-null currentPlayer
-              currentPlayer={currentPlayer}
-              gamePhase={gamePhase}
-              isProcessingTurn={isProcessingTurn}
-              isProcessingArrival={isProcessingArrival}
-              hasPlayerMovedThisTurn={hasPlayerMovedThisTurn}
-              hasPlayerRolledDice={hasPlayerRolledDice}
-              hasCompletedManualActions={hasCompletedManualActions}
-              awaitingChoice={awaitingChoice}
-              actionCounts={actionCounts}
-              completedActions={completedActions}
-              feedbackMessage={feedbackMessage}
-              buttonFeedback={buttonFeedback}
-              onRollDice={handleRollDice}
-              onEndTurn={handleEndTurn}
-              onManualEffect={handleManualEffect}
-              onNegotiate={handleTryAgain}
-              onAutomaticFunding={handleAutomaticFunding}
-              // Legacy props for compatibility
-              playerId={currentPlayerId}
-              playerName={currentPlayer.name}
-            />
-          ) : null;
-        })() : (
+        }}
+      >
+        {gamePhase === 'PLAY' && currentPlayerId ? (
+          <PlayerPanel
+            gameServices={gameServices}
+            playerId={currentPlayerId}
+            onToggleSpaceExplorer={handleToggleSpaceExplorer}
+            onToggleMovementPath={handleToggleMovementPath}
+            isSpaceExplorerVisible={isSpaceExplorerVisible}
+            isMovementPathVisible={isMovementPathVisible}
+            onTryAgain={handleTryAgain}
+            playerNotification={playerNotifications[currentPlayerId]}
+            onRollDice={handleRollDice}
+            onAutomaticFunding={handleAutomaticFunding}
+            completedActions={completedActions}
+          />
+        ) : (
           <>
-            <h3>👤 Player Status</h3>
+            <h3>👤 Player Panel</h3>
             <div style={{ color: colors.text.secondary }}>
               Player information will be displayed here
             </div>
           </>
         )}
-        </div>
-
-        {/* NEW UI - PlayerPanel (Mobile-First Redesign) */}
-        <div style={{
-          flex: '1',
-          background: colors.background.light,
-          border: `3px solid ${colors.success.main}`,
-          borderRadius: '8px',
-          padding: gamePhase === 'PLAY' ? '0' : '15px',
-          overflow: 'visible',
-          position: 'relative'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            background: colors.success.main,
-            color: colors.white,
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontSize: '0.7rem',
-            fontWeight: 'bold',
-            zIndex: 10
-          }}>NEW UI</div>
-          {gamePhase === 'PLAY' && currentPlayerId ? (
-            <PlayerPanel
-              gameServices={gameServices}
-              playerId={currentPlayerId}
-              onToggleSpaceExplorer={handleToggleSpaceExplorer}
-              onToggleMovementPath={handleToggleMovementPath}
-              isSpaceExplorerVisible={isSpaceExplorerVisible}
-              isMovementPathVisible={isMovementPathVisible}
-              onTryAgain={handleTryAgain}
-              playerNotification={playerNotifications[currentPlayerId]}
-              onRollDice={handleRollDice}
-              completedActions={completedActions}
-            />
-          ) : (
-            <>
-              <h3>👤 New Player Panel</h3>
-              <div style={{ color: colors.text.secondary }}>
-                Mobile-first UI will be displayed here
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Center Panel - Game Board */}
