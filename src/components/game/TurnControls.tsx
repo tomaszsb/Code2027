@@ -30,12 +30,7 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
 
   // Subscribe to state changes for live updates
   useEffect(() => {
-    console.log('🔌 TurnControls: Setting up state subscription');
     const unsubscribe = stateService.subscribe((gameState) => {
-      console.log('📨 TurnControls: Received state update', {
-        awaitingChoice: gameState.awaitingChoice?.type || null,
-        currentPlayer: gameState.currentPlayerId
-      });
       setGamePhase(gameState.gamePhase);
       setHasPlayerMovedThisTurn(gameState.hasPlayerMovedThisTurn || false);
       setHasPlayerRolledDice(gameState.hasPlayerRolledDice || false);
@@ -43,17 +38,7 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
       setAwaitingChoice(gameState.awaitingChoice !== null);
       setCurrentChoice(gameState.awaitingChoice);
 
-      // Debug movement choice updates
-      if (gameState.awaitingChoice?.type === 'MOVEMENT') {
-        console.log('🔧 TurnControls: Movement choice detected in state update!', {
-          choice: gameState.awaitingChoice,
-          currentPlayer: gameState.currentPlayerId,
-          humanPlayerId
-        });
-      }
-      
       // Update action counts from game state
-      console.log(`🎯 TurnControls - Action Counts Update: Required=${gameState.requiredActions}, Completed=${gameState.completedActionCount}`);
       setActionCounts({
         required: gameState.requiredActions || 1,
         completed: gameState.completedActionCount || 0
@@ -101,20 +86,16 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
   // Handle automatic AI turns
   useEffect(() => {
     if (gamePhase === 'PLAY' && currentPlayer && currentPlayer.id !== humanPlayerId && !isProcessingTurn) {
-      console.log(`AI player ${currentPlayer.name} taking turn...`);
-      
       // Add delay to make AI turns feel natural
       const aiTurnTimer = setTimeout(async () => {
         try {
           setIsProcessingTurn(true);
           const result = await turnService.takeTurn(currentPlayer.id);
-          console.log(`AI player ${currentPlayer.name} rolled a ${result.diceRoll}`);
-          
+
           // End the AI player's turn and advance to next player
           setTimeout(async () => {
             try {
               await turnService.endTurn();
-              console.log(`AI player ${currentPlayer.name} turn ended`);
             } catch (error) {
               console.error('Error ending AI turn:', error);
             } finally {
@@ -148,6 +129,14 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
       // Check if player has multiple movement options at current location
       const checkMovementOptions = async () => {
         try {
+          // Check movement type - skip choice creation for dice_outcome spaces
+          // Those choices are created AFTER dice roll in TurnService.processTurnEffectsWithTracking()
+          const movement = dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
+          if (movement?.movement_type === 'dice_outcome') {
+            console.log(`🔍 TurnControls: Skipping choice for dice_outcome space ${currentPlayer.currentSpace} (choice created after dice roll)`);
+            return;
+          }
+
           const validMoves = movementService.getValidMoves(currentPlayer.id);
 
           if (validMoves.length > 1) {
@@ -177,7 +166,7 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
 
       checkMovementOptions();
     }
-  }, [currentPlayer?.id, gamePhase, humanPlayerId, isProcessingTurn, awaitingChoice, choiceService, movementService]);
+  }, [currentPlayer?.id, gamePhase, humanPlayerId, isProcessingTurn, awaitingChoice, choiceService, movementService, dataService, currentPlayer?.currentSpace, currentPlayer?.visitType]);
 
   const handleRollDice = async () => {
     if (!currentPlayer || isProcessingTurn) return;
@@ -218,8 +207,8 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
     try {
       setIsProcessingTurn(true);
       console.log(`Ending turn for player: ${currentPlayer.name}`);
-      
-      // Use endTurnWithMovement to handle movement and advance to next player
+
+      // TurnService will handle executing the move from player's moveIntent
       await turnService.endTurnWithMovement();
       console.log(`Turn ended for ${currentPlayer.name}`);
     } catch (error) {
@@ -351,20 +340,25 @@ export function TurnControlsLEGACY({ onOpenNegotiationModal }: TurnControlsProps
   };
 
   // Handle movement choice selection
-  const handleMovementChoice = async (choiceId: string) => {
-    if (!currentChoice || currentChoice.type !== 'MOVEMENT') {
+  const handleMovementChoice = (choiceId: string) => {
+    if (!currentChoice || currentChoice.type !== 'MOVEMENT' || !currentPlayer) {
       console.error('No valid movement choice available');
       return;
     }
 
-    try {
-      setIsProcessingTurn(true);
-      await choiceService.resolveChoice(currentChoice.id, choiceId);
-      setIsProcessingTurn(false);
-    } catch (error) {
-      console.error('Error resolving movement choice:', error);
-      setIsProcessingTurn(false);
+    // Check if player already has a move intent (choice already resolved)
+    if (currentPlayer.moveIntent) {
+      console.log(`🎯 Player ${currentPlayer.name} already has move intent: ${currentPlayer.moveIntent}`);
+      return; // Don't resolve again
     }
+
+    // Store the intent in game state instead of executing the move
+    console.log(`🎯 Player ${currentPlayer.name} selected destination intent: ${choiceId}`);
+    stateService.setPlayerMoveIntent(currentPlayer.id, choiceId);
+
+    // Resolve the choice - this will unblock the code waiting for the choice
+    // The awaiting code (TurnService) will handle clearing the choice from state
+    choiceService.resolveChoice(currentChoice.id, choiceId);
   };
 
   // Debug End Turn button state

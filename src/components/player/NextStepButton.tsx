@@ -69,11 +69,6 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
   const hasPendingChoice = gameState.awaitingChoice !== null &&
     !(gameState.awaitingChoice?.type === 'MOVEMENT' && currentPlayer?.moveIntent);
 
-  // Debug: Log movement choice handling
-  if (gameState.awaitingChoice?.type === 'MOVEMENT') {
-    console.log(`🔘 NextStepButton: MOVEMENT choice - moveIntent: ${currentPlayer?.moveIntent}, hasPendingChoice: ${hasPendingChoice}`);
-  }
-
   // Calculate action counts
   const actionCounts = {
     required: gameState.requiredActions || 0,
@@ -82,12 +77,8 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
 
   const actionsRemaining = Math.max(0, actionCounts.required - actionCounts.completed);
 
-  // Debug logging
-  console.log(`🔘 NextStepButton: Action counts - required: ${actionCounts.required}, completed: ${actionCounts.completed}, remaining: ${actionsRemaining}`);
-
   // If player has pending choice (that isn't an already-selected movement), show disabled
   if (hasPendingChoice) {
-    console.log(`🔘 NextStepButton: Blocking - pending choice: ${gameState.awaitingChoice?.type}`);
     return {
       visible: true,
       label: 'End Turn',
@@ -96,20 +87,9 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
     };
   }
 
-  // If actions incomplete, show disabled with count
-  if (actionsRemaining > 0) {
-    console.log(`🔘 NextStepButton: Blocking - ${actionsRemaining} actions remaining`);
-    return {
-      visible: true,
-      label: `End Turn (${actionsRemaining} action${actionsRemaining === 1 ? '' : 's'} remaining)`,
-      disabled: true,
-      tooltip: `Complete ${actionsRemaining} more action${actionsRemaining === 1 ? '' : 's'} before ending turn`
-    };
-  }
-
-  // CRITICAL: Check if player needs to roll to move
+  // CRITICAL: Check if player needs to roll to move BEFORE checking actions remaining
+  // This is because rolling the dice IS one of the required actions
   // Roll to Move is available when:
-  // - All actions are complete
   // - Player hasn't rolled dice yet
   // - Player hasn't moved yet
   // - Space requires dice roll (respects space config)
@@ -123,11 +103,7 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
                           !gameState.isProcessingArrival &&
                           requiresDiceRoll; // Only show if space requires dice roll
 
-  // Debug: Log Roll to Move check
-  console.log(`🔘 NextStepButton: Roll to Move check - needsRollToMove: ${needsRollToMove}, hasRolled: ${gameState.hasPlayerRolledDice}, hasMoved: ${gameState.hasPlayerMovedThisTurn}, requiresDice: ${requiresDiceRoll}`);
-
   if (needsRollToMove) {
-    console.log(`🔘 NextStepButton: Returning Roll to Move`);
     return {
       visible: true,
       label: 'Roll to Move',
@@ -136,8 +112,17 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
     };
   }
 
+  // If actions incomplete (and we don't need to roll), show disabled with count
+  if (actionsRemaining > 0) {
+    return {
+      visible: true,
+      label: `End Turn (${actionsRemaining} action${actionsRemaining === 1 ? '' : 's'} remaining)`,
+      disabled: true,
+      tooltip: `Complete ${actionsRemaining} more action${actionsRemaining === 1 ? '' : 's'} before ending turn`
+    };
+  }
+
   // All actions complete - enable button
-  console.log(`🔘 NextStepButton: Returning End Turn (enabled)`);
   return {
     visible: true,
     label: 'End Turn',
@@ -210,11 +195,8 @@ export const NextStepButton: React.FC<NextStepButtonProps> = ({
 
       // Safety: Reset isLoading if button should be enabled
       // This handles cases where async operation failed to reset isLoading
-      if (newState.action && !newState.disabled) {
-        if (isLoading) {
-          console.log(`🔘 NextStepButton: SAFETY RESET - isLoading was stuck at true, resetting to false`);
-          setIsLoading(false);
-        }
+      if (newState.action && !newState.disabled && isLoading) {
+        setIsLoading(false);
       }
     };
 
@@ -230,37 +212,27 @@ export const NextStepButton: React.FC<NextStepButtonProps> = ({
 
   const handleNextStep = async () => {
     if (!buttonState.action || buttonState.disabled) {
-      console.log(`🔘 NextStepButton: Click ignored - no action (${buttonState.action}) or disabled (${buttonState.disabled})`);
       return;
     }
 
-    console.log(`🔘 NextStepButton: Button clicked - action: ${buttonState.action}`);
     setIsLoading(true);
     try {
       if (buttonState.action === 'roll-movement') {
-        console.log(`🔘 NextStepButton: Calling rollDiceWithFeedback`);
         await gameServices.turnService.rollDiceWithFeedback(playerId);
-        console.log(`🔘 NextStepButton: rollDiceWithFeedback completed`);
       } else if (buttonState.action === 'end-turn') {
-        console.log(`🔘 NextStepButton: Calling endTurnWithMovement`);
         await gameServices.turnService.endTurnWithMovement();
-        console.log(`🔘 NextStepButton: endTurnWithMovement completed`);
       }
     } catch (err) {
       console.error('🔘 NextStepButton: Error in handleNextStep:', err);
       // Error notification handled by NotificationService
     } finally {
-      console.log(`🔘 NextStepButton: Resetting isLoading to false`);
       setIsLoading(false);
     }
   };
 
   if (!buttonState.visible) {
-    console.log(`🔘 NextStepButton RENDER: Not visible, returning null`);
     return null;
   }
-
-  console.log(`🔘 NextStepButton RENDER: Rendering button - label: "${buttonState.label}", disabled: ${buttonState.disabled}, action: ${buttonState.action}, isLoading: ${isLoading}`);
 
   return (
     <button

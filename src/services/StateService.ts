@@ -431,17 +431,11 @@ export class StateService implements IStateService {
     // Recalculate action counts when a choice is set
     this.updateActionCounts();
 
-    console.log(`🔄 StateService: About to notify ${this.listeners.length} subscribers about choice update`);
     this.notifyListeners();
-    console.log(`✅ StateService: Subscribers notified about choice update`);
     return this.currentState;
   }
 
   clearAwaitingChoice(): GameState {
-    if (this.currentState.awaitingChoice) {
-      console.log(`🎯 Clearing awaiting choice: ${this.currentState.awaitingChoice.id}`);
-    }
-
     this.currentState = {
       ...this.currentState,
       awaitingChoice: null
@@ -455,7 +449,6 @@ export class StateService implements IStateService {
   }
 
   setMoving(isMoving: boolean): GameState {
-    console.log(`🏃 Movement state changing to: ${isMoving}`);
     this.currentState = {
       ...this.currentState,
       isMoving
@@ -772,8 +765,6 @@ export class StateService implements IStateService {
       activeCards: [...player.activeCards]
     };
 
-    console.log(`📸 Creating snapshot for player ${player.name} at ${player.currentSpace}`, snapshot);
-
     return this.updatePlayer({
       id: playerId,
       spaceEntrySnapshot: snapshot
@@ -791,7 +782,6 @@ export class StateService implements IStateService {
     }
 
     const snapshot = player.spaceEntrySnapshot;
-    console.log(`🔄 Restoring snapshot for player ${player.name}`, snapshot);
 
     // Restore player state from snapshot
     const restoredState = this.updatePlayer({

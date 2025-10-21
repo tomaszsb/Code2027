@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Refactoring (October 21, 2025)
+- **Console Log Cleanup:**
+  - Removed 51 verbose debugging console logs (18% reduction) from key files:
+    - `NextStepButton.tsx`: 25 → 1 log (96% reduction)
+    - `StateService.ts`: 46 → 40 logs (13% reduction)
+    - `TurnService.ts`: 168 → 154 logs (8% reduction)
+    - `TurnControls.tsx` (LEGACY): 51 → 44 logs (14% reduction)
+  - Removed verbose function entry/exit logs, duplicate state notifications, and object dumps
+  - Kept all `console.error()` and `console.warn()` statements for error handling
+  - Kept strategic movement and card operation logs for ongoing development work
+  - All 256 tests passing after cleanup (no functionality broken)
+
+### Bug Fixes (October 21, 2025)
+- **Test Suite Stabilization:**
+  - Fixed ~105 failing tests across `TurnService`, `TimeSection`, `CardsSection`, `FinancesSection`, and `NextStepButton`.
+  - Refactored `CardDetailsModal` and `DiscardedCardsModal` to use props-based Dependency Injection (DI).
+  - Rewrote 4 `NextStepButton` tests (loading state) using a simplified approach.
+- **`CHEAT-BYPASS` Space Bug Fix:**
+  - Resolved an issue where the "Roll to Move" button on `CHEAT-BYPASS` did not lead to movement, and the `ChoiceModal` presented incorrect options.
+  - Implemented a multi-phase fix addressing missing `dice_outcome` handling, `MovementService.validateMove()` issues, and multiple sources of incorrect `ChoiceModal` generation.
+  - The `CHEAT-BYPASS` space now correctly presents a single, dice-determined destination via a `ChoiceModal`, allows the player to select it, and successfully moves the player with appropriate notifications.
+
 ### Features
 - **Player Panel UI Refactor (October 12, 2025):**
   - Replaced the static player panel with a dynamic, component-based system using individual section components (e.g., `FinancesSection`, `TimeSection`, `CardsSection`).

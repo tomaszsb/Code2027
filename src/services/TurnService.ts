@@ -105,7 +105,6 @@ export class TurnService implements ITurnService {
       });
 
       // Process turn effects based on dice roll
-      console.log(`🎮 TurnService.takeTurn - Processing turn effects...`);
       await this.processTurnEffects(playerId, diceRoll);
 
       // Process leaving space effects BEFORE movement (time spent on current space)
@@ -117,10 +116,8 @@ export class TurnService implements ITurnService {
       const newGameState = this.stateService.getGameState();
 
       // Mark that the player has completed their action
-      console.log(`🎮 TurnService.takeTurn - Marking player action completed`);
       this.stateService.setPlayerHasMoved();
 
-      console.log(`🎮 TurnService.takeTurn - Turn completed successfully`);
       return {
         newState: newGameState,
         diceRoll: diceRoll
@@ -160,7 +157,18 @@ export class TurnService implements ITurnService {
 
       // Roll dice
       const diceRoll = this.rollDice();
-      
+
+      // Store dice roll in player state for dice_outcome movement
+      this.stateService.updatePlayer({
+        id: currentPlayer.id,
+        lastDiceRoll: {
+          roll1: diceRoll,
+          roll2: 0,
+          total: diceRoll
+        }
+      });
+      console.log(`🎲 Stored dice roll ${diceRoll} for player ${currentPlayer.name}`);
+
       // Log dice roll to action history
       this.loggingService.info(`Rolled a ${diceRoll}`, {
         playerId: currentPlayer.id,
@@ -171,15 +179,12 @@ export class TurnService implements ITurnService {
       });
 
       // Process turn effects based on dice roll (but NO movement)
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Processing turn effects...`);
       await this.processTurnEffects(playerId, diceRoll);
 
       // Mark that the player has rolled dice this turn (enables End Turn button)
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking dice as rolled`);
       this.stateService.setPlayerHasRolledDice();
 
       // Mark that the player has taken an action (increments action counter)
-      console.log(`🎲 TurnService.rollDiceAndProcessEffects - Marking player action taken`);
       this.stateService.setPlayerHasMoved();
 
       // Dice roll processing complete
@@ -195,8 +200,6 @@ export class TurnService implements ITurnService {
    * This is for the "End Turn" button
    */
   async endTurnWithMovement(force: boolean = false, skipAutoMove: boolean = false): Promise<{ nextPlayerId: string }> {
-    console.log(`🏁 TurnService.endTurnWithMovement - Starting`);
-    
     try {
       const gameState = this.stateService.getGameState();
       
@@ -233,8 +236,30 @@ export class TurnService implements ITurnService {
 
       // Handle movement - check for player's move intent first
       if (!skipAutoMove) {
-        // Check if player has set a movement intent
-        if (currentPlayer.moveIntent) {
+        // Check for dice_outcome movement first
+        const movement = this.dataService.getMovement(currentPlayer.currentSpace, currentPlayer.visitType);
+        if (movement?.movement_type === 'dice_outcome' && currentPlayer.lastDiceRoll) {
+          // Use dice roll to determine destination from DICE_ROLL_INFO.csv
+          const diceRoll = currentPlayer.lastDiceRoll.total;
+
+          // Try new DICE_ROLL_INFO.csv first (for spaces like CHEAT-BYPASS)
+          const destinations = this.dataService.getDiceRollDestinations(currentPlayer.currentSpace, currentPlayer.visitType);
+          let destination: string | null = null;
+
+          if (destinations.length >= diceRoll) {
+            destination = destinations[diceRoll - 1];
+          } else {
+            // Fallback to old DICE_OUTCOMES.csv for backward compatibility
+            destination = this.movementService.getDiceDestination(currentPlayer.currentSpace, currentPlayer.visitType, diceRoll);
+          }
+
+          if (destination) {
+            console.log(`🎲 Dice-determined movement: ${currentPlayer.name} rolled ${diceRoll}, moving to ${destination}`);
+            await this.movementService.movePlayer(currentPlayer.id, destination);
+          } else {
+            console.warn(`🎲 No destination found for dice roll ${diceRoll} at ${currentPlayer.currentSpace}`);
+          }
+        } else if (currentPlayer.moveIntent) {
           // Execute the intended move
           console.log(`🎯 Executing player's intended move to: ${currentPlayer.moveIntent}`);
           await this.movementService.movePlayer(currentPlayer.id, currentPlayer.moveIntent);
@@ -264,12 +289,10 @@ export class TurnService implements ITurnService {
 
       // Commit current exploration session before advancing to next player
       this.loggingService.commitCurrentSession();
-      console.log(`🔄 Committed exploration session for current player turn`);
 
       // Advance to next player
       const nextPlayerResult = await this.nextPlayer();
-      console.log(`🏁 TurnService.endTurnWithMovement - Advanced to next player: ${nextPlayerResult.nextPlayerId}`);
-      
+
       return nextPlayerResult;
     } catch (error) {
       console.error(`🏁 TurnService.endTurnWithMovement - Error:`, error);
@@ -460,8 +483,6 @@ export class TurnService implements ITurnService {
    * 4. Unlock UI and handle movement choices
    */
   public async startTurn(playerId: string): Promise<void> {
-    console.log(`🎬 TurnService.startTurn - Starting unified turn logic for player ${playerId}`);
-
     // Clear any old choices from the previous turn
     this.stateService.clearAwaitingChoice();
 
@@ -472,7 +493,6 @@ export class TurnService implements ITurnService {
       }
 
       const gameState = this.stateService.getGameState();
-      console.log(`🏠 Starting turn for ${player.name} at ${player.currentSpace}`);
 
       // Log turn start for this player using simplified turn numbering
       const playerTurnNumber = (gameState.playerTurnCounts[player.id] || 0) + 1;
@@ -491,7 +511,6 @@ export class TurnService implements ITurnService {
 
       // 1. Start new exploration session for transactional logging
       const sessionId = this.loggingService.startNewExplorationSession();
-      console.log(`🔄 Started exploration session ${sessionId} for ${player.name}`);
 
       // 2. Lock UI to prevent player actions during arrival processing
       this.stateService.updateGameState({ isProcessingArrival: true });
@@ -508,7 +527,6 @@ export class TurnService implements ITurnService {
       // 5. Save snapshot for Try Again feature AFTER processing effects
       // This ensures the snapshot captures state after first-visit effects have been applied
       this.stateService.savePreSpaceEffectSnapshot(player.id, player.currentSpace);
-      console.log(`📸 Saved Try Again snapshot for ${player.name} at ${player.currentSpace} after space effects`);
 
       // 6. Unlock UI after processing is complete
       this.stateService.updateGameState({ isProcessingArrival: false });
@@ -532,6 +550,21 @@ export class TurnService implements ITurnService {
     console.log(`🎬 TurnService.handleMovementChoices - Checking movement choices for player ${playerId}`);
 
     try {
+      // Get player to check movement type
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        console.log(`🎬 TurnService.handleMovementChoices - Player ${playerId} not found`);
+        return;
+      }
+
+      // Check movement type - skip choice creation for dice_outcome spaces
+      // Those choices are created AFTER dice roll in processTurnEffectsWithTracking()
+      const movement = this.dataService.getMovement(player.currentSpace, player.visitType);
+      if (movement?.movement_type === 'dice_outcome') {
+        console.log(`🎬 TurnService.handleMovementChoices - Skipping choice for dice_outcome space ${player.currentSpace} (choice created after dice roll)`);
+        return;
+      }
+
       // Check if the player's current space requires a movement choice
       const validMoves = this.movementService.getValidMoves(playerId);
 
@@ -543,8 +576,7 @@ export class TurnService implements ITurnService {
 
       if (validMoves.length > 1) {
         // Multiple moves available - present choice to player
-        const player = this.stateService.getPlayer(playerId);
-        const playerName = player?.name || 'Unknown Player';
+        const playerName = player.name || 'Unknown Player';
         console.log(`🎯 Player ${playerName} is at a choice space with ${validMoves.length} options - creating movement choice`);
 
         // Create choice for player to set their movement intent
@@ -553,7 +585,7 @@ export class TurnService implements ITurnService {
           label: destination
         }));
 
-        const prompt = `Choose your destination from ${player?.currentSpace}:`;
+        const prompt = `Choose your destination from ${player.currentSpace}:`;
 
         // Wait for player to make their choice
         const selectedDestination = await this.choiceService.createChoice(
@@ -589,6 +621,21 @@ export class TurnService implements ITurnService {
     console.log(`🔄 TurnService.restoreMovementChoiceIfNeeded - Checking if movement choice needs restoration for player ${playerId}`);
 
     try {
+      // Get player to check movement type
+      const player = this.stateService.getPlayer(playerId);
+      if (!player) {
+        console.log(`🔄 Player ${playerId} not found`);
+        return;
+      }
+
+      // Check movement type - skip choice restoration for dice_outcome spaces
+      // Those choices are created ONLY in processTurnEffectsWithTracking() after dice roll
+      const movement = this.dataService.getMovement(player.currentSpace, player.visitType);
+      if (movement?.movement_type === 'dice_outcome') {
+        console.log(`🔄 TurnService.restoreMovementChoiceIfNeeded - Skipping restore for dice_outcome space ${player.currentSpace} (choice created after dice roll)`);
+        return;
+      }
+
       // Check if the player's current space requires a movement choice
       const validMoves = this.movementService.getValidMoves(playerId);
 
@@ -599,11 +646,10 @@ export class TurnService implements ITurnService {
       }
 
       if (validMoves.length > 1) {
-        const player = this.stateService.getPlayer(playerId);
-        const playerName = player?.name || 'Unknown Player';
+        const playerName = player.name || 'Unknown Player';
 
         // Check if player already has a move intent set
-        if (player?.moveIntent) {
+        if (player.moveIntent) {
           console.log(`🔄 Player ${playerName} already has move intent: ${player.moveIntent} - restoring choice for UI display only`);
 
           // Restore the choice to UI state so buttons show, but don't wait for resolution
@@ -613,7 +659,7 @@ export class TurnService implements ITurnService {
             label: destination
           }));
 
-          const prompt = `Choose your destination from ${player?.currentSpace}:`;
+          const prompt = `Choose your destination from ${player.currentSpace}:`;
 
           // Create the choice in state for UI display (the moveIntent is already set)
           const choice = {
@@ -637,7 +683,7 @@ export class TurnService implements ITurnService {
           label: destination
         }));
 
-        const prompt = `Choose your destination from ${player?.currentSpace}:`;
+        const prompt = `Choose your destination from ${player.currentSpace}:`;
 
         // Create the choice (don't await - just set it in state)
         // The UI will show the choice and wait for player selection
@@ -707,8 +753,6 @@ export class TurnService implements ITurnService {
     if (!currentPlayer) {
       throw new Error(`Player ${playerId} not found`);
     }
-
-    console.log(`🎯 Processing turn effects for ${currentPlayer.name} on ${currentPlayer.currentSpace} (${currentPlayer.visitType} visit)`);
 
     try {
       // Get space effect data from DataService
@@ -1971,37 +2015,55 @@ export class TurnService implements ITurnService {
    * Returns comprehensive information about the dice roll and its effects
    */
   async rollDiceWithFeedback(playerId: string): Promise<TurnEffectResult> {
-    // Starting dice roll with feedback
+    console.log(`🎲 ROLL_DICE_FEEDBACK: ========== START ==========`);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: playerId: ${playerId}`);
 
     // Note: Snapshot is now saved immediately after movement in MovementService
     // This ensures Try Again always works regardless of when player presses it
 
     const currentPlayer = this.stateService.getPlayer(playerId);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: currentPlayer:`, currentPlayer);
+
     if (!currentPlayer) {
+      console.error(`🎲 ROLL_DICE_FEEDBACK: ERROR - Player ${playerId} not found!`);
       throw new Error(`Player ${playerId} not found`);
     }
 
     const beforeState = this.stateService.getGameState();
     const beforePlayer = beforeState.players.find(p => p.id === playerId)!;
+    console.log(`🎲 ROLL_DICE_FEEDBACK: beforePlayer state:`, {
+      space: beforePlayer.currentSpace,
+      visitType: beforePlayer.visitType,
+      hasRolledDice: beforeState.hasPlayerRolledDice,
+      hasMoved: beforeState.hasPlayerMovedThisTurn
+    });
 
     // Roll dice
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Calling rollDice()...`);
     const diceRoll = this.rollDice();
-    
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Dice roll result: ${diceRoll}`);
+
     // EffectEngine handles dice roll logging with comprehensive context
-    
+
     // Note: Dice roll logging now handled above in rollDice action
 
     // Process effects and track changes
     const effects: DiceResultEffect[] = [];
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Calling processTurnEffectsWithTracking...`);
     await this.processTurnEffectsWithTracking(playerId, diceRoll, effects);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Effects after processing:`, effects);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Number of effects: ${effects.length}`);
 
     // Mark dice roll states
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Marking dice as rolled and player as moved...`);
     this.stateService.setPlayerHasRolledDice();
     this.stateService.setPlayerHasMoved();
 
     // Generate summary
     const summary = this.generateEffectSummary(effects, diceRoll);
     const hasChoices = effects.some(effect => effect.type === 'choice');
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Summary: ${summary}`);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: hasChoices: ${hasChoices}`);
 
     // Generate detailed feedback message and store it in state
     const feedbackMessage = formatDiceRollFeedback(diceRoll, effects);
@@ -2010,7 +2072,7 @@ export class TurnService implements ITurnService {
     // Check if player can re-roll (from E066 card effect)
     const canReRoll = currentPlayer.turnModifiers?.canReRoll || false;
 
-    return {
+    const result = {
       diceValue: diceRoll,
       spaceName: currentPlayer.currentSpace,
       effects,
@@ -2018,6 +2080,11 @@ export class TurnService implements ITurnService {
       hasChoices,
       canReRoll
     };
+
+    console.log(`🎲 ROLL_DICE_FEEDBACK: Returning result:`, result);
+    console.log(`🎲 ROLL_DICE_FEEDBACK: ========== END ==========`);
+
+    return result;
   }
 
   /**
@@ -2092,6 +2159,49 @@ export class TurnService implements ITurnService {
                 description: 'Choose your next destination',
                 moveOptions: moveOptions
             });
+        }
+    } else if (movementRule && movementRule.movement_type === 'dice_outcome') {
+        // Handle dice-based movement (e.g., CHEAT-BYPASS)
+        // Get destinations from DiceRoll Info.csv based on the dice roll
+        const destinations = this.dataService.getDiceRollDestinations(
+            currentPlayer.currentSpace,
+            currentPlayer.visitType
+        );
+
+        if (destinations.length >= diceRoll) {
+            // Get the destination for this specific dice roll (1-indexed)
+            const destination = destinations[diceRoll - 1];
+
+            if (destination) {
+                effects.push({
+                    type: 'choice',
+                    description: 'Choose your next destination',
+                    moveOptions: [destination]
+                });
+
+                // Create the movement choice and set player's move intent
+                const options = [{
+                    id: destination,
+                    label: destination
+                }];
+
+                const prompt = `Choose your destination from ${currentPlayer.currentSpace}:`;
+
+                // Create the choice (don't await - just set it in state)
+                // The UI will show the choice and wait for player selection
+                this.choiceService.createChoice(
+                    playerId,
+                    'MOVEMENT',
+                    prompt,
+                    options
+                ).then(selectedDestination => {
+                    console.log(`✅ Player ${currentPlayer.name || playerId} selected destination (dice_outcome): ${selectedDestination}`);
+                    this.stateService.setPlayerMoveIntent(playerId, selectedDestination);
+                }).catch(error => {
+                    // Handle error silently - choice might be resolved later
+                    console.log(`🔄 Movement choice created for dice_outcome (will be resolved when player selects destination)`);
+                });
+            }
         }
     }
   }
