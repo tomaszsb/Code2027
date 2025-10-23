@@ -43,7 +43,7 @@ export class ResourceService implements IResourceService {
     });
   }
 
-  spendMoney(playerId: string, amount: number, source: string, reason?: string): boolean {
+  spendMoney(playerId: string, amount: number, source: string, reason?: string, category?: keyof import('../types/DataTypes').Expenditures): boolean {
     if (amount <= 0) {
       console.warn(`ResourceService.spendMoney: Invalid amount ${amount} for player ${playerId}`);
       return false;
@@ -54,6 +54,41 @@ export class ResourceService implements IResourceService {
       return false;
     }
 
+    // Get player for expenditure tracking
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.error(`ResourceService.spendMoney: Player ${playerId} not found`);
+      return false;
+    }
+
+    // Update expenditures if category is provided
+    if (category) {
+      // Ensure expenditures exists (backward compatibility)
+      const currentExpenditures = player.expenditures || {
+        design: 0,
+        fees: 0,
+        construction: 0
+      };
+
+      const updatedExpenditures = {
+        ...currentExpenditures,
+        [category]: currentExpenditures[category] + amount
+      };
+
+      // Update both money and expenditures in a single state update
+      this.stateService.updatePlayer({
+        id: playerId,
+        money: player.money - amount,
+        expenditures: updatedExpenditures
+      });
+
+      console.log(`💸 Expenditure tracked [${playerId}]: $${amount.toLocaleString()} in ${category} category`);
+      console.log(`   Total ${category}: $${updatedExpenditures[category].toLocaleString()}`);
+
+      return true;
+    }
+
+    // If no category provided, use legacy updateResources method
     return this.updateResources(playerId, {
       money: -amount,
       source,
@@ -68,6 +103,109 @@ export class ResourceService implements IResourceService {
       return false;
     }
     return player.money >= amount;
+  }
+
+  /**
+   * Record a cost/fee and track it by category
+   * This deducts money AND adds to cost history for detailed tracking
+   */
+  recordCost(
+    playerId: string,
+    category: import('../types/DataTypes').CostCategory,
+    amount: number,
+    description: string,
+    source: string
+  ): boolean {
+    if (amount <= 0) {
+      console.warn(`ResourceService.recordCost: Invalid amount ${amount} for player ${playerId}`);
+      return false;
+    }
+
+    if (!this.canAfford(playerId, amount)) {
+      console.warn(`ResourceService.recordCost: Player ${playerId} cannot afford $${amount.toLocaleString()} for ${category} fee`);
+      return false;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.error(`ResourceService.recordCost: Player ${playerId} not found`);
+      return false;
+    }
+
+    const gameState = this.stateService.getGameState();
+    const currentTurn = gameState.globalTurnCount || 0;
+
+    // Create cost entry
+    const costEntry: import('../types/DataTypes').CostEntry = {
+      id: `cost_${playerId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      category,
+      amount,
+      description,
+      turn: currentTurn,
+      timestamp: new Date(),
+      spaceName: player.currentSpace
+    };
+
+    // Initialize costHistory and costs if they don't exist (backward compatibility)
+    const costHistory = player.costHistory || [];
+    const costs = player.costs || {
+      bank: 0,
+      investor: 0,
+      expeditor: 0,
+      architectural: 0,
+      engineering: 0,
+      regulatory: 0,
+      miscellaneous: 0,
+      total: 0
+    };
+
+    // Add cost entry to history
+    const updatedCostHistory = [...costHistory, costEntry];
+
+    // Update costs breakdown
+    const updatedCosts = {
+      ...costs,
+      [category]: costs[category] + amount,
+      total: costs.total + amount
+    };
+
+    // Map cost category to expenditure category for backward compatibility
+    const expenditureCategory = this.mapCostToExpenditure(category);
+
+    // Update player state
+    this.stateService.updatePlayer({
+      id: playerId,
+      money: player.money - amount,
+      costHistory: updatedCostHistory,
+      costs: updatedCosts,
+      expenditures: expenditureCategory ? {
+        ...player.expenditures,
+        [expenditureCategory]: (player.expenditures?.[expenditureCategory] || 0) + amount
+      } : player.expenditures
+    });
+
+    // Log the transaction for debugging
+    console.log(`💸 Cost Recorded [${playerId}]: ${category} - $${amount.toLocaleString()} - ${description}`);
+
+    return true;
+  }
+
+  /**
+   * Map cost category to expenditure category for backward compatibility
+   */
+  private mapCostToExpenditure(category: import('../types/DataTypes').CostCategory): keyof import('../types/DataTypes').Expenditures | null {
+    switch (category) {
+      case 'architectural':
+      case 'engineering':
+        return 'design';
+      case 'bank':
+      case 'investor':
+      case 'expeditor':
+      case 'regulatory':
+        return 'fees';
+      default:
+        return null;
+    }
   }
 
   // === TIME OPERATIONS ===
@@ -114,12 +252,27 @@ export class ResourceService implements IResourceService {
     const newMoney = changes.money ? player.money + changes.money : player.money;
     const newTimeSpent = changes.timeSpent ? player.timeSpent + changes.timeSpent : player.timeSpent;
 
+    // Update money sources tracking (only for money additions, not spending)
+    // Provide default if player doesn't have moneySources yet (backward compatibility)
+    const currentMoneySources = player.moneySources || {
+      ownerFunding: 0,
+      bankLoans: 0,
+      investmentDeals: 0,
+      other: 0
+    };
+    const updatedMoneySources = { ...currentMoneySources };
+    if (changes.money && changes.money > 0) {
+      const category = this.categorizeMoneySource(changes.source, player.currentSpace);
+      updatedMoneySources[category] += changes.money;
+    }
+
     // Apply the changes
     try {
       const updatedState = this.stateService.updatePlayer({
         id: playerId,
         money: newMoney,
-        timeSpent: Math.max(0, newTimeSpent) // Ensure time doesn't go negative
+        timeSpent: Math.max(0, newTimeSpent), // Ensure time doesn't go negative
+        moneySources: updatedMoneySources
       });
 
       const balanceAfter = {
@@ -245,24 +398,52 @@ export class ResourceService implements IResourceService {
 
   private formatChangeDescription(changes: ResourceChange): string {
     const parts: string[] = [];
-    
+
     if (changes.money !== undefined) {
       const sign = changes.money >= 0 ? '+' : '';
       parts.push(`${sign}$${changes.money.toLocaleString()}`);
     }
-    
+
     if (changes.timeSpent !== undefined) {
       const sign = changes.timeSpent >= 0 ? '+' : '';
       parts.push(`${sign}${changes.timeSpent} time`);
     }
 
     let description = parts.join(', ');
-    
+
     if (changes.reason) {
       description += ` (${changes.reason})`;
     }
 
     return description;
+  }
+
+  /**
+   * Categorize money source into one of the tracked categories
+   * @param source - Source string from ResourceChange
+   * @param currentSpace - Player's current space
+   * @returns Category key for moneySources
+   */
+  private categorizeMoneySource(source: string, currentSpace: string): 'ownerFunding' | 'bankLoans' | 'investmentDeals' | 'other' {
+    const sourceLower = source.toLowerCase();
+
+    // Owner funding from OWNER-FUND-INITIATION space
+    if (currentSpace === 'OWNER-FUND-INITIATION' || sourceLower.includes('owner') || sourceLower.includes('funding')) {
+      return 'ownerFunding';
+    }
+
+    // Bank loans
+    if (sourceLower.includes('loan') || sourceLower.includes('bank')) {
+      return 'bankLoans';
+    }
+
+    // Investment deals
+    if (sourceLower.includes('invest') || sourceLower.includes('investor')) {
+      return 'investmentDeals';
+    }
+
+    // Everything else (cards, space effects, etc.)
+    return 'other';
   }
 
   // === LOAN OPERATIONS ===

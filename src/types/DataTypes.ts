@@ -16,7 +16,7 @@ export interface GameConfig {
 export interface Movement {
   space_name: string;
   visit_type: 'First' | 'Subsequent';
-  movement_type: 'fixed' | 'choice' | 'dice' | 'logic' | 'none';
+  movement_type: 'fixed' | 'choice' | 'dice' | 'dice_outcome' | 'logic' | 'none';
   destination_1?: string;
   destination_2?: string;
   destination_3?: string;
@@ -31,6 +31,18 @@ export interface Movement {
 
 export interface DiceOutcome {
   space_name: string;
+  visit_type: 'First' | 'Subsequent';
+  roll_1?: string;
+  roll_2?: string;
+  roll_3?: string;
+  roll_4?: string;
+  roll_5?: string;
+  roll_6?: string;
+}
+
+export interface DiceRollInfo {
+  space_name: string;
+  die_roll: string; // e.g., "Next Step", "Time outcomes", "W Cards", etc.
   visit_type: 'First' | 'Subsequent';
   roll_1?: string;
   roll_2?: string;
@@ -76,6 +88,7 @@ export interface SpaceContent {
   action_description: string;
   outcome_description: string;
   can_negotiate: boolean;
+  special_action?: string;
   content_text?: string;
   requires_choice?: boolean;
 }
@@ -97,12 +110,58 @@ export interface Loan {
   startTurn: number;
 }
 
+export interface MoneySources {
+  ownerFunding: number;    // Money from owner/founder (dice rolls at OWNER-FUND-INITIATION)
+  bankLoans: number;       // Money from bank loans
+  investmentDeals: number; // Money from investor deals
+  other: number;           // Other sources (cards, space effects, etc.)
+}
+
+export interface Expenditures {
+  design: number;       // Architect/Engineer fees (ARCH-FEE-REVIEW, ENG-FEE-REVIEW)
+  fees: number;         // All regulatory, consultant, and expeditor costs (DOB, FDNY, Bank, Investor fees, E cards)
+  construction: number; // Cost of work from 'W' cards (work_cost field)
+}
+
+export type CostCategory = 'bank' | 'investor' | 'expeditor' | 'architectural' | 'engineering' | 'regulatory' | 'miscellaneous';
+
+export interface CostEntry {
+  id: string;
+  category: CostCategory;
+  amount: number;
+  description: string;
+  turn: number;
+  timestamp: Date;
+  spaceName?: string; // Space where cost was incurred
+}
+
+export interface CostBreakdown {
+  bank: number;
+  investor: number;
+  expeditor: number;
+  architectural: number;
+  engineering: number;
+  regulatory: number;
+  miscellaneous: number;
+  total: number;
+}
+
+export interface SpaceVisitRecord {
+  spaceName: string;    // Name of the space visited
+  daysSpent: number;    // Days (time) spent at this space
+  entryTurn: number;    // Turn when player arrived
+  entryTime: number;    // Time spent when player arrived
+  exitTurn?: number;    // Turn when player left (undefined if current space)
+  exitTime?: number;    // Time spent when player left
+}
+
 export interface Player {
   id: string;
   name: string;
   currentSpace: string;
   visitType: 'First' | 'Subsequent';
   visitedSpaces: string[];
+  spaceVisitLog: SpaceVisitRecord[]; // Detailed log with time spent per space
   money: number;
   timeSpent: number;
   projectScope: number;
@@ -130,6 +189,11 @@ export interface Player {
   activeEffects: ActiveEffect[]; // Duration-based effects that persist across turns
   loans: Loan[]; // Player's outstanding loans with interest
   score: number; // Player's calculated final score
+  moneySources: MoneySources; // Track where money came from
+  expenditures: Expenditures; // Track where money is spent
+  costHistory: CostEntry[]; // Detailed log of all costs incurred
+  costs: CostBreakdown; // Summary of costs by category
+  moveIntent?: string | null; // Player's intended destination (set before move execution)
 }
 
 export interface GameState {
@@ -192,6 +256,6 @@ export interface ActiveEffect {
 }
 
 export type VisitType = 'First' | 'Subsequent';
-export type MovementType = 'fixed' | 'choice' | 'dice' | 'logic' | 'none';
+export type MovementType = 'fixed' | 'choice' | 'dice' | 'dice_outcome' | 'logic' | 'none';
 export type EffectType = 'time' | 'cards' | 'money';
 export type CardType = 'W' | 'B' | 'E' | 'L' | 'I';
