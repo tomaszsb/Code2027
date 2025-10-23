@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ExpandableSection } from '../ExpandableSection';
 import { ActionButton } from '../ActionButton';
 import { IServiceContainer } from '../../../types/ServiceContracts';
@@ -20,8 +20,14 @@ export interface FinancesSectionProps {
   /** Callback fired when the section header is clicked */
   onToggle: () => void;
 
-  /** Callback to handle dice roll / Get Funding action */
+  /** Callback to handle dice roll / Get Funding action (deprecated - use onAutomaticFunding for OWNER-FUND-INITIATION) */
   onRollDice?: () => Promise<void>;
+
+  /** Callback to handle automatic funding at OWNER-FUND-INITIATION space */
+  onAutomaticFunding?: () => Promise<void>;
+
+  /** Callback to handle manual effect results (to show modal) */
+  onManualEffectResult?: (result: import('../../../types/StateTypes').TurnEffectResult) => void;
 
   /** Completed actions tracking */
   completedActions?: {
@@ -71,6 +77,8 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
   isExpanded,
   onToggle,
   onRollDice,
+  onAutomaticFunding,
+  onManualEffectResult,
   completedActions = { manualActions: {} }
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +92,51 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     return null;
   }
 
+  // Ensure moneySources and expenditures exist (for backward compatibility)
+  const moneySources = player.moneySources || {
+    ownerFunding: 0,
+    bankLoans: 0,
+    investmentDeals: 0,
+    other: 0
+  };
+
+  const expenditures = player.expenditures || {
+    design: 0,
+    fees: 0,
+    construction: 0
+  };
+
+  // Calculate financial metrics using useMemo for performance
+  const financialMetrics = useMemo(() => {
+    const totalBudget = Object.values(moneySources).reduce((sum, val) => sum + val, 0);
+    const totalExpenditures = Object.values(expenditures).reduce((sum, val) => sum + val, 0);
+    const cashOnHand = player.money;
+    const projectScope = player.projectScope;
+
+    // Design cost ratio (20% threshold is industry standard)
+    const designCostRatio = projectScope > 0 ? (expenditures.design / projectScope) * 100 : 0;
+    const isDesignOverBudget = designCostRatio > 20;
+
+    // Budget variance (positive = under budget, negative = over budget)
+    const budgetVariance = totalBudget - totalExpenditures;
+
+    // Funding mix (percentage of owner vs external funding)
+    const ownerFundingPct = totalBudget > 0 ? (moneySources.ownerFunding / totalBudget) * 100 : 0;
+    const externalFundingPct = 100 - ownerFundingPct;
+
+    return {
+      totalBudget,
+      totalExpenditures,
+      cashOnHand,
+      projectScope,
+      designCostRatio,
+      isDesignOverBudget,
+      budgetVariance,
+      ownerFundingPct,
+      externalFundingPct
+    };
+  }, [moneySources, expenditures, player.money, player.projectScope]);
+
   // Get ALL manual effects for money from current space
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
   const moneyManualEffects = allSpaceEffects.filter(
@@ -92,20 +145,22 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
 
   // Check if on OWNER-FUND-INITIATION space (special funding action)
   const isOnFundingSpace = player.currentSpace === 'OWNER-FUND-INITIATION';
-  const canGetFunding = isOnFundingSpace && onRollDice && completedActions.diceRoll === undefined;
+  const canGetFunding = isOnFundingSpace && onAutomaticFunding && completedActions.diceRoll === undefined;
 
   // Check if there are any money manual actions available
-  const hasMoneyActions = moneyManualEffects.length > 0 || canGetFunding;
-
-  // Calculate surplus (optional - may not exist in current implementation)
-  const surplus = 0; // TODO: Implement surplus calculation if needed
+  const hasMoneyActions = Boolean(moneyManualEffects.length > 0 || canGetFunding);
 
   const handleManualEffect = async (effectType: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await gameServices.turnService.triggerManualEffectWithFeedback(playerId, effectType);
+      const result = await gameServices.turnService.triggerManualEffectWithFeedback(playerId, effectType);
+
+      // Trigger the onManualEffectResult callback if provided
+      if (onManualEffectResult && result) {
+        onManualEffectResult(result);
+      }
     } catch (err) {
       setError(`Failed to perform ${effectType} action. Please try again.`);
       console.error(`Manual effect error (${effectType}):`, err);
@@ -130,37 +185,43 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     });
   };
 
-  // Money sources structure (showing completed funding)
-  const moneySources = [
+  // Money sources structure (showing sources with money received)
+  const moneySourcesList = [
     {
       name: 'Owner Funding',
-      amount: 0, // TODO: Track from game state
-      description: 'Seed money',
-      processed: isOnFundingSpace || completedActions.manualActions.funding !== undefined
+      amount: moneySources.ownerFunding,
+      description: 'Seed money from owner',
+      processed: moneySources.ownerFunding > 0
     },
     {
       name: 'Bank Loans',
-      amount: 0, // TODO: Track from game state
+      amount: moneySources.bankLoans,
       description: 'Bank financing',
-      processed: false // TODO: Track from game state
+      processed: moneySources.bankLoans > 0
     },
     {
       name: 'Investment Deals',
-      amount: 0, // TODO: Track from game state
+      amount: moneySources.investmentDeals,
       description: 'Investor funding',
-      processed: false // TODO: Track from game state
+      processed: moneySources.investmentDeals > 0
+    },
+    {
+      name: 'Other Sources',
+      amount: moneySources.other,
+      description: 'Cards, space effects, etc.',
+      processed: moneySources.other > 0
     }
-  ].filter(source => source.processed); // Only show processed sources
+  ].filter(source => source.processed); // Only show sources with money
 
-  // Handler for Get Funding / dice roll
+  // Handler for Get Funding (automatic funding at OWNER-FUND-INITIATION)
   const handleGetFunding = async () => {
-    if (!onRollDice) return;
+    if (!onAutomaticFunding) return;
 
     setIsRollingDice(true);
     setError(null);
 
     try {
-      await onRollDice();
+      await onAutomaticFunding();
     } catch (err) {
       setError('Failed to get funding. Please try again.');
       console.error('Get funding error:', err);
@@ -210,8 +271,8 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     </>
   ) : undefined;
 
-  // Summary content - always visible
-  const summary = <span>Balance: ${player.money.toLocaleString()}</span>;
+  // Summary content - always visible, shows cash on hand
+  const summary = <span>Cash: ${financialMetrics.cashOnHand.toLocaleString()}</span>;
 
   return (
     <ExpandableSection
@@ -228,11 +289,285 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
       summary={summary}
     >
       <div className="finances-content" id="finances-content">
-        {/* Money Sources (only show if sources exist) */}
-        {moneySources.length > 0 && (
-          <div className="money-sources-section">
-            <div className="sources-header">💰 Sources of Money</div>
-            {moneySources.map((source, index) => {
+        {/* Section A: Scope & Budget */}
+        <div className="financial-section">
+          <h3 className="section-heading">📊 Scope & Budget</h3>
+          <div className="stat-grid">
+            <div className="stat-item">
+              <span className="stat-label">Project Scope</span>
+              <span className="stat-value">${financialMetrics.projectScope.toLocaleString()}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Total Budget</span>
+              <span className="stat-value">${financialMetrics.totalBudget.toLocaleString()}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Cash on Hand</span>
+              <span className="stat-value stat-highlight">${financialMetrics.cashOnHand.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section B: Expenditures */}
+        {financialMetrics.totalExpenditures > 0 && (
+          <div className="financial-section">
+            <h3 className="section-heading">💸 Expenditures</h3>
+            <div className="stat-list">
+              <div className="stat-item">
+                <span className="stat-label">Design</span>
+                <span className="stat-value">${expenditures.design.toLocaleString()}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Fees</span>
+                <span className="stat-value">${expenditures.fees.toLocaleString()}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Construction</span>
+                <span className="stat-value">${expenditures.construction.toLocaleString()}</span>
+              </div>
+              <div className="stat-item stat-total">
+                <span className="stat-label">Total Spent</span>
+                <span className="stat-value">${financialMetrics.totalExpenditures.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section B2: Costs (detailed fee tracking) */}
+        {player.costs && player.costs.total > 0 && (
+          <div className="financial-section">
+            <h3 className="section-heading">💵 Costs (Detailed)</h3>
+            <div className="cost-categories">
+              {/* Bank Fees */}
+              {player.costs.bank > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('bank-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('bank-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Bank Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.bank.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('bank-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'bank').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Investor Fees */}
+              {player.costs.investor > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('investor-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('investor-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Investor Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.investor.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('investor-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'investor').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Expeditor Fees */}
+              {player.costs.expeditor > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('expeditor-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('expeditor-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Expeditor Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.expeditor.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('expeditor-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'expeditor').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Architectural Fees */}
+              {player.costs.architectural > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('architectural-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('architectural-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Architectural Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.architectural.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('architectural-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'architectural').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Engineering Fees */}
+              {player.costs.engineering > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('engineering-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('engineering-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Engineering Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.engineering.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('engineering-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'engineering').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Regulatory Fees */}
+              {player.costs.regulatory > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('regulatory-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('regulatory-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Regulatory Fees</span>
+                    </span>
+                    <span className="category-amount">${player.costs.regulatory.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('regulatory-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'regulatory').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Miscellaneous Fees */}
+              {player.costs.miscellaneous > 0 && (
+                <div className="cost-category-group">
+                  <button
+                    className="cost-category-header"
+                    onClick={() => toggleSource('miscellaneous-costs')}
+                  >
+                    <span className="category-info">
+                      <span className="expand-icon">{expandedSources.has('miscellaneous-costs') ? '▼' : '▶'}</span>
+                      <span className="category-name">Miscellaneous</span>
+                    </span>
+                    <span className="category-amount">${player.costs.miscellaneous.toLocaleString()}</span>
+                  </button>
+                  {expandedSources.has('miscellaneous-costs') && (
+                    <div className="cost-details">
+                      {player.costHistory?.filter(c => c.category === 'miscellaneous').map((cost, idx) => (
+                        <div key={idx} className="cost-entry">
+                          <span className="cost-description">{cost.description}</span>
+                          <span className="cost-amount">${cost.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Total Costs */}
+              <div className="stat-item stat-total">
+                <span className="stat-label">Total Costs</span>
+                <span className="stat-value">${player.costs.total.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section C: Financial Health */}
+        {financialMetrics.totalBudget > 0 && (
+          <div className="financial-section">
+            <h3 className="section-heading">📈 Financial Health</h3>
+            <div className="stat-list">
+              <div className={`stat-item ${financialMetrics.isDesignOverBudget ? 'stat-warning' : ''}`}>
+                <span className="stat-label">Design Cost %</span>
+                <span className="stat-value">
+                  {financialMetrics.designCostRatio.toFixed(1)}%
+                  {financialMetrics.isDesignOverBudget && ' ⚠️'}
+                </span>
+              </div>
+              {financialMetrics.isDesignOverBudget && (
+                <div className="stat-warning-message">
+                  Design costs exceed 20% threshold - project at risk
+                </div>
+              )}
+              <div className="stat-item">
+                <span className="stat-label">Budget Variance</span>
+                <span className={`stat-value ${financialMetrics.budgetVariance < 0 ? 'stat-negative' : 'stat-positive'}`}>
+                  ${Math.abs(financialMetrics.budgetVariance).toLocaleString()}
+                  {financialMetrics.budgetVariance >= 0 ? ' under' : ' over'}
+                </span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Funding Mix</span>
+                <span className="stat-value">
+                  {financialMetrics.ownerFundingPct.toFixed(0)}% owner / {financialMetrics.externalFundingPct.toFixed(0)}% external
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section D: Money Sources (collapsible details) */}
+        {moneySourcesList.length > 0 && (
+          <div className="financial-section">
+            <h3 className="section-heading">💰 Sources of Money</h3>
+            {moneySourcesList.map((source, index) => {
               const isExpanded = expandedSources.has(source.name);
               return (
                 <div key={index} className="money-source-group">
@@ -256,13 +591,6 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {surplus > 0 && (
-          <div className="stat-line">
-            <span className="stat-label">Surplus:</span>
-            <span className="stat-value">${surplus}</span>
           </div>
         )}
       </div>

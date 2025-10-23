@@ -38,12 +38,18 @@ describe('ResourceService', () => {
     describe('addMoney', () => {
       it('should add money successfully with valid amount', () => {
         const result = resourceService.addMoney('player1', 500, 'test:add_money', 'Test addition');
-        
+
         expect(result).toBe(true);
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1500,
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 500
+          }
         });
       });
 
@@ -65,12 +71,18 @@ describe('ResourceService', () => {
     describe('spendMoney', () => {
       it('should spend money successfully when player has enough funds', () => {
         const result = resourceService.spendMoney('player1', 300, 'test:spend_money', 'Test spending');
-        
+
         expect(result).toBe(true);
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 700,
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
@@ -112,11 +124,17 @@ describe('ResourceService', () => {
     describe('addTime', () => {
       it('should add time successfully', () => {
         resourceService.addTime('player1', 3, 'test:add_time', 'Test time addition');
-        
+
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1000,
-          timeSpent: 8
+          timeSpent: 8,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
     });
@@ -124,21 +142,33 @@ describe('ResourceService', () => {
     describe('spendTime', () => {
       it('should spend time successfully', () => {
         resourceService.spendTime('player1', 2, 'test:spend_time', 'Test time spending');
-        
+
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1000,
-          timeSpent: 3
+          timeSpent: 3,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
       it('should prevent time from going negative', () => {
         resourceService.spendTime('player1', 10, 'test:spend_time', 'Excessive time spending');
-        
+
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1000,
-          timeSpent: 0
+          timeSpent: 0,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
     });
@@ -155,12 +185,18 @@ describe('ResourceService', () => {
         };
 
         const result = resourceService.updateResources('player1', changes);
-        
+
         expect(result).toBe(true);
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1200,
-          timeSpent: 4
+          timeSpent: 4,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 200
+          }
         });
       });
 
@@ -172,12 +208,18 @@ describe('ResourceService', () => {
         };
 
         const result = resourceService.updateResources('player1', changes);
-        
+
         expect(result).toBe(true);
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 700,
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
@@ -311,7 +353,13 @@ describe('ResourceService', () => {
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 6000, // 1000 + 5000 loan amount
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 5000,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
@@ -397,7 +445,13 @@ describe('ResourceService', () => {
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 1660, // 2000 - 340
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
@@ -414,7 +468,13 @@ describe('ResourceService', () => {
         expect(mockStateService.updatePlayer).toHaveBeenCalledWith({
           id: 'player1',
           money: 0, // 200 - 200 (all available money)
-          timeSpent: 5
+          timeSpent: 5,
+          moneySources: {
+            ownerFunding: 0,
+            bankLoans: 0,
+            investmentDeals: 0,
+            other: 0
+          }
         });
       });
 
@@ -474,14 +534,258 @@ describe('ResourceService', () => {
     });
   });
 
+  describe('Cost Tracking Operations', () => {
+    const playerWithFinances: Player = {
+      ...mockPlayer,
+      money: 10000,
+      costHistory: [],
+      costs: {
+        bank: 0,
+        investor: 0,
+        expeditor: 0,
+        architectural: 0,
+        engineering: 0,
+        regulatory: 0,
+        miscellaneous: 0,
+        total: 0
+      },
+      expenditures: {
+        design: 0,
+        fees: 0,
+        construction: 0
+      }
+    };
+
+    const mockGameStateWithTurn: GameState = {
+      turn: 15,
+      globalTurnCount: 15,
+      players: [playerWithFinances],
+      currentPlayerId: 'player1',
+      gamePhase: 'PLAY',
+      isGameOver: false,
+      activeModal: null,
+      awaitingChoice: null,
+      hasPlayerMovedThisTurn: false,
+      hasPlayerRolledDice: false,
+      requiredActions: 1,
+      completedActions: 0,
+      availableActionTypes: [],
+      hasCompletedManualActions: false,
+      activeNegotiation: null,
+      globalActionLog: [],
+      preSpaceEffectState: null,
+      decks: { W: [], B: [], E: [], L: [], I: [] },
+      discardPiles: { W: [], B: [], E: [], L: [], I: [] }
+    };
+
+    beforeEach(() => {
+      mockStateService.getPlayer.mockReturnValue(playerWithFinances);
+      mockStateService.getGameState.mockReturnValue(mockGameStateWithTurn);
+      mockStateService.updatePlayer.mockReturnValue(mockGameStateWithTurn);
+    });
+
+    describe('recordCost', () => {
+      it('should successfully record a bank fee cost', () => {
+        const result = resourceService.recordCost('player1', 'bank', 500, 'Bank processing fee', 'BANK-FEE');
+
+        expect(result).toBe(true);
+
+        // Verify the cost entry was created and added to costHistory
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'player1',
+            money: 9500, // 10000 - 500
+            costHistory: expect.arrayContaining([
+              expect.objectContaining({
+                category: 'bank',
+                amount: 500,
+                description: 'Bank processing fee',
+                turn: 15,
+                spaceName: 'TEST-SPACE'
+              })
+            ]),
+            costs: expect.objectContaining({
+              bank: 500,
+              total: 500
+            }),
+            expenditures: expect.objectContaining({
+              fees: 500 // bank maps to fees
+            })
+          })
+        );
+      });
+
+      it('should successfully record an architectural fee', () => {
+        const result = resourceService.recordCost('player1', 'architectural', 2000, 'Architect review', 'ARCH-FEE');
+
+        expect(result).toBe(true);
+
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            money: 8000,
+            costs: expect.objectContaining({
+              architectural: 2000,
+              total: 2000
+            }),
+            expenditures: expect.objectContaining({
+              design: 2000 // architectural maps to design
+            })
+          })
+        );
+      });
+
+      it('should successfully record an engineering fee', () => {
+        const result = resourceService.recordCost('player1', 'engineering', 1500, 'Engineer review', 'ENG-FEE');
+
+        expect(result).toBe(true);
+
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            costs: expect.objectContaining({
+              engineering: 1500
+            }),
+            expenditures: expect.objectContaining({
+              design: 1500 // engineering maps to design
+            })
+          })
+        );
+      });
+
+      it('should successfully record a regulatory fee', () => {
+        const result = resourceService.recordCost('player1', 'regulatory', 800, 'DOB filing fee', 'DOB-FEE');
+
+        expect(result).toBe(true);
+
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            costs: expect.objectContaining({
+              regulatory: 800
+            }),
+            expenditures: expect.objectContaining({
+              fees: 800 // regulatory maps to fees
+            })
+          })
+        );
+      });
+
+      it('should accumulate multiple costs in the same category', () => {
+        // First cost
+        resourceService.recordCost('player1', 'expeditor', 300, 'Expeditor fee 1', 'EXPEDITOR');
+
+        // Mock the updated player state with first cost
+        const playerAfterFirstCost = {
+          ...playerWithFinances,
+          money: 9700,
+          costHistory: [{
+            id: 'cost1',
+            category: 'expeditor' as const,
+            amount: 300,
+            description: 'Expeditor fee 1',
+            turn: 15,
+            timestamp: new Date(),
+            spaceName: 'TEST-SPACE'
+          }],
+          costs: {
+            ...playerWithFinances.costs,
+            expeditor: 300,
+            total: 300
+          }
+        };
+        mockStateService.getPlayer.mockReturnValue(playerAfterFirstCost);
+
+        // Second cost
+        const result = resourceService.recordCost('player1', 'expeditor', 200, 'Expeditor fee 2', 'EXPEDITOR');
+
+        expect(result).toBe(true);
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            money: 9500, // 9700 - 200
+            costs: expect.objectContaining({
+              expeditor: 500, // 300 + 200
+              total: 500
+            })
+          })
+        );
+      });
+
+      it('should fail when player cannot afford the cost', () => {
+        const poorPlayer = { ...playerWithFinances, money: 100 };
+        mockStateService.getPlayer.mockReturnValue(poorPlayer);
+
+        const result = resourceService.recordCost('player1', 'bank', 500, 'Expensive fee', 'BANK-FEE');
+
+        expect(result).toBe(false);
+        expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+      });
+
+      it('should fail with invalid amount (zero)', () => {
+        const result = resourceService.recordCost('player1', 'bank', 0, 'Invalid cost', 'TEST');
+
+        expect(result).toBe(false);
+        expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+      });
+
+      it('should fail with invalid amount (negative)', () => {
+        const result = resourceService.recordCost('player1', 'bank', -100, 'Invalid cost', 'TEST');
+
+        expect(result).toBe(false);
+        expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+      });
+
+      it('should fail when player is not found', () => {
+        mockStateService.getPlayer.mockReturnValue(undefined);
+
+        const result = resourceService.recordCost('nonexistent', 'bank', 100, 'Fee', 'TEST');
+
+        expect(result).toBe(false);
+        expect(mockStateService.updatePlayer).not.toHaveBeenCalled();
+      });
+
+      it('should handle backward compatibility (player without cost structures)', () => {
+        const legacyPlayer = {
+          ...mockPlayer,
+          money: 5000
+          // No costHistory, costs, or expenditures fields
+        };
+        mockStateService.getPlayer.mockReturnValue(legacyPlayer);
+
+        const result = resourceService.recordCost('player1', 'bank', 100, 'Fee', 'BANK-FEE');
+
+        expect(result).toBe(true);
+
+        // Should initialize empty structures
+        expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            costHistory: expect.arrayContaining([
+              expect.objectContaining({
+                category: 'bank',
+                amount: 100
+              })
+            ]),
+            costs: expect.objectContaining({
+              bank: 100,
+              investor: 0,
+              expeditor: 0,
+              architectural: 0,
+              engineering: 0,
+              regulatory: 0,
+              miscellaneous: 0,
+              total: 100
+            })
+          })
+        );
+      });
+    });
+  });
+
   describe('Transaction History', () => {
     it('should maintain transaction history', () => {
       // Perform some operations to create history
       resourceService.addMoney('player1', 500, 'test:history_1');
       resourceService.spendMoney('player1', 200, 'test:history_2');
-      
+
       const history = resourceService.getResourceHistory('player1');
-      
+
       expect(history).toHaveLength(2);
       expect(history[0].changes.money).toBe(500);
       expect(history[0].changes.source).toBe('test:history_1');
