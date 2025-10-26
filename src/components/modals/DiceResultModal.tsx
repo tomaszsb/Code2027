@@ -127,20 +127,24 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          marginBottom: '6px',
-          paddingLeft: '8px'
+          marginBottom: '8px',
+          paddingLeft: '4px'
         }}
       >
-        <span style={{ fontSize: '18px', marginRight: '8px', flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontSize: '16px', marginRight: '8px', marginTop: '2px', flexShrink: 0 }}>•</span>
         <div style={{ flex: 1 }}>
-          <span style={{ fontWeight: 'bold', color: color }}>
-            {formattedValue}
-          </span>
-          <span style={{ color: colors.secondary.main, fontSize: '14px', marginLeft: '6px' }}>
-            {effect.description}
-          </span>
+          <div>
+            <span style={{ fontWeight: 'bold', color: color, fontSize: '15px' }}>
+              {formattedValue}
+            </span>
+            {effect.description && (
+              <span style={{ color: colors.secondary.main, fontSize: '13px', marginLeft: '4px' }}>
+                - {effect.description}
+              </span>
+            )}
+          </div>
           {cardNames.length > 0 && (
-            <div style={{ color: colors.text.primary, fontSize: '13px', marginTop: '2px', fontStyle: 'italic' }}>
+            <div style={{ color: colors.text.secondary, fontSize: '12px', marginTop: '2px', marginLeft: '2px' }}>
               {cardNames.join(', ')}
             </div>
           )}
