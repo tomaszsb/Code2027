@@ -271,7 +271,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                     margin: 0
                   }}
                 >
-                  Dice Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
+                  🎲 Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
                 </h2>
               </div>
             )}
