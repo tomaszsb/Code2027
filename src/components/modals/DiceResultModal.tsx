@@ -92,7 +92,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
     if (effect.type === 'cards' && effect.cardAction === 'remove') {
       color = colors.warning.main;
     }
-    
+
     let formattedValue = '';
     if (effect.type === 'money' && effect.value !== undefined) {
       const formatted = FormatUtils.formatResourceChange(effect.value, 'money');
@@ -126,25 +126,21 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
         key={index}
         style={{
           display: 'flex',
-          alignItems: 'center',
-          padding: '12px 16px',
-          marginBottom: '8px',
-          backgroundColor: colors.secondary.bg,
-          borderRadius: '8px',
-          borderLeft: `4px solid ${color}`,
-          transition: 'all 0.2s ease'
+          alignItems: 'flex-start',
+          marginBottom: '6px',
+          paddingLeft: '8px'
         }}
       >
-        <span style={{ fontSize: '20px', marginRight: '12px' }}>{icon}</span>
+        <span style={{ fontSize: '18px', marginRight: '8px', flexShrink: 0 }}>{icon}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 'bold', color: color, marginBottom: '4px' }}>
+          <span style={{ fontWeight: 'bold', color: color }}>
             {formattedValue}
-          </div>
-          <div style={{ color: colors.secondary.main, fontSize: '14px' }}>
+          </span>
+          <span style={{ color: colors.secondary.main, fontSize: '14px', marginLeft: '6px' }}>
             {effect.description}
-          </div>
+          </span>
           {cardNames.length > 0 && (
-            <div style={{ color: colors.text.primary, fontSize: '13px', marginTop: '6px', fontStyle: 'italic' }}>
+            <div style={{ color: colors.text.primary, fontSize: '13px', marginTop: '2px', fontStyle: 'italic' }}>
               {cardNames.join(', ')}
             </div>
           )}
@@ -182,29 +178,29 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
   };
 
   const headerStyle: React.CSSProperties = {
-    padding: '24px 24px 16px',
+    padding: '12px 16px',
     borderBottom: `2px solid ${colors.secondary.light}`,
     textAlign: 'center'
   };
 
   const bodyStyle: React.CSSProperties = {
-    padding: '16px 24px',
+    padding: '12px 16px',
     flex: 1,
     overflowY: 'auto'
   };
 
   const footerStyle: React.CSSProperties = {
-    padding: '16px 24px 24px',
+    padding: '12px 16px',
     display: 'flex',
     justifyContent: 'center',
     gap: '12px'
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: '12px 24px',
+    padding: '10px 20px',
     border: 'none',
     borderRadius: '8px',
-    fontSize: '16px',
+    fontSize: '15px',
     fontWeight: 'bold',
     cursor: 'pointer',
     transition: 'all 0.2s ease'
@@ -254,104 +250,78 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           <div style={headerStyle}>
             {/* Dice Display - only show for actual dice rolls */}
             {result.diceValue > 0 && (
-              <>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px'
+              }}>
                 <div style={{
-                  fontSize: '48px',
-                  marginBottom: '8px',
+                  fontSize: '36px',
                   animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
                 }}>
                   {getDiceIcon(result.diceValue)}
                 </div>
-                <h2 
+                <h2
                   id="dice-result-title"
-                  style={{ 
+                  style={{
                     fontSize: '24px',
                     fontWeight: 'bold',
                     color: colors.text.primary,
-                    margin: 0,
-                    marginBottom: '8px'
+                    margin: 0
                   }}
                 >
-                  Dice Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
+                  🎲 Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
                 </h2>
-              </>
+              </div>
             )}
-            
+
             {/* Manual Action Display - for non-dice actions */}
             {result.diceValue === 0 && (
-              <>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px'
+              }}>
                 <div style={{
-                  fontSize: '48px',
-                  marginBottom: '8px',
+                  fontSize: '36px',
                   animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
                 }}>
                   ⚡
                 </div>
-                <h2 
+                <h2
                   id="action-result-title"
-                  style={{ 
+                  style={{
                     fontSize: '24px',
                     fontWeight: 'bold',
                     color: colors.text.primary,
-                    margin: 0,
-                    marginBottom: '8px'
+                    margin: 0
                   }}
                 >
                   Manual Action Result
                 </h2>
-              </>
+              </div>
             )}
-            <p style={{ 
-              color: colors.secondary.main,
-              margin: 0,
-              fontSize: '14px'
-            }}>
-              On {result.spaceName}
-            </p>
           </div>
 
           {/* Body */}
           <div style={bodyStyle}>
-            {result.effects.length > 0 ? (
-              <>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  color: colors.text.primary,
-                  marginTop: 0,
-                  marginBottom: '16px'
-                }}>
-                  Effects Applied:
-                </h3>
-                
-                {result.effects.map((effect, index) => renderEffect(effect, index))}
-              </>
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                color: colors.secondary.main,
-                fontSize: '16px',
-                padding: '20px'
-              }}>
-                <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>😐</span>
-                No special effects this turn
-              </div>
-            )}
-
+            {/* Summary first */}
             {result.summary && (
               <div style={{
                 backgroundColor: colors.primary.light,
                 border: `2px solid ${colors.primary.main}`,
                 borderRadius: '8px',
-                padding: '16px',
-                marginTop: '16px'
+                padding: '10px 12px',
+                marginBottom: '12px'
               }}>
                 <h4 style={{
-                  fontSize: '16px',
+                  fontSize: '15px',
                   fontWeight: 'bold',
                   color: colors.primary.text,
                   margin: 0,
-                  marginBottom: '8px'
+                  marginBottom: '4px'
                 }}>
                   Summary:
                 </h4>
@@ -362,6 +332,33 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 }}>
                   {result.summary}
                 </p>
+              </div>
+            )}
+
+            {/* Effects as bullets */}
+            {result.effects.length > 0 ? (
+              <>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  color: colors.text.primary,
+                  marginTop: 0,
+                  marginBottom: '8px'
+                }}>
+                  Effects Applied:
+                </h3>
+
+                {result.effects.map((effect, index) => renderEffect(effect, index))}
+              </>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                color: colors.secondary.main,
+                fontSize: '16px',
+                padding: '12px'
+              }}>
+                <span style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>😐</span>
+                No special effects this turn
               </div>
             )}
           </div>
