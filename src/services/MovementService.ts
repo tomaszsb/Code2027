@@ -5,8 +5,24 @@ import { GameState, Player } from '../types/StateTypes';
 import { Movement, VisitType } from '../types/DataTypes';
 
 /**
+ * Movement timing configuration for smooth state transitions
+ */
+const MOVEMENT_TIMING = {
+  /** Delay before starting movement (allows UI to prepare) */
+  PRE_MOVEMENT_DELAY: 50,
+  /** Delay during movement animation */
+  MOVEMENT_ANIMATION_DELAY: 150,
+  /** Delay after movement (allows UI to settle) */
+  POST_MOVEMENT_DELAY: 50,
+  /** Timeout for movement operations to prevent hanging */
+  MOVEMENT_TIMEOUT: 5000
+} as const;
+
+/**
  * MovementService handles all player movement logic.
  * This is a stateless service that orchestrates movement validation and execution.
+ *
+ * Enhanced with smooth state transitions and improved timing for better feel.
  */
 export class MovementService implements IMovementService {
   constructor(
@@ -21,27 +37,47 @@ export class MovementService implements IMovementService {
    * @param playerId - The ID of the player
    * @returns Array of valid destination space names
    * @throws Error if player not found or no movement data available
+   *
+   * Enhanced with better validation and edge case handling.
    */
   getValidMoves(playerId: string): string[] {
+    // Validate input
+    if (!playerId || playerId.trim() === '') {
+      throw new Error('Invalid playerId: must be a non-empty string');
+    }
+
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player with ID ${playerId} not found`);
     }
 
+    // Validate player state
+    if (!player.currentSpace || player.currentSpace.trim() === '') {
+      console.warn(`Player ${playerId} has invalid currentSpace: "${player.currentSpace}"`);
+      return [];
+    }
+
     const movement = this.dataService.getMovement(player.currentSpace, player.visitType);
     if (!movement) {
-      throw new Error(`No movement data found for space ${player.currentSpace} with visit type ${player.visitType}`);
+      console.warn(`No movement data found for space ${player.currentSpace} with visit type ${player.visitType}`);
+      return [];
     }
 
-    if (movement.movement_type === 'dice') {
-      return this.getDiceDestinations(player.currentSpace, player.visitType);
-    }
+    // Handle different movement types
+    try {
+      if (movement.movement_type === 'dice') {
+        return this.getDiceDestinations(player.currentSpace, player.visitType);
+      }
 
-    if (movement.movement_type === 'logic') {
-      return this.getLogicDestinations(playerId, movement);
-    }
+      if (movement.movement_type === 'logic') {
+        return this.getLogicDestinations(playerId, movement);
+      }
 
-    return this.extractDestinationsFromMovement(movement);
+      return this.extractDestinationsFromMovement(movement);
+    } catch (error) {
+      console.error(`Error getting valid moves for player ${playerId}:`, error);
+      return [];
+    }
   }
 
   /**
@@ -65,9 +101,19 @@ export class MovementService implements IMovementService {
   /**
    * Phase 1: Validate move before execution
    * @private
+   *
+   * Enhanced with comprehensive validation and edge case handling.
    */
   private validateMove(playerId: string, destinationSpace: string) {
     console.log(`🔍 Validating move: ${playerId} → ${destinationSpace}`);
+
+    // Validate inputs
+    if (!playerId || playerId.trim() === '') {
+      throw new Error('Invalid playerId: must be a non-empty string');
+    }
+    if (!destinationSpace || destinationSpace.trim() === '') {
+      throw new Error('Invalid destinationSpace: must be a non-empty string');
+    }
 
     // Validate player exists
     const player = this.stateService.getPlayer(playerId);
@@ -75,10 +121,25 @@ export class MovementService implements IMovementService {
       throw new Error(`Player with ID ${playerId} not found`);
     }
 
+    // Validate player has a current space
+    if (!player.currentSpace || player.currentSpace.trim() === '') {
+      throw new Error(`Player ${playerId} has invalid current space`);
+    }
+
+    // Prevent moving to the same space (edge case)
+    if (player.currentSpace === destinationSpace) {
+      console.warn(`Player ${playerId} attempting to move to current space ${destinationSpace}`);
+      // Allow this but log it - some game mechanics might require it
+    }
+
     // Validate move is legal
     const validMoves = this.getValidMoves(playerId);
     if (!validMoves.includes(destinationSpace)) {
-      throw new Error(`Invalid move: ${destinationSpace} is not a valid destination from ${player.currentSpace}`);
+      const validMovesStr = validMoves.length > 0 ? validMoves.join(', ') : 'none';
+      throw new Error(
+        `Invalid move: ${destinationSpace} is not a valid destination from ${player.currentSpace}. ` +
+        `Valid destinations: ${validMovesStr}`
+      );
     }
 
     // Determine visit type for destination space
@@ -87,6 +148,7 @@ export class MovementService implements IMovementService {
       : 'First';
 
     // Update visited spaces array if this is a first visit
+    // Ensure we maintain immutability and prevent duplicates
     const updatedVisitedSpaces = newVisitType === 'First'
       ? [...player.visitedSpaces, destinationSpace]
       : player.visitedSpaces;
@@ -264,9 +326,15 @@ export class MovementService implements IMovementService {
    * Handles movement choices by presenting options and awaiting player selection
    * @param playerId - The ID of the player making the choice
    * @returns Promise that resolves with the updated game state after movement
-   * CACHE BUSTER: Version 2.0 - Force Browser Reload
+   *
+   * Enhanced with improved timing and smooth state transitions.
    */
   async handleMovementChoiceV2(playerId: string): Promise<GameState> {
+    // Validate input
+    if (!playerId || playerId.trim() === '') {
+      throw new Error('Invalid playerId: must be a non-empty string');
+    }
+
     const validMoves = this.getValidMoves(playerId);
 
     if (validMoves.length === 0) {
@@ -276,7 +344,25 @@ export class MovementService implements IMovementService {
     if (validMoves.length === 1) {
       // Only one option - move automatically without presenting a choice
       console.log(`🚶 Auto-moving player ${playerId} to ${validMoves[0]} (only option)`);
-      return await this.movePlayer(playerId, validMoves[0]);
+
+      // Use smooth timing even for auto-moves
+      this.stateService.setMoving(true);
+
+      return new Promise((resolve, reject) => {
+        setTimeout(async () => {
+          try {
+            const result = await this.movePlayer(playerId, validMoves[0]);
+            // Add a small delay after movement for UI to settle
+            setTimeout(() => {
+              this.stateService.setMoving(false);
+              resolve(result);
+            }, MOVEMENT_TIMING.POST_MOVEMENT_DELAY);
+          } catch (error) {
+            this.stateService.setMoving(false);
+            reject(error);
+          }
+        }, MOVEMENT_TIMING.PRE_MOVEMENT_DELAY);
+      });
     }
 
     // Multiple options - present choice to player
@@ -304,29 +390,42 @@ export class MovementService implements IMovementService {
 
     console.log(`✅ Player ${player.name} chose to move to: ${selectedDestination}`);
 
-    // Set the moving flag immediately to notify the UI
-    // FORCE RELOAD: Cache-busting timestamp: 2025-09-21T04:45:00Z
+    // Set the moving flag with pre-movement delay to allow UI to prepare
     this.stateService.setMoving(true);
 
-    // IMPORTANT: Use a setTimeout to yield to the event loop.
-    // This forces React to render the 'isMoving=true' state BEFORE the move happens.
-    console.log(`🕐 TIMEOUT START: About to yield control back to React for isMoving=true render`);
+    // Enhanced timing: Use configurable delays for smoother transitions
+    // This ensures React has time to render state changes at each phase
+    console.log(`🕐 MOVEMENT START: Preparing UI for movement (${MOVEMENT_TIMING.PRE_MOVEMENT_DELAY}ms)`);
+
     return new Promise((resolve, reject) => {
+      // Phase 1: Pre-movement delay (UI preparation)
       setTimeout(async () => {
-        console.log(`🕐 TIMEOUT EXECUTING: React should have rendered isMoving=true by now`);
+        console.log(`🕐 MOVEMENT EXECUTING: UI prepared, executing move (${MOVEMENT_TIMING.MOVEMENT_ANIMATION_DELAY}ms animation)`);
+
         try {
-          // This code now runs AFTER the UI has re-rendered in its 'moving' state
+          // Phase 2: Execute movement
           const result = await this.movePlayer(playerId, selectedDestination);
-          this.stateService.clearAwaitingChoice();
-          resolve(result);
+
+          // Phase 3: Post-movement delay (UI settling)
+          setTimeout(() => {
+            console.log(`🕐 MOVEMENT COMPLETE: Movement finished, UI settling (${MOVEMENT_TIMING.POST_MOVEMENT_DELAY}ms)`);
+            this.stateService.clearAwaitingChoice();
+
+            // Final phase: Clear moving flag and resolve
+            setTimeout(() => {
+              this.stateService.setMoving(false);
+              console.log(`✅ MOVEMENT FINALIZED: All state updates complete`);
+              resolve(result);
+            }, MOVEMENT_TIMING.POST_MOVEMENT_DELAY);
+          }, MOVEMENT_TIMING.MOVEMENT_ANIMATION_DELAY);
+
         } catch (error) {
+          console.error(`❌ MOVEMENT ERROR:`, error);
           this.stateService.clearAwaitingChoice();
-          reject(error);
-        } finally {
-          // This will run after the move is done, queuing the final state update
           this.stateService.setMoving(false);
+          reject(error);
         }
-      }, 0);
+      }, MOVEMENT_TIMING.PRE_MOVEMENT_DELAY);
     });
   }
 

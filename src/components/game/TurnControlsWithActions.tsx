@@ -44,8 +44,9 @@ interface TurnControlsWithActionsProps {
 
 /**
  * Merged Turn Controls and Action Log - buttons are replaced by action entries when completed
+ * Enhanced with smooth transitions and improved responsiveness.
  */
-export function TurnControlsWithActions({ 
+export function TurnControlsWithActions({
   // Game state data
   currentPlayer,
   gamePhase,
@@ -68,11 +69,14 @@ export function TurnControlsWithActions({
   // Legacy props
   onOpenNegotiationModal,
   playerId,
-  playerName 
+  playerName
 }: TurnControlsWithActionsProps): JSX.Element {
   const { dataService, stateService, choiceService, notificationService } = useGameContext();
 
-  // Add custom scrollbar styles
+  // Track transition states for smooth animations
+  const [isActionInProgress, setIsActionInProgress] = useState(false);
+
+  // Add custom scrollbar styles and smooth animations
   useEffect(() => {
     const styleId = 'turn-controls-scrollbar-styles';
     if (!document.getElementById(styleId)) {
@@ -98,6 +102,38 @@ export function TurnControlsWithActions({
         .turn-controls-scrollable {
           scrollbar-width: thin;
           scrollbar-color: #888 #f1f1f1;
+        }
+
+        /* Smooth animation keyframes */
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
         }
       `;
       document.head.appendChild(style);
@@ -293,20 +329,23 @@ export function TurnControlsWithActions({
         </div>
       )}
 
-      {/* Movement Choice Buttons */}
+      {/* Movement Choice Buttons - Enhanced with smooth transitions */}
       {movementChoice && (
         <div style={{
           padding: '8px',
           backgroundColor: colors.primary.bg,
           border: `2px solid ${colors.primary.main}`,
-          borderRadius: '8px'
+          borderRadius: '8px',
+          transition: 'all 0.3s ease-in-out',
+          animation: 'fadeIn 0.3s ease-in-out'
         }}>
           <div style={{
             fontSize: '10px',
             fontWeight: 'bold',
             color: colors.primary.main,
             textAlign: 'center',
-            marginBottom: '6px'
+            marginBottom: '6px',
+            transition: 'color 0.2s ease'
           }}>
             🚶 Choose Your Destination
           </div>
@@ -329,7 +368,9 @@ export function TurnControlsWithActions({
                     color: colors.success.text,
                     border: `1px solid ${colors.success.main}`,
                     borderRadius: '6px',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    transition: 'all 0.3s ease-in-out',
+                    animation: 'slideIn 0.3s ease-out'
                   }}
                 >
                   ✅ {feedback}
@@ -355,20 +396,24 @@ export function TurnControlsWithActions({
                   border: isSelected ? `3px solid ${colors.white}` : 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxSizing: 'border-box',
+                  boxShadow: isSelected ? '0 4px 8px rgba(0, 0, 0, 0.2)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  transform: isSelected ? 'scale(1.02)' : 'scale(1)'
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
                     e.currentTarget.style.backgroundColor = colors.primary.dark;
                   }
-                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.transform = isSelected ? 'scale(1.02) translateY(-2px)' : 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.2)';
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
                     e.currentTarget.style.backgroundColor = colors.primary.main;
                   }
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.transform = isSelected ? 'scale(1.02)' : 'scale(1)';
+                  e.currentTarget.style.boxShadow = isSelected ? '0 4px 8px rgba(0, 0, 0, 0.2)' : '0 2px 4px rgba(0, 0, 0, 0.1)';
                 }}
               >
                 🎯 {option.label}
