@@ -448,13 +448,22 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                               key={cardId}
                               onClick={() => handleOfferChange('cards', null, cardType, cardId)}
                               style={{
-                                padding: '8px 12px',
+                                padding: '4px 12px',
                                 border: `2px solid ${isSelected ? colors.success.main : colors.secondary.border}`,
                                 borderRadius: '6px',
                                 backgroundColor: isSelected ? colors.success.light : colors.white,
                                 cursor: 'pointer',
                                 fontSize: '14px',
+                                fontWeight: '500',
                                 transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
                               }}
                             >
                               {getCardName(cardId)}
@@ -496,13 +505,25 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 <button
                   onClick={() => setNegotiation(prev => prev ? { ...prev, status: 'selecting_partner' } : null)}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 16px',
                     border: `2px solid ${colors.secondary.main}`,
                     backgroundColor: colors.white,
                     color: colors.secondary.main,
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '16px'
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.secondary.bg;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.white;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   ← Back
@@ -511,14 +532,30 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   onClick={handleMakeOffer}
                   disabled={getTotalOfferValue() === 0}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 16px',
                     border: 'none',
                     backgroundColor: getTotalOfferValue() > 0 ? colors.success.main : colors.secondary.light,
                     color: getTotalOfferValue() > 0 ? colors.white : colors.secondary.main,
                     borderRadius: '6px',
                     cursor: getTotalOfferValue() > 0 ? 'pointer' : 'not-allowed',
-                    fontSize: '16px',
-                    fontWeight: 'bold'
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    opacity: getTotalOfferValue() > 0 ? 1 : 0.6
+                  }}
+                  onMouseEnter={(e) => {
+                    if (getTotalOfferValue() > 0) {
+                      e.currentTarget.style.opacity = '0.9';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (getTotalOfferValue() > 0) {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
                   }}
                 >
                   Make Offer 💫
@@ -547,13 +584,25 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
               <button
                 onClick={handleCloseModal}
                 style={{
-                  padding: '12px 24px',
+                  padding: '10px 16px',
                   border: `2px solid ${colors.secondary.main}`,
                   backgroundColor: colors.white,
                   color: colors.secondary.main,
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '16px'
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = colors.secondary.bg;
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = colors.white;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 Close
@@ -712,14 +761,14 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 <button
                   onClick={handleDeclineOffer}
                   style={{
-                    padding: '16px 32px',
+                    padding: '10px 16px',
                     border: `2px solid ${colors.danger.main}`,
                     backgroundColor: colors.white,
                     color: colors.danger.main,
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    fontWeight: '500',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -728,10 +777,14 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = colors.danger.main;
                     e.currentTarget.style.color = colors.white;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = colors.white;
                     e.currentTarget.style.color = colors.danger.main;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   ❌ Decline Offer
@@ -739,24 +792,28 @@ export function NegotiationModal({ isOpen, onClose }: NegotiationModalProps): JS
                 <button
                   onClick={handleAcceptOffer}
                   style={{
-                    padding: '16px 32px',
-                    border: `2px solid ${colors.success.main}`,
+                    padding: '10px 16px',
+                    border: 'none',
                     backgroundColor: colors.success.main,
                     color: colors.white,
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    fontWeight: '500',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = colors.special.button.primaryHover;
+                    e.currentTarget.style.opacity = '0.9';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = colors.success.main;
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   ✅ Accept Offer

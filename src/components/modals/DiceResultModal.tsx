@@ -197,11 +197,11 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: '10px 20px',
+    padding: '10px 16px',
     border: 'none',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: 'bold',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.2s ease'
   };
@@ -367,30 +367,54 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           <div style={footerStyle}>
             {result.hasChoices && onConfirm ? (
               <>
-                <button 
+                <button
                   style={secondaryButtonStyle}
                   onClick={onClose}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '0.9';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
                   Review
                 </button>
-                <button 
+                <button
                   style={primaryButtonStyle}
                   onClick={handleConfirm}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '0.9';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                   autoFocus
                 >
                   Make Choice
                 </button>
               </>
             ) : (
-              <button 
+              <button
                 style={primaryButtonStyle}
                 onClick={handleConfirm}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.9';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
                 autoFocus
               >
                 Continue

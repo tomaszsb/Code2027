@@ -138,30 +138,30 @@ export function EndGameModal(): JSX.Element {
           )}
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button
               onClick={handlePlayAgain}
               style={{
-                padding: '15px 30px',
-                fontSize: '18px',
-                fontWeight: 'bold',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: '500',
                 backgroundColor: colors.primary.main,
                 color: colors.white,
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = colors.primary.dark;
-                e.currentTarget.style.transform = 'translateY(-3px)';
-                e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.2)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = colors.primary.main;
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
               }}
             >
               🎮 Play Again

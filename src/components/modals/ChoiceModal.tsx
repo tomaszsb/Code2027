@@ -150,27 +150,27 @@ export function ChoiceModal(): JSX.Element {
           </div>
 
           {/* Choice Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {awaitingChoice.options.map((option, index) => (
               <button
                 key={option.id}
                 onClick={() => handleChoiceClick(option.id)}
                 style={{
-                  padding: '15px 20px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
+                  padding: '10px 16px',
+                  fontSize: '14px',
+                  fontWeight: '500',
                   backgroundColor: colors.primary.main,
                   color: colors.white,
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = colors.primary.dark;
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = colors.primary.main;
