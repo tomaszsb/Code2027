@@ -822,6 +822,7 @@ export class CardService implements ICardService {
     }
 
     console.log(`🎴 CARD_SERVICE: Applying effects for card ${cardId}: "${card.card_name}"`);
+    console.log(`🔍 DEBUG FUNDING: Card type=${card.card_type}, loan_amount=${card.loan_amount}, investment_amount=${card.investment_amount}, cost=${card.cost}`);
 
     // Step 1: Parse card data into standardized Effect objects
     const effects = this.parseCardIntoEffects(card, playerId);
@@ -1023,29 +1024,51 @@ export class CardService implements ICardService {
     }
 
     // Apply loan amounts for B cards using ResourceService
+    console.log(`🔍 DEBUG: Checking B card - card_type=${card.card_type}, loan_amount=${card.loan_amount}`);
     if (card.card_type === 'B' && card.loan_amount) {
       const loanAmount = parseInt(card.loan_amount);
+      console.log(`🔍 DEBUG: Parsed loan_amount=${loanAmount}, isNaN=${isNaN(loanAmount)}`);
       if (!isNaN(loanAmount) && loanAmount > 0) {
+        console.log(`💰 DEBUG: Adding loan money: $${loanAmount.toLocaleString()}`);
+
+        // Determine source type based on context
+        const player = this.stateService.getPlayer(playerId);
+        const sourceType = player?.currentSpace === 'OWNER-FUND-INITIATION' ? 'owner' : 'bank';
+        const sourceLabel = sourceType === 'owner' ? 'Owner funding' : 'Loan';
+
         this.resourceService.addMoney(
-          playerId, 
-          loanAmount, 
-          cardSource, 
-          `${card.card_name}: Loan of $${loanAmount.toLocaleString()} at ${card.loan_rate}% interest`
+          playerId,
+          loanAmount,
+          cardSource,
+          `${card.card_name}: ${sourceLabel} of $${loanAmount.toLocaleString()}${sourceType === 'bank' ? ` at ${card.loan_rate}% interest` : ''}`,
+          sourceType
         );
+      } else {
+        console.warn(`⚠️ DEBUG: Loan amount failed validation - loanAmount=${loanAmount}`);
       }
+    } else {
+      console.log(`⚠️ DEBUG: B card condition not met - card_type=${card.card_type}, loan_amount=${card.loan_amount}`);
     }
 
     // Apply investment amounts for I cards using ResourceService
+    console.log(`🔍 DEBUG: Checking I card - card_type=${card.card_type}, investment_amount=${card.investment_amount}`);
     if (card.card_type === 'I' && card.investment_amount) {
       const investmentAmount = parseInt(card.investment_amount);
+      console.log(`🔍 DEBUG: Parsed investment_amount=${investmentAmount}, isNaN=${isNaN(investmentAmount)}`);
       if (!isNaN(investmentAmount) && investmentAmount > 0) {
+        console.log(`💰 DEBUG: Adding investment money: $${investmentAmount.toLocaleString()}`);
         this.resourceService.addMoney(
-          playerId, 
-          investmentAmount, 
-          cardSource, 
-          `${card.card_name}: Investment of $${investmentAmount.toLocaleString()}`
+          playerId,
+          investmentAmount,
+          cardSource,
+          `${card.card_name}: Investment of $${investmentAmount.toLocaleString()}`,
+          'investment' // Track as investment deal
         );
+      } else {
+        console.warn(`⚠️ DEBUG: Investment amount failed validation - investmentAmount=${investmentAmount}`);
       }
+    } else {
+      console.log(`⚠️ DEBUG: I card condition not met - card_type=${card.card_type}, investment_amount=${card.investment_amount}`);
     }
 
     // Handle turn effects (skip next turn)

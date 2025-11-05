@@ -213,29 +213,30 @@ export interface Card {
   cost?: number;
   phase_restriction?: string;
   work_type_restriction?: string;  // Work type (Plumbing, Electrical, Mechanical Systems, etc.)
-  
+  is_transferable?: boolean;  // Whether this card can be transferred to another player
+
   // Expanded card mechanics from code2026
   duration?: string;
   duration_count?: string;
   turn_effect?: string;
   activation_timing?: string;
-  
+
   // Financial mechanics
   loan_amount?: string;
   loan_rate?: string;
   investment_amount?: string;
   work_cost?: string;
-  
+
   // Effect mechanics
   money_effect?: string;
   tick_modifier?: string;
-  
+
   // Card interaction mechanics
   draw_cards?: string;
   discard_cards?: string;
   target?: string;
   scope?: string;
-  
+
   // Turn control mechanics
   turn_skip?: string;
 }

@@ -2,16 +2,17 @@
 
 import { describe, it, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MovementService } from '../../src/services/MovementService';
-import { IDataService, IStateService, IChoiceService, ILoggingService } from '../../src/types/ServiceContracts';
+import { IDataService, IStateService, IChoiceService, ILoggingService, IGameRulesService } from '../../src/types/ServiceContracts';
 import { GameState, Player } from '../../src/types/StateTypes';
 import { Movement, DiceOutcome, Space, GameConfig } from '../../src/types/DataTypes';
-import { createMockDataService, createMockStateService, createMockChoiceService, createMockLoggingService } from '../mocks/mockServices';
+import { createMockDataService, createMockStateService, createMockChoiceService, createMockLoggingService, createMockGameRulesService } from '../mocks/mockServices';
 
 // Mock implementations using centralized creators
 const mockDataService: vi.Mocked<IDataService> = createMockDataService();
 const mockStateService: vi.Mocked<IStateService> = createMockStateService();
 const mockChoiceService: vi.Mocked<IChoiceService> = createMockChoiceService();
 const mockLoggingService: vi.Mocked<ILoggingService> = createMockLoggingService();
+const mockGameRulesService: vi.Mocked<IGameRulesService> = createMockGameRulesService();
 
 describe('MovementService', () => {
   let movementService: MovementService;
@@ -21,8 +22,8 @@ describe('MovementService', () => {
   beforeEach(() => {
     // Reset all mocks
     vi.clearAllMocks();
-    
-    movementService = new MovementService(mockDataService, mockStateService, mockChoiceService, mockLoggingService);
+
+    movementService = new MovementService(mockDataService, mockStateService, mockChoiceService, mockLoggingService, mockGameRulesService);
     
     mockPlayer = {
       id: 'player1',
@@ -587,6 +588,16 @@ describe('MovementService', () => {
       mockStateService.getPlayer.mockReturnValue(lowScopePlayer);
       mockDataService.getMovement.mockReturnValue(mockMovement);
 
+      // Mock calculateProjectScope to return $1M
+      mockGameRulesService.calculateProjectScope.mockReturnValue(1000000);
+
+      // Mock evaluateCondition to properly evaluate scope conditions
+      mockGameRulesService.evaluateCondition.mockImplementation((playerId: string, condition?: string) => {
+        if (condition === 'scope_le_4m') return true;  // $1M <= $4M
+        if (condition === 'scope_gt_4m') return false; // $1M > $4M is false
+        return true;
+      });
+
       const result = movementService.getValidMoves('player1');
 
       expect(result).toEqual(['LOW-SCOPE-PATH']); // Only low scope path should be valid
@@ -613,6 +624,16 @@ describe('MovementService', () => {
 
       mockStateService.getPlayer.mockReturnValue(highScopePlayer);
       mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      // Mock calculateProjectScope to return $5M
+      mockGameRulesService.calculateProjectScope.mockReturnValue(5000000);
+
+      // Mock evaluateCondition to properly evaluate scope conditions
+      mockGameRulesService.evaluateCondition.mockImplementation((playerId: string, condition?: string) => {
+        if (condition === 'scope_le_4m') return false; // $5M <= $4M is false
+        if (condition === 'scope_gt_4m') return true;  // $5M > $4M
+        return true;
+      });
 
       const result = movementService.getValidMoves('player1');
 

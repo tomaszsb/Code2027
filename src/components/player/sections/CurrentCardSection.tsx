@@ -188,8 +188,10 @@ export const CurrentCardSection: React.FC<CurrentCardSectionProps> = ({
     setError(null);
   };
 
-  // Determine if section has action (has active choices)
-  const hasAction = awaitingChoice !== null && awaitingChoice.options.length > 0;
+  // Determine if section has action (has active choices, excluding MOVEMENT which is handled elsewhere)
+  const hasAction = awaitingChoice !== null &&
+                    awaitingChoice.options.length > 0 &&
+                    awaitingChoice.type !== 'MOVEMENT';
 
   // If no space content, don't render
   if (!spaceContent) {
@@ -230,8 +232,8 @@ export const CurrentCardSection: React.FC<CurrentCardSectionProps> = ({
           </div>
         )}
 
-        {/* Choice Buttons */}
-        {awaitingChoice && awaitingChoice.options.length > 0 && (
+        {/* Choice Buttons (skip MOVEMENT type - handled by movement component) */}
+        {awaitingChoice && awaitingChoice.options.length > 0 && awaitingChoice.type !== 'MOVEMENT' && (
           <div className="card-choices">
             {awaitingChoice.options.map((option) => (
               <ActionButton

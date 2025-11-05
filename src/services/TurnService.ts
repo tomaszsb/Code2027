@@ -1145,13 +1145,22 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'draw_b') {
       // Use CardService for B card draws (includes action logging)
-      this.cardService.drawCards(
+      const drawnCards = this.cardService.drawCards(
         playerId,
         'B',
         value,
         'manual_effect',
         `Manual action: Draw ${value} B card${value !== 1 ? 's' : ''}`
       );
+
+      // Special handling for OWNER-FUND-INITIATION: automatically play drawn funding cards
+      if (player.currentSpace === 'OWNER-FUND-INITIATION' && drawnCards.length > 0) {
+        console.log(`💰 OWNER-FUND-INITIATION: Automatically playing ${drawnCards.length} funding card(s)`);
+        for (const cardId of drawnCards) {
+          this.cardService.applyCardEffects(playerId, cardId);
+          this.cardService.finalizePlayedCard(playerId, cardId);
+        }
+      }
 
       // Mark action as complete BEFORE restoring movement choice
       const { text: buttonText } = formatManualEffectButton(effect);
@@ -1193,13 +1202,22 @@ export class TurnService implements ITurnService {
       return this.stateService.getGameState();
     } else if (action === 'draw_i') {
       // Use CardService for I card draws (includes action logging)
-      this.cardService.drawCards(
+      const drawnCards = this.cardService.drawCards(
         playerId,
         'I',
         value,
         'manual_effect',
         `Manual action: Draw ${value} I card${value !== 1 ? 's' : ''}`
       );
+
+      // Special handling for OWNER-FUND-INITIATION: automatically play drawn funding cards
+      if (player.currentSpace === 'OWNER-FUND-INITIATION' && drawnCards.length > 0) {
+        console.log(`💰 OWNER-FUND-INITIATION: Automatically playing ${drawnCards.length} funding card(s)`);
+        for (const cardId of drawnCards) {
+          this.cardService.applyCardEffects(playerId, cardId);
+          this.cardService.finalizePlayedCard(playerId, cardId);
+        }
+      }
 
       // Mark action as complete BEFORE restoring movement choice
       const { text: buttonText } = formatManualEffectButton(effect);
@@ -1449,6 +1467,62 @@ export class TurnService implements ITurnService {
     });
   }
 
+  /**
+   * Apply investment funding - rolls dice, draws I card, applies time, and charges 5% fee
+   */
+  private async applyInvestmentFunding(playerId: string, effect: SpaceEffect): Promise<GameState> {
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+
+    const space = player.currentSpace;
+    const visitType = player.visitType;
+    const source = `space:${space}`;
+    const reason = effect.description || 'Investment funding';
+
+    console.log(`💰 Applying investment funding for ${player.name} at ${space}`);
+
+    // Step 1: Roll dice
+    const diceRoll = Math.floor(Math.random() * 6) + 1;
+    console.log(`🎲 Investment funding dice roll: ${diceRoll}`);
+
+    // Step 2: Apply time based on dice roll
+    const diceEffects = this.dataService.getDiceEffects(space, visitType);
+    const timeEffect = diceEffects.find(e => e.effect_type === 'time');
+    if (timeEffect) {
+      const diceRollEffectValue = this.getDiceRollEffectValue(timeEffect, diceRoll);
+      const days = parseInt(diceRollEffectValue);
+      if (!isNaN(days) && days > 0) {
+        this.resourceService.addTime(playerId, days, source, `Investment review: ${days} days`);
+        console.log(`⏰ Added ${days} days for investment review`);
+      }
+    }
+
+    // Step 3: Capture investment before drawing card
+    const investmentBefore = player.moneySources?.investmentDeals || 0;
+
+    // Step 4: Draw and apply I card
+    console.log(`🎴 Drawing I card for investment funding...`);
+    await this.cardService.drawAndApplyCard(playerId, 'I', source, reason);
+
+    // Step 5: Calculate and charge 5% fee on NEW investment only
+    const updatedPlayer = this.stateService.getPlayer(playerId);
+    const investmentAfter = updatedPlayer.moneySources?.investmentDeals || 0;
+    const newInvestment = investmentAfter - investmentBefore;
+    const feeAmount = Math.floor((newInvestment * 5) / 100);
+
+    if (feeAmount > 0) {
+      this.resourceService.recordCost(playerId, 'investor', feeAmount, `5% investment fee on $${newInvestment.toLocaleString()}`);
+      console.log(`💸 Charged 5% investment fee: $${feeAmount.toLocaleString()} on new investment of $${newInvestment.toLocaleString()}`);
+    }
+
+    // Step 6: Mark dice as rolled
+    this.stateService.setPlayerHasRolledDice();
+
+    return this.stateService.getGameState();
+  }
+
   private applySpaceTimeEffect(playerId: string, effect: SpaceEffect): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
@@ -1522,13 +1596,28 @@ export class TurnService implements ITurnService {
     if (matches) {
       return parseInt(matches[1], 10);
     }
-    
+
     // Handle special cases
     if (effect.toLowerCase().includes('many')) {
       return 3; // Default "many" to 3
     }
-    
+
     return 0;
+  }
+
+  /**
+   * Get the dice roll effect value for a specific roll
+   */
+  private getDiceRollEffectValue(diceEffect: DiceEffect, diceRoll: number): string {
+    switch (diceRoll) {
+      case 1: return diceEffect.roll_1 || '';
+      case 2: return diceEffect.roll_2 || '';
+      case 3: return diceEffect.roll_3 || '';
+      case 4: return diceEffect.roll_4 || '';
+      case 5: return diceEffect.roll_5 || '';
+      case 6: return diceEffect.roll_6 || '';
+      default: return '';
+    }
   }
 
   /**
@@ -1618,12 +1707,17 @@ export class TurnService implements ITurnService {
       throw new Error(`Player ${playerId} not found`);
     }
 
+    // Parse effectType - might be compound like "cards:draw_b" or simple like "money"
+    const [baseType, action] = effectType.includes(':') ? effectType.split(':') : [effectType, null];
+
     // Get manual effects for current space and visit type
     const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-    const manualEffect = spaceEffects.find(effect => 
-      effect.trigger_type === 'manual' && 
-      effect.effect_type === effectType
-    );
+    const manualEffect = spaceEffects.find(effect => {
+      const typeMatches = effect.trigger_type === 'manual' && effect.effect_type === baseType;
+      // If action specified (e.g., "draw_b"), must match; otherwise just type match
+      const actionMatches = !action || effect.effect_action === action;
+      return typeMatches && actionMatches;
+    });
 
     if (!manualEffect) {
       throw new Error(`No manual ${effectType} effect found for ${player.currentSpace} (${player.visitType})`);
@@ -1641,32 +1735,37 @@ export class TurnService implements ITurnService {
     // Apply the effect based on type
     let newState = this.stateService.getGameState();
 
-    if (effectType === 'cards') {
+    if (baseType === 'cards') {
       newState = await this.applySpaceCardEffect(playerId, manualEffect, effectType);
-    } else if (effectType === 'money') {
-      newState = this.applySpaceMoneyEffect(playerId, manualEffect);
-    } else if (effectType === 'time') {
+    } else if (baseType === 'money') {
+      // Special handling for get_investment_funding action
+      if (manualEffect.effect_action === 'get_investment_funding') {
+        newState = await this.applyInvestmentFunding(playerId, manualEffect);
+      } else {
+        newState = this.applySpaceMoneyEffect(playerId, manualEffect);
+      }
+    } else if (baseType === 'time') {
       newState = this.applySpaceTimeEffect(playerId, manualEffect);
-    } else if (effectType === 'dice_roll_chance') {
+    } else if (baseType === 'dice_roll_chance') {
       // Handle dice roll chance effects (like "draw_l_on_1")
       console.log(`🎲 Processing dice_roll_chance effect: ${manualEffect.effect_action}`);
       newState = this.applyDiceRollChanceEffect(playerId, manualEffect);
 
       // Mark that dice has been rolled to prevent duplicate dice roll buttons
       this.stateService.setPlayerHasRolledDice();
-    } else if (effectType === 'turn') {
+    } else if (baseType === 'turn') {
       // Handle turn effects (like "end_turn") - these are special and don't need processing here
       console.log(`🏁 Processing turn effect: ${manualEffect.effect_action}`);
       // Turn effects are handled by the UI component calling onEndTurn
     } else {
-      console.warn(`⚠️ Unknown manual effect type: ${effectType}`);
+      console.warn(`⚠️ Unknown manual effect type: ${baseType}`);
     }
 
     // Mark action as complete for non-card effects (money, time, dice_roll_chance)
     // Card effects handle this inside applySpaceCardEffect (before restoreMovementChoiceIfNeeded)
-    if (effectType !== 'cards') {
+    if (baseType !== 'cards') {
       const { text: buttonText } = formatManualEffectButton(manualEffect);
-      this.stateService.setPlayerCompletedManualAction(effectType, buttonText);
+      this.stateService.setPlayerCompletedManualAction(baseType, buttonText);
     }
 
     console.log(`🔧 Manual ${effectType} effect completed for player ${player.name}`);
@@ -1693,11 +1792,17 @@ export class TurnService implements ITurnService {
     const afterState = this.stateService.getGameState();
     const afterPlayer = afterState.players.find(p => p.id === playerId)!;
 
+    // Parse effectType - might be compound like "cards:draw_b" or simple like "money"
+    const [baseType, action] = effectType.includes(':') ? effectType.split(':') : [effectType, null];
+
     // Get the effect details for feedback
     const spaceEffects = this.dataService.getSpaceEffects(currentPlayer.currentSpace, currentPlayer.visitType);
-    const manualEffect = spaceEffects.find(effect => 
-      effect.trigger_type === 'manual' && effect.effect_type === effectType
-    );
+    const manualEffect = spaceEffects.find(effect => {
+      const typeMatches = effect.trigger_type === 'manual' && effect.effect_type === baseType;
+      // If action specified (e.g., "draw_b"), must match; otherwise just type match
+      const actionMatches = !action || effect.effect_action === action;
+      return typeMatches && actionMatches;
+    });
 
     if (!manualEffect) {
       throw new Error(`No manual ${effectType} effect found for ${currentPlayer.currentSpace}`);
@@ -1706,7 +1811,7 @@ export class TurnService implements ITurnService {
     // Create effect description for modal
     const effects: DiceResultEffect[] = [];
 
-    if (effectType === 'cards') {
+    if (baseType === 'cards') {
       const cardType = manualEffect.effect_action.replace('draw_', '').replace('replace_', '').toUpperCase();
       const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
 
@@ -1723,16 +1828,56 @@ export class TurnService implements ITurnService {
         cardAction: 'draw',
         cardIds: drawnCardIds
       });
-    } else if (effectType === 'money') {
-      const action = manualEffect.effect_action; // 'add' or 'subtract'
-      const amount = manualEffect.effect_value;
-      const moneyChange = afterPlayer.money - beforePlayer.money;
-      effects.push({
-        type: 'money',
-        description: `Money ${action === 'add' ? 'gained' : 'spent'}: $${Math.abs(moneyChange)}`,
-        value: moneyChange
-      });
-    } else if (effectType === 'time') {
+    } else if (baseType === 'money') {
+      const action = manualEffect.effect_action;
+
+      // Special handling for investment funding
+      if (action === 'get_investment_funding') {
+        const moneyChange = afterPlayer.money - beforePlayer.money;
+        const timeChange = afterPlayer.timeSpent - beforePlayer.timeSpent;
+
+        const investmentBefore = beforePlayer.moneySources?.investmentDeals || 0;
+        const investmentAfter = afterPlayer.moneySources?.investmentDeals || 0;
+        const investmentGained = investmentAfter - investmentBefore;
+        const feeCharged = investmentGained - moneyChange;
+
+        // Add investment to effects
+        if (investmentGained > 0) {
+          effects.push({
+            type: 'money',
+            description: `Investment received: $${investmentGained.toLocaleString()}`,
+            value: investmentGained
+          });
+        }
+
+        // Add fee to effects
+        if (feeCharged > 0) {
+          effects.push({
+            type: 'money',
+            description: `Investment fee: 5% ($${feeCharged.toLocaleString()})`,
+            value: -feeCharged
+          });
+        }
+
+        // Add time to effects
+        if (timeChange > 0) {
+          effects.push({
+            type: 'time',
+            description: `Investment review time: ${timeChange} days`,
+            value: timeChange
+          });
+        }
+      } else {
+        // Standard money effect handling
+        const amount = manualEffect.effect_value;
+        const moneyChange = afterPlayer.money - beforePlayer.money;
+        effects.push({
+          type: 'money',
+          description: `Money ${action === 'add' ? 'gained' : 'spent'}: $${Math.abs(moneyChange)}`,
+          value: moneyChange
+        });
+      }
+    } else if (baseType === 'time') {
       const action = manualEffect.effect_action; // 'add' or 'subtract'
       const amount = manualEffect.effect_value;
       const timeChange = afterPlayer.timeSpent - beforePlayer.timeSpent;
@@ -2298,15 +2443,9 @@ export class TurnService implements ITurnService {
         return diceRoll === requiredRoll;
       }
 
-      // Project scope conditions
-      if (conditionLower === 'scope_le_4m') {
-        const projectScope = this.calculateProjectScope(player);
-        return projectScope <= 4000000; // $4M
-      }
-      
-      if (conditionLower === 'scope_gt_4m') {
-        const projectScope = this.calculateProjectScope(player);
-        return projectScope > 4000000; // $4M
+      // Project scope conditions - delegate to GameRulesService (single source of truth)
+      if (conditionLower === 'scope_le_4m' || conditionLower === 'scope_gt_4m') {
+        return this.gameRulesService.evaluateCondition(playerId, condition, diceRoll);
       }
 
       // Loan amount conditions
@@ -2361,26 +2500,6 @@ export class TurnService implements ITurnService {
       console.error(`Error evaluating condition "${condition}":`, error);
       return false;
     }
-  }
-
-  /**
-   * Calculate total project scope from player's work cards
-   */
-  private calculateProjectScope(player: Player): number {
-    let totalScope = 0;
-
-    // Sum up all work cards (W cards represent project scope)
-    const workCards = this.cardService.getPlayerCards(player.id, 'W');
-    for (const cardId of workCards) {
-      const cardData = this.dataService.getCardById(cardId);
-      if (cardData && cardData.cost && cardData.cost > 0) {
-        // Work cards use cost to represent project scope value
-        totalScope += Number(cardData.cost);
-      }
-    }
-
-    console.log(`🏗️ Player ${player.name} total project scope: $${totalScope.toLocaleString()} (from ${workCards.length} work cards)`);
-    return totalScope;
   }
 
   /**
@@ -2644,46 +2763,22 @@ export class TurnService implements ITurnService {
    * Filter space effects based on their conditions
    * Evaluates conditions like scope_le_4M, scope_gt_4M, etc.
    */
-  private filterSpaceEffectsByCondition(spaceEffects: SpaceEffect[], player: Player): SpaceEffect[] {
-    return spaceEffects.filter(effect => {
-      return this.evaluateSpaceEffectCondition(effect.condition, player);
-    });
-  }
-
   /**
-   * Evaluate a single space effect condition
-   * Returns true if the condition is met, false otherwise
+   * Filter space effects based on conditions (e.g., scope_le_4M)
+   * Public method for UI components to get condition-filtered effects
+   * Delegates to GameRulesService for consistent condition evaluation
    */
-  private evaluateSpaceEffectCondition(condition: string, player: Player): boolean {
-    console.log(`🔍 Evaluating condition: "${condition}" for player ${player.name}`);
-
-    switch (condition) {
-      case 'always':
-        return true;
-
-      case 'scope_le_4M':
-        const projectScope = player.projectScope || 0;
-        const result_le = projectScope <= 4000000; // 4M = 4,000,000
-        console.log(`💰 Project scope ${projectScope} ≤ $4M? ${result_le}`);
-        return result_le;
-
-      case 'scope_gt_4M':
-        const projectScopeGt = player.projectScope || 0;
-        const result_gt = projectScopeGt > 4000000; // 4M = 4,000,000
-        console.log(`💰 Project scope ${projectScopeGt} > $4M? ${result_gt}`);
-        return result_gt;
-
-      default:
-        console.warn(`⚠️ Unknown space effect condition: "${condition}", defaulting to false`);
-        return false;
-    }
+  public filterSpaceEffectsByCondition(spaceEffects: SpaceEffect[], player: Player): SpaceEffect[] {
+    return spaceEffects.filter(effect => {
+      return this.gameRulesService.evaluateCondition(player.id, effect.condition);
+    });
   }
 
   /**
    * Handle automatic funding for OWNER-FUND-INITIATION space
    * Awards B card if project scope ≤ $4M, I card otherwise
    */
-  handleAutomaticFunding(playerId: string): TurnEffectResult {
+  async handleAutomaticFunding(playerId: string): Promise<TurnEffectResult> {
     console.log(`💰 TurnService.handleAutomaticFunding - Starting for player ${playerId}`);
 
     const currentPlayer = this.stateService.getPlayer(playerId);
@@ -2696,11 +2791,13 @@ export class TurnService implements ITurnService {
     }
 
     const beforeState = this.stateService.getGameState();
-    const projectScope = currentPlayer.projectScope || 0;
-    
+
+    // Calculate project scope from W cards (single source of truth)
+    const projectScope = this.gameRulesService.calculateProjectScope(playerId);
+
     // Determine funding type based on project scope
     const fundingCardType = projectScope <= 4000000 ? 'B' : 'I';
-    const fundingDescription = projectScope <= 4000000 
+    const fundingDescription = projectScope <= 4000000
       ? `Bank funding approved (scope ≤ $4M)`
       : `Investor funding required (scope > $4M)`;
 
@@ -2708,7 +2805,7 @@ export class TurnService implements ITurnService {
 
     // Draw and automatically play the funding card using atomic method
     try {
-      const result = this.cardService.drawAndApplyCard(
+      const result = await this.cardService.drawAndApplyCard(
         playerId,
         fundingCardType,
         'auto_funding',

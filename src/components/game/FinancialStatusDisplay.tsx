@@ -373,7 +373,7 @@ function FundingHistorySection({ playerMoney, dataService, stateService, colors,
  * scope cost calculations, and surplus/deficit analysis.
  */
 export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps): JSX.Element {
-  const { dataService, cardService, stateService } = useGameContext();
+  const { dataService, cardService, stateService, gameRulesService } = useGameContext();
 
   // Get cards from player's hand and filter by type
   const hand = player.hand || [];
@@ -385,9 +385,9 @@ export function FinancialStatusDisplay({ player }: FinancialStatusDisplayProps):
   // Calculate financial status
   const calculateFinancialStatus = () => {
     // wCards is already filtered from player.hand above
-    
-    // Use the calculated project scope from the player state, or fallback to manual calculation
-    const totalScopeCost = player.projectScope || 0;
+
+    // Calculate project scope from W cards (single source of truth)
+    const totalScopeCost = gameRulesService.calculateProjectScope(player.id);
 
     const surplus = player.money - totalScopeCost;
     

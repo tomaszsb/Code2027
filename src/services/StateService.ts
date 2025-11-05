@@ -1,8 +1,8 @@
-import { IStateService, IDataService } from '../types/ServiceContracts';
-import { 
-  GameState, 
-  Player, 
-  GamePhase, 
+import { IStateService, IDataService, IGameRulesService } from '../types/ServiceContracts';
+import {
+  GameState,
+  Player,
+  GamePhase,
   PlayerUpdateData,
   PlayerCards,
   ActiveModal,
@@ -14,11 +14,19 @@ import { Choice } from '../types/CommonTypes';
 export class StateService implements IStateService {
   private currentState: GameState;
   private readonly dataService: IDataService;
+  private gameRulesService?: IGameRulesService; // Setter injection to avoid circular dependency
   private listeners: Array<(state: GameState) => void> = [];
 
   constructor(dataService: IDataService) {
     this.dataService = dataService;
     this.currentState = this.createInitialState();
+  }
+
+  /**
+   * Set the GameRulesService after construction to handle circular dependencies
+   */
+  public setGameRulesService(gameRulesService: IGameRulesService): void {
+    this.gameRulesService = gameRulesService;
   }
 
   // Subscription methods
@@ -711,8 +719,14 @@ export class StateService implements IStateService {
 
       // Check for space effects on this space
       const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-      const manualEffects = spaceEffects.filter(effect => effect.trigger_type === 'manual');
-      const automaticEffects = spaceEffects.filter(effect => effect.trigger_type !== 'manual');
+
+      // Filter effects by condition (e.g., scope_le_4M, scope_gt_4M)
+      const conditionFilteredEffects = spaceEffects.filter(effect =>
+        this.evaluateSpaceEffectCondition(effect.condition, player)
+      );
+
+      const manualEffects = conditionFilteredEffects.filter(effect => effect.trigger_type === 'manual');
+      const automaticEffects = conditionFilteredEffects.filter(effect => effect.trigger_type !== 'manual');
 
 
       // Log automatic effects for debugging, but don't count them as separate actions
@@ -733,7 +747,13 @@ export class StateService implements IStateService {
         required++;
 
         // Check if this specific manual action has been completed
-        const isCompleted = !!this.currentState.completedActions.manualActions[effect.effect_type];
+        // Support both simple keys ("cards") and compound keys ("cards:draw_b")
+        const simpleKey = effect.effect_type;
+        const compoundKey = `${effect.effect_type}:${effect.effect_action}`;
+        const isCompleted = !!(
+          this.currentState.completedActions.manualActions[simpleKey] ||
+          this.currentState.completedActions.manualActions[compoundKey]
+        );
         if (isCompleted) {
           completed++;
         }
@@ -747,6 +767,28 @@ export class StateService implements IStateService {
     }
     
     return { required, completed, availableTypes };
+  }
+
+  /**
+   * Evaluate space effect condition for a player
+   * Used to filter effects based on conditions like scope_le_4M, scope_gt_4M, etc.
+   * Delegates to GameRulesService for consistent condition evaluation
+   */
+  private evaluateSpaceEffectCondition(condition: string, player: Player): boolean {
+    // Use GameRulesService as single source of truth for condition evaluation
+    if (this.gameRulesService) {
+      return this.gameRulesService.evaluateCondition(player.id, condition);
+    }
+
+    // Fallback for when GameRulesService hasn't been set yet (during initialization)
+    console.warn('GameRulesService not set in StateService, using fallback condition evaluation');
+    switch (condition) {
+      case 'always':
+        return true;
+      default:
+        // Unknown conditions default to false
+        return false;
+    }
   }
 
   // Player snapshot methods for negotiation

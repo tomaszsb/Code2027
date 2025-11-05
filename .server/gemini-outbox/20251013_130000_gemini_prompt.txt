@@ -1,0 +1,33 @@
+
+Hello Claude,
+
+We have a bug in our movement system. When a player has multiple destinations to choose from (e.g., on the `PM-DECISION-CHECK` space), clicking a destination button immediately moves them. This is incorrect. The selection should only be an *intent* to move, and the actual move should only happen when the "End Turn" button is clicked.
+
+To fix this, please implement the following changes:
+
+**1. Refactor `MovementService.ts`**
+
+The `handleMovementChoiceV2` function in `src/services/MovementService.ts` is the source of the problem. It currently creates a choice and then immediately moves the player.
+
+*   **Create a new function:** Create a new function in `StateService.ts` called `setPlayerMoveIntent(playerId: string, destination: string | null)`. This function should update the player's state to store their intended destination.
+*   **Remove `handleMovementChoiceV2`:** Delete the `handleMovementChoiceV2` and `handleMovementChoice` functions from `MovementService.ts`. Their logic is flawed and will be replaced by the new approach.
+
+**2. Update `TurnControls.tsx`**
+
+This component needs to be updated to handle the selection of the destination intent.
+
+*   **Add new state:** Add a new state variable, `selectedDestination`, to the `TurnControlsLEGACY` component to hold the player's chosen destination.
+*   **Modify `handleMovementChoice`:** The `handleMovementChoice` function should be updated to simply set the `selectedDestination` state. It should **not** call any services.
+*   **Update the UI:** Add a visual indicator to the destination buttons to show which one is currently selected. Also, add a "Change Choice" button that allows the user to reset their selection.
+*   **Modify `handleEndTurn`:** Update the `handleEndTurn` function. Before calling `turnService.endTurnWithMovement()`, it should call our new `stateService.setPlayerMoveIntent()` with the `selectedDestination`.
+
+**3. Update `TurnService.ts`**
+
+The `endTurnWithMovement` function needs to be updated to execute the move.
+
+*   **In `endTurnWithMovement`:**
+    *   Get the `playerMoveIntent` from the player's state.
+    *   If a `playerMoveIntent` is set, call `movementService.movePlayer()` with the intended destination.
+    *   After the move, clear the `playerMoveIntent` from the player's state.
+
+This approach will correctly separate the player's *intent* to move from the *action* of moving, fixing the bug. Please proceed with these changes.

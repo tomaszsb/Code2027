@@ -124,6 +124,9 @@ function createLazyServiceContainer(): IServiceContainer {
       import('../services/GameRulesService').then(({ GameRulesService }) => {
         if (!_gameRulesService) {
           _gameRulesService = new GameRulesService(getDataService(), getStateService());
+
+          // Wire up circular dependency: StateService needs GameRulesService for condition evaluation
+          getStateService().setGameRulesService(_gameRulesService);
         }
       });
       _gameRulesService = createServicePlaceholder('GameRulesService');
@@ -161,7 +164,8 @@ function createLazyServiceContainer(): IServiceContainer {
             getDataService(),
             getStateService(),
             getChoiceService(),
-            getLoggingService()
+            getLoggingService(),
+            getGameRulesService()
           );
         }
       });

@@ -85,7 +85,7 @@ export function PlayerStatusItem({
   playerId,
   playerName
 }: PlayerStatusItemProps): JSX.Element {
-  const { stateService, dataService, cardService } = useGameContext();
+  const { stateService, dataService, cardService, gameRulesService } = useGameContext();
   const [showFinancialStatus, setShowFinancialStatus] = useState(false);
   const [showCardPortfolio, setShowCardPortfolio] = useState(false);
   const [showDiscardedCards, setShowDiscardedCards] = useState(false);
@@ -94,7 +94,7 @@ export function PlayerStatusItem({
   const calculateFinancialStatus = () => {
     const hand = player.hand || [];
     const wCards = hand.filter(cardId => cardService.getCardType(cardId) === 'W');
-    const totalScopeCost = player.projectScope || 0;
+    const totalScopeCost = gameRulesService.calculateProjectScope(player.id);
     const surplus = player.money - totalScopeCost;
     
     return {
@@ -114,7 +114,7 @@ export function PlayerStatusItem({
     const conditionLower = condition.toLowerCase();
 
     // Project scope conditions
-    const projectScope = player.projectScope || 0;
+    const projectScope = gameRulesService.calculateProjectScope(player.id);
     if (conditionLower === 'scope_le_4m') {
       return projectScope <= 4000000;
     }

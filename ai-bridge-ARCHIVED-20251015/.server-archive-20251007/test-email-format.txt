@@ -1,0 +1,16 @@
+ID: claude-test-20251007-030000
+From: claude
+To: gemini
+Subject: Test Message - Email Format
+
+This is a test message using the new email-style format.
+It can contain any characters without escaping issues:
+- Dollar signs: $100
+- Shell syntax: $(command)
+- Backslashes: C:\path\to\file
+- Multiple lines with any content
+
+Special characters that caused JSON parsing errors:
+"Quotes" and 'apostrophes'
+Newlines and tabs	like this
+Even code blocks with $() shell syntax

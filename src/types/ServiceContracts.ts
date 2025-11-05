@@ -65,6 +65,7 @@ export interface ResourceChange {
   timeSpent?: number;
   source: string;
   reason?: string;
+  moneySourceType?: 'bank' | 'investment' | 'owner' | 'other';
 }
 
 export interface ResourceTransaction {
@@ -86,7 +87,7 @@ export interface ResourceValidation {
 // Resource Service Interface
 export interface IResourceService {
   // Money operations
-  addMoney(playerId: string, amount: number, source: string, reason?: string): boolean;
+  addMoney(playerId: string, amount: number, source: string, reason?: string, sourceType?: 'bank' | 'investment' | 'owner' | 'other'): boolean;
   spendMoney(playerId: string, amount: number, source: string, reason?: string): boolean;
   canAfford(playerId: string, amount: number): boolean;
   
@@ -153,7 +154,10 @@ export interface IStateService {
   getGameState(): GameState;
   getGameStateDeepCopy(): GameState;
   isStateLoaded(): boolean;
-  
+
+  // Dependency injection methods (setter injection for circular dependencies)
+  setGameRulesService(gameRulesService: IGameRulesService): void;
+
   // Subscription methods
   subscribe(callback: (state: GameState) => void): () => void;
   
@@ -271,7 +275,10 @@ export interface ITurnService {
   triggerManualEffectWithFeedback(playerId: string, effectType: string): Promise<import('./StateTypes').TurnEffectResult>;
   performNegotiation(playerId: string): Promise<{ success: boolean; message: string }>;
   tryAgainOnSpace(playerId: string): Promise<{ success: boolean; message: string; shouldAdvanceTurn?: boolean }>;
-  handleAutomaticFunding(playerId: string): import('./StateTypes').TurnEffectResult;
+  handleAutomaticFunding(playerId: string): Promise<import('./StateTypes').TurnEffectResult>;
+
+  // Condition filtering for UI components
+  filterSpaceEffectsByCondition(spaceEffects: any[], player: any): any[];
 }
 
 export interface ICardService {
@@ -359,7 +366,10 @@ export interface IGameRulesService {
   
   // Project scope calculation methods
   calculateProjectScope(playerId: string): number;
-  
+
+  // Condition evaluation methods
+  evaluateCondition(playerId: string, condition: string | undefined, diceRoll?: number): boolean;
+
   // Scoring and winner determination methods
   calculatePlayerScore(playerId: string): number;
   determineWinner(): string | null;

@@ -183,10 +183,63 @@ describe('CurrentCardSection', () => {
       mockServices.stateService.getGameState.mockReturnValue(stateWithOtherPlayerChoice);
 
       render(<CurrentCardSection {...defaultProps} />);
-      
+
       expect(screen.queryByText('Accept')).not.toBeInTheDocument();
       expect(screen.queryByText('Negotiate')).not.toBeInTheDocument();
       expect(screen.queryByText('Reject')).not.toBeInTheDocument();
+    });
+
+    it('should not render MOVEMENT choice buttons (handled by movement component)', () => {
+      const movementChoice: Choice = {
+        id: 'move_123',
+        playerId: 'player1',
+        type: 'MOVEMENT',
+        prompt: 'Choose where to move',
+        options: [
+          { id: 'dest1', label: 'Destination 1' },
+          { id: 'dest2', label: 'Destination 2' }
+        ]
+      };
+
+      const stateWithMovementChoice = {
+        ...mockGameState,
+        awaitingChoice: movementChoice
+      };
+      mockServices.stateService.getGameState.mockReturnValue(stateWithMovementChoice);
+      mockServices.stateService.subscribe.mockImplementation((callback) => {
+        callback(stateWithMovementChoice);
+        return () => {};
+      });
+
+      render(<CurrentCardSection {...defaultProps} />);
+
+      // Should not render movement choice buttons
+      expect(screen.queryByText('Destination 1')).not.toBeInTheDocument();
+      expect(screen.queryByText('Destination 2')).not.toBeInTheDocument();
+    });
+
+    it('should not show action indicator for MOVEMENT choices', () => {
+      const movementChoice: Choice = {
+        id: 'move_123',
+        playerId: 'player1',
+        type: 'MOVEMENT',
+        prompt: 'Choose where to move',
+        options: [
+          { id: 'dest1', label: 'Destination 1' },
+          { id: 'dest2', label: 'Destination 2' }
+        ]
+      };
+
+      const stateWithMovementChoice = {
+        ...mockGameState,
+        awaitingChoice: movementChoice
+      };
+      mockServices.stateService.getGameState.mockReturnValue(stateWithMovementChoice);
+
+      render(<CurrentCardSection {...defaultProps} />);
+
+      const indicator = screen.queryByRole('status', { name: /action available/i });
+      expect(indicator).not.toBeInTheDocument();
     });
   });
 

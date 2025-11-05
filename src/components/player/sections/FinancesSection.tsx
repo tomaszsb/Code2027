@@ -83,7 +83,6 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRollingDice, setIsRollingDice] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
 
   // Get player state
@@ -93,7 +92,7 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
   }
 
   // Ensure moneySources and expenditures exist (for backward compatibility)
-  const moneySources = player.moneySources || {
+  const playerMoneySources = player.moneySources || {
     ownerFunding: 0,
     bankLoans: 0,
     investmentDeals: 0,
@@ -108,7 +107,7 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
 
   // Calculate financial metrics using useMemo for performance
   const financialMetrics = useMemo(() => {
-    const totalBudget = Object.values(moneySources).reduce((sum, val) => sum + val, 0);
+    const totalBudget = Object.values(playerMoneySources).reduce((sum, val) => sum + val, 0);
     const totalExpenditures = Object.values(expenditures).reduce((sum, val) => sum + val, 0);
     const cashOnHand = player.money;
     const projectScope = player.projectScope;
@@ -121,7 +120,7 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     const budgetVariance = totalBudget - totalExpenditures;
 
     // Funding mix (percentage of owner vs external funding)
-    const ownerFundingPct = totalBudget > 0 ? (moneySources.ownerFunding / totalBudget) * 100 : 0;
+    const ownerFundingPct = totalBudget > 0 ? (playerMoneySources.ownerFunding / totalBudget) * 100 : 0;
     const externalFundingPct = 100 - ownerFundingPct;
 
     return {
@@ -135,20 +134,26 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
       ownerFundingPct,
       externalFundingPct
     };
-  }, [moneySources, expenditures, player.money, player.projectScope]);
+  }, [playerMoneySources, expenditures, player.money, player.projectScope]);
 
-  // Get ALL manual effects for money from current space
+  // Get ALL manual effects for money from current space, filtered by conditions
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-  const moneyManualEffects = allSpaceEffects.filter(
+  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player);
+
+  const moneyManualEffects = conditionFilteredEffects.filter(
     effect => effect.trigger_type === 'manual' && effect.effect_type === 'money'
   );
 
-  // Check if on OWNER-FUND-INITIATION space (special funding action)
-  const isOnFundingSpace = player.currentSpace === 'OWNER-FUND-INITIATION';
-  const canGetFunding = isOnFundingSpace && onAutomaticFunding && completedActions.diceRoll === undefined;
+  // Get manual card effects that represent funding (B/I cards at OWNER-FUND-INITIATION)
+  // These are condition-filtered, so only ONE will show (B for scope ≤ $4M, I for scope > $4M)
+  const fundingCardEffects = conditionFilteredEffects.filter(
+    effect => effect.trigger_type === 'manual' &&
+              effect.effect_type === 'cards' &&
+              (effect.effect_action === 'draw_b' || effect.effect_action === 'draw_i')
+  );
 
-  // Check if there are any money manual actions available
-  const hasMoneyActions = Boolean(moneyManualEffects.length > 0 || canGetFunding);
+  // Check if there are any money manual actions available (including funding via cards)
+  const hasMoneyActions = moneyManualEffects.length > 0 || fundingCardEffects.length > 0;
 
   const handleManualEffect = async (effectType: string) => {
     setIsLoading(true);
@@ -189,76 +194,68 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
   const moneySourcesList = [
     {
       name: 'Owner Funding',
-      amount: moneySources.ownerFunding,
-      description: 'Seed money from owner',
-      processed: moneySources.ownerFunding > 0
+      amount: playerMoneySources.ownerFunding || 0,
+      description: 'Seed money from project owner',
+      processed: playerMoneySources.ownerFunding > 0
     },
     {
       name: 'Bank Loans',
-      amount: moneySources.bankLoans,
-      description: 'Bank financing',
-      processed: moneySources.bankLoans > 0
+      amount: playerMoneySources.bankLoans || 0,
+      description: 'Financing from bank lenders',
+      processed: playerMoneySources.bankLoans > 0
     },
     {
       name: 'Investment Deals',
-      amount: moneySources.investmentDeals,
-      description: 'Investor funding',
-      processed: moneySources.investmentDeals > 0
+      amount: playerMoneySources.investmentDeals || 0,
+      description: 'Capital from investors',
+      processed: playerMoneySources.investmentDeals > 0
     },
     {
       name: 'Other Sources',
-      amount: moneySources.other,
-      description: 'Cards, space effects, etc.',
-      processed: moneySources.other > 0
+      amount: playerMoneySources.other || 0,
+      description: 'Miscellaneous funding (cards, space effects, etc.)',
+      processed: playerMoneySources.other > 0
     }
   ].filter(source => source.processed); // Only show sources with money
 
-  // Handler for Get Funding (automatic funding at OWNER-FUND-INITIATION)
-  const handleGetFunding = async () => {
-    if (!onAutomaticFunding) return;
-
-    setIsRollingDice(true);
-    setError(null);
-
-    try {
-      await onAutomaticFunding();
-    } catch (err) {
-      setError('Failed to get funding. Please try again.');
-      console.error('Get funding error:', err);
-    } finally {
-      setIsRollingDice(false);
-    }
-  };
-
   // Helper to format button label from effect
   const getButtonLabel = (effect: any): string => {
+    // For funding card effects at OWNER-FUND-INITIATION - override description
+    if (effect.effect_type === 'cards' && (effect.effect_action === 'draw_b' || effect.effect_action === 'draw_i')) {
+      return 'Accept Owner Funding';
+    }
     if (effect.description) return effect.description;
     if (effect.effect_type === 'money') return 'Get Money';
     return effect.effect_type;
   };
 
   // Create header actions (action buttons always visible)
-  const headerActions = (moneyManualEffects.length > 0 || canGetFunding) ? (
+  const headerActions = (moneyManualEffects.length > 0 || fundingCardEffects.length > 0) ? (
     <>
-      {/* Get Funding button for OWNER-FUND-INITIATION space */}
-      {canGetFunding && (
-        <ActionButton
-          key="get-funding"
-          label="💰 Get Funding"
-          variant="primary"
-          onClick={handleGetFunding}
-          disabled={isLoading || isRollingDice}
-          isLoading={isRollingDice}
-          ariaLabel="Get funding from owner"
-        />
-      )}
+      {/* Render funding card effects (B/I cards for owner funding) */}
+      {fundingCardEffects.map((effect, index) => {
+        // Use compound key: "cards:draw_b" or "cards:draw_i" to identify specific effect
+        const effectKey = `${effect.effect_type}:${effect.effect_action}`;
+        const isEffectCompleted = completedActions.manualActions[effectKey] !== undefined;
+        return !isEffectCompleted && (
+          <ActionButton
+            key={`funding-${index}`}
+            label={getButtonLabel(effect)}
+            variant="primary"
+            onClick={() => handleManualEffect(effectKey)}
+            disabled={isLoading}
+            isLoading={isLoading}
+            ariaLabel="Accept owner funding"
+          />
+        );
+      })}
 
       {/* Render ALL money manual effects as buttons */}
       {moneyManualEffects.map((effect, index) => {
         const isEffectCompleted = completedActions.manualActions[effect.effect_type] !== undefined;
         return !isEffectCompleted && (
           <ActionButton
-            key={index}
+            key={`money-${index}`}
             label={getButtonLabel(effect)}
             variant="primary"
             onClick={() => handleManualEffect(effect.effect_type)}

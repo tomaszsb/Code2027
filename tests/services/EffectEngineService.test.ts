@@ -151,6 +151,7 @@ describe('EffectEngineService', () => {
       canPlayerTakeAction: vi.fn(),
       checkWinCondition: vi.fn(),
       calculateProjectScope: vi.fn(),
+      evaluateCondition: vi.fn().mockReturnValue(true),
       calculatePlayerScore: vi.fn(),
       determineWinner: vi.fn(),
       checkTurnLimit: vi.fn(),
