@@ -144,14 +144,20 @@ export class EffectEngineService implements IEffectEngineService {
     for (let i = 0; i < effects.length; i++) {
       const effect = effects[i];
       console.log(`  Processing effect ${i + 1}/${effects.length}: ${effect.effectType}`);
-      
+
       try {
         const result = await this.processEffect(effect, context);
         results.push(result);
-        
+
         if (result.success) {
           successfulEffects++;
           console.log(`    ✅ Effect ${i + 1} completed successfully`);
+
+          // Handle resultingEffects - add them to the effects array to be processed
+          if (result.resultingEffects && result.resultingEffects.length > 0) {
+            console.log(`    🔄 Effect ${i + 1} generated ${result.resultingEffects.length} additional effect(s) - adding to queue`);
+            effects.push(...result.resultingEffects);
+          }
         } else {
           failedEffects++;
           console.log(`    ❌ Effect ${i + 1} failed: ${result.error}`);
@@ -584,34 +590,10 @@ export class EffectEngineService implements IEffectEngineService {
           break;
 
         case 'RECALCULATE_SCOPE':
-          console.log(`📊 EFFECT_ENGINE: Recalculating project scope for player ${effect.payload.playerId}`);
-          
-          try {
-            const newProjectScope = this.gameRulesService.calculateProjectScope(effect.payload.playerId);
-            this.stateService.updatePlayer({
-              id: effect.payload.playerId,
-              projectScope: newProjectScope
-            });
-            console.log(`📊 Project Scope Updated [${effect.payload.playerId}]: $${newProjectScope.toLocaleString()}`);
-            
-            // Log to action log if available
-            const player = this.stateService.getPlayer(effect.payload.playerId);
-            if (player && typeof window !== 'undefined' && typeof (window as any).addActionToLog === 'function' && newProjectScope > 0) {
-              (window as any).addActionToLog({
-                type: 'resource_change',
-                playerId: effect.payload.playerId,
-                playerName: player.name,
-                description: `Project Scope updated to $${newProjectScope.toLocaleString()}`,
-                details: {
-                  money: newProjectScope
-                }
-              });
-            }
-            
-            success = true;
-          } catch (error) {
-            console.error(`❌ Failed to recalculate scope for player ${effect.payload.playerId}:`, error);
-          }
+          // DEPRECATED: Project scope is now calculated on-demand from W cards
+          // This effect is kept for backwards compatibility but does nothing
+          console.log(`📊 RECALCULATE_SCOPE effect is deprecated - project scope calculated on-demand from W cards`);
+          success = true; // Mark as success to avoid errors
           break;
 
         case 'CHOICE_OF_EFFECTS':
@@ -727,11 +709,19 @@ export class EffectEngineService implements IEffectEngineService {
           if (isPlayCardEffect(effect)) {
             const { payload } = effect;
             try {
-              console.log(`🎴 EFFECT_ENGINE: Finalizing play for card ${payload.cardId}`);
+              console.log(`🎴 EFFECT_ENGINE: Playing card ${payload.cardId} for player ${payload.playerId}`);
+
+              // Step 1: Apply card effects (money, resources, etc.)
+              this.cardService.applyCardEffects(payload.playerId, payload.cardId);
+              console.log(`    ✅ Applied effects for card ${payload.cardId}`);
+
+              // Step 2: Finalize card (move to active or discard based on duration)
               this.cardService.finalizePlayedCard(payload.playerId, payload.cardId);
+              console.log(`    ✅ Finalized card ${payload.cardId}`);
+
               success = true;
             } catch (error) {
-              console.error(`❌ Error finalizing play for card ${payload.cardId}:`, error);
+              console.error(`❌ Error playing card ${payload.cardId}:`, error);
               success = false;
             }
           }

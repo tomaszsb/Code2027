@@ -141,8 +141,8 @@ export const ProjectScopeSection: React.FC<ProjectScopeSectionProps> = ({
   // Convert map to array for rendering
   workTypeMap.forEach(group => workTypeGroups.push(group));
 
-  // Get total project scope from player
-  const projectScope = player.projectScope || 0;
+  // Calculate total project scope from W cards (single source of truth)
+  const projectScope = gameServices.gameRulesService.calculateProjectScope(playerId);
   const totalCosts = workTypeGroups.reduce((sum, group) => sum + group.subtotal, 0);
 
   // Format money

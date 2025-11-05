@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Refactoring (November 5, 2025)
+- **Project Scope System Refactoring:**
+  - Migrated project scope from a player field to a calculated value based on W (Work) cards
+  - Implemented `GameRulesService.calculateProjectScope()` as single source of truth for scope calculation
+  - Updated all scope-based condition evaluation (scope_le_4M, scope_gt_4M) to use W cards
+  - Removed deprecated `player.projectScope` field throughout the codebase
+  - Fixed PROJECT SCOPE section in UI to show actual scope totals instead of $0
+  - **Test Fixes:** Fixed 10 test failures across MovementService, TurnService, and ManualFunding test suites
+    - Updated MovementService tests to inject `gameRulesService` dependency
+    - Updated TurnService OWNER-FUND-INITIATION tests to use W cards instead of deprecated field
+    - Updated ManualFunding tests to properly initialize game state and inject mocks
+  - All 69 refactoring-related tests now passing (100% success rate)
+
 ### Refactoring (October 21, 2025)
 - **Console Log Cleanup:**
   - Removed 51 verbose debugging console logs (18% reduction) from key files:
@@ -65,7 +78,7 @@ All notable changes to this project will be documented in this file.
   - Fixed "Get Funding" button at `OWNER-FUND-INITIATION` space not triggering funding
   - Root cause: Button was calling `onRollDice` handler instead of dedicated funding handler
   - Solution: Added `onAutomaticFunding` prop chain from GameLayout → PlayerPanel → FinancesSection
-  - Button now correctly calls `TurnService.handleAutomaticFunding()` to draw and apply funding cards
+  - Button now correctly calls `TurnService.handleAutomaticFunding()` to provide an automatic, direct cash deposit (seed money) based on project scope.
 
 - **Movement Choice Premature Turn End Bug (October 16, 2025):**
   - Fixed bug where players could end their turn on decision spaces (like PM-DECISION-CHECK) before completing all required actions

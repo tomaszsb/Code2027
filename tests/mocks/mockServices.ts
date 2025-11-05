@@ -182,7 +182,10 @@ export const createMockGameRulesService = (): any => ({
   
   // Project scope calculation methods
   calculateProjectScope: vi.fn(),
-  
+
+  // Condition evaluation methods
+  evaluateCondition: vi.fn().mockReturnValue(true),
+
   // Scoring methods
   calculatePlayerScore: vi.fn(),
   determineWinner: vi.fn(),

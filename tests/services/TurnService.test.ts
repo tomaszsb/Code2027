@@ -86,6 +86,7 @@ const mockGameRulesService: anyIGameRulesService = {
   canPlayerTakeAction: vi.fn(),
   checkWinCondition: vi.fn(),
   calculateProjectScope: vi.fn(),
+  evaluateCondition: vi.fn().mockReturnValue(true),
   calculatePlayerScore: vi.fn(),
   determineWinner: vi.fn(),
   checkTurnLimit: vi.fn(),
@@ -736,6 +737,36 @@ describe('TurnService', () => {
 
   describe('OWNER-FUND-INITIATION space funding logic', () => {
     beforeEach(() => {
+      // Configure mockGameRulesService to properly evaluate scope conditions
+      mockGameRulesService.calculateProjectScope.mockImplementation((playerId: string) => {
+        const player = mockStateService.getPlayer(playerId);
+        if (!player) return 0;
+
+        // For these tests, use W cards from hand to calculate scope
+        // Each W card represents $500k of scope
+        const wCards = (player.hand || []).filter(cardId => cardId.startsWith('W'));
+        return wCards.length * 500000;
+      });
+
+      mockGameRulesService.evaluateCondition.mockImplementation((playerId: string, condition?: string) => {
+        if (!condition) return true;
+
+        const conditionLower = condition.toLowerCase();
+
+        // Evaluate scope conditions
+        if (conditionLower === 'scope_le_4m') {
+          const scope = mockGameRulesService.calculateProjectScope(playerId);
+          return scope <= 4000000;
+        }
+        if (conditionLower === 'scope_gt_4m') {
+          const scope = mockGameRulesService.calculateProjectScope(playerId);
+          return scope > 4000000;
+        }
+
+        // Default: true for other conditions
+        return true;
+      });
+
       // Setup OWNER-FUND-INITIATION space effects
       mockDataService.getSpaceEffects.mockReturnValue([
         {
@@ -783,7 +814,7 @@ describe('TurnService', () => {
     });
 
     it('should award B card for project scope ≤ $4M', async () => {
-      // Arrange - Player with project scope of $2M
+      // Arrange - Player with project scope of $2M (4 W cards * $500k = $2M)
       const mockPlayer: Player = {
         id: 'player1',
         name: 'Test Player',
@@ -791,11 +822,11 @@ describe('TurnService', () => {
         visitType: 'First',
         money: 1000,
         timeSpent: 0,
-        projectScope: 2000000, // $2M - should get B card
+        projectScope: 2000000, // Deprecated field (not used)
         score: 0,
         color: '#ff0000',
         avatar: '👤',
-        hand: [],
+        hand: ['W001', 'W002', 'W003', 'W004'], // 4 W cards = $2M scope
         activeCards: [],
         turnModifiers: { skipTurns: 0 },
         activeEffects: [],
@@ -835,7 +866,7 @@ describe('TurnService', () => {
     });
 
     it('should award I card for project scope > $4M', async () => {
-      // Arrange - Player with project scope of $6M
+      // Arrange - Player with project scope of $6M (12 W cards * $500k = $6M)
       const mockPlayer: Player = {
         id: 'player1',
         name: 'Test Player',
@@ -843,11 +874,11 @@ describe('TurnService', () => {
         visitType: 'First',
         money: 1000,
         timeSpent: 0,
-        projectScope: 6000000, // $6M - should get I card
+        projectScope: 6000000, // Deprecated field (not used)
         score: 0,
         color: '#ff0000',
         avatar: '👤',
-        hand: [],
+        hand: ['W001', 'W002', 'W003', 'W004', 'W005', 'W006', 'W007', 'W008', 'W009', 'W010', 'W011', 'W012'], // 12 W cards = $6M scope
         activeCards: [],
         turnModifiers: { skipTurns: 0 },
         activeEffects: [],
@@ -887,7 +918,7 @@ describe('TurnService', () => {
     });
 
     it('should award B card for project scope exactly $4M', async () => {
-      // Arrange - Player with project scope exactly $4M (edge case)
+      // Arrange - Player with project scope exactly $4M (edge case: 8 W cards * $500k = $4M)
       const mockPlayer: Player = {
         id: 'player1',
         name: 'Test Player',
@@ -895,11 +926,11 @@ describe('TurnService', () => {
         visitType: 'First',
         money: 1000,
         timeSpent: 0,
-        projectScope: 4000000, // Exactly $4M - should get B card (≤ condition)
+        projectScope: 4000000, // Deprecated field (not used)
         score: 0,
         color: '#ff0000',
         avatar: '👤',
-        hand: [],
+        hand: ['W001', 'W002', 'W003', 'W004', 'W005', 'W006', 'W007', 'W008'], // 8 W cards = exactly $4M
         activeCards: [],
         turnModifiers: { skipTurns: 0 },
         activeEffects: [],

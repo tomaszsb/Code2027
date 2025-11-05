@@ -1,6 +1,6 @@
 // src/services/MovementService.ts
 
-import { IMovementService, IDataService, IStateService, IChoiceService, ILoggingService } from '../types/ServiceContracts';
+import { IMovementService, IDataService, IStateService, IChoiceService, ILoggingService, IGameRulesService } from '../types/ServiceContracts';
 import { GameState, Player } from '../types/StateTypes';
 import { Movement, VisitType } from '../types/DataTypes';
 
@@ -13,7 +13,8 @@ export class MovementService implements IMovementService {
     private dataService: IDataService,
     private stateService: IStateService,
     private choiceService: IChoiceService,
-    private loggingService: ILoggingService
+    private loggingService: ILoggingService,
+    private gameRulesService: IGameRulesService
   ) {}
 
   /**
@@ -396,15 +397,9 @@ export class MovementService implements IMovementService {
         return true;
       }
 
-      // Project scope conditions
-      if (conditionLower === 'scope_le_4m') {
-        const projectScope = this.calculateProjectScope(player);
-        return projectScope <= 4000000; // $4M
-      }
-      
-      if (conditionLower === 'scope_gt_4m') {
-        const projectScope = this.calculateProjectScope(player);
-        return projectScope > 4000000; // $4M
+      // Project scope conditions - delegate to GameRulesService (single source of truth)
+      if (conditionLower === 'scope_le_4m' || conditionLower === 'scope_gt_4m') {
+        return this.gameRulesService.evaluateCondition(playerId, condition);
       }
 
       // Money-based conditions
@@ -468,26 +463,6 @@ export class MovementService implements IMovementService {
       console.error(`🧠 Error evaluating movement condition "${condition}":`, error);
       return false;
     }
-  }
-
-  /**
-   * Calculate the player's current project scope based on Work cards
-   * @private
-   */
-  private calculateProjectScope(player: Player): number {
-    // This mirrors the logic from TurnService.calculateProjectScope
-    // We need to count the Work cards in the player's hand
-    let projectScope = 0;
-    const hand = player.hand || [];
-
-    // Count W cards to determine scope
-    const workCards = hand.filter(cardId => cardId.startsWith('W'));
-
-    // Each Work card represents a certain amount of project scope
-    // Using simplified logic: each W card = $500K scope
-    projectScope = workCards.length * 500000;
-
-    return projectScope;
   }
 
 }

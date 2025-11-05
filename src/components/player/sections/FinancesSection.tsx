@@ -75,7 +75,6 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRollingDice, setIsRollingDice] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
 
   // Get player state
@@ -84,18 +83,24 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     return null;
   }
 
-  // Get ALL manual effects for money from current space
+  // Get ALL manual effects for money from current space, filtered by conditions
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-  const moneyManualEffects = allSpaceEffects.filter(
+  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player);
+
+  const moneyManualEffects = conditionFilteredEffects.filter(
     effect => effect.trigger_type === 'manual' && effect.effect_type === 'money'
   );
 
-  // Check if on OWNER-FUND-INITIATION space (special funding action)
-  const isOnFundingSpace = player.currentSpace === 'OWNER-FUND-INITIATION';
-  const canGetFunding = isOnFundingSpace && onRollDice && completedActions.diceRoll === undefined;
+  // Get manual card effects that represent funding (B/I cards at OWNER-FUND-INITIATION)
+  // These are condition-filtered, so only ONE will show (B for scope ≤ $4M, I for scope > $4M)
+  const fundingCardEffects = conditionFilteredEffects.filter(
+    effect => effect.trigger_type === 'manual' &&
+              effect.effect_type === 'cards' &&
+              (effect.effect_action === 'draw_b' || effect.effect_action === 'draw_i')
+  );
 
-  // Check if there are any money manual actions available
-  const hasMoneyActions = moneyManualEffects.length > 0 || canGetFunding;
+  // Check if there are any money manual actions available (including funding via cards)
+  const hasMoneyActions = moneyManualEffects.length > 0 || fundingCardEffects.length > 0;
 
   // Calculate surplus (optional - may not exist in current implementation)
   const surplus = 0; // TODO: Implement surplus calculation if needed
@@ -130,74 +135,79 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
     });
   };
 
-  // Money sources structure (showing completed funding)
+  // Money sources structure from player state
+  const playerMoneySources = player.moneySources || {
+    ownerFunding: 0,
+    bankLoans: 0,
+    investmentDeals: 0,
+    other: 0
+  };
+
   const moneySources = [
     {
       name: 'Owner Funding',
-      amount: 0, // TODO: Track from game state
-      description: 'Seed money',
-      processed: isOnFundingSpace || completedActions.manualActions.funding !== undefined
+      amount: playerMoneySources.ownerFunding || 0,
+      description: 'Seed money from project owner',
+      processed: playerMoneySources.ownerFunding > 0
     },
     {
       name: 'Bank Loans',
-      amount: 0, // TODO: Track from game state
-      description: 'Bank financing',
-      processed: false // TODO: Track from game state
+      amount: playerMoneySources.bankLoans || 0,
+      description: 'Financing from bank lenders',
+      processed: playerMoneySources.bankLoans > 0
     },
     {
       name: 'Investment Deals',
-      amount: 0, // TODO: Track from game state
-      description: 'Investor funding',
-      processed: false // TODO: Track from game state
+      amount: playerMoneySources.investmentDeals || 0,
+      description: 'Capital from investors',
+      processed: playerMoneySources.investmentDeals > 0
+    },
+    {
+      name: 'Other Sources',
+      amount: playerMoneySources.other || 0,
+      description: 'Miscellaneous funding',
+      processed: playerMoneySources.other > 0
     }
-  ].filter(source => source.processed); // Only show processed sources
-
-  // Handler for Get Funding / dice roll
-  const handleGetFunding = async () => {
-    if (!onRollDice) return;
-
-    setIsRollingDice(true);
-    setError(null);
-
-    try {
-      await onRollDice();
-    } catch (err) {
-      setError('Failed to get funding. Please try again.');
-      console.error('Get funding error:', err);
-    } finally {
-      setIsRollingDice(false);
-    }
-  };
+  ].filter(source => source.processed); // Only show sources with money
 
   // Helper to format button label from effect
   const getButtonLabel = (effect: any): string => {
+    // For funding card effects at OWNER-FUND-INITIATION - override description
+    if (effect.effect_type === 'cards' && (effect.effect_action === 'draw_b' || effect.effect_action === 'draw_i')) {
+      return 'Accept Owner Funding';
+    }
     if (effect.description) return effect.description;
     if (effect.effect_type === 'money') return 'Get Money';
     return effect.effect_type;
   };
 
   // Create header actions (action buttons always visible)
-  const headerActions = (moneyManualEffects.length > 0 || canGetFunding) ? (
+  const headerActions = (moneyManualEffects.length > 0 || fundingCardEffects.length > 0) ? (
     <>
-      {/* Get Funding button for OWNER-FUND-INITIATION space */}
-      {canGetFunding && (
-        <ActionButton
-          key="get-funding"
-          label="💰 Get Funding"
-          variant="primary"
-          onClick={handleGetFunding}
-          disabled={isLoading || isRollingDice}
-          isLoading={isRollingDice}
-          ariaLabel="Get funding from owner"
-        />
-      )}
+      {/* Render funding card effects (B/I cards for owner funding) */}
+      {fundingCardEffects.map((effect, index) => {
+        // Use compound key: "cards:draw_b" or "cards:draw_i" to identify specific effect
+        const effectKey = `${effect.effect_type}:${effect.effect_action}`;
+        const isEffectCompleted = completedActions.manualActions[effectKey] !== undefined;
+        return !isEffectCompleted && (
+          <ActionButton
+            key={`funding-${index}`}
+            label={getButtonLabel(effect)}
+            variant="primary"
+            onClick={() => handleManualEffect(effectKey)}
+            disabled={isLoading}
+            isLoading={isLoading}
+            ariaLabel="Accept owner funding"
+          />
+        );
+      })}
 
       {/* Render ALL money manual effects as buttons */}
       {moneyManualEffects.map((effect, index) => {
         const isEffectCompleted = completedActions.manualActions[effect.effect_type] !== undefined;
         return !isEffectCompleted && (
           <ActionButton
-            key={index}
+            key={`money-${index}`}
             label={getButtonLabel(effect)}
             variant="primary"
             onClick={() => handleManualEffect(effect.effect_type)}

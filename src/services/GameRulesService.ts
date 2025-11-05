@@ -539,4 +539,68 @@ export class GameRulesService implements IGameRulesService {
       return null;
     }
   }
+
+  /**
+   * Evaluate a condition for a player
+   * This is the single source of truth for condition evaluation across all services
+   *
+   * @param playerId - The ID of the player to evaluate the condition for
+   * @param condition - The condition string to evaluate (e.g., 'always', 'scope_le_4M', 'scope_gt_4M')
+   * @param diceRoll - Optional dice roll value for dice-based conditions
+   * @returns true if the condition is met, false otherwise
+   */
+  evaluateCondition(playerId: string, condition: string | undefined, diceRoll?: number): boolean {
+    // If no condition is specified, assume it should always apply
+    if (!condition || condition.trim() === '') {
+      return true;
+    }
+
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      console.warn(`Player ${playerId} not found for condition evaluation`);
+      return false;
+    }
+
+    const conditionLower = condition.toLowerCase().trim();
+
+    try {
+      // Always apply conditions
+      if (conditionLower === 'always') {
+        return true;
+      }
+
+      // Project scope conditions - USE SINGLE SOURCE OF TRUTH
+      if (conditionLower === 'scope_le_4m') {
+        const projectScope = this.calculateProjectScope(playerId);
+        return projectScope <= 4000000; // $4M
+      }
+
+      if (conditionLower === 'scope_gt_4m') {
+        const projectScope = this.calculateProjectScope(playerId);
+        return projectScope > 4000000; // $4M
+      }
+
+      // High/low dice conditions
+      if (conditionLower === 'high') {
+        return diceRoll !== undefined && diceRoll >= 4; // 4, 5, 6 are "high"
+      }
+
+      if (conditionLower === 'low') {
+        return diceRoll !== undefined && diceRoll <= 3; // 1, 2, 3 are "low"
+      }
+
+      // Dice roll specific values
+      if (conditionLower.startsWith('dice_roll_') && diceRoll !== undefined) {
+        const requiredRoll = parseInt(conditionLower.replace('dice_roll_', ''));
+        return diceRoll === requiredRoll;
+      }
+
+      // Unknown condition - default to false
+      console.warn(`Unknown condition: "${condition}", defaulting to false`);
+      return false;
+    } catch (error) {
+      console.error(`Error evaluating condition "${condition}":`, error);
+      return false;
+    }
+  }
 }
