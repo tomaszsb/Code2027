@@ -264,6 +264,7 @@ export class MovementService implements IMovementService {
 
   /**
    * Gets destinations for dice-based movement
+   * Handles "or" choices by splitting them into individual destinations
    * @private
    */
   private getDiceDestinations(spaceName: string, visitType: VisitType): string[] {
@@ -280,14 +281,30 @@ export class MovementService implements IMovementService {
     if (diceOutcome.roll_5) destinations.push(diceOutcome.roll_5);
     if (diceOutcome.roll_6) destinations.push(diceOutcome.roll_6);
 
-    // Remove duplicates and filter out empty strings
+    // Filter out empty strings
     const filteredDests = destinations.filter(dest => dest && dest.trim() !== '');
-    const uniqueDests: string[] = [];
+
+    // Handle "or" choices by splitting them
+    // e.g., "ENG-INITIATION or PM-DECISION-CHECK" becomes two separate destinations
+    const expandedDests: string[] = [];
     filteredDests.forEach(dest => {
+      if (dest.includes(' or ')) {
+        const choices = dest.split(' or ').map(d => d.trim()).filter(d => d);
+        expandedDests.push(...choices);
+      } else {
+        expandedDests.push(dest);
+      }
+    });
+
+    // Remove duplicates
+    const uniqueDests: string[] = [];
+    expandedDests.forEach(dest => {
       if (!uniqueDests.includes(dest)) {
         uniqueDests.push(dest);
       }
     });
+
+    console.log(`🎲 Dice destinations for ${spaceName} (${visitType}): ${uniqueDests.join(', ')}`);
     return uniqueDests;
   }
 
