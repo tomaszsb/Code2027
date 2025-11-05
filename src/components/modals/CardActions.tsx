@@ -1,7 +1,7 @@
 // src/components/modals/CardActions.tsx
 
 import React from 'react';
-import { colors } from '../../styles/theme';
+import { colors, theme } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 
 interface CardActionsProps {
@@ -74,14 +74,14 @@ export function CardActions({
    * Base button styles
    */
   const buttonBaseStyle: React.CSSProperties = {
-    padding: '12px 24px',
-    borderRadius: '6px',
+    padding: theme.button.padding.lg,
+    borderRadius: theme.button.borderRadius,
     border: 'none',
     fontWeight: 'bold',
-    fontSize: '14px',
+    fontSize: theme.button.fontSize.sm,
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    margin: '0 8px'
+    transition: theme.transitions.normal,
+    margin: `0 ${theme.spacing.sm}`
   };
 
   /**
@@ -91,7 +91,7 @@ export function CardActions({
     ...buttonBaseStyle,
     backgroundColor: canPlay ? colors.primary.main : colors.secondary.main,
     color: colors.white,
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    boxShadow: theme.shadows.sm
   };
 
   /**
@@ -130,13 +130,13 @@ export function CardActions({
     }
     
     button.style.transform = 'translateY(-1px)';
-    button.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+    button.style.boxShadow = theme.shadows.md;
   };
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     const button = e.currentTarget;
     const currentBg = button.style.backgroundColor;
-    
+
     if (currentBg.includes('0056b3')) {
       button.style.backgroundColor = canPlay ? colors.primary.main : colors.secondary.main;
     } else if (currentBg.includes('218838')) {
@@ -144,9 +144,9 @@ export function CardActions({
     } else if (currentBg.includes('545b62')) {
       button.style.backgroundColor = colors.secondary.main;
     }
-    
+
     button.style.transform = 'translateY(0)';
-    button.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    button.style.boxShadow = theme.shadows.sm;
   };
 
   return (
@@ -154,11 +154,11 @@ export function CardActions({
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: '20px',
+      padding: theme.modal.footer.padding,
       backgroundColor: colors.secondary.bg,
       borderTop: `1px solid ${colors.secondary.border}`,
-      borderRadius: '0 0 8px 8px',
-      gap: '12px'
+      borderRadius: `0 0 ${theme.borderRadius.md} ${theme.borderRadius.md}`,
+      gap: theme.modal.footer.gap
     }}>
       {/* Play Card button - only show when not flipped and card can be played */}
       {!isFlipped && (

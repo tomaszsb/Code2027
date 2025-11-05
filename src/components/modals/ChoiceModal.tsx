@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { colors } from '../../styles/theme';
+import { colors, theme } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Choice } from '../../types/CommonTypes';
 import { NotificationUtils } from '../../utils/NotificationUtils';
@@ -101,6 +101,19 @@ export function ChoiceModal(): JSX.Element {
 
   return (
     <>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideIn {
+            from { transform: scale(0.9) translateY(-20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+          }
+        `}
+      </style>
+
       {/* Modal Overlay */}
       <div
         style={{
@@ -109,73 +122,75 @@ export function ChoiceModal(): JSX.Element {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: theme.modal.overlay.backgroundColor,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: theme.modal.overlay.zIndex,
+          animation: `fadeIn ${theme.transitions.normal}`
         }}
       >
         {/* Modal Content */}
         <div
           style={{
             backgroundColor: colors.white,
-            padding: '30px',
-            borderRadius: '12px',
-            maxWidth: '500px',
+            padding: theme.modal.body.padding,
+            borderRadius: theme.modal.container.borderRadius,
+            maxWidth: theme.modal.container.maxWidth,
             width: '90%',
-            maxHeight: '80vh',
+            maxHeight: theme.modal.container.maxHeight,
             overflow: 'auto',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-            border: `3px solid ${colors.primary.main}`
+            boxShadow: theme.shadows.xl,
+            border: `3px solid ${colors.primary.main}`,
+            animation: `slideIn ${theme.transitions.modal}`
           }}
         >
           {/* Modal Header */}
-          <div style={{ marginBottom: '25px', textAlign: 'center' }}>
-            <h2 style={{ 
-              margin: '0 0 10px 0', 
+          <div style={{ marginBottom: theme.spacing.xxl, textAlign: 'center' }}>
+            <h2 style={{
+              margin: `0 0 ${theme.spacing.md} 0`,
               color: colors.primary.main,
-              fontSize: '24px',
-              fontWeight: 'bold'
+              fontSize: theme.typography.heading.h2.fontSize,
+              fontWeight: theme.typography.heading.h2.fontWeight
             }}>
               🎯 Make Your Choice
             </h2>
-            <p style={{ 
+            <p style={{
               margin: '0',
               color: colors.text.secondary,
-              fontSize: '16px'
+              fontSize: theme.typography.body.large
             }}>
               {currentPlayerName}: {awaitingChoice.prompt}
             </p>
           </div>
 
           {/* Choice Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             {awaitingChoice.options.map((option, index) => (
               <button
                 key={option.id}
                 onClick={() => handleChoiceClick(option.id)}
                 style={{
-                  padding: '15px 20px',
-                  fontSize: '16px',
+                  padding: `${theme.spacing.md} ${theme.spacing.xl}`,
+                  fontSize: theme.button.fontSize.lg,
                   fontWeight: 'bold',
                   backgroundColor: colors.primary.main,
                   color: colors.white,
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: theme.button.borderRadius,
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                  transition: theme.transitions.normal,
+                  boxShadow: theme.shadows.sm
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = colors.primary.dark;
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+                  e.currentTarget.style.boxShadow = theme.shadows.md;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = colors.primary.main;
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.style.boxShadow = theme.shadows.sm;
                 }}
               >
                 {option.label}
@@ -184,16 +199,16 @@ export function ChoiceModal(): JSX.Element {
           </div>
 
           {/* Info Text */}
-          <div style={{ 
-            marginTop: '20px', 
-            padding: '15px',
+          <div style={{
+            marginTop: theme.spacing.xl,
+            padding: theme.spacing.md,
             backgroundColor: colors.secondary.bg,
-            borderRadius: '8px',
+            borderRadius: theme.borderRadius.md,
             border: `1px solid ${colors.secondary.border}`
           }}>
-            <p style={{ 
+            <p style={{
               margin: '0',
-              fontSize: '14px',
+              fontSize: theme.typography.body.small,
               color: colors.secondary.main,
               textAlign: 'center'
             }}>

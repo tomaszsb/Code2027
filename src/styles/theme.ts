@@ -262,28 +262,100 @@ export const theme = {
   colors,
   semanticColors,
   
-  // Spacing (for future expansion)
+  // Spacing - Consistent spacing scale
   spacing: {
     xs: '4px',
     sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
+    md: '12px',
+    lg: '16px',
+    xl: '20px',
+    xxl: '24px',
   },
-  
-  // Border radius (for future expansion)
+
+  // Border radius - Consistent border radius scale
   borderRadius: {
-    sm: '4px',
+    sm: '6px',
     md: '8px',
     lg: '12px',
+    xl: '16px',
     full: '50%',
   },
-  
-  // Shadow (for future expansion)
+
+  // Shadows - Consistent shadow scale
   shadows: {
     sm: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    md: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    lg: '0 10px 25px rgba(0, 0, 0, 0.15)',
+    md: '0 4px 8px rgba(0, 0, 0, 0.15)',
+    lg: '0 10px 25px rgba(0, 0, 0, 0.25)',
+    xl: '0 20px 60px rgba(0, 0, 0, 0.3)',
+  },
+
+  // Modal Layout - Consistent modal spacing and layout
+  modal: {
+    overlay: {
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      padding: '20px',
+      zIndex: 1000,
+    },
+    container: {
+      maxWidth: '500px',
+      maxHeight: '80vh',
+      borderRadius: '16px',
+    },
+    header: {
+      padding: '16px 20px',
+      borderBottom: `2px solid ${colors.secondary.light}`,
+    },
+    body: {
+      padding: '16px 20px',
+    },
+    footer: {
+      padding: '16px 20px',
+      gap: '12px',
+    },
+    animation: {
+      duration: '0.3s',
+      easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    },
+  },
+
+  // Button Layout - Consistent button spacing
+  button: {
+    padding: {
+      sm: '8px 16px',
+      md: '10px 20px',
+      lg: '12px 24px',
+    },
+    borderRadius: '8px',
+    gap: '12px',
+    fontSize: {
+      sm: '14px',
+      md: '15px',
+      lg: '16px',
+    },
+  },
+
+  // Typography - Consistent text hierarchy
+  typography: {
+    heading: {
+      h1: { fontSize: '28px', fontWeight: 'bold' },
+      h2: { fontSize: '24px', fontWeight: 'bold' },
+      h3: { fontSize: '18px', fontWeight: 'bold' },
+      h4: { fontSize: '16px', fontWeight: 'bold' },
+    },
+    body: {
+      large: '16px',
+      normal: '15px',
+      small: '14px',
+      tiny: '13px',
+    },
+  },
+
+  // Transitions - Consistent animation timings
+  transitions: {
+    fast: '0.15s ease',
+    normal: '0.2s ease',
+    slow: '0.3s ease',
+    modal: '0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
   },
 } as const;
 
