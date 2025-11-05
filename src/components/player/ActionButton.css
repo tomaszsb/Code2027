@@ -1,3 +1,6 @@
+/* Import centralized animations */
+@import '../../styles/animations.css';
+
 .action-button {
   padding: 4px 12px; /* Reduced vertical padding */
   font-size: 14px;
@@ -5,6 +8,7 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  /* Consistent transition: 200ms ease (from animationConstants.ts) */
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -15,12 +19,15 @@
 }
 
 .action-button:hover:not(:disabled) {
+  /* Consistent hover elevation: translateY(-1px) (from animationConstants.ts) */
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .action-button:active:not(:disabled) {
   transform: translateY(0);
+  /* Faster transition for active state for immediate feedback */
+  transition: all 0.15s ease;
 }
 
 .action-button:focus {
@@ -63,20 +70,15 @@
   background: var(--error-hover, #c82333);
 }
 
-/* Loading spinner */
+/* Loading spinner - uses centralized spin animation */
 .loading-spinner {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
+  /* Using centralized spin animation: 800ms linear infinite */
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Responsive adjustments */
