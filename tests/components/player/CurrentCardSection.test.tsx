@@ -107,6 +107,9 @@ describe('CurrentCardSection', () => {
     mockServices.dataService.getSpaceContent.mockReturnValue(mockSpaceContent);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]); // Fix: Return empty array by default
     mockServices.stateService.subscribe.mockReturnValue(() => {});
+
+    // Mock filterSpaceEffectsByCondition to pass-through effects
+    mockServices.turnService.filterSpaceEffectsByCondition.mockImplementation((effects: any[]) => effects);
   });
 
   describe('Basic Rendering', () => {

@@ -305,21 +305,22 @@ export const createMockTurnService = (): any => ({
   takeTurn: vi.fn(),
   endTurn: vi.fn(),
   rollDice: vi.fn(),
-  
+
   // Separate dice and movement methods
   rollDiceAndProcessEffects: vi.fn(),
   endTurnWithMovement: vi.fn(),
-  
-  // Turn validation methods  
+
+  // Turn validation methods
   canPlayerTakeTurn: vi.fn(),
   getCurrentPlayerTurn: vi.fn(),
-  
+
   // Turn effects processing
   processTurnEffects: vi.fn(),
-  
+  filterSpaceEffectsByCondition: vi.fn(),
+
   // Turn control methods
   setTurnModifier: vi.fn(),
-  
+
   // Feedback methods for UI components
   rollDiceWithFeedback: vi.fn(),
   rerollDice: vi.fn(),

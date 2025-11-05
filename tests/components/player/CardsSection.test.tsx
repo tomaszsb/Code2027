@@ -92,6 +92,10 @@ describe('CardsSection', () => {
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]); // Fix: Return empty array by default
     mockServices.dataService.getDiceEffects.mockReturnValue([]); // Fix: Return empty array by default
+    mockServices.dataService.getGameConfigBySpace.mockReturnValue({ phase: 'Design' }); // Mock phase for E card validation
+
+    // Mock filterSpaceEffectsByCondition to pass-through effects
+    mockServices.turnService.filterSpaceEffectsByCondition.mockImplementation((effects: any[]) => effects);
 
     // Mock card type detection
     mockServices.cardService.getCardType.mockImplementation((cardId: string) => {
@@ -101,6 +105,21 @@ describe('CardsSection', () => {
       if (cardId.startsWith('L')) return 'L';
       if (cardId.startsWith('I')) return 'I';
       return null;
+    });
+
+    // Mock getCardById to return card data
+    mockServices.dataService.getCardById.mockImplementation((cardId: string) => {
+      const cardType = cardId.charAt(0);
+      return {
+        card_id: cardId,
+        card_name: `${cardType} Card ${cardId.slice(1)}`,
+        card_type: cardType,
+        description: `Test card ${cardId}`,
+        work_type_restriction: null,
+        work_cost: null,
+        duration_turns: null,
+        phase_restriction: null
+      };
     });
   });
 
@@ -112,15 +131,19 @@ describe('CardsSection', () => {
 
     it('should display total cards in hand', () => {
       renderWithContext(<CardsSection {...defaultProps} />);
-      expect(screen.getByText('3')).toBeInTheDocument(); // 3 cards total
+      // Check summary contains total
+      const summary = screen.getByText((content, element) => {
+        return element?.className === 'section-summary' && element?.textContent?.includes('Total: 3') || false;
+      });
+      expect(summary).toBeInTheDocument();
     });
 
     it('should display card type counts', () => {
       renderWithContext(<CardsSection {...defaultProps} />);
-      expect(screen.getByText('E:')).toBeInTheDocument();
-      expect(screen.getByText('2')).toBeInTheDocument(); // 2 E cards
-      expect(screen.getByText('W:')).toBeInTheDocument();
-      expect(screen.getByText('1')).toBeInTheDocument(); // 1 W card
+      // Check for E cards count
+      expect(screen.getByText(/E Cards \(2\)/)).toBeInTheDocument();
+      // Check for W cards count
+      expect(screen.getByText(/W Cards \(1\)/)).toBeInTheDocument();
     });
 
     it('should return null if player not found', () => {
@@ -175,7 +198,7 @@ describe('CardsSection', () => {
       mockServices.dataService.getDiceEffects.mockReturnValue([bCardDiceEffect]);
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={vi.fn()} />);
-      expect(screen.getByText('🎲 Roll for B Cards')).toBeInTheDocument();
+      expect(screen.getByText('Roll for B Cards')).toBeInTheDocument();
     });
 
     it('should show Roll for E Cards button when dice effect available', () => {
@@ -190,7 +213,7 @@ describe('CardsSection', () => {
       mockServices.dataService.getDiceEffects.mockReturnValue([eCardDiceEffect]);
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={vi.fn()} />);
-      expect(screen.getByText('🎲 Roll for E Cards')).toBeInTheDocument();
+      expect(screen.getByText('Roll for E Cards')).toBeInTheDocument();
     });
 
     it('should show both card buttons when both dice effects available', () => {
@@ -213,8 +236,8 @@ describe('CardsSection', () => {
       mockServices.dataService.getDiceEffects.mockReturnValue([bCardDiceEffect, eCardDiceEffect]);
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={vi.fn()} />);
-      expect(screen.getByText('🎲 Roll for B Cards')).toBeInTheDocument();
-      expect(screen.getByText('🎲 Roll for E Cards')).toBeInTheDocument();
+      expect(screen.getByText('Roll for B Cards')).toBeInTheDocument();
+      expect(screen.getByText('Roll for E Cards')).toBeInTheDocument();
     });
   });
 
@@ -233,7 +256,7 @@ describe('CardsSection', () => {
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={onRollDice} />);
 
-      const rollButton = screen.getByText('🎲 Roll for B Cards');
+      const rollButton = screen.getByText('Roll for B Cards');
       fireEvent.click(rollButton);
 
       expect(onRollDice).toHaveBeenCalled();
@@ -253,7 +276,7 @@ describe('CardsSection', () => {
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={onRollDice} />);
 
-      const rollButton = screen.getByText('🎲 Roll for E Cards');
+      const rollButton = screen.getByText('Roll for E Cards');
       fireEvent.click(rollButton);
 
       expect(onRollDice).toHaveBeenCalled();
@@ -273,7 +296,7 @@ describe('CardsSection', () => {
 
       renderWithContext(<CardsSection {...defaultProps} onRollDice={onRollDice} />);
 
-      const rollButton = screen.getByText('🎲 Roll for B Cards');
+      const rollButton = screen.getByText('Roll for B Cards');
       fireEvent.click(rollButton);
 
       await waitFor(() => {

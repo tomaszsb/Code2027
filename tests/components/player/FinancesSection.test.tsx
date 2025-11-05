@@ -81,6 +81,9 @@ describe('FinancesSection', () => {
     mockServices.stateService.getPlayer.mockReturnValue(mockPlayer);
     mockServices.stateService.getGameState.mockReturnValue(mockGameState);
     mockServices.dataService.getSpaceEffects.mockReturnValue([]); // Fix: Return empty array by default
+
+    // Mock filterSpaceEffectsByCondition to pass-through effects
+    mockServices.turnService.filterSpaceEffectsByCondition.mockImplementation((effects: any[]) => effects);
   });
 
   describe('Basic Rendering', () => {
