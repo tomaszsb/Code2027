@@ -30,7 +30,7 @@ export class ResourceService implements IResourceService {
 
   // === MONEY OPERATIONS ===
 
-  addMoney(playerId: string, amount: number, source: string, reason?: string): boolean {
+  addMoney(playerId: string, amount: number, source: string, reason?: string, sourceType?: 'bank' | 'investment' | 'owner' | 'other'): boolean {
     if (amount <= 0) {
       console.warn(`ResourceService.addMoney: Invalid amount ${amount} for player ${playerId}`);
       return false;
@@ -39,7 +39,8 @@ export class ResourceService implements IResourceService {
     return this.updateResources(playerId, {
       money: amount,
       source,
-      reason: reason || `Added $${amount.toLocaleString()}`
+      reason: reason || `Added $${amount.toLocaleString()}`,
+      moneySourceType: sourceType
     });
   }
 
@@ -114,12 +115,39 @@ export class ResourceService implements IResourceService {
     const newMoney = changes.money ? player.money + changes.money : player.money;
     const newTimeSpent = changes.timeSpent ? player.timeSpent + changes.timeSpent : player.timeSpent;
 
+    // Update money sources if money is being added and sourceType is provided
+    const updatedMoneySources = player.moneySources ? { ...player.moneySources } : {
+      ownerFunding: 0,
+      bankLoans: 0,
+      investmentDeals: 0,
+      other: 0
+    };
+
+    if (changes.money && changes.money > 0 && changes.moneySourceType) {
+      const amount = changes.money;
+      switch (changes.moneySourceType) {
+        case 'bank':
+          updatedMoneySources.bankLoans = (updatedMoneySources.bankLoans || 0) + amount;
+          break;
+        case 'investment':
+          updatedMoneySources.investmentDeals = (updatedMoneySources.investmentDeals || 0) + amount;
+          break;
+        case 'owner':
+          updatedMoneySources.ownerFunding = (updatedMoneySources.ownerFunding || 0) + amount;
+          break;
+        case 'other':
+          updatedMoneySources.other = (updatedMoneySources.other || 0) + amount;
+          break;
+      }
+    }
+
     // Apply the changes
     try {
       const updatedState = this.stateService.updatePlayer({
         id: playerId,
         money: newMoney,
-        timeSpent: Math.max(0, newTimeSpent) // Ensure time doesn't go negative
+        timeSpent: Math.max(0, newTimeSpent), // Ensure time doesn't go negative
+        moneySources: updatedMoneySources
       });
 
       const balanceAfter = {

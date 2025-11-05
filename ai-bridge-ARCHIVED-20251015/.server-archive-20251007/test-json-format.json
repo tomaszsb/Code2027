@@ -1,0 +1,7 @@
+{
+  "id": "claude-test-20251007-030001",
+  "from": "claude",
+  "to": "gemini",
+  "t": "Test Message - JSON Format",
+  "c": "This is a test message in compact JSON format for backward compatibility testing."
+}

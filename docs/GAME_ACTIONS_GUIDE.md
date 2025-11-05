@@ -37,7 +37,7 @@ These are actions you take by clicking a button.
 | **Transfer Card** | `CardDetailsModal` | Allows a player to give a transferable card (L or E type) to another player. | Success: `Card transferred to ${player}` / Error: Transfer failure details |
 | **Make/Accept/Decline Offer** | `NegotiationModal` | The core actions for the player-to-player negotiation system. | Offer status updates and completion confirmations |
 | **Try Again** | `TurnControlsWithActions` | On certain spaces, allows a player to revert their turn to the state before they rolled the dice (usually with a time penalty). | Reversion confirmation with time penalty |
-| **Get Funding** | `TurnControlsWithActions` | On `OWNER-FUND-INITIATION` space, automatically draws funding cards and updates resources. | Funding details with amounts and sources |
+| **Get Funding** | `TurnControlsWithActions` | On `OWNER-FUND-INITIATION` space, triggers an automatic calculation that provides a direct cash deposit (seed money) based on project scope. | Funding details with the exact amount received |
 
 ### Automatic Triggers (System-Driven)
 
@@ -45,7 +45,7 @@ These actions happen automatically as a consequence of other events. You don't c
 
 | Event | Trigger | Example |
 | :--- | :--- | :--- |
-| **On-Arrival Effects** | A player lands on a new space. | Landing on `OWNER-FUND-INITIATION` automatically triggers a funding calculation. |
+| **On-Arrival Effects** | A player lands on a new space. | Landing on `OWNER-FUND-INITIATION` automatically provides the player with a direct cash deposit (seed money) based on a percentage of their project scope. |
 | **On-Leaving Effects** | A player leaves a space. | Leaving `OWNER-SCOPE-INITIATION` automatically adds a time penalty for "scope review". |
 | **Dice Roll Effects** | A player rolls the dice. | Rolling a 4 on a certain space might automatically grant you money and a card draw. |
 | **Card Effects** | A player plays a card. | Playing an Investment (I) card automatically adds money to your balance. |

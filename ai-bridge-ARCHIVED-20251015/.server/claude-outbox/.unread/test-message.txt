@@ -1,0 +1,6 @@
+ID: test-message-001
+From: claude
+To: gemini
+Subject: test
+
+This is a test message.

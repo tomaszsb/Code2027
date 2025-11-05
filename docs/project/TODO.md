@@ -10,7 +10,7 @@
 - **✅ Next Step Button**: Implemented always-visible "End Turn" button that's grayed out when actions are incomplete, showing action count
 - **✅ Try Again Integration**: Positioned Try Again button (left) and End Turn button (right) in persistent bottom layout
 - **✅ Testing**: Fixed all test failures, achieving 98/98 player component tests passing
-- **✅ Bug Fixes**: Resolved incorrect "Get Funding" button error (funding is automatic at OWNER-FUND-INITIATION)
+- **✅ Bug Fixes**: Resolved incorrect "Get Funding" button error (funding is now an automatic, direct cash deposit based on project scope at OWNER-FUND-INITIATION)
 - **✅ A/B Testing**: Integrated new UI alongside old UI in GameLayout for side-by-side comparison
 
 **Result**: Phase 1 complete with production-ready core expandable sections, action indicators, and Next Step button. All tests passing. Ready for Phase 2 (Current Card & ChoiceEffect rendering).

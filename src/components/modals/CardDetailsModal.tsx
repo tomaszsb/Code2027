@@ -41,17 +41,13 @@ export function CardDetailsModal({ isOpen, onClose, card, currentPlayer, otherPl
   };
 
 
-  // Check if card is transferable
-  const isCardTransferable = (cardType: string): boolean => {
-    return cardType === 'E' || cardType === 'L';
-  };
-
-  // Check if current player owns this card in available cards
+  // Check if current player owns this card and it's transferable
   const canTransferCard = (): boolean => {
     if (!currentPlayer || !card) return false;
-    const cardType = cardService.getCardType(card.card_id);
-    if (!cardType || !isCardTransferable(cardType)) return false;
-    
+
+    // Check if card has is_transferable property set to true
+    if (!card.is_transferable) return false;
+
     // Check if the card is in the player's hand
     return currentPlayer.hand?.includes(card.card_id) || false;
   };

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "unified-ai-bridge": {
+      "command": "python3",
+      "args": ["/mnt/d/unravel/current_game/code2027/ai-bridge/mcp-servers/unified-mcp-server/server.py"]
+    }
+  }
+}

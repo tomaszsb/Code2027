@@ -102,10 +102,15 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   const currentSpaceConfig = gameServices.dataService.getGameConfigBySpace(player.currentSpace);
   const currentPhase = currentSpaceConfig?.phase;
 
-  // Get ALL manual effects for cards from current space
+  // Get ALL manual effects for cards from current space, filtered by conditions
+  // Exclude B/I card draws which are funding actions (shown in FinancesSection)
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-  const cardManualEffects = allSpaceEffects.filter(
-    effect => effect.trigger_type === 'manual' && effect.effect_type === 'cards'
+  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player);
+
+  const cardManualEffects = conditionFilteredEffects.filter(
+    effect => effect.trigger_type === 'manual' &&
+              effect.effect_type === 'cards' &&
+              !(effect.effect_action === 'draw_b' || effect.effect_action === 'draw_i') // Funding actions belong in Finances
   );
 
   // Get dice effects for cards (excluding W which shows in Project Scope)
@@ -404,6 +409,17 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
                                   </div>
                                 )}
 
+                                {/* View Details Button */}
+                                <div className="card-action-row">
+                                  <ActionButton
+                                    label="View Details"
+                                    variant="secondary"
+                                    onClick={() => handleCardDetailsOpen(item.id)}
+                                    disabled={isLoading}
+                                    ariaLabel={`View details for ${item.card.card_name}`}
+                                  />
+                                </div>
+
                                 {/* Play Card Button for E Cards */}
                                 {item.card.card_type === 'E' && canPlayCard(item.card) && (
                                   <div className="card-action-row">
@@ -463,8 +479,12 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
       {/* Card Details Modal */}
       {selectedCardForDetails && (
         <CardDetailsModal
-          cardId={selectedCardForDetails}
+          isOpen={true}
           onClose={handleCardDetailsClose}
+          card={gameServices.dataService.getCardById(selectedCardForDetails) || null}
+          currentPlayer={player}
+          otherPlayers={gameServices.stateService.getAllPlayers().filter(p => p.id !== playerId)}
+          cardService={gameServices.cardService}
         />
       )}
     </>
