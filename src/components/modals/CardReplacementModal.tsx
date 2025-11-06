@@ -173,11 +173,11 @@ export function CardReplacementModal({
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: '12px 20px',
+    padding: '10px 16px',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     fontSize: '14px',
-    fontWeight: '600',
+    fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     minWidth: '100px'
@@ -199,7 +199,8 @@ export function CardReplacementModal({
     ...buttonStyle,
     backgroundColor: colors.special.button.disabledBg,
     color: colors.special.button.disabledText,
-    cursor: 'not-allowed'
+    cursor: 'not-allowed',
+    opacity: 0.6
   };
 
   return (
@@ -318,9 +319,9 @@ export function CardReplacementModal({
                               }
                             }}
                             style={{
-                              padding: '4px 8px',
+                              padding: '4px 12px',
                               fontSize: '12px',
-                              fontWeight: '600',
+                              fontWeight: '500',
                               backgroundColor: colors.primary.main,
                               color: 'white',
                               border: 'none',
@@ -328,8 +329,16 @@ export function CardReplacementModal({
                               cursor: 'pointer',
                               transition: 'all 0.2s ease'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.opacity = '0.9';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.opacity = '1';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'none';
+                            }}
                           >
                             📋 Details
                           </button>
@@ -397,21 +406,30 @@ export function CardReplacementModal({
                       aria-selected={replacementCardType === type}
                       onClick={() => setReplacementCardType(type)}
                       style={{
-                        ...buttonStyle,
+                        padding: '4px 12px',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        minWidth: '80px',
                         backgroundColor: replacementCardType === type ? getCardTypeColor(type) : colors.white,
                         color: replacementCardType === type ? colors.white : colors.text.mediumGray,
-                        border: `2px solid ${getCardTypeColor(type)}`,
-                        minWidth: '80px'
+                        border: `2px solid ${getCardTypeColor(type)}`
                       }}
                       onMouseEnter={(e) => {
                         if (replacementCardType !== type) {
                           e.currentTarget.style.backgroundColor = colors.special.button.hoverBg;
                         }
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
                       }}
                       onMouseLeave={(e) => {
                         if (replacementCardType !== type) {
                           e.currentTarget.style.backgroundColor = colors.white;
                         }
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
                       {getCardTypeIcon(type)} {getCardTypeName(type)}
@@ -433,21 +451,37 @@ export function CardReplacementModal({
             <button
               style={secondaryButtonStyle}
               onClick={handleCancel}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
               Cancel
             </button>
-            
+
             <button
               style={canReplace ? primaryButtonStyle : disabledButtonStyle}
               onClick={handleConfirm}
               disabled={!canReplace}
               onMouseEnter={(e) => {
-                if (canReplace) e.currentTarget.style.opacity = '0.8';
+                if (canReplace) {
+                  e.currentTarget.style.opacity = '0.9';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (canReplace) e.currentTarget.style.opacity = '1';
+                if (canReplace) {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
               }}
             >
               Replace {selectedCardIds.length} Card{selectedCardIds.length !== 1 ? 's' : ''}

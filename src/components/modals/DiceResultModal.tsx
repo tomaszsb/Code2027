@@ -1,5 +1,5 @@
 import React from 'react';
-import { colors, theme } from '../../styles/theme';
+import { colors } from '../../styles/theme';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiceResultEffect, TurnEffectResult } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
@@ -127,20 +127,20 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          marginBottom: theme.spacing.sm,
-          paddingLeft: theme.spacing.sm
+          marginBottom: '6px',
+          paddingLeft: '8px'
         }}
       >
-        <span style={{ fontSize: theme.typography.heading.h3.fontSize, marginRight: theme.spacing.sm, flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontSize: '18px', marginRight: '8px', flexShrink: 0 }}>{icon}</span>
         <div style={{ flex: 1 }}>
           <span style={{ fontWeight: 'bold', color: color }}>
             {formattedValue}
           </span>
-          <span style={{ color: colors.secondary.main, fontSize: theme.typography.body.small, marginLeft: theme.spacing.sm }}>
+          <span style={{ color: colors.secondary.main, fontSize: '14px', marginLeft: '6px' }}>
             {effect.description}
           </span>
           {cardNames.length > 0 && (
-            <div style={{ color: colors.text.primary, fontSize: theme.typography.body.tiny, marginTop: theme.spacing.xs, fontStyle: 'italic' }}>
+            <div style={{ color: colors.text.primary, fontSize: '13px', marginTop: '2px', fontStyle: 'italic' }}>
               {cardNames.join(', ')}
             </div>
           )}
@@ -155,55 +155,55 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.modal.overlay.backgroundColor,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: theme.modal.overlay.zIndex,
-    padding: theme.modal.overlay.padding,
-    animation: `fadeIn ${theme.transitions.normal}`
+    zIndex: 1000,
+    padding: '20px',
+    animation: 'fadeIn 0.2s ease-out'
   };
 
   const contentStyle: React.CSSProperties = {
     backgroundColor: 'white',
-    borderRadius: theme.modal.container.borderRadius,
-    maxWidth: theme.modal.container.maxWidth,
+    borderRadius: '16px',
+    maxWidth: '500px',
     width: '100%',
-    maxHeight: theme.modal.container.maxHeight,
+    maxHeight: '80vh',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: theme.shadows.xl,
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
     transform: 'scale(1)',
-    animation: `slideIn ${theme.transitions.modal}`
+    animation: 'slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
   };
 
   const headerStyle: React.CSSProperties = {
-    padding: theme.modal.header.padding,
-    borderBottom: theme.modal.header.borderBottom,
+    padding: '12px 16px',
+    borderBottom: `2px solid ${colors.secondary.light}`,
     textAlign: 'center'
   };
 
   const bodyStyle: React.CSSProperties = {
-    padding: theme.modal.body.padding,
+    padding: '12px 16px',
     flex: 1,
     overflowY: 'auto'
   };
 
   const footerStyle: React.CSSProperties = {
-    padding: theme.modal.footer.padding,
+    padding: '12px 16px',
     display: 'flex',
     justifyContent: 'center',
-    gap: theme.modal.footer.gap
+    gap: '12px'
   };
 
   const buttonStyle: React.CSSProperties = {
-    padding: theme.button.padding.md,
+    padding: '10px 16px',
     border: 'none',
-    borderRadius: theme.button.borderRadius,
-    fontSize: theme.button.fontSize.md,
-    fontWeight: 'bold',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
     cursor: 'pointer',
-    transition: theme.transitions.normal
+    transition: 'all 0.2s ease'
   };
 
   const primaryButtonStyle: React.CSSProperties = {
@@ -254,19 +254,19 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: theme.spacing.md
+                gap: '12px'
               }}>
                 <div style={{
                   fontSize: '36px',
-                  animation: `bounceIn 0.6s ${theme.modal.animation.easing}`
+                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
                 }}>
                   {getDiceIcon(result.diceValue)}
                 </div>
                 <h2
                   id="dice-result-title"
                   style={{
-                    fontSize: theme.typography.heading.h2.fontSize,
-                    fontWeight: theme.typography.heading.h2.fontWeight,
+                    fontSize: '24px',
+                    fontWeight: 'bold',
                     color: colors.text.primary,
                     margin: 0
                   }}
@@ -282,19 +282,19 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: theme.spacing.md
+                gap: '12px'
               }}>
                 <div style={{
                   fontSize: '36px',
-                  animation: `bounceIn 0.6s ${theme.modal.animation.easing}`
+                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
                 }}>
                   ⚡
                 </div>
                 <h2
                   id="action-result-title"
                   style={{
-                    fontSize: theme.typography.heading.h2.fontSize,
-                    fontWeight: theme.typography.heading.h2.fontWeight,
+                    fontSize: '24px',
+                    fontWeight: 'bold',
                     color: colors.text.primary,
                     margin: 0
                   }}
@@ -312,23 +312,23 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
               <div style={{
                 backgroundColor: colors.primary.light,
                 border: `2px solid ${colors.primary.main}`,
-                borderRadius: theme.borderRadius.md,
-                padding: `${theme.spacing.md} ${theme.spacing.lg}`,
-                marginBottom: theme.spacing.md
+                borderRadius: '8px',
+                padding: '10px 12px',
+                marginBottom: '12px'
               }}>
                 <h4 style={{
-                  fontSize: theme.typography.body.normal,
+                  fontSize: '15px',
                   fontWeight: 'bold',
                   color: colors.primary.text,
                   margin: 0,
-                  marginBottom: theme.spacing.xs
+                  marginBottom: '4px'
                 }}>
                   Summary:
                 </h4>
                 <p style={{
                   margin: 0,
                   color: colors.primary.text,
-                  fontSize: theme.typography.body.small
+                  fontSize: '14px'
                 }}>
                   {result.summary}
                 </p>
@@ -339,11 +339,11 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
             {result.effects.length > 0 ? (
               <>
                 <h3 style={{
-                  fontSize: theme.typography.heading.h4.fontSize,
+                  fontSize: '16px',
                   fontWeight: 'bold',
                   color: colors.text.primary,
                   marginTop: 0,
-                  marginBottom: theme.spacing.sm
+                  marginBottom: '8px'
                 }}>
                   Effects Applied:
                 </h3>
@@ -354,10 +354,10 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
               <div style={{
                 textAlign: 'center',
                 color: colors.secondary.main,
-                fontSize: theme.typography.body.large,
-                padding: theme.spacing.md
+                fontSize: '16px',
+                padding: '12px'
               }}>
-                <span style={{ fontSize: theme.typography.heading.h1.fontSize, display: 'block', marginBottom: theme.spacing.xs }}>😐</span>
+                <span style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>😐</span>
                 No special effects this turn
               </div>
             )}
@@ -367,30 +367,54 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           <div style={footerStyle}>
             {result.hasChoices && onConfirm ? (
               <>
-                <button 
+                <button
                   style={secondaryButtonStyle}
                   onClick={onClose}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '0.9';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
                   Review
                 </button>
-                <button 
+                <button
                   style={primaryButtonStyle}
                   onClick={handleConfirm}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '0.9';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                   autoFocus
                 >
                   Make Choice
                 </button>
               </>
             ) : (
-              <button 
+              <button
                 style={primaryButtonStyle}
                 onClick={handleConfirm}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.9';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
                 autoFocus
               >
                 Continue

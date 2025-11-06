@@ -257,20 +257,25 @@ export function RulesModal({ isOpen, onClose }: RulesModalProps): JSX.Element | 
           <button
             onClick={onClose}
             style={{
-              padding: '8px 16px',
+              padding: '10px 16px',
               fontSize: '14px',
-              fontWeight: 'bold',
+              fontWeight: '500',
               color: colors.white,
               backgroundColor: colors.success.main,
               border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = colors.special.button.primaryHover;
+              e.currentTarget.style.opacity = '0.9';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = colors.success.main;
+              e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             Got it!
