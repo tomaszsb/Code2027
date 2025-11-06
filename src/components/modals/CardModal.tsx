@@ -1,7 +1,7 @@
 // src/components/modals/CardModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { colors } from '../../styles/theme';
+import { colors, theme } from '../../styles/theme';
 import { CardContent } from './CardContent';
 import { CardActions } from './CardActions';
 import { useGameContext } from '../../context/GameContext';
@@ -137,45 +137,61 @@ export function CardModal(): JSX.Element | null {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '20px'
-      }}
-      onClick={handleBackdropClick}
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
+    <>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideIn {
+            from { transform: scale(0.9) translateY(-20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+          }
+        `}
+      </style>
+
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: theme.modal.overlay.backgroundColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: theme.modal.overlay.zIndex,
+          padding: theme.modal.overlay.padding,
+          animation: `fadeIn ${theme.transitions.normal}`
+        }}
+        onClick={handleBackdropClick}
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+      >
       <div
         style={{
           backgroundColor: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)',
+          borderRadius: theme.modal.container.borderRadius,
+          boxShadow: theme.shadows.lg,
           maxWidth: '600px',
           width: '100%',
-          maxHeight: '80vh',
+          maxHeight: theme.modal.container.maxHeight,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          animation: `slideIn ${theme.transitions.modal}`
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div style={{
-          padding: '20px 24px 16px',
-          borderBottom: `1px solid ${colors.secondary.border}`,
+          padding: theme.modal.header.padding,
+          borderBottom: theme.modal.header.borderBottom,
           backgroundColor: colors.secondary.bg,
-          borderRadius: '12px 12px 0 0'
+          borderRadius: `${theme.borderRadius.xl} ${theme.borderRadius.xl} 0 0`
         }}>
           <div style={{
             display: 'flex',
@@ -184,25 +200,26 @@ export function CardModal(): JSX.Element | null {
           }}>
             <h3 style={{
               margin: 0,
-              fontSize: '18px',
-              fontWeight: 'bold',
+              fontSize: theme.typography.heading.h3.fontSize,
+              fontWeight: theme.typography.heading.h3.fontWeight,
               color: colors.secondary.dark
             }}>
               {isFlipped ? "Card Back" : (cardData?.card_name || "Card Details")}
             </h3>
-            
+
             {/* Close button in header */}
             <button
               onClick={handleClose}
               style={{
                 background: 'none',
                 border: 'none',
-                fontSize: '24px',
+                fontSize: theme.typography.heading.h2.fontSize,
                 color: colors.secondary.main,
                 cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '4px',
-                lineHeight: 1
+                padding: theme.spacing.xs,
+                borderRadius: theme.borderRadius.sm,
+                lineHeight: 1,
+                transition: theme.transitions.fast
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = colors.secondary.light;
@@ -221,8 +238,8 @@ export function CardModal(): JSX.Element | null {
           {/* Card type subtitle when available */}
           {cardData?.card_type && !isFlipped && (
             <p style={{
-              margin: '8px 0 0',
-              fontSize: '14px',
+              margin: `${theme.spacing.sm} 0 0`,
+              fontSize: theme.typography.body.small,
               color: colors.secondary.main,
               fontStyle: 'italic'
             }}>
@@ -255,5 +272,6 @@ export function CardModal(): JSX.Element | null {
         />
       </div>
     </div>
+    </>
   );
 }

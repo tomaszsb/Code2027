@@ -1,9 +1,8 @@
 import React from 'react';
-import { colors } from '../../styles/theme';
+import { colors, theme } from '../../styles/theme';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiceResultEffect, TurnEffectResult } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
-import './DiceResultModal.css';
 
 // Re-export for convenience
 export type DiceRollResult = TurnEffectResult;
@@ -128,24 +127,20 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          marginBottom: '8px',
-          paddingLeft: '4px'
+          marginBottom: theme.spacing.sm,
+          paddingLeft: theme.spacing.sm
         }}
       >
-        <span style={{ fontSize: '16px', marginRight: '8px', marginTop: '2px', flexShrink: 0 }}>•</span>
+        <span style={{ fontSize: theme.typography.heading.h3.fontSize, marginRight: theme.spacing.sm, flexShrink: 0 }}>{icon}</span>
         <div style={{ flex: 1 }}>
-          <div>
-            <span style={{ fontWeight: 'bold', color: color, fontSize: '15px' }}>
-              {formattedValue}
-            </span>
-            {effect.description && (
-              <span style={{ color: colors.secondary.main, fontSize: '13px', marginLeft: '4px' }}>
-                - {effect.description}
-              </span>
-            )}
-          </div>
+          <span style={{ fontWeight: 'bold', color: color }}>
+            {formattedValue}
+          </span>
+          <span style={{ color: colors.secondary.main, fontSize: theme.typography.body.small, marginLeft: theme.spacing.sm }}>
+            {effect.description}
+          </span>
           {cardNames.length > 0 && (
-            <div style={{ color: colors.text.secondary, fontSize: '12px', marginTop: '2px', marginLeft: '2px' }}>
+            <div style={{ color: colors.text.primary, fontSize: theme.typography.body.tiny, marginTop: theme.spacing.xs, fontStyle: 'italic' }}>
               {cardNames.join(', ')}
             </div>
           )}
@@ -154,55 +149,129 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
     );
   };
 
+  const modalStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: theme.modal.overlay.backgroundColor,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: theme.modal.overlay.zIndex,
+    padding: theme.modal.overlay.padding,
+    animation: `fadeIn ${theme.transitions.normal}`
+  };
+
+  const contentStyle: React.CSSProperties = {
+    backgroundColor: 'white',
+    borderRadius: theme.modal.container.borderRadius,
+    maxWidth: theme.modal.container.maxWidth,
+    width: '100%',
+    maxHeight: theme.modal.container.maxHeight,
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: theme.shadows.xl,
+    transform: 'scale(1)',
+    animation: `slideIn ${theme.transitions.modal}`
+  };
+
   const headerStyle: React.CSSProperties = {
-    borderBottom: `2px solid ${colors.secondary.light}`,
+    padding: theme.modal.header.padding,
+    borderBottom: theme.modal.header.borderBottom,
+    textAlign: 'center'
+  };
+
+  const bodyStyle: React.CSSProperties = {
+    padding: theme.modal.body.padding,
+    flex: 1,
+    overflowY: 'auto'
+  };
+
+  const footerStyle: React.CSSProperties = {
+    padding: theme.modal.footer.padding,
+    display: 'flex',
+    justifyContent: 'center',
+    gap: theme.modal.footer.gap
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    padding: theme.button.padding.md,
+    border: 'none',
+    borderRadius: theme.button.borderRadius,
+    fontSize: theme.button.fontSize.md,
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: theme.transitions.normal
   };
 
   const primaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
     backgroundColor: colors.primary.main,
+    color: 'white'
   };
 
   const secondaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
     backgroundColor: colors.secondary.main,
+    color: 'white'
   };
 
   return (
-    <div
-      className="dice-result-modal__overlay"
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="dice-result-title"
-    >
-      <div
-        className="dice-result-modal__content"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideIn {
+            from { transform: scale(0.9) translateY(-20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+          }
+        `}
+      </style>
+      
+      <div 
+        style={modalStyle} 
+        onClick={onClose}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dice-result-title"
       >
-        {/* Header */}
-        <div className="dice-result-modal__header" style={headerStyle}>
+        <div 
+          style={contentStyle}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={headerStyle}>
             {/* Dice Display - only show for actual dice rolls */}
             {result.diceValue > 0 && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '12px'
+                gap: theme.spacing.md
               }}>
-                <div className="dice-result-modal__icon">
+                <div style={{
+                  fontSize: '36px',
+                  animation: `bounceIn 0.6s ${theme.modal.animation.easing}`
+                }}>
                   {getDiceIcon(result.diceValue)}
                 </div>
                 <h2
                   id="dice-result-title"
                   style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
+                    fontSize: theme.typography.heading.h2.fontSize,
+                    fontWeight: theme.typography.heading.h2.fontWeight,
                     color: colors.text.primary,
                     margin: 0
                   }}
                 >
-                  Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
+                  🎲 Roll: {result.diceValue < 1 || result.diceValue > 6 ? `Invalid (${result.diceValue})` : result.diceValue}
                 </h2>
               </div>
             )}
@@ -213,16 +282,19 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '12px'
+                gap: theme.spacing.md
               }}>
-                <div className="dice-result-modal__icon">
+                <div style={{
+                  fontSize: '36px',
+                  animation: `bounceIn 0.6s ${theme.modal.animation.easing}`
+                }}>
                   ⚡
                 </div>
                 <h2
                   id="action-result-title"
                   style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
+                    fontSize: theme.typography.heading.h2.fontSize,
+                    fontWeight: theme.typography.heading.h2.fontWeight,
                     color: colors.text.primary,
                     margin: 0
                   }}
@@ -234,29 +306,29 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           </div>
 
           {/* Body */}
-          <div className="dice-result-modal__body">
+          <div style={bodyStyle}>
             {/* Summary first */}
             {result.summary && (
               <div style={{
                 backgroundColor: colors.primary.light,
                 border: `2px solid ${colors.primary.main}`,
-                borderRadius: '8px',
-                padding: '10px 12px',
-                marginBottom: '12px'
+                borderRadius: theme.borderRadius.md,
+                padding: `${theme.spacing.md} ${theme.spacing.lg}`,
+                marginBottom: theme.spacing.md
               }}>
                 <h4 style={{
-                  fontSize: '15px',
+                  fontSize: theme.typography.body.normal,
                   fontWeight: 'bold',
                   color: colors.primary.text,
                   margin: 0,
-                  marginBottom: '4px'
+                  marginBottom: theme.spacing.xs
                 }}>
                   Summary:
                 </h4>
                 <p style={{
                   margin: 0,
                   color: colors.primary.text,
-                  fontSize: '14px'
+                  fontSize: theme.typography.body.small
                 }}>
                   {result.summary}
                 </p>
@@ -267,11 +339,11 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
             {result.effects.length > 0 ? (
               <>
                 <h3 style={{
-                  fontSize: '16px',
+                  fontSize: theme.typography.heading.h4.fontSize,
                   fontWeight: 'bold',
                   color: colors.text.primary,
                   marginTop: 0,
-                  marginBottom: '8px'
+                  marginBottom: theme.spacing.sm
                 }}>
                   Effects Applied:
                 </h3>
@@ -282,40 +354,43 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
               <div style={{
                 textAlign: 'center',
                 color: colors.secondary.main,
-                fontSize: '16px',
-                padding: '12px'
+                fontSize: theme.typography.body.large,
+                padding: theme.spacing.md
               }}>
-                <span style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>😐</span>
+                <span style={{ fontSize: theme.typography.heading.h1.fontSize, display: 'block', marginBottom: theme.spacing.xs }}>😐</span>
                 No special effects this turn
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="dice-result-modal__footer">
+          <div style={footerStyle}>
             {result.hasChoices && onConfirm ? (
               <>
-                <button
-                  className="dice-result-modal__button dice-result-modal__button--secondary"
+                <button 
                   style={secondaryButtonStyle}
                   onClick={onClose}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   Review
                 </button>
-                <button
-                  className="dice-result-modal__button dice-result-modal__button--primary"
+                <button 
                   style={primaryButtonStyle}
                   onClick={handleConfirm}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   autoFocus
                 >
                   Make Choice
                 </button>
               </>
             ) : (
-              <button
-                className="dice-result-modal__button dice-result-modal__button--primary"
+              <button 
                 style={primaryButtonStyle}
                 onClick={handleConfirm}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 autoFocus
               >
                 Continue
@@ -324,5 +399,6 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           </div>
         </div>
       </div>
+    </>
   );
 }
