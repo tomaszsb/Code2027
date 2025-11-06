@@ -1,3 +1,6 @@
+/* Import centralized animations */
+@import '../../styles/animations.css';
+
 /* Main container for the entire section */
 .expandable-section {
   border-top: 1px solid var(--border-color, #eee);
@@ -14,6 +17,7 @@
   border: none;
   padding: 6px 12px; /* Reduced padding */
   cursor: pointer;
+  /* Consistent background transition: 200ms ease (from animationConstants.ts) */
   transition: background-color 0.2s ease;
 }
 
@@ -96,6 +100,7 @@
   padding: 0 12px;
   max-height: 0;
   overflow: hidden;
+  /* Consistent expand/collapse transition: 300ms ease (from animationConstants.ts) */
   transition: max-height 0.3s ease;
 }
 

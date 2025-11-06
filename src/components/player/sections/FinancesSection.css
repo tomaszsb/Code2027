@@ -1,3 +1,6 @@
+/* Import centralized animations */
+@import '../../../styles/animations.css';
+
 .finances-content {
   display: flex;
   flex-direction: column;
@@ -206,7 +209,8 @@
   text-align: left;
   cursor: pointer;
   color: #2c3e50;
-  transition: background-color 0.2s;
+  /* Consistent background transition: 200ms ease (from animationConstants.ts) */
+  transition: background-color 0.2s ease;
 }
 
 .cost-category-header:hover {

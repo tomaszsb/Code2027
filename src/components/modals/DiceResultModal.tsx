@@ -3,6 +3,7 @@ import { colors } from '../../styles/theme';
 import { FormatUtils } from '../../utils/FormatUtils';
 import { DiceResultEffect, TurnEffectResult } from '../../types/StateTypes';
 import { useGameContext } from '../../context/GameContext';
+import './DiceResultModal.css';
 
 // Re-export for convenience
 export type DiceRollResult = TurnEffectResult;
@@ -153,105 +154,34 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
     );
   };
 
-  const modalStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: '20px',
-    animation: 'fadeIn 0.2s ease-out'
-  };
-
-  const contentStyle: React.CSSProperties = {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    maxWidth: '500px',
-    width: '100%',
-    maxHeight: '80vh',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-    transform: 'scale(1)',
-    animation: 'slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-  };
-
   const headerStyle: React.CSSProperties = {
-    padding: '12px 16px',
     borderBottom: `2px solid ${colors.secondary.light}`,
-    textAlign: 'center'
-  };
-
-  const bodyStyle: React.CSSProperties = {
-    padding: '12px 16px',
-    flex: 1,
-    overflowY: 'auto'
-  };
-
-  const footerStyle: React.CSSProperties = {
-    padding: '12px 16px',
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '12px'
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    padding: '10px 20px',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
   };
 
   const primaryButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
     backgroundColor: colors.primary.main,
-    color: 'white'
   };
 
   const secondaryButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
     backgroundColor: colors.secondary.main,
-    color: 'white'
   };
 
   return (
-    <>
-      <style>
-        {`
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          @keyframes slideIn {
-            from { transform: scale(0.9) translateY(-20px); opacity: 0; }
-            to { transform: scale(1) translateY(0); opacity: 1; }
-          }
-        `}
-      </style>
-      
-      <div 
-        style={modalStyle} 
-        onClick={onClose}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dice-result-title"
+    <div
+      className="dice-result-modal__overlay"
+      onClick={onClose}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dice-result-title"
+    >
+      <div
+        className="dice-result-modal__content"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div 
-          style={contentStyle}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div style={headerStyle}>
+        {/* Header */}
+        <div className="dice-result-modal__header" style={headerStyle}>
             {/* Dice Display - only show for actual dice rolls */}
             {result.diceValue > 0 && (
               <div style={{
@@ -260,10 +190,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 justifyContent: 'center',
                 gap: '12px'
               }}>
-                <div style={{
-                  fontSize: '36px',
-                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-                }}>
+                <div className="dice-result-modal__icon">
                   {getDiceIcon(result.diceValue)}
                 </div>
                 <h2
@@ -288,10 +215,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
                 justifyContent: 'center',
                 gap: '12px'
               }}>
-                <div style={{
-                  fontSize: '36px',
-                  animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-                }}>
+                <div className="dice-result-modal__icon">
                   ⚡
                 </div>
                 <h2
@@ -310,7 +234,7 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           </div>
 
           {/* Body */}
-          <div style={bodyStyle}>
+          <div className="dice-result-modal__body">
             {/* Summary first */}
             {result.summary && (
               <div style={{
@@ -368,33 +292,30 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           </div>
 
           {/* Footer */}
-          <div style={footerStyle}>
+          <div className="dice-result-modal__footer">
             {result.hasChoices && onConfirm ? (
               <>
-                <button 
+                <button
+                  className="dice-result-modal__button dice-result-modal__button--secondary"
                   style={secondaryButtonStyle}
                   onClick={onClose}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   Review
                 </button>
-                <button 
+                <button
+                  className="dice-result-modal__button dice-result-modal__button--primary"
                   style={primaryButtonStyle}
                   onClick={handleConfirm}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   autoFocus
                 >
                   Make Choice
                 </button>
               </>
             ) : (
-              <button 
+              <button
+                className="dice-result-modal__button dice-result-modal__button--primary"
                 style={primaryButtonStyle}
                 onClick={handleConfirm}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 autoFocus
               >
                 Continue
@@ -403,6 +324,5 @@ export function DiceResultModal({ isOpen, result, onClose, onConfirm }: DiceResu
           </div>
         </div>
       </div>
-    </>
   );
 }

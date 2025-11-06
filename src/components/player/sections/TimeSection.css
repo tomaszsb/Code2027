@@ -1,3 +1,6 @@
+/* Import centralized animations */
+@import '../../../styles/animations.css';
+
 .time-content {
   display: flex;
   flex-direction: column;
@@ -90,6 +93,7 @@
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 4px;
+  /* Consistent transition: 200ms ease (from animationConstants.ts) */
   transition: all 0.2s ease;
 }
 
