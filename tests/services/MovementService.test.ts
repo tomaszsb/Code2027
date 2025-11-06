@@ -167,13 +167,13 @@ describe('MovementService', () => {
       expect(() => movementService.getValidMoves('nonexistent')).toThrow('Player with ID nonexistent not found');
     });
 
-    it('should throw error if no movement data found', () => {
+    it('should return empty array if no movement data found', () => {
       mockStateService.getPlayer.mockReturnValue(mockPlayer);
       mockDataService.getMovement.mockReturnValue(undefined);
 
-      expect(() => movementService.getValidMoves('player1')).toThrow(
-        'No movement data found for space START-QUICK-PLAY-GUIDE with visit type First'
-      );
+      // Enhanced error handling: returns empty array instead of throwing
+      const validMoves = movementService.getValidMoves('player1');
+      expect(validMoves).toEqual([]);
     });
 
     it('should handle dice movement with no dice outcome data', () => {

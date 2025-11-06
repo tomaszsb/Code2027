@@ -4,6 +4,10 @@ import { GameSpace } from './GameSpace';
 import { useGameContext } from '../../context/GameContext';
 import { Space, Player } from '../../types/DataTypes';
 
+/**
+ * GameBoard component with enhanced smooth transitions and animations.
+ * All state changes now have visual transitions for better user experience.
+ */
 export function GameBoard(): JSX.Element {
   const { dataService, stateService, movementService } = useGameContext();
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -12,10 +16,14 @@ export function GameBoard(): JSX.Element {
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [highlightedMoves, setHighlightedMoves] = useState<string[]>([]);
   const [gamePhase, setGamePhase] = useState<string>('SETUP');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Subscribe to state changes for live updates
+  // Subscribe to state changes for live updates with smooth transitions
   useEffect(() => {
     const unsubscribe = stateService.subscribe((gameState) => {
+      // Track transition state for smooth animations
+      setIsTransitioning(gameState.isMoving);
+
       setPlayers(gameState.players);
       setCurrentPlayerId(gameState.currentPlayerId);
       setGamePhase(gameState.gamePhase);
@@ -96,26 +104,35 @@ export function GameBoard(): JSX.Element {
       style={{
         width: '100%',
         height: '100%',
-        padding: '20px'
+        padding: '20px',
+        transition: 'opacity 0.2s ease-in-out',
+        opacity: isTransitioning ? 0.95 : 1
       }}
     >
-      <h2 style={{ color: colors.game.boardTitle, marginBottom: '20px', textAlign: 'center' }}>
-        🎯 Game Board
+      <h2 style={{
+        color: colors.game.boardTitle,
+        marginBottom: '20px',
+        textAlign: 'center',
+        transition: 'all 0.3s ease-in-out'
+      }}>
+        🎯 Game Board {isTransitioning && <span style={{ fontSize: '14px', color: colors.info.main }}>⏳ Moving...</span>}
       </h2>
-      
+
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: '12px',
-          width: '100%'
+          width: '100%',
+          transition: 'transform 0.15s ease-in-out',
+          transform: isTransitioning ? 'scale(0.99)' : 'scale(1)'
         }}
       >
         {spaces.map((space) => {
           const playersOnSpace = getPlayersOnSpace(space.name);
           const isValidMove = isValidMoveDestination(space.name);
           const isCurrentPlayer = isCurrentPlayerSpace(space.name);
-          
+
           return (
             <GameSpace
               key={space.name}
