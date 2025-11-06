@@ -114,9 +114,10 @@ describe('E2E-05: Multi-Player Interactive Effects', () => {
     
     // Create final EffectEngineService with complete dependencies
     effectEngineService = new EffectEngineService(resourceService, cardService, choiceService, stateService, movementService, turnService, gameRulesService, targetingService, loggingService);
-    
-    // Complete circular dependency
+
+    // Complete circular dependencies
     turnService.setEffectEngineService(effectEngineService);
+    cardService.setEffectEngineService(effectEngineService);
     
     // Create PlayerActionService
     playerActionService = new PlayerActionService(dataService, stateService, gameRulesService, movementService, turnService, effectEngineService, loggingService);

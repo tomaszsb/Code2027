@@ -2795,6 +2795,12 @@ export class TurnService implements ITurnService {
     // Calculate project scope from W cards (single source of truth)
     const projectScope = this.gameRulesService.calculateProjectScope(playerId);
 
+    // Store project scope on player (permanent record)
+    this.stateService.updatePlayer({
+      id: playerId,
+      projectScope: projectScope
+    });
+
     // Determine funding type based on project scope
     const fundingCardType = projectScope <= 4000000 ? 'B' : 'I';
     const fundingDescription = projectScope <= 4000000

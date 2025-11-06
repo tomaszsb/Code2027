@@ -572,11 +572,25 @@ export class GameRulesService implements IGameRulesService {
       // Project scope conditions - USE SINGLE SOURCE OF TRUTH
       if (conditionLower === 'scope_le_4m') {
         const projectScope = this.calculateProjectScope(playerId);
+        // Store projectScope on player if not already set
+        if (player.projectScope === 0 || player.projectScope === undefined) {
+          this.stateService.updatePlayer({
+            id: playerId,
+            projectScope: projectScope
+          });
+        }
         return projectScope <= 4000000; // $4M
       }
 
       if (conditionLower === 'scope_gt_4m') {
         const projectScope = this.calculateProjectScope(playerId);
+        // Store projectScope on player if not already set
+        if (player.projectScope === 0 || player.projectScope === undefined) {
+          this.stateService.updatePlayer({
+            id: playerId,
+            projectScope: projectScope
+          });
+        }
         return projectScope > 4000000; // $4M
       }
 

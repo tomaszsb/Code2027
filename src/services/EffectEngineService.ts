@@ -709,20 +709,27 @@ export class EffectEngineService implements IEffectEngineService {
           if (isPlayCardEffect(effect)) {
             const { payload } = effect;
             try {
-              console.log(`🎴 EFFECT_ENGINE: Playing card ${payload.cardId} for player ${payload.playerId}`);
+              console.log(`🎴 EFFECT_ENGINE: Finalizing card ${payload.cardId} for player ${payload.playerId}`);
 
-              // Step 1: Apply card effects (money, resources, etc.)
-              this.cardService.applyCardEffects(payload.playerId, payload.cardId);
-              console.log(`    ✅ Applied effects for card ${payload.cardId}`);
+              // IMPORTANT: Card effects have already been processed by PlayerActionService.playCard()
+              // This handler ONLY finalizes the card lifecycle (move to active or discard based on duration)
+              // Do NOT call applyCardEffects here - it would double-process effects!
 
-              // Step 2: Finalize card (move to active or discard based on duration)
+              // Finalize card (move to active or discard based on duration)
               this.cardService.finalizePlayedCard(payload.playerId, payload.cardId);
               console.log(`    ✅ Finalized card ${payload.cardId}`);
 
               success = true;
             } catch (error) {
-              console.error(`❌ Error playing card ${payload.cardId}:`, error);
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(`❌ Error finalizing card ${payload.cardId}:`, errorMsg);
               success = false;
+              // Store error message for proper error reporting
+              return {
+                success: false,
+                effectType: effect.effectType,
+                error: errorMsg
+              };
             }
           }
           break;
