@@ -5,6 +5,8 @@
 /build
 /dist
 /public
+# But include game data files in version control
+!/public/data/
 
 # Logs
 npm-debug.log*
