@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Bug Fixes (November 7, 2025)
+- **CSV Format & Data Fixes:**
+  - Fixed CARDS_EXPANDED.csv missing `work_type_restriction` column (22nd column required by DataService parser)
+  - Fixed L003 "New Safety Regulations" card data: `discard_cards` field changed from "1" to "1 E" to specify card type
+  - Improved E2E-05 test error logging to show specific CSV parsing failures for easier diagnosis
+  - All E2E-05 multi-player effect tests now passing (4/4 tests)
+
+- **UI Improvements from Claude Code Web:**
+  - Merged animation system (animations.css, animationConstants.ts) for smooth UI transitions
+  - Standardized modal layouts using centralized theme constants
+  - Unified button styling across all components
+  - Added UI style guide documentation (docs/UI_STYLE_GUIDE.md)
+  - Resolved modal styling conflicts (DiceResultModal, ChoiceModal) by adopting theme-based approach
+
 ### Refactoring (November 5, 2025)
 - **Project Scope System Refactoring:**
   - Migrated project scope from a player field to a calculated value based on W (Work) cards
