@@ -21,11 +21,16 @@ def process_game_config():
         for row in reader:
             space_name = row['space_name']
             if space_name not in configs:
+                # Correct starting space logic: Main path in SETUP phase, not instruction spaces
+                phase = row.get('phase', '')
+                path = row.get('path', '')
+                is_starting = (phase == 'SETUP' and path == 'Main')
+
                 configs[space_name] = {
                     'space_name': space_name,
-                    'phase': row.get('phase', ''),
-                    'path_type': row.get('path', ''),
-                    'is_starting_space': 'Yes' if 'START' in space_name else 'No',
+                    'phase': phase,
+                    'path_type': path,
+                    'is_starting_space': 'Yes' if is_starting else 'No',
                     'is_ending_space': 'Yes' if space_name == 'FINISH' else 'No',
                     'min_players': '1',
                     'max_players': '4',
@@ -86,6 +91,29 @@ def process_space_effects():
             space_name = row['space_name']
             visit_type = row['visit_type']
 
+            # Card effects (manual trigger) - check all card type columns
+            card_types = {
+                'w_card': 'W',
+                'b_card': 'B',
+                'i_card': 'I',
+                'l_card': 'L',
+                'e_card': 'E'
+            }
+
+            for col_name, card_letter in card_types.items():
+                card_value = row.get(col_name, '').strip()
+                if card_value:
+                    effects.append({
+                        'space_name': space_name,
+                        'visit_type': visit_type,
+                        'effect_type': 'cards',
+                        'effect_action': f'draw_{card_letter}',
+                        'effect_value': card_value,
+                        'condition': '',
+                        'description': f'{card_value} {card_letter} cards',
+                        'trigger_type': 'manual'
+                    })
+
             # Time effect
             time_value = row.get('Time', '').strip()
             if time_value:
@@ -132,54 +160,47 @@ def process_space_effects():
     print(f"✓ Created {output_file} with {len(effects)} space effect entries")
 
 def process_dice_effects():
-    """Extract DICE_EFFECTS.csv from Spaces.csv and DiceRoll Info.csv"""
-    spaces_file = f'{SOURCE_DIR}/Spaces.csv'
+    """Extract DICE_EFFECTS.csv from DiceRoll Info.csv"""
     dice_file = f'{SOURCE_DIR}/DiceRoll Info.csv'
     output_file = f'{OUTPUT_DIR}/DICE_EFFECTS.csv'
 
     effects = []
 
-    # Parse dice info for card effects
-    with open(dice_file, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    # Parse dice info CSV (handle BOM)
+    with open(dice_file, 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            space_name = row['space_name']
+            effect_type = row['die_roll']  # e.g., "W Cards", "Fees Paid", "E cards"
+            visit_type = row['visit_type']
 
-    for line in lines[1:]:  # Skip header
-        parts = [p.strip() for p in line.strip().split(',')]
-        if len(parts) < 4:
-            continue
+            # Extract card_type from effect_type (e.g., "W Cards" -> "W")
+            card_type = effect_type.split()[0] if ' ' in effect_type else effect_type
 
-        space_name = parts[0]
-        effect_type_str = parts[1]
-        visit_type = parts[2]
+            # Create one row per space/visit_type/effect_type combination
+            effect_row = {
+                'space_name': space_name,
+                'visit_type': visit_type,
+                'effect_type': effect_type,
+                'card_type': card_type,
+                'roll_1': row.get('1', ''),
+                'roll_2': row.get('2', ''),
+                'roll_3': row.get('3', ''),
+                'roll_4': row.get('4', ''),
+                'roll_5': row.get('5', ''),
+                'roll_6': row.get('6', '')
+            }
+            effects.append(effect_row)
 
-        # Only process card-related effects (W Cards, B Cards, etc.)
-        if 'card' in effect_type_str.lower() or effect_type_str in ['W Cards', 'E cards', 'B Cards', 'L Cards', 'I Cards']:
-            card_type = effect_type_str.split()[0] if ' ' in effect_type_str else effect_type_str
+    # Write output
+    with open(output_file, 'w', encoding='utf-8', newline='') as f:
+        fieldnames = ['space_name', 'visit_type', 'effect_type', 'card_type',
+                      'roll_1', 'roll_2', 'roll_3', 'roll_4', 'roll_5', 'roll_6']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(effects)
 
-            for i, roll_num in enumerate(range(1, 7), start=3):
-                if len(parts) > i and parts[i]:
-                    effect_value = parts[i].strip()
-                    if effect_value:
-                        effects.append({
-                            'space_name': space_name,
-                            'visit_type': visit_type,
-                            'effect_type': card_type.lower(),
-                            'card_type': card_type,
-                            f'roll_{roll_num}': effect_value
-                        })
-
-    # Write output with dynamic columns for rolls
-    if effects:
-        with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            # Simplified structure - just write basic dice effects
-            fieldnames = ['space_name', 'visit_type', 'effect_type', 'card_type',
-                          'roll_1', 'roll_2', 'roll_3', 'roll_4', 'roll_5', 'roll_6']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            # For now, write empty dice effects file
-            # The actual dice effects are complex and need special handling
-
-    print(f"✓ Created {output_file} (basic structure)")
+    print(f"✓ Created {output_file} with {len(effects)} dice effect entries")
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
