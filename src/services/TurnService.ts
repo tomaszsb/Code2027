@@ -1708,12 +1708,23 @@ export class TurnService implements ITurnService {
 
     if (effectType === 'cards') {
       const cardType = manualEffect.effect_action.replace('draw_', '').replace('replace_', '').toUpperCase();
-      const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
 
       // Determine which cards were drawn by comparing before/after hands
       const beforeHand = beforePlayer.hand || [];
       const afterHand = afterPlayer.hand || [];
       const drawnCardIds = afterHand.filter(cardId => !beforeHand.includes(cardId));
+
+      // Parse count from effect_value, falling back to actual cards drawn
+      let count: number;
+      if (typeof manualEffect.effect_value === 'number') {
+        count = manualEffect.effect_value;
+      } else if (typeof manualEffect.effect_value === 'string') {
+        const parsed = parseInt(manualEffect.effect_value, 10);
+        count = isNaN(parsed) ? drawnCardIds.length : parsed;
+      } else {
+        // Fallback to actual count of drawn cards
+        count = drawnCardIds.length;
+      }
 
       effects.push({
         type: 'cards',

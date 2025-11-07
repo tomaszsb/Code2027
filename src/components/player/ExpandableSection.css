@@ -4,6 +4,13 @@
   background: var(--card-bg, #fff);
 }
 
+/* Wrapper for header button and actions */
+.expandable-section__header-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Header container - a single button for the whole header */
 .expandable-section__header {
   display: flex;
@@ -29,13 +36,6 @@
   justify-content: flex-start;
   align-items: center;
   gap: 8px;
-}
-
-.header-col--center {
-  flex: 2 1 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .header-col--right {
@@ -64,6 +64,8 @@
 .expandable-section__header-actions {
   display: flex;
   gap: 8px;
+  padding: 0 12px 8px 12px; /* Padding to align with header content */
+  flex-wrap: wrap; /* Allow buttons to wrap on small screens */
 }
 
 .section-summary {
