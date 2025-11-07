@@ -51,9 +51,26 @@ def convert_cards_expanded():
             
             # Card interaction mechanics
             draw_cards = row.get('draw_cards', '')
-            discard_cards = row.get('discard_cards', '')
+            discard_cards_raw = row.get('discard_cards', '')
+
+            # Parse card type from description if mentioned (e.g., "discard 1 Expeditor card" -> "1 E")
+            discard_cards = discard_cards_raw
+            if discard_cards_raw and description:
+                import re
+                # Match patterns like "discard 1 Expeditor card" or "discard 2 Expeditor cards"
+                match = re.search(r'discard\s+(\d+)\s+(Expeditor|Work|Benefit|Investment|Law)\s+card', description, re.IGNORECASE)
+                if match:
+                    count = match.group(1)
+                    card_type_name = match.group(2).upper()
+                    # Map card type names to letters
+                    type_map = {'EXPEDITOR': 'E', 'WORK': 'W', 'BENEFIT': 'B', 'INVESTMENT': 'I', 'LAW': 'L'}
+                    card_type_letter = type_map.get(card_type_name, '')
+                    if card_type_letter:
+                        discard_cards = f"{count} {card_type_letter}"
+
             target = row.get('target', 'Self')
             scope = row.get('scope', 'Single')
+            work_type_restriction = row.get('work_type_restriction', '')
             
             # Determine cost (unified logic)
             cost = 0
@@ -93,7 +110,8 @@ def convert_cards_expanded():
                 'draw_cards': draw_cards,
                 'discard_cards': discard_cards,
                 'target': target,
-                'scope': scope
+                'scope': scope,
+                'work_type_restriction': work_type_restriction
             }
             
             converted_cards.append(converted_card)
@@ -110,10 +128,10 @@ def convert_cards_expanded():
     with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
         fieldnames = [
             'card_id', 'card_name', 'card_type', 'description', 'effects_on_play', 'cost', 'phase_restriction',
-            'duration', 'duration_count', 'turn_effect', 'activation_timing', 
+            'duration', 'duration_count', 'turn_effect', 'activation_timing',
             'loan_amount', 'loan_rate', 'investment_amount', 'work_cost',
             'money_effect', 'tick_modifier',
-            'draw_cards', 'discard_cards', 'target', 'scope'
+            'draw_cards', 'discard_cards', 'target', 'scope', 'work_type_restriction'
         ]
         writer = csv.DictWriter(outfile, fieldnames=fieldnames)
         
