@@ -69,7 +69,10 @@ class NodeDataService extends DataService {
       (this as any).loaded = true;
     } catch (error) {
       console.error('Error loading CSV data from filesystem:', error);
-      throw new Error('Failed to load game data from filesystem');
+      if (error instanceof Error) {
+        throw new Error(`Failed to load game data from filesystem: ${error.message}`);
+      }
+      throw error;
     }
   }
 }
