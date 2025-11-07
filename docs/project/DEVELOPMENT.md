@@ -1,3 +1,11 @@
+## 🚨 Before You Start
+
+**IMPORTANT**: Read [TESTING_REQUIREMENTS.md](../TESTING_REQUIREMENTS.md) for mandatory pre-commit rules.
+
+**Key Rule**: Always run tests before committing. No exceptions.
+
+---
+
 ## Session Summary: October 7, 2025
 
 **Objective:** Resolve critical UI instability in the Player Panel, identify and architect a fix for a core gameplay logic bug, and plan a major new feature for data management.

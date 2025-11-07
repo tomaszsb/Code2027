@@ -1,6 +1,14 @@
 
 ## 🤖 **SESSION INITIALIZATION**
 
+### **⚠️ CRITICAL: Read This First**
+Before making ANY code changes or commits:
+1. Read [../TESTING_REQUIREMENTS.md](../TESTING_REQUIREMENTS.md)
+2. **Golden Rule**: Run all tests before committing. No exceptions.
+3. If tests fail, stop and fix them. Never commit broken tests.
+
+---
+
 ### **COMMUNICATION PROTOCOL (Oct 7, 2025 - v9.0 Phase 1 Stabilization)**
 
 **✅ UNIFIED SYSTEM - Email-Style Format Exclusive:**

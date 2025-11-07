@@ -1,5 +1,46 @@
 # Testing Guide - Code2027
 
+## ⚠️ MANDATORY: Before Every Commit
+
+**Rule: If tests don't pass, the work isn't done. No exceptions.**
+
+```bash
+# REQUIRED before every commit:
+npm test -- tests/services/    # All service tests (438 tests, ~10s)
+npm test -- tests/E2E-*.test.ts # All E2E tests (~5 tests, ~2s)
+```
+
+### If ANY test fails:
+1. ❌ **DO NOT commit**
+2. ❌ **DO NOT push**
+3. ✅ **Fix the failure first**
+
+### CSV File Changes
+If modifying any CSV files in `public/data/CLEAN_FILES/`:
+
+1. **Check parser expectations**
+   - Read the corresponding DataService parser method
+   - Example: CARDS_EXPANDED.csv → check `DataService.parseCardsCsv()` at line 365
+   - Verify column count matches `expectedColumns` array
+
+2. **Validate schema**
+   ```bash
+   head -1 public/data/CLEAN_FILES/YOUR_FILE.csv | awk -F',' '{print NF " columns"}'
+   ```
+
+3. **Preserve known fixes**
+   - L003: discard_cards must be "1 E" (not "1")
+   - Check git history for any previous fixes to that file
+
+4. **Run data generation scripts** (if regenerating)
+   ```bash
+   python3 data/convert_cards_expanded.py
+   python3 data/process_spaces_csv.py
+   python3 data/process_dice_outcomes.py
+   ```
+
+---
+
 ## 🚀 Quick Start (Lightning Fast Tests)
 
 Our test suite runs in **seconds, not minutes** thanks to the Vitest migration and performance optimizations.
