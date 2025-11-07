@@ -8,8 +8,8 @@ import csv
 import os
 
 def convert_cards_expanded():
-    input_file = '/mnt/d/unravel/current_game/code2027/data/code2026_cards_backup.csv'
-    output_file = '/mnt/d/unravel/current_game/code2027/public/data/CLEAN_FILES/CARDS_EXPANDED.csv'
+    input_file = '/home/user/Code2027/data/code2026_cards_backup.csv'
+    output_file = '/home/user/Code2027/public/data/CLEAN_FILES/CARDS_EXPANDED.csv'
     
     print(f"Converting cards with expanded mechanics from {input_file} to {output_file}")
     
