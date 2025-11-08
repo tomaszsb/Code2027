@@ -1117,6 +1117,8 @@ export class TurnService implements ITurnService {
   }
 
   private async applySpaceCardEffect(playerId: string, effect: SpaceEffect, effectType: string): Promise<GameState> {
+    console.log(`🔧 [DEBUG] applySpaceCardEffect called - effect.effect_action: "${effect.effect_action}"`);
+
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -1124,10 +1126,20 @@ export class TurnService implements ITurnService {
 
     // Parse the effect action and value
     const action = effect.effect_action.toLowerCase(); // e.g., "draw_w", "add", etc. - normalize to lowercase
-    const value = typeof effect.effect_value === 'string' ?
-      parseInt(effect.effect_value) : effect.effect_value;
+    console.log(`🔧 [DEBUG] Normalized action: "${action}" (original: "${effect.effect_action}")`);
+
+    // Extract numeric value from effect_value (e.g., "Draw 3" → 3, "Replace 1" → 1)
+    let value: number;
+    if (typeof effect.effect_value === 'string') {
+      const match = effect.effect_value.match(/\d+/);
+      value = match ? parseInt(match[0]) : 0;
+    } else {
+      value = effect.effect_value;
+    }
+    console.log(`🔧 [DEBUG] Parsed value: ${value} (from effect_value: "${effect.effect_value}")`);
 
     if (action === 'draw_w') {
+      console.log(`🔧 [DEBUG] Matched draw_w - drawing ${value} W cards`);
       // Use CardService for W card draws (includes action logging)
       this.cardService.drawCards(
         playerId,
@@ -1144,6 +1156,7 @@ export class TurnService implements ITurnService {
 
       return this.stateService.getGameState();
     } else if (action === 'draw_b') {
+      console.log(`🔧 [DEBUG] Matched draw_b - drawing ${value} B cards`);
       // Use CardService for B card draws (includes action logging)
       const drawnCards = this.cardService.drawCards(
         playerId,
@@ -1169,6 +1182,7 @@ export class TurnService implements ITurnService {
 
       return this.stateService.getGameState();
     } else if (action === 'draw_e') {
+      console.log(`🔧 [DEBUG] Matched draw_e - drawing ${value} E cards`);
       // Use CardService for E card draws (includes action logging)
       this.cardService.drawCards(
         playerId,
@@ -1185,6 +1199,7 @@ export class TurnService implements ITurnService {
 
       return this.stateService.getGameState();
     } else if (action === 'draw_l') {
+      console.log(`🔧 [DEBUG] Matched draw_l - drawing ${value} L cards`);
       // Use CardService for L card draws (includes action logging)
       this.cardService.drawCards(
         playerId,
@@ -1702,6 +1717,8 @@ export class TurnService implements ITurnService {
    * Trigger a manual space effect for the current player
    */
   async triggerManualEffect(playerId: string, effectType: string): Promise<GameState> {
+    console.log(`🔧 [DEBUG] triggerManualEffect called with effectType: "${effectType}"`);
+
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found`);
@@ -1709,19 +1726,27 @@ export class TurnService implements ITurnService {
 
     // Parse effectType - might be compound like "cards:draw_b" or simple like "money"
     const [baseType, action] = effectType.includes(':') ? effectType.split(':') : [effectType, null];
+    console.log(`🔧 [DEBUG] Parsed - baseType: "${baseType}", action: "${action}"`);
 
     // Get manual effects for current space and visit type
     const spaceEffects = this.dataService.getSpaceEffects(player.currentSpace, player.visitType);
+    console.log(`🔧 [DEBUG] Found ${spaceEffects.length} space effects for ${player.currentSpace} (${player.visitType})`);
+    console.log(`🔧 [DEBUG] Space effects:`, spaceEffects.map(e => `${e.trigger_type}:${e.effect_type}:${e.effect_action}`));
+
     const manualEffect = spaceEffects.find(effect => {
       const typeMatches = effect.trigger_type === 'manual' && effect.effect_type === baseType;
       // If action specified (e.g., "draw_b"), must match; otherwise just type match
       const actionMatches = !action || effect.effect_action === action;
+      console.log(`🔧 [DEBUG] Checking effect - trigger: ${effect.trigger_type}, type: ${effect.effect_type}, action: ${effect.effect_action} | typeMatches: ${typeMatches}, actionMatches: ${actionMatches}`);
       return typeMatches && actionMatches;
     });
 
     if (!manualEffect) {
+      console.log(`🔧 [DEBUG] ERROR: No manual effect found!`);
       throw new Error(`No manual ${effectType} effect found for ${player.currentSpace} (${player.visitType})`);
     }
+
+    console.log(`🔧 [DEBUG] Found manual effect:`, manualEffect);
 
     // Evaluate condition before applying manual effect
     const conditionMet = this.evaluateEffectCondition(playerId, manualEffect.condition);
@@ -1735,8 +1760,12 @@ export class TurnService implements ITurnService {
     // Apply the effect based on type
     let newState = this.stateService.getGameState();
 
+    console.log(`🔧 [DEBUG] About to apply effect - baseType: "${baseType}"`);
+
     if (baseType === 'cards') {
+      console.log(`🔧 [DEBUG] Calling applySpaceCardEffect`);
       newState = await this.applySpaceCardEffect(playerId, manualEffect, effectType);
+      console.log(`🔧 [DEBUG] applySpaceCardEffect returned, player hand length:`, newState.players.find(p => p.id === playerId)?.hand.length);
     } else if (baseType === 'money') {
       // Special handling for get_investment_funding action
       if (manualEffect.effect_action === 'get_investment_funding') {
