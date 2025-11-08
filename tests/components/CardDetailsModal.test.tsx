@@ -86,7 +86,8 @@ describe('CardDetailsModal', () => {
       card_type: 'E',
       description: 'Expedites permit processing',
       effects_on_play: 'time:-2',
-      cost: 200
+      cost: 200,
+      is_transferable: true
     };
 
     mockProps = {

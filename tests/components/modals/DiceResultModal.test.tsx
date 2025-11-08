@@ -3,8 +3,15 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DiceResultModal, DiceRollResult } from '../../../src/components/modals/DiceResultModal';
+import { GameContext } from '../../../src/context/GameContext';
+import { createAllMockServices } from '../../mocks/mockServices';
 
 describe('DiceResultModal', () => {
+  let mockServices: any;
+
+  beforeEach(() => {
+    mockServices = createAllMockServices();
+  });
   const mockResult: DiceRollResult = {
     diceValue: 4,
     spaceName: 'TEST-SPACE',
@@ -35,11 +42,13 @@ describe('DiceResultModal', () => {
 
   it('should render when open with valid result', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
-        result={mockResult}
-        onClose={mockOnClose}
-      />
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal
+          isOpen={true}
+          result={mockResult}
+          onClose={mockOnClose}
+        />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('Dice Roll: 4')).toBeInTheDocument();
@@ -49,11 +58,13 @@ describe('DiceResultModal', () => {
 
   it('should not render when closed', () => {
     render(
-      <DiceResultModal 
-        isOpen={false}
-        result={mockResult}
-        onClose={mockOnClose}
-      />
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal
+          isOpen={false}
+          result={mockResult}
+          onClose={mockOnClose}
+        />
+      </GameContext.Provider>
     );
 
     expect(screen.queryByText('Dice Roll: 4')).not.toBeInTheDocument();
@@ -61,11 +72,13 @@ describe('DiceResultModal', () => {
 
   it('should not render when result is null', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
-        result={null}
-        onClose={mockOnClose}
-      />
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal
+          isOpen={true}
+          result={null}
+          onClose={mockOnClose}
+        />
+      </GameContext.Provider>
     );
 
     expect(screen.queryByText('Dice Roll:')).not.toBeInTheDocument();
@@ -73,11 +86,13 @@ describe('DiceResultModal', () => {
 
   it('should display money effects with proper formatting', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
-        result={mockResult}
-        onClose={mockOnClose}
-      />
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal
+          isOpen={true}
+          result={mockResult}
+          onClose={mockOnClose}
+        />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('+$50K')).toBeInTheDocument();
@@ -86,11 +101,13 @@ describe('DiceResultModal', () => {
 
   it('should display card effects correctly', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
-        result={mockResult}
-        onClose={mockOnClose}
-      />
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal
+          isOpen={true}
+          result={mockResult}
+          onClose={mockOnClose}
+        />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('+2 B cards')).toBeInTheDocument();
@@ -99,11 +116,11 @@ describe('DiceResultModal', () => {
 
   it('should display summary when provided', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={mockResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('Summary:')).toBeInTheDocument();
@@ -112,11 +129,11 @@ describe('DiceResultModal', () => {
 
   it('should call onClose when Continue button is clicked', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={mockResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     fireEvent.click(screen.getByText('Continue'));
@@ -125,11 +142,11 @@ describe('DiceResultModal', () => {
 
   it('should call onClose when backdrop is clicked', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={mockResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     const backdrop = screen.getByRole('dialog');
@@ -145,12 +162,12 @@ describe('DiceResultModal', () => {
     };
 
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={choiceResult}
         onClose={mockOnClose}
-        onConfirm={mockOnConfirm}
-      />
+        onConfirm={mockOnConfirm} />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('Review')).toBeInTheDocument();
@@ -170,11 +187,11 @@ describe('DiceResultModal', () => {
     };
 
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={noEffectsResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('No special effects this turn')).toBeInTheDocument();
@@ -182,11 +199,11 @@ describe('DiceResultModal', () => {
 
   it('should handle keyboard navigation', () => {
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={mockResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     const dialog = screen.getByRole('dialog');
@@ -212,11 +229,11 @@ describe('DiceResultModal', () => {
     };
 
     render(
-      <DiceResultModal 
-        isOpen={true}
+      <GameContext.Provider value={mockServices}>
+        <DiceResultModal isOpen={true}
         result={timeResult}
-        onClose={mockOnClose}
-      />
+        onClose={mockOnClose} />
+      </GameContext.Provider>
     );
 
     expect(screen.getByText('-3 days')).toBeInTheDocument();

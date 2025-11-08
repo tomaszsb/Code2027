@@ -1123,8 +1123,8 @@ export class TurnService implements ITurnService {
     }
 
     // Parse the effect action and value
-    const action = effect.effect_action; // e.g., "draw_w", "add", etc.
-    const value = typeof effect.effect_value === 'string' ? 
+    const action = effect.effect_action.toLowerCase(); // e.g., "draw_w", "add", etc. - normalize to lowercase
+    const value = typeof effect.effect_value === 'string' ?
       parseInt(effect.effect_value) : effect.effect_value;
 
     if (action === 'draw_w') {

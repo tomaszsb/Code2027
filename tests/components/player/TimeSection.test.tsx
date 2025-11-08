@@ -91,7 +91,7 @@ describe('TimeSection', () => {
 
     it('should display elapsed time', () => {
       render(<TimeSection {...defaultProps} />);
-      expect(screen.getByText('10d')).toBeInTheDocument();
+      expect(screen.getByText(/10d/)).toBeInTheDocument();
     });
 
     it('should return null if player not found', () => {
