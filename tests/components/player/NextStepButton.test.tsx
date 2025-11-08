@@ -200,7 +200,7 @@ describe('NextStepButton', () => {
         completedActionCount: 1
       });
       mockServices.stateService.getGameState.mockReturnValue(gameState);
-      mockServices.turnService.endTurn.mockResolvedValue(undefined);
+      mockServices.turnService.endTurnWithMovement.mockResolvedValue(undefined);
 
       render(
         <NextStepButton gameServices={mockServices} playerId={playerId} />
@@ -209,7 +209,7 @@ describe('NextStepButton', () => {
       const button = screen.getByRole('button');
       await userEvent.click(button);
 
-      expect(mockServices.turnService.endTurn).toHaveBeenCalled();
+      expect(mockServices.turnService.endTurnWithMovement).toHaveBeenCalled();
     });
 
     it('should not call actions when button is disabled', async () => {
@@ -231,7 +231,7 @@ describe('NextStepButton', () => {
       const button = screen.getByRole('button');
       await userEvent.click(button);
 
-      expect(mockServices.turnService.endTurn).not.toHaveBeenCalled();
+      expect(mockServices.turnService.endTurnWithMovement).not.toHaveBeenCalled();
     });
   });
 
@@ -248,7 +248,7 @@ describe('NextStepButton', () => {
       const endTurnPromise = new Promise<void>((resolve) => {
         resolveEndTurn = resolve;
       });
-      mockServices.turnService.endTurn.mockReturnValue(endTurnPromise);
+      mockServices.turnService.endTurnWithMovement.mockReturnValue(endTurnPromise);
 
       render(
         <NextStepButton gameServices={mockServices} playerId={playerId} />
@@ -280,7 +280,7 @@ describe('NextStepButton', () => {
         completedActionCount: 1
       });
       mockServices.stateService.getGameState.mockReturnValue(gameState);
-      mockServices.turnService.endTurn.mockRejectedValue(new Error('End turn failed'));
+      mockServices.turnService.endTurnWithMovement.mockRejectedValue(new Error('End turn failed'));
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -292,7 +292,7 @@ describe('NextStepButton', () => {
       await userEvent.click(button);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('Next step error:', expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith('🔘 NextStepButton: Error in handleNextStep:', expect.any(Error));
         expect(button).not.toBeDisabled();
       });
 

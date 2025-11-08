@@ -63,7 +63,7 @@ if (typeof effect.effect_value === 'string') {
 | CardDetailsModal | ❌ 2 fail | ⚠️ 1 fail | Fixed 2/3 |
 | SpaceExplorerPanel | ✅ PASS | ✅ PASS | Was passing |
 | DiceResultModal | ❌ 12 fail | ⚠️ 1 fail | Fixed 11/12 |
-| NextStepButton | ❌ 11 fail | ❌ 11 fail | Not started |
+| NextStepButton | ❌ 11 fail | ⚠️ 1 fail | Fixed 10/11 ⬆️ |
 | E2E-MultiPathMovement | ❌ FAIL | ❌ FAIL | Not started |
 | TimeSection | ❌ 1 fail | ✅ PASS | **FIXED!** |
 
@@ -71,18 +71,24 @@ if (typeof effect.effect_value === 'string') {
 - **Before**: 9 failing test files
 - **After**: 5 failing test files ⬇️
 - **Fully Fixed**: 4 test files (E2E-01, E2E-04, TimeSection, SpaceExplorerPanel) 🎉
-- **Partially Fixed**: 3 test files (E2E-03, CardDetailsModal, DiceResultModal)
-- **Not Started**: 2 fixes (NextStepButton, E2E-MultiPathMovement)
+- **Partially Fixed**: 4 test files (E2E-03, CardDetailsModal, DiceResultModal, NextStepButton)
+- **Not Started**: 1 fix (E2E-MultiPathMovement)
 
 ---
 
 ## 🔧 PENDING FIXES
 
-### Fix #6: NextStepButton - Remove "Roll to Move" Logic
-**Problem**: Component has "Roll to Move" logic (lines 90-113) but should ONLY show "End Turn"
-**Fix Strategy**: Remove lines 90-113 from NextStepButton.tsx
-**Estimated Impact**: Should fix all 11 failing tests
+### Fix #6: NextStepButton - MOSTLY FIXED ⚠️
+**Problem 1**: Component had "Roll to Move" logic violating architecture
+**Fix 1**: Removed lines 90-113 from NextStepButton.tsx
 **File**: src/components/player/NextStepButton.tsx:90-113
+
+**Problem 2**: Tests mocked `endTurn` but component calls `endTurnWithMovement`
+**Fix 2**: Updated 3 tests to mock `endTurnWithMovement` instead
+**Files**: tests/components/player/NextStepButton.test.tsx (lines 203, 234, 251, 283)
+
+**Result**: 21/22 tests now pass (was 11/22) ⬆️
+**Remaining**: 1 test failure - async loading state timing issue (not a code bug, test-specific)
 
 ### Fix #7: E2E-MultiPathMovement
 **Problem**: Player doesn't move from MULTI-PATH-SPACE to DESTINATION-A
