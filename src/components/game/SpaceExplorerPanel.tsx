@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Space, SpaceContent, SpaceEffect, DiceEffect, Player } from '../../types/DataTypes';
@@ -61,20 +61,27 @@ export function SpaceExplorerPanel({
     }
   }, [dataService, stateService]); // Removed selectedSpace to prevent infinite loop
 
-  // Memoize loadSpaceDetails to prevent recreation on every render
-  const loadSpaceDetails = useCallback((spaceName: string) => {
-    const space = allSpaces.find(s => s.name === spaceName);
-    if (!space) return;
+  // Update space details when selection or players change
+  useEffect(() => {
+    if (!selectedSpace) {
+      setSpaceDetails(null);
+      return;
+    }
 
-    const content = dataService.getSpaceContent(spaceName, 'First');
-    const effects = dataService.getSpaceEffects(spaceName, 'First');
-    const diceEffects = dataService.getDiceEffects(spaceName, 'First');
-    const playersOnSpace = players.filter(p => p.currentSpace === spaceName);
+    const space = allSpaces.find(s => s.name === selectedSpace);
+    if (!space) {
+      setSpaceDetails(null);
+      return;
+    }
+
+    const content = dataService.getSpaceContent(selectedSpace, 'First');
+    const effects = dataService.getSpaceEffects(selectedSpace, 'First');
+    const diceEffects = dataService.getDiceEffects(selectedSpace, 'First');
+    const playersOnSpace = players.filter(p => p.currentSpace === selectedSpace);
 
     // Get connections from movement data
     const connections: string[] = [];
     try {
-      // Check what spaces can reach this space
       allSpaces.forEach(otherSpace => {
         const movement = dataService.getMovement(otherSpace.name, 'First');
         if (movement) {
@@ -84,8 +91,8 @@ export function SpaceExplorerPanel({
             movement.destination_3,
             movement.destination_4,
             movement.destination_5
-          ].filter(dest => dest && dest === spaceName);
-          
+          ].filter(dest => dest && dest === selectedSpace);
+
           if (destinations.length > 0 && !connections.includes(otherSpace.name)) {
             connections.push(otherSpace.name);
           }
@@ -103,16 +110,7 @@ export function SpaceExplorerPanel({
       playersOnSpace,
       connections
     });
-  }, [allSpaces, dataService, players]); // Add dependencies
-
-  // Update space details when selection changes
-  useEffect(() => {
-    if (selectedSpace) {
-      loadSpaceDetails(selectedSpace);
-    } else {
-      setSpaceDetails(null);
-    }
-  }, [selectedSpace, loadSpaceDetails]);
+  }, [selectedSpace, allSpaces, dataService, players]); // Direct dependencies, no useCallback needed
 
   const getFilteredSpaces = (): Space[] => {
     let filtered = allSpaces;

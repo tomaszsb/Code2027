@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SpaceExplorerPanel } from '../../../src/components/game/SpaceExplorerPanel';
 import { DataService } from '../../../src/services/DataService';
 import { StateService } from '../../../src/services/StateService';
@@ -165,9 +165,20 @@ describe('SpaceExplorerPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (mockStateService.subscribe as any).mockImplementation((callback) => {
+    vi.clearAllTimers();
+
+    // Create a proper unsubscribe function that tracks subscriptions
+    const subscriptions: Array<() => void> = [];
+    (mockStateService.subscribe as any).mockImplementation((callback: (state: any) => void) => {
       callback(mockGameState);
-      return () => {}; // unsubscribe function
+      const unsubscribe = () => {
+        const index = subscriptions.indexOf(unsubscribe);
+        if (index > -1) {
+          subscriptions.splice(index, 1);
+        }
+      };
+      subscriptions.push(unsubscribe);
+      return unsubscribe;
     });
     (mockStateService.getGameState as any).mockReturnValue(mockGameState);
     (mockDataService.getAllSpaces as any).mockReturnValue(mockSpaces);
@@ -180,6 +191,12 @@ describe('SpaceExplorerPanel', () => {
       return { ...mockGameConfig, space_name: spaceName, is_starting_space: false };
     });
     (mockDataService.getMovement as any).mockReturnValue(mockMovement);
+  });
+
+  afterEach(() => {
+    cleanup(); // Clean up any rendered components
+    vi.clearAllTimers(); // Clear any pending timers
+    vi.resetAllMocks(); // Reset all mock state
   });
 
   it('should not render toggle button (now in player box)', () => {
