@@ -220,6 +220,11 @@ export function TurnControlsWithActions({
         choiceService.resolveChoice(movementChoice.id, selectedDestination);
       }
 
+      // Set the player's move intent so endTurnWithMovement knows where to move
+      if (stateService) {
+        stateService.setPlayerMoveIntent(currentPlayer.id, selectedDestination);
+      }
+
       console.log(`✅ TurnControlsWithActions: Confirmed movement to: ${selectedDestination}`);
 
       // Clear the selection

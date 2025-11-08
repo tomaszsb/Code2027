@@ -79,11 +79,11 @@ describe('E2E Feature: Multi-Path Movement with Real Services', () => {
   });
 
   it('should handle multi-path movement flow correctly', async () => {
-    // 1. Setup Game State
+    // 1. Setup Game State - Use PM-DECISION-CHECK which has real choice movement
     services.stateService.addPlayer('Test Player');
     services.stateService.startGame();
     const player = services.stateService.getGameState().players[0];
-    services.stateService.updatePlayer({ id: player.id, currentSpace: 'MULTI-PATH-SPACE' });
+    services.stateService.updatePlayer({ id: player.id, currentSpace: 'PM-DECISION-CHECK', visitType: 'First' });
     services.stateService.setPlayerHasRolledDice();
 
     // 2. Render the component
@@ -115,34 +115,35 @@ describe('E2E Feature: Multi-Path Movement with Real Services', () => {
       </GameContext.Provider>
     );
 
-    // 3. Trigger the state change that shows the movement choice
+    // 3. Trigger the state change that shows the movement choice (real destinations from CSV)
     services.stateService.setAwaitingChoice({
         id: 'movement-choice-123',
         type: 'MOVEMENT',
         playerId: player.id,
         prompt: 'Choose your destination',
         options: [
-          { id: 'DESTINATION-A', label: 'Destination A' },
-          { id: 'DESTINATION-B', label: 'Destination B' },
+          { id: 'LEND-SCOPE-CHECK', label: 'LEND-SCOPE-CHECK' },
+          { id: 'ARCH-INITIATION', label: 'ARCH-INITIATION' },
+          { id: 'CHEAT-BYPASS', label: 'CHEAT-BYPASS' },
         ],
       });
 
     // 4. Wait for the component to update and show the buttons
     await waitFor(() => {
-      expect(screen.getByText('🎯 Destination A')).toBeInTheDocument();
+      expect(screen.getByText('🎯 LEND-SCOPE-CHECK')).toBeInTheDocument();
     });
 
-    // 5. Simulate user actions
-    const destinationAButton = screen.getByText('🎯 Destination A');
-    fireEvent.click(destinationAButton);
+    // 5. Simulate user actions - select LEND-SCOPE-CHECK
+    const destinationButton = screen.getByText('🎯 LEND-SCOPE-CHECK');
+    fireEvent.click(destinationButton);
 
     const endTurnButton = screen.getByRole('button', { name: /End Turn/ });
     fireEvent.click(endTurnButton);
 
-    // 6. Assert the results
+    // 6. Assert the results - player should move to LEND-SCOPE-CHECK
     await waitFor(() => {
         const updatedPlayer = services.stateService.getPlayer(player.id);
-        expect(updatedPlayer.currentSpace).toBe('DESTINATION-A');
+        expect(updatedPlayer.currentSpace).toBe('LEND-SCOPE-CHECK');
     });
   });
 });

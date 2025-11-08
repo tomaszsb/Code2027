@@ -87,32 +87,7 @@ const getNextStepState = (gameServices: IServiceContainer, playerId: string): Ne
     };
   }
 
-  // CRITICAL: Check if player needs to roll to move BEFORE checking actions remaining
-  // This is because rolling the dice IS one of the required actions
-  // Roll to Move is available when:
-  // - Player hasn't rolled dice yet
-  // - Player hasn't moved yet
-  // - Space requires dice roll (respects space config)
-  // - Not processing turn or arrival
-  const spaceConfig = currentPlayer ? gameServices.dataService.getGameConfigBySpace(currentPlayer.currentSpace) : null;
-  const requiresDiceRoll = spaceConfig?.requires_dice_roll ?? true; // Default to true if not specified
-
-  const needsRollToMove = !gameState.hasPlayerRolledDice &&
-                          !gameState.hasPlayerMovedThisTurn &&
-                          !gameState.isProcessingTurn &&
-                          !gameState.isProcessingArrival &&
-                          requiresDiceRoll; // Only show if space requires dice roll
-
-  if (needsRollToMove) {
-    return {
-      visible: true,
-      label: 'Roll to Move',
-      disabled: false,
-      action: 'roll-movement'
-    };
-  }
-
-  // If actions incomplete (and we don't need to roll), show disabled with count
+  // If actions incomplete, show disabled with count
   if (actionsRemaining > 0) {
     return {
       visible: true,

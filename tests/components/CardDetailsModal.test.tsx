@@ -86,7 +86,8 @@ describe('CardDetailsModal', () => {
       card_type: 'E',
       description: 'Expedites permit processing',
       effects_on_play: 'time:-2',
-      cost: 200
+      cost: 200,
+      is_transferable: true
     };
 
     mockProps = {
@@ -224,7 +225,8 @@ describe('CardDetailsModal', () => {
     const nonTransferableCard = {
       ...mockTransferableCard,
       card_type: 'W' as const, // Work cards are not transferable
-      card_name: 'Work Card'
+      card_name: 'Work Card',
+      is_transferable: false // W cards are not transferable
     };
 
     const propsWithWorkCard = {
