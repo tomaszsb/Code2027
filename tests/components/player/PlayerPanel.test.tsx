@@ -75,7 +75,9 @@ describe('PlayerPanel', () => {
 
     // Act: Render the PlayerPanel
     render(
+      <GameContext.Provider value={mockServices}>
         <PlayerPanel gameServices={mockServices} playerId="player1" />
+      </GameContext.Provider>
     );
 
     // Assert: Verify that the movement choice UI is rendered
@@ -96,7 +98,9 @@ describe('PlayerPanel', () => {
     mockGameState.awaitingChoice = movementChoice;
 
     render(
+      <GameContext.Provider value={mockServices}>
         <PlayerPanel gameServices={mockServices} playerId="player1" />
+      </GameContext.Provider>
     );
 
     // Act: Click the movement button
@@ -126,7 +130,9 @@ describe('PlayerPanel', () => {
     mockPlayer.moveIntent = 'ACCELERATOR'; // Pre-select a destination
 
     render(
+      <GameContext.Provider value={mockServices}>
         <PlayerPanel gameServices={mockServices} playerId="player1" />
+      </GameContext.Provider>
     );
 
     // Assert: The pre-selected button should be highlighted

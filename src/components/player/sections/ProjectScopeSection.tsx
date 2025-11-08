@@ -146,7 +146,10 @@ export const ProjectScopeSection: React.FC<ProjectScopeSectionProps> = ({
   const totalCosts = workTypeGroups.reduce((sum, group) => sum + group.subtotal, 0);
 
   // Format money
-  const formatMoney = (amount: number) => {
+  const formatMoney = (amount: number | undefined) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '$0';
+    }
     return `$${amount.toLocaleString()}`;
   };
 

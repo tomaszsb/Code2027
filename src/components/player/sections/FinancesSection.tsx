@@ -138,7 +138,7 @@ export const FinancesSection: React.FC<FinancesSectionProps> = ({
 
   // Get ALL manual effects for money from current space, filtered by conditions
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player);
+  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player) || [];
 
   const moneyManualEffects = conditionFilteredEffects.filter(
     effect => effect.trigger_type === 'manual' && effect.effect_type === 'money'

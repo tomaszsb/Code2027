@@ -105,7 +105,7 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   // Get ALL manual effects for cards from current space, filtered by conditions
   // Exclude B/I card draws which are funding actions (shown in FinancesSection)
   const allSpaceEffects = gameServices.dataService.getSpaceEffects(player.currentSpace, player.visitType);
-  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player);
+  const conditionFilteredEffects = gameServices.turnService.filterSpaceEffectsByCondition(allSpaceEffects, player) || [];
 
   const cardManualEffects = conditionFilteredEffects.filter(
     effect => effect.trigger_type === 'manual' &&
