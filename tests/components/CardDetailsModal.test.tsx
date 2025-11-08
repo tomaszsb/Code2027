@@ -225,7 +225,8 @@ describe('CardDetailsModal', () => {
     const nonTransferableCard = {
       ...mockTransferableCard,
       card_type: 'W' as const, // Work cards are not transferable
-      card_name: 'Work Card'
+      card_name: 'Work Card',
+      is_transferable: false // W cards are not transferable
     };
 
     const propsWithWorkCard = {

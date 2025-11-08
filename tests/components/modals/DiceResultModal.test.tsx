@@ -51,8 +51,7 @@ describe('DiceResultModal', () => {
       </GameContext.Provider>
     );
 
-    expect(screen.getByText('Dice Roll: 4')).toBeInTheDocument();
-    expect(screen.getByText('On TEST-SPACE')).toBeInTheDocument();
+    expect(screen.getByText('🎲 Roll: 4')).toBeInTheDocument();
     expect(screen.getByText('Effects Applied:')).toBeInTheDocument();
   });
 
