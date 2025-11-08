@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { colors } from '../../styles/theme';
 import { useGameContext } from '../../context/GameContext';
 import { Space, SpaceContent, SpaceEffect, DiceEffect, Player } from '../../types/DataTypes';
@@ -50,27 +50,19 @@ export function SpaceExplorerPanel({
   useEffect(() => {
     const spaces = dataService.getAllSpaces();
     setAllSpaces(spaces);
-    
-    // Select current player's space by default if available
+
+    // Select current player's space by default if available (only on mount)
     const gameState = stateService.getGameState();
-    const currentPlayer = gameState.currentPlayerId 
-      ? gameState.players.find(p => p.id === gameState.currentPlayerId) 
+    const currentPlayer = gameState.currentPlayerId
+      ? gameState.players.find(p => p.id === gameState.currentPlayerId)
       : null;
-    if (currentPlayer && !selectedSpace) {
+    if (currentPlayer) {
       setSelectedSpace(currentPlayer.currentSpace);
     }
-  }, [dataService, stateService, selectedSpace]);
+  }, [dataService, stateService]); // Removed selectedSpace to prevent infinite loop
 
-  // Update space details when selection changes
-  useEffect(() => {
-    if (selectedSpace) {
-      loadSpaceDetails(selectedSpace);
-    } else {
-      setSpaceDetails(null);
-    }
-  }, [selectedSpace, players]);
-
-  const loadSpaceDetails = (spaceName: string) => {
+  // Memoize loadSpaceDetails to prevent recreation on every render
+  const loadSpaceDetails = useCallback((spaceName: string) => {
     const space = allSpaces.find(s => s.name === spaceName);
     if (!space) return;
 
@@ -111,7 +103,16 @@ export function SpaceExplorerPanel({
       playersOnSpace,
       connections
     });
-  };
+  }, [allSpaces, dataService, players]); // Add dependencies
+
+  // Update space details when selection changes
+  useEffect(() => {
+    if (selectedSpace) {
+      loadSpaceDetails(selectedSpace);
+    } else {
+      setSpaceDetails(null);
+    }
+  }, [selectedSpace, loadSpaceDetails]);
 
   const getFilteredSpaces = (): Space[] => {
     let filtered = allSpaces;
