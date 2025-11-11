@@ -1842,16 +1842,30 @@ export class TurnService implements ITurnService {
 
     if (baseType === 'cards') {
       const cardType = manualEffect.effect_action.replace('draw_', '').replace('replace_', '').toUpperCase();
-      const count = typeof manualEffect.effect_value === 'string' ? parseInt(manualEffect.effect_value, 10) : manualEffect.effect_value;
 
       // Determine which cards were drawn by comparing before/after hands
       const beforeHand = beforePlayer.hand || [];
       const afterHand = afterPlayer.hand || [];
       const drawnCardIds = afterHand.filter(cardId => !beforeHand.includes(cardId));
 
+      // Parse effect_value with fallback to actual drawn count
+      let count: number;
+      if (typeof manualEffect.effect_value === 'string') {
+        const parsed = parseInt(manualEffect.effect_value, 10);
+        count = isNaN(parsed) ? drawnCardIds.length : parsed;
+      } else if (typeof manualEffect.effect_value === 'number') {
+        count = manualEffect.effect_value;
+      } else {
+        // Fallback to actual drawn count if effect_value is undefined or invalid
+        count = drawnCardIds.length;
+      }
+
+      // Grammatically correct singular/plural
+      const cardWord = count === 1 ? 'card' : 'cards';
+
       effects.push({
         type: 'cards',
-        description: `You picked up ${count} ${cardType} cards!`,
+        description: `You picked up ${count} ${cardType} ${cardWord}!`,
         cardType: cardType,
         cardCount: count,
         cardAction: 'draw',

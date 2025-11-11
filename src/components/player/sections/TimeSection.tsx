@@ -136,7 +136,7 @@ export const TimeSection: React.FC<TimeSectionProps> = ({
   ) : undefined;
 
   // Summary content - always visible
-  const summary = <span>Elapsed: {elapsed}d</span>;
+  const summary = <span>{`Elapsed: ${elapsed}d`}</span>;
 
   return (
     <ExpandableSection

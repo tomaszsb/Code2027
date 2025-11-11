@@ -37,42 +37,42 @@ export const ExpandableSection: React.FC<ExpandableSectionProps> = ({
 
   return (
     <div className="expandable-section" data-default-expanded={defaultExpandedOnDesktop}>
-      <button
-        id={headerId}
-        className="expandable-section__header"
-        onClick={onToggle}
-        aria-expanded={isExpanded}
-        aria-controls={contentId}
-        type="button"
-      >
-        {/* --- LEFT COLUMN --- */}
-        <div className="header-col--left">
-          <span className="section-icon" aria-hidden="true">{icon}</span>
-          <span className="section-title">{title}</span>
-        </div>
-
-        {/* --- CENTER COLUMN --- */}
-        <div className="header-col--center">
-          {headerActions && (
-            <div className="expandable-section__header-actions" onClick={(e) => e.stopPropagation()}>
-              {headerActions}
-            </div>
-          )}
-        </div>
-
-        {/* --- RIGHT COLUMN --- */}
-        <div className="header-col--right">
-          {summary && <span className="section-summary">{summary}</span>}
-          <div className="section-controls">
-            {hasAction && (
-              <span className="action-indicator" role="status" aria-label="Action available"></span>
-            )}
-            <span className="expand-icon" aria-hidden="true">
-              {isExpanded ? '▼' : '▶'}
-            </span>
+      <div className="expandable-section__header-container">
+        <button
+          id={headerId}
+          className="expandable-section__header"
+          onClick={onToggle}
+          aria-expanded={isExpanded}
+          aria-controls={contentId}
+          type="button"
+        >
+          {/* --- LEFT COLUMN --- */}
+          <div className="header-col--left">
+            <span className="section-icon" aria-hidden="true">{icon}</span>
+            <span className="section-title">{title}</span>
           </div>
-        </div>
-      </button>
+
+          {/* --- RIGHT COLUMN --- */}
+          <div className="header-col--right">
+            {summary && <span className="section-summary">{summary}</span>}
+            <div className="section-controls">
+              {hasAction && (
+                <span className="action-indicator" role="status" aria-label="Action available"></span>
+              )}
+              <span className="expand-icon" aria-hidden="true">
+                {isExpanded ? '▼' : '▶'}
+              </span>
+            </div>
+          </div>
+        </button>
+
+        {/* --- HEADER ACTIONS (outside button) --- */}
+        {headerActions && (
+          <div className="expandable-section__header-actions">
+            {headerActions}
+          </div>
+        )}
+      </div>
 
       {/* --- COLLAPSIBLE CONTENT --- */}
       <div

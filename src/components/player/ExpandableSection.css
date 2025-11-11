@@ -7,10 +7,18 @@
   background: var(--card-bg, #fff);
 }
 
-/* Header container - a single button for the whole header */
+/* Container for header button and actions */
+.expandable-section__header-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Header button - toggles the section */
 .expandable-section__header {
   display: flex;
-  width: 100%;
+  flex: 1;
   justify-content: space-between;
   align-items: center;
   background: none;
@@ -35,16 +43,8 @@
   gap: 8px;
 }
 
-.header-col--center {
-  flex: 2 1 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
 .header-col--right {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   align-items: center;
