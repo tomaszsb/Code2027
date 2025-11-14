@@ -66,15 +66,29 @@ export class MovementService implements IMovementService {
 
     // Handle different movement types
     try {
+      let validMoves: string[] = [];
+
       if (movement.movement_type === 'dice') {
-        return this.getDiceDestinations(player.currentSpace, player.visitType);
+        validMoves = this.getDiceDestinations(player.currentSpace, player.visitType);
+      } else if (movement.movement_type === 'logic') {
+        validMoves = this.getLogicDestinations(playerId, movement);
+      } else {
+        validMoves = this.extractDestinationsFromMovement(movement);
       }
 
-      if (movement.movement_type === 'logic') {
-        return this.getLogicDestinations(playerId, movement);
+      // SPECIAL HANDLING: Path choice memory for spaces that lock decisions
+      // REG-DOB-TYPE-SELECT: Once player chooses Plan Exam vs Prof Cert, choice is locked
+      if (player.currentSpace === 'REG-DOB-TYPE-SELECT' &&
+          player.visitType === 'Subsequent' &&
+          player.pathChoiceMemory?.['REG-DOB-TYPE-SELECT']) {
+
+        const rememberedChoice = player.pathChoiceMemory['REG-DOB-TYPE-SELECT'];
+        validMoves = validMoves.filter(dest => dest === rememberedChoice);
+
+        console.log(`🔒 REG-DOB-TYPE-SELECT: Filtering to remembered choice: ${rememberedChoice}`);
       }
 
-      return this.extractDestinationsFromMovement(movement);
+      return validMoves;
     } catch (error) {
       console.error(`Error getting valid moves for player ${playerId}:`, error);
       return [];
@@ -199,6 +213,21 @@ export class MovementService implements IMovementService {
     const { player, playerUpdate, sourceSpace, destinationSpace, newVisitType } = moveResult;
 
     console.log(`📝 Finalizing move: ${player.name} ${sourceSpace} → ${destinationSpace}`);
+
+    // SPECIAL: Store path choice memory for REG-DOB-TYPE-SELECT
+    // Per DOB rules, once you choose Plan Exam vs Prof Cert, you're locked in for this application
+    if (sourceSpace === 'REG-DOB-TYPE-SELECT' &&
+        player.visitType === 'First' &&
+        (destinationSpace === 'REG-DOB-PLAN-EXAM' || destinationSpace === 'REG-DOB-PROF-CERT')) {
+
+      console.log(`🔒 Storing REG-DOB-TYPE-SELECT path choice: ${destinationSpace}`);
+
+      // Store the choice in player's memory
+      playerUpdate.pathChoiceMemory = {
+        ...player.pathChoiceMemory,
+        'REG-DOB-TYPE-SELECT': destinationSpace as 'REG-DOB-PLAN-EXAM' | 'REG-DOB-PROF-CERT'
+      };
+    }
 
     // WRITE STATE: Update player's position (atomic operation)
     const updatedState = this.stateService.updatePlayer(playerUpdate);
