@@ -68,14 +68,24 @@ def load_dice_data():
             next(reader)  # Skip header
 
             for row in reader:
-                if len(row) >= 3:
+                if len(row) >= 9:  # Need roll outcomes
                     space_name = row[0].strip()
                     outcome_type = row[1].strip()
                     visit_type = row[2].strip()
 
-                    # Only "Next Step" rows indicate movement destinations
+                    # Check for movement destinations in outcomes
+                    rolls = [row[i].strip() if i < len(row) else '' for i in range(3, 9)]
+
+                    # "Next Step" always indicates movement
                     if outcome_type == 'Next Step':
                         dice_spaces.add((space_name, visit_type))
+                    # "Time outcomes" can also contain destinations (confusing naming!)
+                    # Check if rolls contain space names (not time values like "5 days")
+                    elif outcome_type == 'Time outcomes':
+                        # Check if any roll value looks like a space name
+                        has_space_names = any(is_valid_space_name(roll) for roll in rolls if roll)
+                        if has_space_names:
+                            dice_spaces.add((space_name, visit_type))
     except FileNotFoundError:
         print(f"⚠️  Warning: {dice_file} not found")
 
@@ -182,13 +192,12 @@ def process_spaces_to_movement():
                 logic_spaces.append((space_name, visit_type, len(destinations)))
                 continue
 
-            # PRIORITY 2: Check explicit dice indicators
-            if requires_dice_roll.upper() == 'YES' or (rolls and int(rolls) > 0):
-                # Verify dice data exists
-                key = (space_name, visit_type)
-                if key not in dice_spaces:
-                    print(f"⚠️  WARNING: {space_name} ({visit_type}) marked for dice but no dice data found!")
-
+            # PRIORITY 2: Check for dice-based MOVEMENT (not just dice for effects)
+            # Only mark as dice movement if "Next Step" data exists in DiceRoll Info.csv
+            # Note: requires_dice_roll=YES can be for card draws, not movement!
+            key = (space_name, visit_type)
+            if key in dice_spaces:
+                # Has actual dice movement data (Next Step entries)
                 movements.append(create_movement_row(space_name, visit_type, 'dice', []))
                 continue
 
