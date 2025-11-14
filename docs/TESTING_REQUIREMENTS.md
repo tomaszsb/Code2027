@@ -347,3 +347,61 @@ The following scenarios must be tested to ensure production stability:
 - ✅ **Game End**: Verify final turn numbers are preserved in game end logs
 - ✅ **Player Disconnection**: Test turn progression with player dropout scenarios
 - ✅ **State Migration**: Test loading games saved with old turn numbering system
+
+---
+
+## Movement System Refactor Tests (November 2025)
+
+### Test Coverage Added
+
+**Test File**: `tests/services/MovementService.test.ts`
+**New Tests**: 7 pathChoiceMemory unit tests
+**Status**: ✅ All 39 MovementService tests passing
+
+#### **Path Choice Memory Tests**
+- ✅ **Store Plan Exam Choice**: Verify pathChoiceMemory stores REG-DOB-PLAN-EXAM on first visit
+- ✅ **Store Prof Cert Choice**: Verify pathChoiceMemory stores REG-DOB-PROF-CERT on first visit
+- ✅ **Filter to Remembered Choice (Plan Exam)**: Verify subsequent visit returns only Plan Exam if originally chosen
+- ✅ **Filter to Remembered Choice (Prof Cert)**: Verify subsequent visit returns only Prof Cert if originally chosen
+- ✅ **First Visit Returns All Choices**: Verify both options available on first visit
+- ✅ **No Memory for Other Destinations**: Verify pathChoiceMemory only stores for DOB-related destinations
+- ✅ **Preserve Existing Memory**: Verify existing pathChoiceMemory is not overwritten
+
+### Regression Tests Restored
+
+**Test Files**:
+- `tests/regression/ButtonNesting.regression.test.tsx` (7 tests)
+- `tests/regression/CardCountNaN.regression.test.tsx` (7 tests)
+
+**Purpose**: Prevent regressions of bugs fixed in commit baa3ddf
+**Status**: ✅ All 14 regression tests passing
+
+#### **Button Nesting Tests**
+- Verify no nested button elements in UI components
+- Test modal buttons, action buttons, and interactive elements
+- Ensure accessibility compliance
+
+#### **Card Count NaN Tests**
+- Verify card counts never display as NaN
+- Test edge cases with zero cards, undefined states
+- Validate card section rendering with various card types
+
+### Running Movement Refactor Tests
+
+```bash
+# Run all MovementService tests (including new pathChoiceMemory tests)
+npm test -- tests/services/MovementService.test.ts
+
+# Run restored regression tests
+npm test -- tests/regression/
+
+# Verify all tests pass
+npm test
+```
+
+### Test Metrics
+
+**Total New/Restored Coverage**: 21 tests
+- 7 pathChoiceMemory unit tests
+- 14 restored regression tests
+- 100% success rate (39/39 MovementService tests passing)

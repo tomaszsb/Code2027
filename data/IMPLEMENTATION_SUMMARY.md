@@ -245,3 +245,21 @@ if (player.currentSpace === 'REG-DOB-TYPE-SELECT' &&
 
 **Implementation Status:** ✅ COMPLETE
 **Ready for:** Testing & Merge
+
+---
+
+## Post-Implementation Cleanup (2025-11-14)
+
+**Cleanup Actions Completed:**
+1. ✅ Remote branch cleanup (6 merged branches identified for deletion)
+2. ✅ Restored regression tests (ButtonNesting, CardCountNaN - 14 tests total)
+3. ✅ Reorganized documentation (9 .md files moved to docs/archive/)
+4. ✅ Added pathChoiceMemory test coverage (7 new unit tests)
+5. ✅ Test suite validation (All 39 MovementService tests passing)
+
+**Total New/Restored Test Coverage:** 21 tests
+- 7 pathChoiceMemory unit tests (MovementService.test.ts)
+- 14 restored regression tests (ButtonNesting, CardCountNaN)
+
+**Branch:** `claude/post-refactor-cleanup-011CUwFMKQdAZGdEnEkpkf6u`
+**Status:** Ready for commit and merge

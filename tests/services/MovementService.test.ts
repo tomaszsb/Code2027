@@ -566,6 +566,265 @@ describe('MovementService', () => {
     });
   });
 
+  describe('path choice memory (REG-DOB-TYPE-SELECT)', () => {
+    it('should store path choice memory on first visit to REG-DOB-TYPE-SELECT when choosing Plan Exam', async () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'First' as const
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockDataService.getAllSpaces.mockReturnValue([]);
+
+      const updatedGameState: GameState = {
+        ...mockGameState,
+        players: [{
+          ...player,
+          currentSpace: 'REG-DOB-PLAN-EXAM',
+          visitType: 'First' as const,
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM'
+          }
+        }]
+      };
+
+      mockStateService.updatePlayer.mockReturnValue(updatedGameState);
+
+      const result = await movementService.movePlayer('player1', 'REG-DOB-PLAN-EXAM');
+
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM'
+          }
+        })
+      );
+      expect(result).toBe(updatedGameState);
+    });
+
+    it('should store path choice memory on first visit to REG-DOB-TYPE-SELECT when choosing Prof Cert', async () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'First' as const
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockDataService.getAllSpaces.mockReturnValue([]);
+
+      const updatedGameState: GameState = {
+        ...mockGameState,
+        players: [{
+          ...player,
+          currentSpace: 'REG-DOB-PROF-CERT',
+          visitType: 'First' as const,
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PROF-CERT'
+          }
+        }]
+      };
+
+      mockStateService.updatePlayer.mockReturnValue(updatedGameState);
+
+      const result = await movementService.movePlayer('player1', 'REG-DOB-PROF-CERT');
+
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PROF-CERT'
+          }
+        })
+      );
+      expect(result).toBe(updatedGameState);
+    });
+
+    it('should filter moves to remembered choice on subsequent visit to REG-DOB-TYPE-SELECT', () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'Subsequent' as const,
+        pathChoiceMemory: {
+          'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM' as const
+        }
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'Subsequent',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      // Should only return the remembered choice, not both options
+      expect(result).toEqual(['REG-DOB-PLAN-EXAM']);
+    });
+
+    it('should filter moves to Prof Cert if that was the original choice on subsequent visit', () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'Subsequent' as const,
+        pathChoiceMemory: {
+          'REG-DOB-TYPE-SELECT': 'REG-DOB-PROF-CERT' as const
+        }
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'Subsequent',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      // Should only return the remembered choice
+      expect(result).toEqual(['REG-DOB-PROF-CERT']);
+    });
+
+    it('should return all choices on first visit to REG-DOB-TYPE-SELECT', () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'First' as const
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+
+      const result = movementService.getValidMoves('player1');
+
+      // On first visit, both choices should be available
+      expect(result).toEqual(['REG-DOB-PLAN-EXAM', 'REG-DOB-PROF-CERT']);
+    });
+
+    it('should not store path memory for other destination spaces from REG-DOB-TYPE-SELECT', async () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'First' as const
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT',
+        destination_3: 'SOME-OTHER-SPACE' // Edge case
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockDataService.getAllSpaces.mockReturnValue([]);
+
+      const updatedGameState: GameState = {
+        ...mockGameState,
+        players: [{
+          ...player,
+          currentSpace: 'SOME-OTHER-SPACE',
+          visitType: 'First' as const
+        }]
+      };
+
+      mockStateService.updatePlayer.mockReturnValue(updatedGameState);
+
+      await movementService.movePlayer('player1', 'SOME-OTHER-SPACE');
+
+      // Should NOT store path memory for non-DOB destinations
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          pathChoiceMemory: expect.anything()
+        })
+      );
+    });
+
+    it('should preserve existing path memory when storing new choice', async () => {
+      const player = {
+        ...mockPlayer,
+        currentSpace: 'REG-DOB-TYPE-SELECT',
+        visitType: 'First' as const,
+        pathChoiceMemory: {
+          'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM' as const
+        }
+      };
+
+      const mockMovement: Movement = {
+        space_name: 'REG-DOB-TYPE-SELECT',
+        visit_type: 'First',
+        movement_type: 'choice',
+        destination_1: 'REG-DOB-PLAN-EXAM',
+        destination_2: 'REG-DOB-PROF-CERT'
+      };
+
+      mockStateService.getPlayer.mockReturnValue(player);
+      mockDataService.getMovement.mockReturnValue(mockMovement);
+      mockDataService.getAllSpaces.mockReturnValue([]);
+
+      const updatedGameState: GameState = {
+        ...mockGameState,
+        players: [{
+          ...player,
+          currentSpace: 'REG-DOB-PLAN-EXAM',
+          visitType: 'First' as const,
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM'
+          }
+        }]
+      };
+
+      mockStateService.updatePlayer.mockReturnValue(updatedGameState);
+
+      await movementService.movePlayer('player1', 'REG-DOB-PLAN-EXAM');
+
+      // Should preserve existing memory
+      expect(mockStateService.updatePlayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pathChoiceMemory: {
+            'REG-DOB-TYPE-SELECT': 'REG-DOB-PLAN-EXAM'
+          }
+        })
+      );
+    });
+  });
+
   describe('logic movement type', () => {
     it('should return valid moves for logic movement type with condition evaluation', () => {
       const mockMovement: Movement = {

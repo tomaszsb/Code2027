@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Movement System Refactor & Cleanup (November 14, 2025)
+- **CSV-Based Movement System Refactor:**
+  - Fixed REG-FDNY-FEE-REVIEW data corruption (LOGIC movement now returns valid space names, not question text)
+  - Fixed dice detection false positives (41 → 18 dice spaces, game no longer stuck at start)
+  - Implemented pathChoiceMemory for REG-DOB-TYPE-SELECT (DOB path choice now locked per regulations)
+  - Enhanced is_valid_space_name() validation with stricter regex patterns
+  - Implemented path-first decision tree in data/process_game_data.py
+  - Fixed OWNER-SCOPE-INITIATION movement type (fixed → OWNER-FUND-INITIATION, not dice)
+  - All validation checks passing (0 errors, valid space names only)
+
+- **Post-Refactor Cleanup:**
+  - Restored regression tests: ButtonNesting.regression.test.tsx (7 tests), CardCountNaN.regression.test.tsx (7 tests)
+  - Added pathChoiceMemory test coverage (7 new unit tests in MovementService.test.ts)
+  - Reorganized 9 root-level .md files to docs/archive/ for better organization
+  - Identified 6 merged remote branches for cleanup
+  - All 39 MovementService tests passing (100% success rate)
+  - Total new/restored test coverage: 21 tests
+
 ### Bug Fixes (November 7, 2025)
 - **CSV Format & Data Fixes:**
   - Fixed CARDS_EXPANDED.csv missing `work_type_restriction` column (22nd column required by DataService parser)
