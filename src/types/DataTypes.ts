@@ -194,6 +194,10 @@ export interface Player {
   costHistory: CostEntry[]; // Detailed log of all costs incurred
   costs: CostBreakdown; // Summary of costs by category
   moveIntent?: string | null; // Player's intended destination (set before move execution)
+  pathChoiceMemory?: {
+    'REG-DOB-TYPE-SELECT'?: 'REG-DOB-PLAN-EXAM' | 'REG-DOB-PROF-CERT'; // DOB path choice (locked for application)
+    // Future: Other spaces that need choice memory can be added here
+  };
 }
 
 export interface GameState {
