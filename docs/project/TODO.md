@@ -17,6 +17,26 @@
 
 ---
 
+## ✅ **PHASE COMPLETION: Movement System CSV Processing Refactor**
+*Status: COMPLETED - November 14, 2025*
+
+**Objective**: Fix critical CSV processing bugs causing movement data corruption and implement path choice memory for DOB compliance.
+
+- **✅ REG-FDNY-FEE-REVIEW Corruption Fixed**: LOGIC movement parser now extracts valid space names from condition text instead of corrupted question text
+- **✅ Dice Movement Detection Corrected**: Fixed false positives where card-drawing dice rolls were mistaken for movement dice (41→18 dice spaces), restored 20 fixed linear paths
+- **✅ Path Choice Memory Implemented**: Added `pathChoiceMemory` to Player state for REG-DOB-TYPE-SELECT - enforces DOB rule that Plan Exam vs Prof Cert choice is locked
+- **✅ Enhanced Data Processing**: Implemented path-first decision tree with stricter `is_valid_space_name()` validation
+- **✅ Validation Tools Added**: Created `validate_movement_data.py` script for ongoing data integrity checks
+- **✅ Comprehensive Documentation**: Added MOVEMENT_SYSTEM_REFACTOR_PLAN.md, IMPLEMENTATION_SUMMARY.md, USER_FIXES_VERIFICATION.md
+- **✅ Test Coverage**: Added 7 pathChoiceMemory tests to MovementService test suite
+
+**Files Changed**: 9 files (+1507/-90 lines)
+**Tests**: All E2E tests passing, including previously failing E2E-01_HappyPath and E2E-MultiPathMovement
+
+**Result**: Movement system data processing fixed with comprehensive validation. Path choice memory ensures regulatory compliance for DOB spaces. All movement types correctly classified.
+
+---
+
 ## ✅ **PHASE COMPLETION: Player Panel UI Overhaul**
 *Status: COMPLETED - October 7, 2025*
 

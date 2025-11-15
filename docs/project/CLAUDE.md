@@ -199,3 +199,38 @@ Comprehensive test suite stabilization to eliminate worker thread crashes, asser
 - **Fast feedback loops**: Individual tests complete in 2-3 seconds
 - **Comprehensive coverage**: All critical game functionality validated
 - **Regression protection**: Automated test suite prevents breaking changes
+
+---
+
+## Recent Work Log (November 14, 2025)
+
+### 1. Movement System CSV Processing Refactor
+
+**Objective**: Fix critical data corruption in movement CSV processing and implement regulatory compliance features.
+
+#### Bugs Fixed:
+- **REG-FDNY-FEE-REVIEW Corruption**: LOGIC movement parser was returning question text ("Did the scope change since last visit? YES - ...") as destination space names. Fixed by implementing space name extraction from condition text. Now returns valid space names: `CON-INITIATION`, `PM-DECISION-CHECK`, `REG-DOB-TYPE-SELECT`, `REG-FDNY-PLAN-EXAM`.
+
+- **Dice Detection False Positives**: Processing script incorrectly marked 41 spaces as 'dice' movement when many were actually 'fixed' movement with card-drawing dice (not movement dice). Root cause: Script checked `requires_dice_roll=YES` flag without verifying "Next Step" dice data exists. Fixed by only marking as dice when Next Step outcomes exist. Result: 41→18 dice spaces, 4→20 fixed spaces restored. Critical fix - game was broken with player stuck at start.
+
+#### Features Added:
+- **Path Choice Memory**: Implemented `pathChoiceMemory` property in Player state to enforce DOB regulations. When player chooses between Plan Exam vs Professional Certification at `REG-DOB-TYPE-SELECT` space, choice is permanently locked for that application. Subsequent visits filter movement options to remembered choice only.
+
+#### Data Processing Improvements:
+- **Path-First Decision Tree**: Refactored `process_game_data.py` to check `path` column FIRST (authoritative source) before inferring from dice indicators
+- **Stricter Validation**: Enhanced `is_valid_space_name()` with regex validation, question mark rejection, and minimum length checks
+- **LOGIC Movement Parser**: New `extract_destinations_from_logic_conditions()` function extracts valid space names from conditional text
+- **Validation Script**: Added `validate_movement_data.py` for ongoing data integrity checks
+
+#### Files Changed:
+- **Data Processing**: `data/process_game_data.py` (333 lines refactored)
+- **Game Code**: `src/services/MovementService.ts` (+37 lines), `src/types/DataTypes.ts` (+4 lines)
+- **Game Data**: `public/data/CLEAN_FILES/MOVEMENT.csv` (10 critical fixes)
+- **Documentation**: 3 new comprehensive docs (MOVEMENT_SYSTEM_REFACTOR_PLAN.md, IMPLEMENTATION_SUMMARY.md, USER_FIXES_VERIFICATION.md)
+
+#### Impact:
+- **Gameplay**: Game now progresses correctly from start (was broken with players stuck)
+- **Data Quality**: All movement destinations are now valid space names (no question text corruption)
+- **Compliance**: DOB path choice rules enforced via pathChoiceMemory
+- **Tests**: All E2E tests passing including E2E-01_HappyPath and E2E-MultiPathMovement (both were failing before fix)
+- **Test Coverage**: Added 7 new pathChoiceMemory tests to MovementService (32→39 tests)

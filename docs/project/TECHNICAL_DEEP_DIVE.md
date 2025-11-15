@@ -84,6 +84,50 @@ The `CardService` is the heart of the card system. It is responsible for all bus
 
 ---
 
+## 🎮 Player State Extensions
+
+### Path Choice Memory (Added November 2025)
+
+Some game spaces enforce permanent path choices per regulatory requirements (e.g., DOB regulations).
+
+#### Interface Extension
+```typescript
+interface Player {
+  // ... existing fields ...
+
+  /**
+   * Stores permanent path choices for spaces that lock decisions.
+   * Once a choice is made, subsequent visits filter to the remembered choice.
+   */
+  pathChoiceMemory?: {
+    'REG-DOB-TYPE-SELECT'?: 'REG-DOB-PLAN-EXAM' | 'REG-DOB-PROF-CERT';
+    // Extensible for other spaces that require path locking
+  };
+}
+```
+
+#### Implementation Details
+- **Location**: `src/services/MovementService.ts:79-89` (filtering logic), `217-230` (storage logic)
+- **Usage**:
+  - When player moves FROM `REG-DOB-TYPE-SELECT` on First visit → store choice
+  - When player arrives AT `REG-DOB-TYPE-SELECT` on Subsequent visit → filter to remembered choice only
+- **Rationale**: DOB rules require that once you choose Plan Exam vs Professional Certification path, you're locked in for that application
+
+#### Example Flow
+```typescript
+// First visit to REG-DOB-TYPE-SELECT
+getValidMoves('player1') // Returns: ['REG-DOB-PLAN-EXAM', 'REG-DOB-PROF-CERT']
+movePlayer('player1', 'REG-DOB-PLAN-EXAM') // Stores: pathChoiceMemory['REG-DOB-TYPE-SELECT'] = 'REG-DOB-PLAN-EXAM'
+
+// Subsequent visit to REG-DOB-TYPE-SELECT
+getValidMoves('player1') // Returns: ['REG-DOB-PLAN-EXAM'] only
+```
+
+#### Testing
+See `tests/services/MovementService.test.ts` (tests 33-39) for comprehensive pathChoiceMemory test coverage.
+
+---
+
 ## Development Standards & Guidelines
 
 ## 🏗️ Code Quality Standards
