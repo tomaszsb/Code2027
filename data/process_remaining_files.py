@@ -103,6 +103,18 @@ def process_space_effects():
             for col_name, card_letter in card_types.items():
                 card_value = row.get(col_name, '').strip()
                 if card_value:
+                    # Determine trigger_type based on space and card type
+                    trigger_type = 'manual'  # Default to manual
+
+                    # OWNER-FUND-INITIATION: B and I cards are automatic (owner's seed money)
+                    if space_name == 'OWNER-FUND-INITIATION' and card_letter in ['B', 'I']:
+                        trigger_type = 'auto'
+
+                    # PM-DECISION-CHECK: L cards are automatic (life surprises from dice)
+                    # They have dice conditions like "Draw 1 if you roll a 1"
+                    elif space_name == 'PM-DECISION-CHECK' and card_letter == 'L':
+                        trigger_type = 'auto'
+
                     effects.append({
                         'space_name': space_name,
                         'visit_type': visit_type,
@@ -111,7 +123,7 @@ def process_space_effects():
                         'effect_value': card_value,
                         'condition': '',
                         'description': f'{card_value} {card_letter} cards',
-                        'trigger_type': 'manual'
+                        'trigger_type': trigger_type
                     })
 
             # Time effect
