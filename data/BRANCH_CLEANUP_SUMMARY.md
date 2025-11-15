@@ -7,7 +7,7 @@
 
 ## Overview
 
-Investigated and cleaned up two unmerged branches that predated the comprehensive movement system refactor (Nov 14, 2025). Extracted valuable commits that were missing from master and prepared them for merge.
+Investigated and cleaned up two unmerged branches that predated the comprehensive movement system refactor (Nov 14, 2025). Extracted valuable commits that were missing from master, plus fixed critical automatic card draw issues discovered during testing.
 
 ---
 
@@ -77,6 +77,46 @@ Investigated and cleaned up two unmerged branches that predated the comprehensiv
   - `'Time outcomes'` → `effect_type='time'`, `card_type=''`
 
 **Impact:** HIGH - dice effects for card drawing, money, and time now work correctly
+
+---
+
+### Commit 3: Automatic Card Draws (CRITICAL - New Fix)
+**Created as:** `fa976f0`
+
+**What it fixes:**
+- Critical game mechanic where card draws that should be automatic were marked as manual
+- Players had to click unnecessary buttons for automatic game events
+- Root cause: `process_remaining_files.py` line 114 hardcoded ALL card effects as `'trigger_type': 'manual'`
+
+**Spaces affected:**
+
+**OWNER-FUND-INITIATION (B/I cards):**
+- Owner's seed money should auto-draw based on project scope
+- Scope ≤ $4M → Auto-draw B card (bank-level funding)
+- Scope > $4M → Auto-draw I card (investor-level funding)
+- TurnService already had special handling to auto-play these cards
+- Now CSV matches the code's expectations
+
+**PM-DECISION-CHECK (L cards):**
+- L cards are life surprises from dice rolls
+- "Draw 1 if you roll a 1" should trigger automatically
+- These are random life events, not user choices
+- Now triggers automatically when dice condition met
+
+**Preserved manual behavior:**
+- E cards at PM-DECISION-CHECK remain manual (correct - user choice)
+- All other manual card draws unchanged
+
+**Changes:**
+- Updated `data/process_remaining_files.py` with smart trigger_type detection
+- Added space-specific logic to determine auto vs manual
+- Regenerated SPACE_EFFECTS.csv with correct trigger types
+
+**Impact:** 🔴 CRITICAL
+- Fixes broken automatic funding at OWNER-FUND-INITIATION
+- Fixes broken life surprise cards at PM-DECISION-CHECK
+- Improves game flow by removing unnecessary manual steps
+- Aligns CSV data with game design intent and existing code
 
 ---
 
