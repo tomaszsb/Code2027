@@ -171,11 +171,26 @@ def process_dice_effects():
         reader = csv.DictReader(f)
         for row in reader:
             space_name = row['space_name']
-            effect_type = row['die_roll']  # e.g., "W Cards", "Fees Paid", "E cards"
+            die_roll_raw = row['die_roll']  # e.g., "W Cards", "Fees Paid", "E cards"
             visit_type = row['visit_type']
 
-            # Extract card_type from effect_type (e.g., "W Cards" -> "W")
-            card_type = effect_type.split()[0] if ' ' in effect_type else effect_type
+            # Normalize effect_type for the switch statement in EffectFactory.ts
+            # "W Cards" -> effect_type='cards', card_type='W'
+            # "Fees Paid" -> effect_type='money', card_type=''
+            # "Time outcomes" -> effect_type='time', card_type=''
+            if 'card' in die_roll_raw.lower():
+                effect_type = 'cards'
+                card_type = die_roll_raw.split()[0] if ' ' in die_roll_raw else ''
+            elif 'fee' in die_roll_raw.lower() or 'paid' in die_roll_raw.lower():
+                effect_type = 'money'
+                card_type = ''
+            elif 'time' in die_roll_raw.lower():
+                effect_type = 'time'
+                card_type = ''
+            else:
+                # Keep original for unknown types
+                effect_type = die_roll_raw
+                card_type = die_roll_raw.split()[0] if ' ' in die_roll_raw else die_roll_raw
 
             # Create one row per space/visit_type/effect_type combination
             effect_row = {

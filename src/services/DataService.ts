@@ -146,7 +146,7 @@ export class DataService implements IDataService {
 
   // Private CSV loading methods
   private async loadGameConfig(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/GAME_CONFIG.csv');
+    const response = await fetch('/data/CLEAN_FILES/GAME_CONFIG.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch GAME_CONFIG.csv: ${response.status} ${response.statusText}`);
     }
@@ -155,7 +155,7 @@ export class DataService implements IDataService {
   }
 
   private async loadMovements(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/MOVEMENT.csv');
+    const response = await fetch('/data/CLEAN_FILES/MOVEMENT.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch MOVEMENT.csv: ${response.status} ${response.statusText}`);
     }
@@ -164,7 +164,7 @@ export class DataService implements IDataService {
   }
 
   private async loadDiceOutcomes(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/DICE_OUTCOMES.csv');
+    const response = await fetch('/data/CLEAN_FILES/DICE_OUTCOMES.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch DICE_OUTCOMES.csv: ${response.status} ${response.statusText}`);
     }
@@ -173,7 +173,7 @@ export class DataService implements IDataService {
   }
 
   private async loadSpaceEffects(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/SPACE_EFFECTS.csv');
+    const response = await fetch('/data/CLEAN_FILES/SPACE_EFFECTS.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch SPACE_EFFECTS.csv: ${response.status} ${response.statusText}`);
     }
@@ -182,7 +182,7 @@ export class DataService implements IDataService {
   }
 
   private async loadDiceEffects(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/DICE_EFFECTS.csv');
+    const response = await fetch('/data/CLEAN_FILES/DICE_EFFECTS.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch DICE_EFFECTS.csv: ${response.status} ${response.statusText}`);
     }
@@ -191,7 +191,7 @@ export class DataService implements IDataService {
   }
 
   private async loadSpaceContents(): Promise<void> {
-    const response = await fetch('/data/CLEAN_FILES/SPACE_CONTENT.csv');
+    const response = await fetch('/data/CLEAN_FILES/SPACE_CONTENT.csv?_=' + Date.now()); // Cache busting
     if (!response.ok) {
       throw new Error(`Failed to fetch SPACE_CONTENT.csv: ${response.status} ${response.statusText}`);
     }
