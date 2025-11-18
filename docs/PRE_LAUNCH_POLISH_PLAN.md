@@ -371,9 +371,11 @@ export const ErrorNotifications = {
 # Technical Debt Register
 
 ## Priority 1: Critical (Address within 1-2 months)
-- [ ] Remove circular dependencies (TurnService ↔ EffectEngineService)
+- [x] ~~Remove circular dependencies (TurnService ↔ EffectEngineService)~~ - **VERIFIED**: Proper DI pattern (Nov 2025)
 - [ ] Consolidate modal system (create BaseModal)
 - [ ] Fix type safety violations (undefined as any)
+
+**Note**: Circular dependency was investigated and confirmed to be a properly implemented dependency injection pattern using setter injection. See `docs/project/TECHNICAL_DEBT.md` for details. No action required.
 
 ## Priority 2: High (Address within 3-4 months)
 - [ ] Break apart TurnService (2,773 lines → multiple services)
@@ -391,9 +393,9 @@ export const ErrorNotifications = {
 - Responsive design needs mobile breakpoints
 
 ## Architectural Improvements (Future)
-- Event-based architecture to eliminate circular dependencies
 - Effect handler abstraction pattern
 - State management with selectors/memoization
+- Event-based architecture (optional future enhancement)
 ```
 
 **Acceptance Criteria:**

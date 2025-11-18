@@ -17,18 +17,19 @@
     *   **Iterative Solution:** Collaborated with Claude through several iterations to not only stabilize the panel but also implement a professional, responsive UI component (`ResponsiveSheet`) that acts as a modal on desktop and a native-style bottom sheet on mobile.
     *   **Standardization:** All pop-up panels (Financials, Card Portfolio, Space Explorer, etc.) were standardized to use this new, consistent component.
 
-2.  **"Try Again" Logic Refactor:**
+2.  **"Try Again" Logic Refactor:** ✅ **COMPLETED** (November 2025)
     *   **Architectural Flaw Identified:** Uncovered a brittle, bug-prone pattern in the `TurnService` that used a persistent `usedTryAgain` flag on the player state.
     *   **Verified the Flaw:** Performed a code trace to confirm the flag was handled inconsistently, with duplicate code in some places and missing logic in others.
-    *   **Designed a Robust Solution:** Architected a new, cleaner approach that removes the persistent flag in favor of ephemeral UI-level state, passing a parameter to the `endTurnWithMovement` function instead. This improves stability and maintainability.
-    *   **Tasked Implementation:** Delegated the implementation of this high-value refactor to Claude.
+    *   **Solution Implemented:** Architected and implemented a cleaner approach that removes the persistent flag in favor of ephemeral UI-level state, passing a `skipAutoMove` parameter to the `endTurnWithMovement` function instead.
+    *   **Evidence**: The `usedTryAgain` field has been completely removed from the Player interface (`src/types/DataTypes.ts:158-201`). Only appears in archived test files.
+    *   **Impact**: Improved stability and maintainability. Eliminated inconsistent state management bugs.
 
 3.  **New Feature: Data Editor Scaffolding:**
     *   **Planned a New Feature:** Designed a user-friendly, form-based "Data Editor" for tweaking `Spaces.csv` data, based on user feedback.
     *   **Scaffolded the Component:** Created the initial `DataEditor.tsx` file and integrated it into the main `GameLayout.tsx` with a new persistent "Settings" icon.
     *   **Delegated Implementation:** Handed off the detailed implementation plan to Claude, to be executed after the "Try Again" refactor is complete.
 
-**Outcome:** A major UI instability has been resolved with a professional-grade component. A critical architectural flaw in the game's core logic is being fixed. A major new feature has been planned and scaffolded for future development.
+**Outcome:** A major UI instability has been resolved with a professional-grade component. A critical architectural flaw in the game's core logic has been fixed. A major new feature has been planned and scaffolded for future development.
 
 ---
 
