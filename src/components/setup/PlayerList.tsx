@@ -27,6 +27,20 @@ export function PlayerList({
   canRemovePlayer
 }: PlayerListProps): JSX.Element {
 
+  // ✅ CORRECT: State at component top level (not inside render function)
+  // Track QR code visibility for each player
+  const [qrVisibility, setQrVisibility] = useState<Record<string, boolean>>({});
+
+  /**
+   * Toggle QR code visibility for a specific player
+   */
+  const toggleQR = (playerId: string) => {
+    setQrVisibility(prev => ({
+      ...prev,
+      [playerId]: !prev[playerId]
+    }));
+  };
+
   /**
    * Handle input focus styling
    */
@@ -96,7 +110,8 @@ export function PlayerList({
    * Render individual player card
    */
   const renderPlayerCard = (player: Player) => {
-    const [showQR, setShowQR] = useState(false);
+    // ✅ CORRECT: Get state from component-level Record
+    const showQR = qrVisibility[player.id] || false;
     const playerURL = getServerURL(player.id);
     const networkInfo = getNetworkInfo();
 
@@ -207,7 +222,7 @@ export function PlayerList({
           paddingTop: '1rem'
         }}>
           <button
-            onClick={() => setShowQR(!showQR)}
+            onClick={() => toggleQR(player.id)}
             style={{
               background: showQR ? colors.primary.main : colors.primary.light,
               color: showQR ? 'white' : colors.primary.text,
