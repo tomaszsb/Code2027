@@ -1,10 +1,11 @@
-import { 
-  IResourceService, 
-  IStateService, 
-  ResourceChange, 
-  ResourceTransaction, 
-  ResourceValidation 
+import {
+  IResourceService,
+  IStateService,
+  ResourceChange,
+  ResourceTransaction,
+  ResourceValidation
 } from '../types/ServiceContracts';
+import { ErrorNotifications } from '../utils/ErrorNotifications';
 
 /**
  * Unified Resource Management Service
@@ -32,7 +33,8 @@ export class ResourceService implements IResourceService {
 
   addMoney(playerId: string, amount: number, source: string, reason?: string, sourceType?: 'bank' | 'investment' | 'owner' | 'other'): boolean {
     if (amount <= 0) {
-      console.warn(`ResourceService.addMoney: Invalid amount ${amount} for player ${playerId}`);
+      const error = ErrorNotifications.resourceOperationFailed('add', 'money', `Invalid amount: ${amount}`);
+      console.warn(error.medium);
       return false;
     }
 
@@ -46,19 +48,21 @@ export class ResourceService implements IResourceService {
 
   spendMoney(playerId: string, amount: number, source: string, reason?: string, category?: keyof import('../types/DataTypes').Expenditures): boolean {
     if (amount <= 0) {
-      console.warn(`ResourceService.spendMoney: Invalid amount ${amount} for player ${playerId}`);
+      const error = ErrorNotifications.resourceOperationFailed('spend', 'money', `Invalid amount: ${amount}`);
+      console.warn(error.medium);
       return false;
+    }
+
+    // Get player first to check affordability
+    const player = this.stateService.getPlayer(playerId);
+    if (!player) {
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     if (!this.canAfford(playerId, amount)) {
-      console.warn(`ResourceService.spendMoney: Player ${playerId} cannot afford $${amount.toLocaleString()}`);
-      return false;
-    }
-
-    // Get player for expenditure tracking
-    const player = this.stateService.getPlayer(playerId);
-    if (!player) {
-      console.error(`ResourceService.spendMoney: Player ${playerId} not found`);
+      const error = ErrorNotifications.insufficientFunds(amount, player.money);
+      console.warn(error.medium);
       return false;
     }
 
@@ -100,8 +104,8 @@ export class ResourceService implements IResourceService {
   canAfford(playerId: string, amount: number): boolean {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.error(`ResourceService.canAfford: Player ${playerId} not found`);
-      return false;
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
     return player.money >= amount;
   }
@@ -118,18 +122,20 @@ export class ResourceService implements IResourceService {
     source: string
   ): boolean {
     if (amount <= 0) {
-      console.warn(`ResourceService.recordCost: Invalid amount ${amount} for player ${playerId}`);
-      return false;
-    }
-
-    if (!this.canAfford(playerId, amount)) {
-      console.warn(`ResourceService.recordCost: Player ${playerId} cannot afford $${amount.toLocaleString()} for ${category} fee`);
+      const error = ErrorNotifications.resourceOperationFailed('record', 'cost', `Invalid amount: ${amount}`);
+      console.warn(error.medium);
       return false;
     }
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.error(`ResourceService.recordCost: Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
+    }
+
+    if (!this.canAfford(playerId, amount)) {
+      const error = ErrorNotifications.insufficientFunds(amount, player.money);
+      console.warn(error.medium);
       return false;
     }
 
@@ -233,15 +239,20 @@ export class ResourceService implements IResourceService {
     // Validate the change
     const validation = this.validateResourceChange(playerId, changes);
     if (!validation.valid) {
-      console.error(`ResourceService.updateResources: Validation failed for player ${playerId}:`, validation.errors);
+      const error = ErrorNotifications.resourceOperationFailed(
+        'update',
+        'resources',
+        validation.errors.join(', ')
+      );
+      console.error(error.detailed);
       return false;
     }
 
     // Get current player state
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.error(`ResourceService.updateResources: Player ${playerId} not found`);
-      return false;
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     // Calculate new values
@@ -313,12 +324,17 @@ export class ResourceService implements IResourceService {
       return true;
 
     } catch (error) {
-      console.error(`ResourceService.updateResources: Failed to update player ${playerId}:`, error);
-      
+      const errorNotification = ErrorNotifications.resourceOperationFailed(
+        'update',
+        'resources',
+        (error as Error).message
+      );
+      console.error(errorNotification.detailed);
+
       // Log failed transaction
       this.logTransaction(playerId, changes, balanceBefore, balanceBefore, false);
-      
-      return false;
+
+      throw new Error(errorNotification.detailed);
     }
   }
 
@@ -479,19 +495,21 @@ export class ResourceService implements IResourceService {
    */
   takeOutLoan(playerId: string, amount: number, interestRate: number): boolean {
     if (amount <= 0) {
-      console.warn(`ResourceService.takeOutLoan: Invalid amount ${amount} for player ${playerId}`);
+      const error = ErrorNotifications.resourceOperationFailed('take', 'loan', `Invalid amount: ${amount}`);
+      console.warn(error.medium);
       return false;
     }
 
     if (interestRate < 0) {
-      console.warn(`ResourceService.takeOutLoan: Invalid interest rate ${interestRate} for player ${playerId}`);
+      const error = ErrorNotifications.resourceOperationFailed('take', 'loan', `Invalid interest rate: ${interestRate}`);
+      console.warn(error.medium);
       return false;
     }
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.warn(`ResourceService.takeOutLoan: Player ${playerId} not found`);
-      return false;
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     const gameState = this.stateService.getGameState();
@@ -533,8 +551,13 @@ export class ResourceService implements IResourceService {
       }
       
     } catch (error) {
-      console.error(`ResourceService.takeOutLoan: Error taking loan for player ${playerId}:`, error);
-      return false;
+      const errorNotification = ErrorNotifications.resourceOperationFailed(
+        'take',
+        'loan',
+        (error as Error).message
+      );
+      console.error(errorNotification.detailed);
+      throw new Error(errorNotification.detailed);
     }
   }
 
@@ -545,8 +568,8 @@ export class ResourceService implements IResourceService {
   applyInterest(playerId: string): void {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.warn(`ResourceService.applyInterest: Player ${playerId} not found`);
-      return;
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     if (!player.loans || player.loans.length === 0) {
