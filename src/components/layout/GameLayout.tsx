@@ -23,11 +23,19 @@ import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
 
+interface GameLayoutProps {
+  playerId?: string | null; // Optional specific player to show panel for (from URL param)
+}
+
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
  * This provides the main grid-based layout for the game application.
+ *
+ * Now supports multi-player QR code routing:
+ * - If playerId prop is provided, shows that player's panel
+ * - If playerId is null, shows current player's panel (default behavior)
  */
-export function GameLayout(): JSX.Element {
+export function GameLayout({ playerId: viewPlayerId }: GameLayoutProps = {}): JSX.Element {
   const {
     stateService,
     dataService,
@@ -111,6 +119,7 @@ export function GameLayout(): JSX.Element {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
+        /* Base styles for desktop */
         .game-interface-responsive {
           display: grid;
           grid-template-columns: 1280px 1fr;
@@ -123,6 +132,14 @@ export function GameLayout(): JSX.Element {
           overflow: hidden;
         }
 
+        /* Prevent zoom on input focus (iOS) */
+        body {
+          font-size: 16px;
+          -webkit-text-size-adjust: 100%;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* Desktop responsive breakpoints */
         @media (max-width: 1920px) {
           .game-interface-responsive {
             grid-template-columns: 1120px 1fr;
@@ -154,10 +171,81 @@ export function GameLayout(): JSX.Element {
             padding: 2px;
           }
         }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+          .game-interface-responsive {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto 1fr;
+            column-gap: 0;
+            row-gap: 8px;
+            padding: 8px;
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+          }
+
+          /* Project Progress - compact on mobile */
+          .game-interface-responsive > div:first-child {
+            padding: 0.5rem !important;
+            font-size: 0.85rem;
+          }
+
+          /* Player Panel - full width on mobile */
+          .game-interface-responsive > div:nth-child(2) {
+            grid-column: 1 !important;
+            grid-row: 2 !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: hidden;
+          }
+
+          /* Game Board - scrollable on mobile */
+          .game-interface-responsive > div:nth-child(3) {
+            grid-column: 1 !important;
+            grid-row: 3 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-width: 100vw;
+          }
+
+          /* Ensure all child elements don't overflow */
+          .game-interface-responsive * {
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+          .game-interface-responsive {
+            padding: 4px;
+            row-gap: 4px;
+          }
+
+          /* Further compact project progress */
+          .game-interface-responsive > div:first-child {
+            padding: 0.25rem !important;
+            font-size: 0.75rem;
+          }
+
+          /* Smaller text for mobile */
+          body {
+            font-size: 14px;
+          }
+        }
       `;
       document.head.appendChild(style);
     }
   }, []);
+
+  // Determine which player to display:
+  // - If viewPlayerId prop is provided (from URL), use that
+  // - Otherwise use currentPlayerId (the active player)
+  const displayPlayerId = viewPlayerId || currentPlayerId;
+
+  // Check if viewing a different player than the current turn
+  const isViewingOtherPlayer = viewPlayerId && viewPlayerId !== currentPlayerId;
 
   // Subscribe to game state changes to track phase transitions and notifications
   useEffect(() => {
@@ -457,26 +545,48 @@ export function GameLayout(): JSX.Element {
           position: 'relative'
         }}
       >
-        {gamePhase === 'PLAY' && currentPlayerId ? (
-          <PlayerPanel
-            gameServices={gameServices}
-            playerId={currentPlayerId}
-            onToggleSpaceExplorer={handleToggleSpaceExplorer}
-            onToggleMovementPath={handleToggleMovementPath}
-            isSpaceExplorerVisible={isSpaceExplorerVisible}
-            isMovementPathVisible={isMovementPathVisible}
-            onTryAgain={handleTryAgain}
-            playerNotification={playerNotifications[currentPlayerId]}
-            onRollDice={handleRollDice}
-            onAutomaticFunding={handleAutomaticFunding}
-            onManualEffectResult={(result) => {
-              if (result && result.effects && result.effects.length > 0) {
-                setDiceResult(result);
-                setIsDiceResultModalOpen(true);
-              }
-            }}
-            completedActions={completedActions}
-          />
+        {gamePhase === 'PLAY' && displayPlayerId ? (
+          <>
+            {/* Show banner when viewing another player's panel */}
+            {isViewingOtherPlayer && (
+              <div style={{
+                background: '#fff3cd',
+                padding: '0.75rem',
+                textAlign: 'center',
+                borderRadius: '8px 8px 0 0',
+                borderBottom: `2px solid ${colors.primary.main}`,
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                color: '#856404'
+              }}>
+                👀 Viewing {players.find(p => p.id === displayPlayerId)?.name || 'Player'}'s Panel
+                {currentPlayerId && (
+                  <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', fontWeight: 'normal' }}>
+                    Current turn: {players.find(p => p.id === currentPlayerId)?.name || 'Unknown'}
+                  </div>
+                )}
+              </div>
+            )}
+            <PlayerPanel
+              gameServices={gameServices}
+              playerId={displayPlayerId}
+              onToggleSpaceExplorer={handleToggleSpaceExplorer}
+              onToggleMovementPath={handleToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
+              onTryAgain={handleTryAgain}
+              playerNotification={playerNotifications[displayPlayerId]}
+              onRollDice={handleRollDice}
+              onAutomaticFunding={handleAutomaticFunding}
+              onManualEffectResult={(result) => {
+                if (result && result.effects && result.effects.length > 0) {
+                  setDiceResult(result);
+                  setIsDiceResultModalOpen(true);
+                }
+              }}
+              completedActions={completedActions}
+            />
+          </>
         ) : (
           <>
             <h3>👤 Player Panel</h3>

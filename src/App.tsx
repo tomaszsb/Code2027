@@ -5,6 +5,7 @@ import { ServiceProvider } from './context/ServiceProvider';
 import { GameLayout } from './components/layout/GameLayout';
 import { useGameContext } from './context/GameContext';
 import { colors } from './styles/theme';
+import { getAppScreen } from './utils/getAppScreen';
 
 /**
  * LoadingScreen component displays while the application initializes
@@ -42,21 +43,34 @@ function LoadingScreen(): JSX.Element {
 function AppContent(): JSX.Element {
   const { dataService, stateService } = useGameContext();
   const [isLoading, setIsLoading] = useState(true);
+  const [gameState, setGameState] = useState(stateService.getGameState());
+  const [urlPlayerId, setUrlPlayerId] = useState<string | null>(null);
 
+  // Extract playerId from URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerIdParam = urlParams.get('playerId');
+    if (playerIdParam) {
+      setUrlPlayerId(playerIdParam);
+      console.log('🎮 Player ID from URL:', playerIdParam);
+    }
+  }, []);
+
+  // Initialize app data
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await dataService.loadData();
-        
+
         // Fix any existing players who might have incorrect starting spaces
         // This addresses the caching bug where players were created before data loaded
         console.log('🔧 Attempting to fix player starting spaces after data load...');
         stateService.fixPlayerStartingSpaces();
-        
+
         // If that didn't work, use the aggressive fix
         console.log('🚨 Using aggressive fix to ensure all players are on correct starting space...');
         stateService.forceResetAllPlayersToCorrectStartingSpace();
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize application:', error);
@@ -67,13 +81,33 @@ function AppContent(): JSX.Element {
     initializeApp();
   }, [dataService, stateService]);
 
+  // Subscribe to game state changes
+  useEffect(() => {
+    const unsubscribe = stateService.subscribe((newState) => {
+      setGameState(newState);
+    });
+
+    // Initialize with current state
+    setGameState(stateService.getGameState());
+
+    return unsubscribe;
+  }, [stateService]);
+
   if (isLoading) {
     return <LoadingScreen />;
   }
 
+  // Determine which screen to show based on game state and URL parameter
+  const { screen, playerId } = getAppScreen(gameState, urlPlayerId);
+
+  // Show warning if player ID was provided but not found
+  if (urlPlayerId && !playerId && screen === 'SETUP') {
+    console.warn(`⚠️ Player ${urlPlayerId} not found in game. Showing setup screen.`);
+  }
+
   return (
     <>
-      <GameLayout />
+      <GameLayout playerId={playerId} />
     </>
   );
 }
