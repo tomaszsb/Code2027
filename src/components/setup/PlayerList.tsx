@@ -1,9 +1,11 @@
 // src/components/setup/PlayerList.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
+import { getServerURL, copyToClipboard } from '../../utils/networkDetection';
 
 interface PlayerListProps {
   players: Player[];
@@ -11,6 +13,7 @@ interface PlayerListProps {
   onRemovePlayer: (playerId: string) => void;
   onCycleAvatar: (playerId: string) => void;
   canRemovePlayer: boolean;
+  showQRCodes?: boolean;
 }
 
 /**
@@ -22,8 +25,40 @@ export function PlayerList({
   onUpdatePlayer,
   onRemovePlayer,
   onCycleAvatar,
-  canRemovePlayer
+  canRemovePlayer,
+  showQRCodes = true
 }: PlayerListProps): JSX.Element {
+
+  // State for QR code expansion per player
+  const [expandedQR, setExpandedQR] = useState<Set<string>>(new Set());
+  const [copiedURL, setCopiedURL] = useState<string | null>(null);
+
+  /**
+   * Toggle QR code visibility for a specific player
+   */
+  const toggleQR = (playerId: string) => {
+    setExpandedQR(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
+  /**
+   * Copy URL to clipboard
+   */
+  const handleCopyURL = async (playerId: string) => {
+    const url = getServerURL(playerId);
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopiedURL(playerId);
+      setTimeout(() => setCopiedURL(null), 2000);
+    }
+  };
 
   /**
    * Handle input focus styling
@@ -94,6 +129,10 @@ export function PlayerList({
    * Render individual player card
    */
   const renderPlayerCard = (player: Player) => {
+    const playerURL = getServerURL(player.id);
+    const isQRExpanded = expandedQR.has(player.id);
+    const isCopied = copiedURL === player.id;
+
     return (
       <div
         key={player.id}
@@ -102,90 +141,189 @@ export function PlayerList({
           border: `3px solid ${player.color}`,
           borderRadius: '12px',
           padding: '1.5rem',
-          display: 'grid',
-          gridTemplateColumns: '60px 1fr auto',
-          gap: '1rem',
-          alignItems: 'center',
           transition: 'all 0.3s ease',
           animation: 'slideInFromLeft 0.5s ease-out'
         }}
       >
-        {/* Avatar section */}
-        <div style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              fontSize: '2.5rem',
-              marginBottom: '0.5rem',
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}
-            onClick={() => onCycleAvatar(player.id)}
-            title="Click to change avatar"
-          >
-            {player.avatar}
-          </div>
-          <div style={{
-            fontSize: '0.75rem',
-            color: colors.secondary.main
-          }}>
-            Click to change
-          </div>
-        </div>
-
-        {/* Name and color inputs */}
+        {/* Main player info section */}
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem'
+          display: 'grid',
+          gridTemplateColumns: '60px 1fr auto',
+          gap: '1rem',
+          alignItems: 'center',
+          marginBottom: showQRCodes ? '1rem' : '0'
         }}>
-          {/* Name input */}
-          <input
-            type="text"
-            placeholder="Enter player name"
-            value={player.name}
-            onChange={(e) => onUpdatePlayer(player.id, 'name', e.target.value)}
-            maxLength={20}
-            style={{
-              padding: '0.75rem',
-              border: `2px solid ${colors.secondary.light}`,
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              transition: 'border-color 0.3s ease'
-            }}
-            onFocus={(e) => handleInputFocus(e, player.color || '')}
-            onBlur={handleInputBlur}
-          />
+          {/* Avatar section */}
+          <div style={{ textAlign: 'center' }}>
+            <div
+              style={{
+                fontSize: '2.5rem',
+                marginBottom: '0.5rem',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}
+              onClick={() => onCycleAvatar(player.id)}
+              title="Click to change avatar"
+            >
+              {player.avatar}
+            </div>
+            <div style={{
+              fontSize: '0.75rem',
+              color: colors.secondary.main
+            }}>
+              Click to change
+            </div>
+          </div>
 
-          {/* Color picker */}
-          {renderColorPicker(player)}
+          {/* Name and color inputs */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            {/* Name input */}
+            <input
+              type="text"
+              placeholder="Enter player name"
+              value={player.name}
+              onChange={(e) => onUpdatePlayer(player.id, 'name', e.target.value)}
+              maxLength={20}
+              style={{
+                padding: '0.75rem',
+                border: `2px solid ${colors.secondary.light}`,
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                transition: 'border-color 0.3s ease'
+              }}
+              onFocus={(e) => handleInputFocus(e, player.color || '')}
+              onBlur={handleInputBlur}
+            />
+
+            {/* Color picker */}
+            {renderColorPicker(player)}
+          </div>
+
+          {/* Remove button */}
+          {canRemovePlayer && (
+            <button
+              onClick={() => onRemovePlayer(player.id)}
+              style={{
+                background: colors.danger.main,
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={handleRemoveMouseEnter}
+              onMouseLeave={handleRemoveMouseLeave}
+              title="Remove player"
+              aria-label={`Remove ${player.name}`}
+            >
+              ×
+            </button>
+          )}
         </div>
 
-        {/* Remove button */}
-        {canRemovePlayer && (
-          <button
-            onClick={() => onRemovePlayer(player.id)}
-            style={{
-              background: colors.danger.main,
-              color: 'white',
-              border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={handleRemoveMouseEnter}
-            onMouseLeave={handleRemoveMouseLeave}
-            title="Remove player"
-            aria-label={`Remove ${player.name}`}
-          >
-            ×
-          </button>
+        {/* QR Code Section */}
+        {showQRCodes && (
+          <div style={{
+            borderTop: `2px solid ${colors.secondary.light}`,
+            paddingTop: '1rem'
+          }}>
+            <button
+              onClick={() => toggleQR(player.id)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: isQRExpanded ? colors.primary.main : colors.secondary.light,
+                color: isQRExpanded ? 'white' : colors.secondary.dark,
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              📱 {isQRExpanded ? 'Hide QR Code' : 'Show QR Code'}
+            </button>
+
+            {isQRExpanded && (
+              <div style={{
+                background: 'white',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginTop: '0.75rem',
+                textAlign: 'center'
+              }}>
+                {/* QR Code */}
+                <div style={{
+                  display: 'inline-block',
+                  padding: '0.5rem',
+                  background: 'white',
+                  borderRadius: '8px',
+                  marginBottom: '1rem'
+                }}>
+                  <QRCodeSVG
+                    value={playerURL}
+                    size={150}
+                    level="M"
+                    includeMargin={true}
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      maxWidth: '150px'
+                    }}
+                  />
+                </div>
+
+                {/* URL */}
+                <p style={{
+                  fontSize: '0.7rem',
+                  fontFamily: 'monospace',
+                  color: colors.secondary.main,
+                  wordBreak: 'break-all',
+                  margin: '0 0 0.75rem 0',
+                  padding: '0.5rem',
+                  background: colors.secondary.bg,
+                  borderRadius: '4px'
+                }}>
+                  {playerURL}
+                </p>
+
+                {/* Copy Button */}
+                <button
+                  onClick={() => handleCopyURL(player.id)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    background: isCopied ? colors.success.main : colors.primary.main,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isCopied ? '✅ Copied!' : '📋 Copy URL'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
