@@ -1,12 +1,14 @@
 // src/components/setup/PlayerSetup.tsx
 
 import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { colors } from '../../styles/theme';
 import { PlayerForm } from './PlayerForm';
 import { PlayerList } from './PlayerList';
 import { usePlayerValidation, GameSettings } from './usePlayerValidation';
 import { useGameContext } from '../../context/GameContext';
 import { Player } from '../../types/StateTypes';
+import { getServerURL, getLocalIPAddress, copyToClipboard, isLocalhost } from '../../utils/networkDetection';
 
 interface PlayerSetupProps {
   onStartGame?: (players: Player[], settings: GameSettings) => void;
@@ -47,8 +49,16 @@ export function PlayerSetup({
 
   const [isStarting, setIsStarting] = useState(false);
 
+  // QR code state
+  const [showQRCodes, setShowQRCodes] = useState(false);
+  const [copiedURL, setCopiedURL] = useState<string | null>(null);
+
   // Use validation hook with services
   const validation = usePlayerValidation(players, gameSettings, stateService, gameRulesService);
+
+  // Network detection
+  const serverIP = getLocalIPAddress();
+  const isLocal = isLocalhost();
 
   /**
    * Add a new player
@@ -132,6 +142,17 @@ export function PlayerSetup({
       alert('Failed to start game. Please try again.');
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  /**
+   * Copy URL to clipboard
+   */
+  const handleCopyURL = async (url: string, playerId: string) => {
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopiedURL(playerId);
+      setTimeout(() => setCopiedURL(null), 2000);
     }
   };
 
@@ -262,6 +283,170 @@ export function PlayerSetup({
             />
           )}
         </div>
+
+        {/* QR Code Section for Multi-Player Connection */}
+        {players.length > 0 && (
+          <div style={{
+            background: colors.primary.light,
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginBottom: '2rem',
+            border: `2px solid ${colors.primary.main}`
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: showQRCodes ? '1rem' : '0'
+            }}>
+              <h3 style={{
+                color: colors.primary.dark,
+                fontSize: '1.2rem',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                📱 Mobile Connection
+              </h3>
+              <button
+                onClick={() => setShowQRCodes(!showQRCodes)}
+                style={{
+                  background: colors.primary.main,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {showQRCodes ? '▲ Hide QR Codes' : '▼ Show QR Codes'}
+              </button>
+            </div>
+
+            {showQRCodes && (
+              <>
+                {/* Server Info */}
+                <div style={{
+                  background: isLocal ? colors.warning.bg : colors.success.bg,
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1.5rem',
+                  border: `2px solid ${isLocal ? colors.warning.main : colors.success.main}`
+                }}>
+                  <p style={{
+                    margin: '0 0 0.5rem 0',
+                    fontWeight: 'bold',
+                    color: colors.secondary.dark
+                  }}>
+                    Server Address: <span style={{ color: colors.primary.main }}>{serverIP}</span>
+                  </p>
+                  {isLocal && (
+                    <p style={{
+                      margin: '0.5rem 0 0 0',
+                      fontSize: '0.9rem',
+                      color: colors.warning.text
+                    }}>
+                      ⚠️ Running on localhost. To connect from other devices, use <code>npm run dev -- --host</code>
+                    </p>
+                  )}
+                  <p style={{
+                    margin: '0.5rem 0 0 0',
+                    fontSize: '0.9rem',
+                    color: colors.secondary.main
+                  }}>
+                    📱 Make sure all devices are on the same WiFi network
+                  </p>
+                </div>
+
+                {/* QR Code Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '1rem'
+                }}>
+                  {players.map((player) => {
+                    const playerURL = getServerURL(player.id);
+                    const isCopied = copiedURL === player.id;
+
+                    return (
+                      <div
+                        key={player.id}
+                        style={{
+                          background: 'white',
+                          borderRadius: '12px',
+                          padding: '1rem',
+                          textAlign: 'center',
+                          border: `3px solid ${player.color || colors.secondary.main}`,
+                          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                        }}
+                      >
+                        <h4 style={{
+                          margin: '0 0 1rem 0',
+                          color: player.color || colors.secondary.dark,
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {player.avatar || '👤'} {player.name || `Player ${players.indexOf(player) + 1}`}
+                        </h4>
+
+                        <div style={{
+                          background: 'white',
+                          padding: '0.5rem',
+                          borderRadius: '8px',
+                          marginBottom: '1rem'
+                        }}>
+                          <QRCodeSVG
+                            value={playerURL}
+                            size={150}
+                            level="M"
+                            includeMargin={true}
+                            style={{
+                              width: '100%',
+                              height: 'auto',
+                              maxWidth: '150px'
+                            }}
+                          />
+                        </div>
+
+                        <p style={{
+                          fontSize: '0.7rem',
+                          wordBreak: 'break-all',
+                          margin: '0.5rem 0',
+                          color: colors.secondary.main,
+                          fontFamily: 'monospace'
+                        }}>
+                          {playerURL}
+                        </p>
+
+                        <button
+                          onClick={() => handleCopyURL(playerURL, player.id)}
+                          style={{
+                            background: isCopied ? colors.success.main : colors.secondary.main,
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            width: '100%',
+                            transition: 'all 0.2s ease',
+                            fontWeight: isCopied ? 'bold' : 'normal'
+                          }}
+                        >
+                          {isCopied ? '✓ Copied!' : '📋 Copy URL'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Game settings section */}
         <div style={{
