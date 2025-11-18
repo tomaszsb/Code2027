@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ServiceProvider } from './context/ServiceProvider';
 import { GameLayout } from './components/layout/GameLayout';
 import { useGameContext } from './context/GameContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { colors } from './styles/theme';
 
 /**
@@ -81,12 +82,16 @@ function AppContent(): JSX.Element {
 /**
  * App component serves as the composition root for the entire application.
  * It wraps the main layout with the ServiceProvider to provide dependency injection
- * throughout the component tree.
+ * throughout the component tree. ErrorBoundary catches and handles any unexpected errors.
  */
 export function App(): JSX.Element {
   return (
-    <ServiceProvider>
-      <AppContent />
-    </ServiceProvider>
+    <ErrorBoundary>
+      <ServiceProvider>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </ServiceProvider>
+    </ErrorBoundary>
   );
 }
