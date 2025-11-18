@@ -19,6 +19,23 @@ This document tracks identified technical debt in the `code2027` codebase.
 - **Test Coverage**: 21 new/restored tests (7 pathChoiceMemory + 14 regression tests)
 - **Impact**: Game progression now works correctly from start, all critical spaces validated
 
+### `usedTryAgain` Flag Refactor (November 2025)
+- **Status**: ✅ COMPLETED
+- **Description**: The "Try Again" feature was implemented using a persistent `usedTryAgain` boolean flag on the core `Player` state object. This proved to be a brittle, bug-prone pattern, as it required multiple, disparate functions to remember to manually clear the flag.
+- **Resolution**: The flag has been completely removed from the Player interface (`src/types/DataTypes.ts:158-201`). The logic was refactored to use ephemeral UI state in the `GameLayout.tsx` component, which passes a `skipAutoMove` parameter to the `endTurnWithMovement` function. This correctly separates UI state from core game state.
+- **Evidence**: No `usedTryAgain` field exists in production code (only appears in archived test files)
+- **Impact**: Eliminated inconsistent state management and hard-to-trace bugs
+
+### Circular Dependency Pattern - Properly Handled (November 2025)
+- **Status**: ✅ NOT TECHNICAL DEBT - Industry-standard implementation
+- **Description**: TurnService ↔ EffectEngineService have a circular dependency that is correctly managed using setter injection (standard dependency injection pattern).
+- **Implementation**: `src/context/ServiceProvider.tsx:56-67`
+  - Creates temporary EffectEngine → NegotiationService → TurnService
+  - Creates final EffectEngineService with TurnService reference
+  - Uses setters to complete wiring: `turnService.setEffectEngineService(effectEngineService)`
+- **Conclusion**: This is a properly implemented dependency injection pattern, NOT a bug or technical debt. This pattern is widely used in enterprise applications.
+- **Impact**: No action required - this is correct architecture
+
 ---
 
 ## High Priority Refactoring Candidates
@@ -37,8 +54,4 @@ This document tracks identified technical debt in the `code2027` codebase.
 
 ## In Progress
 
-### `usedTryAgain` Flag in Player State
-- **Status**: 🟡 In Progress (Refactor underway)
-- **Description**: The "Try Again" feature was implemented using a persistent `usedTryAgain` boolean flag on the core `Player` state object. This proved to be a brittle, bug-prone pattern, as it required multiple, disparate functions (`rollDiceWithFeedback`, `handleAutomaticFunding`, etc.) to remember to manually clear the flag.
-- **Impact**: This led to inconsistent state management, duplicate code, and hard-to-trace bugs where the flag was not cleared in all code paths (e.g., `triggerManualEffectWithFeedback`).
-- **Resolution**: The flag is being removed from the core data model. The logic is being refactored to use a short-lived, ephemeral state variable in the `GameLayout.tsx` UI component, which passes a `skipAutoMove` parameter to the `endTurnWithMovement` function. This correctly separates UI state from core game state.
+*(No active refactoring tasks)*
