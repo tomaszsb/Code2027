@@ -1,9 +1,11 @@
 // src/components/setup/PlayerList.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
+import { getServerURL, getNetworkInfo } from '../../utils/networkDetection';
 
 interface PlayerListProps {
   players: Player[];
@@ -94,6 +96,10 @@ export function PlayerList({
    * Render individual player card
    */
   const renderPlayerCard = (player: Player) => {
+    const [showQR, setShowQR] = useState(false);
+    const playerURL = getServerURL(player.id);
+    const networkInfo = getNetworkInfo();
+
     return (
       <div
         key={player.id}
@@ -102,91 +108,200 @@ export function PlayerList({
           border: `3px solid ${player.color}`,
           borderRadius: '12px',
           padding: '1.5rem',
-          display: 'grid',
-          gridTemplateColumns: '60px 1fr auto',
+          display: 'flex',
+          flexDirection: 'column',
           gap: '1rem',
-          alignItems: 'center',
           transition: 'all 0.3s ease',
           animation: 'slideInFromLeft 0.5s ease-out'
         }}
       >
-        {/* Avatar section */}
-        <div style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              fontSize: '2.5rem',
-              marginBottom: '0.5rem',
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}
-            onClick={() => onCycleAvatar(player.id)}
-            title="Click to change avatar"
-          >
-            {player.avatar}
-          </div>
-          <div style={{
-            fontSize: '0.75rem',
-            color: colors.secondary.main
-          }}>
-            Click to change
-          </div>
-        </div>
-
-        {/* Name and color inputs */}
+        {/* Main player info row */}
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem'
+          display: 'grid',
+          gridTemplateColumns: '60px 1fr auto',
+          gap: '1rem',
+          alignItems: 'center'
         }}>
-          {/* Name input */}
-          <input
-            type="text"
-            placeholder="Enter player name"
-            value={player.name}
-            onChange={(e) => onUpdatePlayer(player.id, 'name', e.target.value)}
-            maxLength={20}
-            style={{
-              padding: '0.75rem',
-              border: `2px solid ${colors.secondary.light}`,
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              transition: 'border-color 0.3s ease'
-            }}
-            onFocus={(e) => handleInputFocus(e, player.color || '')}
-            onBlur={handleInputBlur}
-          />
+          {/* Avatar section */}
+          <div style={{ textAlign: 'center' }}>
+            <div
+              style={{
+                fontSize: '2.5rem',
+                marginBottom: '0.5rem',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}
+              onClick={() => onCycleAvatar(player.id)}
+              title="Click to change avatar"
+            >
+              {player.avatar}
+            </div>
+            <div style={{
+              fontSize: '0.75rem',
+              color: colors.secondary.main
+            }}>
+              Click to change
+            </div>
+          </div>
 
-          {/* Color picker */}
-          {renderColorPicker(player)}
+          {/* Name and color inputs */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            {/* Name input */}
+            <input
+              type="text"
+              placeholder="Enter player name"
+              value={player.name}
+              onChange={(e) => onUpdatePlayer(player.id, 'name', e.target.value)}
+              maxLength={20}
+              style={{
+                padding: '0.75rem',
+                border: `2px solid ${colors.secondary.light}`,
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                transition: 'border-color 0.3s ease'
+              }}
+              onFocus={(e) => handleInputFocus(e, player.color || '')}
+              onBlur={handleInputBlur}
+            />
+
+            {/* Color picker */}
+            {renderColorPicker(player)}
+          </div>
+
+          {/* Remove button */}
+          {canRemovePlayer && (
+            <button
+              onClick={() => onRemovePlayer(player.id)}
+              style={{
+                background: colors.danger.main,
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={handleRemoveMouseEnter}
+              onMouseLeave={handleRemoveMouseLeave}
+              title="Remove player"
+              aria-label={`Remove ${player.name}`}
+            >
+              ×
+            </button>
+          )}
         </div>
 
-        {/* Remove button */}
-        {canRemovePlayer && (
+        {/* QR Code section */}
+        <div style={{
+          borderTop: `1px solid ${colors.secondary.light}`,
+          paddingTop: '1rem'
+        }}>
           <button
-            onClick={() => onRemovePlayer(player.id)}
+            onClick={() => setShowQR(!showQR)}
             style={{
-              background: colors.danger.main,
-              color: 'white',
+              background: showQR ? colors.primary.main : colors.primary.light,
+              color: showQR ? 'white' : colors.primary.text,
               border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              fontSize: '1.5rem',
+              borderRadius: '8px',
+              padding: '0.75rem 1rem',
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
               cursor: 'pointer',
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '0.5rem',
               transition: 'all 0.3s ease'
             }}
-            onMouseEnter={handleRemoveMouseEnter}
-            onMouseLeave={handleRemoveMouseLeave}
-            title="Remove player"
-            aria-label={`Remove ${player.name}`}
+            title={showQR ? 'Hide QR code' : 'Show QR code for mobile access'}
           >
-            ×
+            📱 {showQR ? 'Hide' : 'Show'} QR Code
           </button>
-        )}
+
+          {showQR && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: 'white',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              {/* Network warning if on localhost */}
+              {networkInfo.isLocalhost && (
+                <div style={{
+                  background: colors.danger.light,
+                  color: colors.danger.text,
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem',
+                  textAlign: 'left'
+                }}>
+                  ⚠️ <strong>Warning:</strong> Running on localhost. QR code will only work on this device.
+                  <br />
+                  Run <code style={{ background: 'rgba(0,0,0,0.1)', padding: '2px 4px', borderRadius: '3px' }}>
+                    npm run dev -- --host
+                  </code> to enable network access.
+                </div>
+              )}
+
+              {/* QR Code */}
+              <div style={{
+                display: 'inline-block',
+                padding: '1rem',
+                background: 'white',
+                borderRadius: '8px',
+                border: `2px solid ${player.color}`
+              }}>
+                <QRCodeSVG
+                  value={playerURL}
+                  size={180}
+                  level="M"
+                  includeMargin={true}
+                  fgColor={player.color || colors.primary.main}
+                />
+              </div>
+
+              {/* Instructions */}
+              <div style={{
+                marginTop: '1rem',
+                fontSize: '0.9rem',
+                color: colors.secondary.dark
+              }}>
+                <strong>{player.name || 'Player'}'s QR Code</strong>
+                <br />
+                <span style={{ fontSize: '0.8rem', color: colors.secondary.main }}>
+                  Scan with phone to access player panel
+                </span>
+              </div>
+
+              {/* URL display (for debugging) */}
+              <div style={{
+                marginTop: '0.75rem',
+                fontSize: '0.75rem',
+                color: colors.secondary.main,
+                wordBreak: 'break-all',
+                background: colors.secondary.bg,
+                padding: '0.5rem',
+                borderRadius: '4px',
+                fontFamily: 'monospace'
+              }}>
+                {playerURL}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };

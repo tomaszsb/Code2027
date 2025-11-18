@@ -10,6 +10,7 @@ import {
 } from '../types/StateTypes';
 import { colors } from '../styles/theme';
 import { Choice } from '../types/CommonTypes';
+import { getBackendURL } from '../utils/networkDetection';
 
 export class StateService implements IStateService {
   private currentState: GameState;
@@ -17,9 +18,17 @@ export class StateService implements IStateService {
   private gameRulesService?: IGameRulesService; // Setter injection to avoid circular dependency
   private listeners: Array<(state: GameState) => void> = [];
 
+  // Server synchronization settings
+  private serverUrl: string = '';
+  private syncEnabled: boolean = true;
+  private isSyncing: boolean = false;
+
   constructor(dataService: IDataService) {
     this.dataService = dataService;
     this.currentState = this.createInitialState();
+
+    // Initialize server URL (will be set dynamically based on window.location)
+    // Deferred to first sync call to ensure window is available
   }
 
   /**
@@ -44,6 +53,8 @@ export class StateService implements IStateService {
 
   private notifyListeners(): void {
     const currentStateSnapshot = this.getGameState();
+
+    // Notify all subscribers
     this.listeners.forEach(callback => {
       try {
         callback(currentStateSnapshot);
@@ -51,6 +62,10 @@ export class StateService implements IStateService {
         console.error('Error in state change listener:', error);
       }
     });
+
+    // Sync to server after notifying listeners
+    // Fire-and-forget (async without await)
+    this.syncToServer(currentStateSnapshot);
   }
 
   // State access methods
@@ -1273,5 +1288,123 @@ export class StateService implements IStateService {
     this.currentState = newState;
     this.notifyListeners();
     return { ...this.currentState };
+  }
+
+  // ============================================================================
+  // Server Synchronization Methods
+  // ============================================================================
+
+  /**
+   * Sync current state to backend server
+   * Called automatically after every state update
+   * Fails silently if server is unavailable (graceful degradation)
+   */
+  private async syncToServer(state: GameState): Promise<void> {
+    // Skip sync if disabled or already syncing
+    if (!this.syncEnabled || this.isSyncing) {
+      return;
+    }
+
+    // Lazy initialization of server URL
+    if (!this.serverUrl) {
+      try {
+        this.serverUrl = getBackendURL();
+      } catch (error) {
+        console.warn('Cannot determine backend URL, disabling server sync:', error);
+        this.syncEnabled = false;
+        return;
+      }
+    }
+
+    this.isSyncing = true;
+
+    try {
+      const response = await fetch(`${this.serverUrl}/api/gamestate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ state })
+      });
+
+      if (!response.ok) {
+        console.warn(`Failed to sync state to server: ${response.status} ${response.statusText}`);
+      } else {
+        const result = await response.json();
+        console.log(`✅ State synced to server (v${result.stateVersion})`);
+      }
+    } catch (error) {
+      // Fail silently - server may not be running (development mode)
+      // console.error('Failed to sync state to server:', error);
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * Load game state from backend server
+   * Called on app initialization to restore state across devices
+   * Returns true if state was loaded successfully, false otherwise
+   */
+  async loadStateFromServer(): Promise<boolean> {
+    // Lazy initialization of server URL
+    if (!this.serverUrl) {
+      try {
+        this.serverUrl = getBackendURL();
+      } catch (error) {
+        console.warn('Cannot determine backend URL, skipping server state load:', error);
+        return false;
+      }
+    }
+
+    try {
+      console.log('📥 Loading state from server...');
+      const response = await fetch(`${this.serverUrl}/api/gamestate`);
+
+      if (response.status === 404) {
+        console.log('No server state found, using local state');
+        return false;
+      }
+
+      if (!response.ok) {
+        console.warn(`Failed to load state from server: ${response.status} ${response.statusText}`);
+        return false;
+      }
+
+      const { state, stateVersion } = await response.json();
+
+      if (state) {
+        this.currentState = state;
+        this.notifyListeners();
+        console.log(`✅ State loaded from server (v${stateVersion})`);
+        console.log(`   Players: ${state.players?.length || 0}`);
+        console.log(`   Phase: ${state.gamePhase || 'UNKNOWN'}`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      // Server not available - continue with local state
+      console.log('Server not available, using local state');
+      return false;
+    }
+  }
+
+  /**
+   * Replace entire state (used by polling mechanism)
+   * Does NOT trigger sync (to avoid infinite loops)
+   */
+  replaceState(newState: GameState): void {
+    this.currentState = newState;
+    this.notifyListeners();
+  }
+
+  /**
+   * Enable or disable server synchronization
+   * Useful for testing or when server is intentionally offline
+   */
+  setSyncEnabled(enabled: boolean): void {
+    this.syncEnabled = enabled;
+    console.log(`Server sync ${enabled ? 'enabled' : 'disabled'}`);
   }
 }

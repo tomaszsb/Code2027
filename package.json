@@ -1,9 +1,11 @@
 {
   "name": "code2027",
   "version": "1.0.0",
+  "type": "module",
   "description": "Clean architecture refactor of code2026 board game with comprehensive test suite (617 tests passing)",
   "main": "index.js",
   "scripts": {
+    "server": "node server/server.js",
     "test": "vitest run --config vitest.config.dev.ts",
     "test:dev": "vitest run --config vitest.config.dev.ts",
     "test:ci": "vitest run --config vitest.config.ci.ts",
@@ -64,6 +66,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -23,11 +23,24 @@ import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
 
+interface GameLayoutProps {
+  /**
+   * Optional player ID to lock the view to a specific player
+   * Used for mobile/multi-device play via QR codes
+   * If not provided, uses currentPlayerId from game state
+   */
+  viewPlayerId?: string;
+}
+
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
  * This provides the main grid-based layout for the game application.
+ *
+ * Supports multi-device play:
+ * - Without viewPlayerId: Normal desktop view (follows current player)
+ * - With viewPlayerId: Locked to specific player (mobile view via QR code)
  */
-export function GameLayout(): JSX.Element {
+export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element {
   const {
     stateService,
     dataService,
@@ -63,6 +76,10 @@ export function GameLayout(): JSX.Element {
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+
+  // Determine which player to display
+  // If viewPlayerId is provided (multi-device mode), use it; otherwise use currentPlayerId
+  const displayPlayerId = viewPlayerId || currentPlayerId;
   const [isNegotiationModalOpen, setIsNegotiationModalOpen] = useState<boolean>(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
@@ -457,16 +474,16 @@ export function GameLayout(): JSX.Element {
           position: 'relative'
         }}
       >
-        {gamePhase === 'PLAY' && currentPlayerId ? (
+        {gamePhase === 'PLAY' && displayPlayerId ? (
           <PlayerPanel
             gameServices={gameServices}
-            playerId={currentPlayerId}
+            playerId={displayPlayerId}
             onToggleSpaceExplorer={handleToggleSpaceExplorer}
             onToggleMovementPath={handleToggleMovementPath}
             isSpaceExplorerVisible={isSpaceExplorerVisible}
             isMovementPathVisible={isMovementPathVisible}
             onTryAgain={handleTryAgain}
-            playerNotification={playerNotifications[currentPlayerId]}
+            playerNotification={playerNotifications[displayPlayerId]}
             onRollDice={handleRollDice}
             onAutomaticFunding={handleAutomaticFunding}
             onManualEffectResult={(result) => {
@@ -481,7 +498,7 @@ export function GameLayout(): JSX.Element {
           <>
             <h3>👤 Player Panel</h3>
             <div style={{ color: colors.text.secondary }}>
-              Player information will be displayed here
+              {gamePhase === 'SETUP' ? 'Set up players to begin the game' : 'Player information will be displayed here'}
             </div>
           </>
         )}
