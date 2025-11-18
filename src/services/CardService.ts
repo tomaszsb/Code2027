@@ -2,6 +2,7 @@ import { ICardService, IDataService, IStateService, IResourceService, IEffectEng
 import { GameState, Player } from '../types/StateTypes';
 import { CardType } from '../types/DataTypes';
 import { Effect } from '../types/EffectTypes';
+import { ErrorNotifications } from '../utils/ErrorNotifications';
 
 export class CardService implements ICardService {
   private readonly dataService: IDataService;
@@ -50,7 +51,8 @@ export class CardService implements ICardService {
    */
   drawCards(playerId: string, cardType: CardType, count: number, source?: string, reason?: string): string[] {
     if (!this.isValidCardType(cardType)) {
-      throw new Error(`Invalid card type: ${cardType}`);
+      const error = ErrorNotifications.cardDrawFailed(cardType, `Invalid card type: ${cardType}`);
+      throw new Error(error.detailed);
     }
 
     if (count <= 0) {
@@ -59,7 +61,8 @@ export class CardService implements ICardService {
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     const gameState = this.stateService.getGameState();
@@ -72,7 +75,8 @@ export class CardService implements ICardService {
       // If deck is empty, reshuffle discard pile back into deck
       if (availableDeck.length === 0) {
         if (discardPile.length === 0) {
-          console.warn(`No more ${cardType} cards available (deck and discard pile both empty)`);
+          const error = ErrorNotifications.cardDrawFailed(cardType, 'Deck and discard pile both empty');
+          console.warn(error.medium);
           break; // Cannot draw any more cards
         }
         
@@ -162,9 +166,10 @@ export class CardService implements ICardService {
     try {
       // Step 1: Draw the card
       const drawnCards = this.drawCards(playerId, cardType, 1, source, reason);
-      
+
       if (drawnCards.length === 0) {
-        console.warn(`No ${cardType} cards available to draw for player ${playerId}`);
+        const error = ErrorNotifications.cardDrawFailed(cardType, 'No cards available in deck');
+        console.warn(error.medium);
         return { drawnCardId: null, success: false };
       }
       
@@ -183,7 +188,11 @@ export class CardService implements ICardService {
       return { drawnCardId, success: true };
       
     } catch (error) {
-      console.error(`❌ Error in drawAndApplyCard for player ${playerId}:`, error);
+      const errorNotification = ErrorNotifications.cardDrawFailed(
+        cardType,
+        (error as Error).message
+      );
+      console.error(errorNotification.detailed);
       return { drawnCardId: null, success: false };
     }
   }
@@ -191,11 +200,13 @@ export class CardService implements ICardService {
   removeCard(playerId: string, cardId: string): GameState {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     if (!this.playerOwnsCard(playerId, cardId)) {
-      throw new Error(`Player ${playerId} does not own card ${cardId}`);
+      const error = ErrorNotifications.cardDiscardFailed(cardId, `Player ${playerId} does not own this card`);
+      throw new Error(error.detailed);
     }
 
     let cardRemoved = false;
@@ -242,16 +253,19 @@ export class CardService implements ICardService {
 
   replaceCard(playerId: string, oldCardId: string, newCardType: CardType): GameState {
     if (!this.isValidCardType(newCardType)) {
-      throw new Error(`Invalid card type: ${newCardType}`);
+      const error = ErrorNotifications.cardDrawFailed(newCardType, 'Invalid card type');
+      throw new Error(error.detailed);
     }
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     if (!this.playerOwnsCard(playerId, oldCardId)) {
-      throw new Error(`Player ${playerId} does not own card ${oldCardId}`);
+      const error = ErrorNotifications.cardDiscardFailed(oldCardId, `Player does not own this card`);
+      throw new Error(error.detailed);
     }
 
     // Get old card details before removal
@@ -390,22 +404,25 @@ export class CardService implements ICardService {
       // Step 1: Validate that the card can be played (includes phase restrictions)
       const validationResult = this.validateCardPlay(playerId, cardId);
       if (!validationResult.isValid) {
-        throw new Error(validationResult.errorMessage);
+        const error = ErrorNotifications.cardPlayFailed(cardId, validationResult.errorMessage || 'Validation failed');
+        throw new Error(error.detailed);
       }
-      
+
       // Step 2: Get card data
       const card = this.dataService.getCardById(cardId);
       if (!card) {
-        throw new Error(`Card ${cardId} not found in database`);
+        const error = ErrorNotifications.invalidState(`Card ${cardId} not found in database`);
+        throw new Error(error.detailed);
       }
-      
+
       // Step 3: Pay card cost if any
       if (card.cost && card.cost > 0) {
         // Skip cost charging for funding cards (B = Bank loans, I = Investor funding)
         if (card.card_type !== 'B' && card.card_type !== 'I') {
           const player = this.stateService.getPlayer(playerId);
           if (!player) {
-            throw new Error(`Player ${playerId} not found`);
+            const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+            throw new Error(error.detailed);
           }
           
           this.stateService.updatePlayer({
@@ -455,8 +472,13 @@ export class CardService implements ICardService {
       return this.stateService.getGameState();
       
     } catch (error) {
-      console.error(`Failed to play card [${cardId}] for player [${playerId}]:`, error);
-      throw error;
+      // Re-throw if already formatted
+      if ((error as Error).message.startsWith('❌')) {
+        throw error;
+      }
+      const errorNotification = ErrorNotifications.cardPlayFailed(cardId, (error as Error).message);
+      console.error(errorNotification.detailed);
+      throw new Error(errorNotification.detailed);
     }
   }
 
@@ -515,7 +537,8 @@ export class CardService implements ICardService {
   public activateCard(playerId: string, cardId: string, duration: number): void {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     const gameState = this.stateService.getGameState();
@@ -551,29 +574,34 @@ export class CardService implements ICardService {
       // Validate source player
       const sourcePlayer = this.stateService.getPlayer(sourcePlayerId);
       if (!sourcePlayer) {
-        throw new Error(`Source player ${sourcePlayerId} not found`);
+        const error = ErrorNotifications.invalidState(`Source player ${sourcePlayerId} not found`);
+        throw new Error(error.detailed);
       }
-      
+
       // Validate target player
       const targetPlayer = this.stateService.getPlayer(targetPlayerId);
       if (!targetPlayer) {
-        throw new Error(`Target player ${targetPlayerId} not found`);
+        const error = ErrorNotifications.invalidState(`Target player ${targetPlayerId} not found`);
+        throw new Error(error.detailed);
       }
-      
+
       // Cannot transfer to yourself
       if (sourcePlayerId === targetPlayerId) {
-        throw new Error('Cannot transfer card to yourself');
+        const error = ErrorNotifications.genericError('transferring card', new Error('Cannot transfer to yourself'));
+        throw new Error(error.detailed);
       }
-      
+
       // Check if source player owns the card (only in hand for transfer)
       if (!this.playerOwnsCardInCollection(sourcePlayerId, cardId, 'hand')) {
-        throw new Error('You do not own this card or it is not available for transfer');
+        const error = ErrorNotifications.genericError('transferring card', new Error('Card not owned or not available for transfer'));
+        throw new Error(error.detailed);
       }
-      
+
       // Get card type and validate it's transferable
       const cardType = this.getCardType(cardId);
       if (!cardType || !this.isCardTransferable(cardType)) {
-        throw new Error(`${cardType || 'Unknown'} cards cannot be transferred`);
+        const error = ErrorNotifications.genericError('transferring card', new Error(`${cardType || 'Unknown'} cards cannot be transferred`));
+        throw new Error(error.detailed);
       }
       
       // Remove card from source player's available cards
@@ -606,8 +634,13 @@ export class CardService implements ICardService {
       return this.stateService.getGameState();
       
     } catch (error) {
-      console.error(`Failed to transfer card [${cardId}]:`, error);
-      throw error;
+      // Re-throw if already formatted
+      if ((error as Error).message.startsWith('❌')) {
+        throw error;
+      }
+      const errorNotification = ErrorNotifications.genericError(`transferring card ${cardId}`, error as Error);
+      console.error(errorNotification.detailed);
+      throw new Error(errorNotification.detailed);
     }
   }
 
@@ -732,18 +765,21 @@ export class CardService implements ICardService {
   private moveCardToDiscarded(playerId: string, cardId: string): void {
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
-    
+
     const cardType = this.getCardType(cardId);
     if (!cardType) {
-      throw new Error(`Cannot determine card type for ${cardId}`);
+      const error = ErrorNotifications.cardDiscardFailed(cardId, 'Cannot determine card type');
+      throw new Error(error.detailed);
     }
-    
+
     // Verify card exists in player's hand
     const handIndex = player.hand.indexOf(cardId);
     if (handIndex === -1) {
-      throw new Error(`Card ${cardId} not found in player's hand`);
+      const error = ErrorNotifications.cardDiscardFailed(cardId, 'Card not found in player hand');
+      throw new Error(error.detailed);
     }
     
     // Remove from player's hand
@@ -788,10 +824,11 @@ export class CardService implements ICardService {
    */
   public finalizePlayedCard(playerId: string, cardId: string): void {
     console.log(`🎴 Finalizing played card ${cardId} for player ${playerId}`);
-    
+
     const card = this.dataService.getCardById(cardId);
     if (!card) {
-      throw new Error(`Card ${cardId} not found`);
+      const error = ErrorNotifications.invalidState(`Card ${cardId} not found in database`);
+      throw new Error(error.detailed);
     }
     
     // Check if card has duration
@@ -818,7 +855,8 @@ export class CardService implements ICardService {
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      throw new Error(`Player ${playerId} not found`);
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     console.log(`🎴 CARD_SERVICE: Applying effects for card ${cardId}: "${card.card_name}"`);
@@ -1346,20 +1384,25 @@ export class CardService implements ICardService {
   // Discard cards with source tracking
   discardCards(playerId: string, cardIds: string[], source?: string, reason?: string): boolean {
     if (!cardIds || cardIds.length === 0) {
-      console.warn(`CardService.discardCards: No cards provided for player ${playerId}`);
+      const error = ErrorNotifications.cardDiscardFailed('unknown', 'No cards provided');
+      console.warn(error.medium);
       return false;
     }
 
     const player = this.stateService.getPlayer(playerId);
     if (!player) {
-      console.error(`CardService.discardCards: Player ${playerId} not found`);
-      return false;
+      const error = ErrorNotifications.invalidState(`Player ${playerId} not found`);
+      throw new Error(error.detailed);
     }
 
     // Validate all cards exist and are owned by player
     const invalidCards = cardIds.filter(cardId => !this.playerOwnsCard(playerId, cardId));
     if (invalidCards.length > 0) {
-      console.error(`CardService.discardCards: Player ${playerId} does not own cards: ${invalidCards.join(', ')}`);
+      const error = ErrorNotifications.cardDiscardFailed(
+        invalidCards.join(', '),
+        'Player does not own these cards'
+      );
+      console.error(error.detailed);
       return false;
     }
 
@@ -1444,8 +1487,12 @@ export class CardService implements ICardService {
       return true;
 
     } catch (error) {
-      console.error(`CardService.discardCards: Failed to discard cards for player ${playerId}:`, error);
-      return false;
+      const errorNotification = ErrorNotifications.cardDiscardFailed(
+        cardIds.join(', '),
+        (error as Error).message
+      );
+      console.error(errorNotification.detailed);
+      throw new Error(errorNotification.detailed);
     }
   }
 }
