@@ -1,9 +1,11 @@
 // src/components/setup/PlayerList.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { colors } from '../../styles/theme';
 import { Player } from '../../types/StateTypes';
 import { ColorOption, AVAILABLE_COLORS } from './usePlayerValidation';
+import { getServerURL, getNetworkInfo } from '../../utils/NetworkUtils';
 
 interface PlayerListProps {
   players: Player[];
@@ -24,6 +26,20 @@ export function PlayerList({
   onCycleAvatar,
   canRemovePlayer
 }: PlayerListProps): JSX.Element {
+
+  // ✅ CORRECT: Hook at component top level (NOT inside renderPlayerCard)
+  // Track QR code visibility for each player independently
+  const [qrVisibility, setQrVisibility] = useState<Record<string, boolean>>({});
+
+  /**
+   * Toggle QR code visibility for a specific player
+   */
+  const toggleQR = (playerId: string) => {
+    setQrVisibility(prev => ({
+      ...prev,
+      [playerId]: !prev[playerId]
+    }));
+  };
 
   /**
    * Handle input focus styling
@@ -94,6 +110,11 @@ export function PlayerList({
    * Render individual player card
    */
   const renderPlayerCard = (player: Player) => {
+    // ✅ CORRECT: Get state from props, NOT useState inside this function
+    const showQR = qrVisibility[player.id] || false;
+    const playerURL = getServerURL(player.id);
+    const networkInfo = getNetworkInfo();
+
     return (
       <div
         key={player.id}
@@ -159,6 +180,73 @@ export function PlayerList({
 
           {/* Color picker */}
           {renderColorPicker(player)}
+
+          {/* QR Code toggle button */}
+          <button
+            onClick={() => toggleQR(player.id)}
+            style={{
+              padding: '0.5rem 1rem',
+              border: `2px solid ${player.color}`,
+              borderRadius: '8px',
+              backgroundColor: showQR ? player.color : 'transparent',
+              color: showQR ? 'white' : player.color,
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+            onMouseEnter={(e) => {
+              if (!showQR) {
+                e.currentTarget.style.backgroundColor = `${player.color}22`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!showQR) {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            <span>{showQR ? '📱' : '📱'}</span>
+            {showQR ? 'Hide QR Code' : 'Show QR Code'}
+          </button>
+
+          {/* QR Code display */}
+          {showQR && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: 'white',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.5rem',
+              border: `2px solid ${player.color}`
+            }}>
+              <QRCodeSVG value={playerURL} size={120} />
+              <div style={{
+                fontSize: '0.75rem',
+                color: colors.secondary.main,
+                textAlign: 'center',
+                wordBreak: 'break-all',
+                maxWidth: '120px'
+              }}>
+                {networkInfo.baseUrl}
+              </div>
+              <div style={{
+                fontSize: '0.7rem',
+                color: colors.secondary.light,
+                textAlign: 'center',
+                fontStyle: 'italic'
+              }}>
+                Scan to join as {player.name || 'player'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Remove button */}
