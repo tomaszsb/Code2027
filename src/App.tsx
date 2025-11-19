@@ -5,6 +5,7 @@ import { ServiceProvider } from './context/ServiceProvider';
 import { GameLayout } from './components/layout/GameLayout';
 import { useGameContext } from './context/GameContext';
 import { colors } from './styles/theme';
+import { detectDeviceType, getBackendURL } from './utils/deviceDetection';
 
 /**
  * LoadingScreen component displays while the application initializes
@@ -47,16 +48,16 @@ function AppContent(): JSX.Element {
     const initializeApp = async () => {
       try {
         await dataService.loadData();
-        
+
         // Fix any existing players who might have incorrect starting spaces
         // This addresses the caching bug where players were created before data loaded
         console.log('🔧 Attempting to fix player starting spaces after data load...');
         stateService.fixPlayerStartingSpaces();
-        
+
         // If that didn't work, use the aggressive fix
         console.log('🚨 Using aggressive fix to ensure all players are on correct starting space...');
         stateService.forceResetAllPlayersToCorrectStartingSpace();
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize application:', error);
@@ -66,6 +67,45 @@ function AppContent(): JSX.Element {
 
     initializeApp();
   }, [dataService, stateService]);
+
+  // Heartbeat sender for smart layout adaptation
+  useEffect(() => {
+    const deviceType = detectDeviceType();
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const sendHeartbeat = async () => {
+      // Get player ID from URL params or current game state
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPlayerId = urlParams.get('playerId');
+      const currentPlayerId = stateService.getGameState().currentPlayerId;
+      const playerId = urlPlayerId || currentPlayerId;
+
+      if (!playerId) {
+        console.log('⏭️ Skipping heartbeat - no player ID available');
+        return;
+      }
+
+      try {
+        await fetch(`${getBackendURL()}/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, deviceType, sessionId })
+        });
+        console.log(`💓 Sent heartbeat for ${playerId} (${deviceType})`);
+      } catch (error) {
+        // Non-critical error - just log it
+        console.log('⚠️ Failed to send heartbeat (non-critical):', error);
+      }
+    };
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    // Send heartbeat every 3 seconds
+    const interval = setInterval(sendHeartbeat, 3000);
+
+    return () => clearInterval(interval);
+  }, [stateService]);
 
   if (isLoading) {
     return <LoadingScreen />;
