@@ -24,6 +24,41 @@ export function DataEditor({ onClose }: DataEditorProps): JSX.Element {
     alert('CSV download functionality to be implemented!');
   };
 
+  const handleClearData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ Clear All Game Data?\n\n' +
+      'This will permanently delete:\n' +
+      '• All players\n' +
+      '• Current game progress\n' +
+      '• Game state\n\n' +
+      'The page will reload after clearing.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Get backend URL using window.location to match network setup
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const backendURL = `${protocol}//${hostname}:3001`;
+
+      const response = await fetch(`${backendURL}/api/gamestate`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        alert('✅ Game data cleared successfully!\n\nPage will reload...');
+        window.location.reload();
+      } else {
+        alert('❌ Failed to clear game data. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error clearing game data:', error);
+      alert('❌ Error connecting to server. Make sure the backend is running on port 3001.');
+    }
+  };
+
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
@@ -52,6 +87,9 @@ export function DataEditor({ onClose }: DataEditorProps): JSX.Element {
           {/* Form for editing the selected space will be built here */}
         </div>
         <div style={styles.footer}>
+          <button onClick={handleClearData} style={styles.clearButton}>
+            🗑️ Clear Game Data
+          </button>
           <button onClick={handleDownload} style={styles.downloadButton}>
             Download as CSV
           </button>
@@ -104,7 +142,18 @@ const styles: { [key: string]: React.CSSProperties } = {
   footer: {
     padding: '15px',
     borderTop: '1px solid #eee',
-    textAlign: 'right',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clearButton: {
+    background: '#dc3545',
+    color: 'white',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: '14px',
   },
   downloadButton: {
     background: '#28a745',
