@@ -24,10 +24,14 @@ export function detectDeviceType(): DeviceType {
 }
 
 /**
- * Get the backend URL based on environment
+ * Get the backend URL using actual network address
+ * This ensures heartbeat works from any device on the network
  * @returns The backend API URL
  */
 export function getBackendURL(): string {
-  // Use environment variable if available, otherwise default to localhost
-  return process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+
+  // Backend always runs on port 3001
+  return `${protocol}//${hostname}:3001`;
 }
