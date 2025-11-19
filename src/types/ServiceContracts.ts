@@ -236,6 +236,10 @@ export interface IStateService {
   // State management methods
   setGameState(newState: GameState): GameState;
   updateGameState(stateChanges: Partial<GameState>): GameState;
+
+  // Server synchronization methods
+  loadStateFromServer(): Promise<boolean>;
+  replaceState(newState: GameState): void;
 }
 
 export interface TurnResult {

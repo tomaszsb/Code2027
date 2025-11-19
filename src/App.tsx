@@ -11,7 +11,7 @@ import { getBackendURL } from './utils/networkDetection';
 /**
  * LoadingScreen component displays while the application initializes
  */
-function LoadingScreen(): JSX.Element {
+function LoadingScreen({ message }: { message?: string }): JSX.Element {
   return (
     <div
       style={{
@@ -30,7 +30,7 @@ function LoadingScreen(): JSX.Element {
       }}
     >
       <div style={{ marginBottom: '20px', fontSize: '48px' }}>🎲</div>
-      <div>Loading Game Data...</div>
+      <div>{message || 'Loading Game Data...'}</div>
       <div style={{ fontSize: '16px', color: colors.text.secondary, marginTop: '10px' }}>
         Please wait while we initialize the game
       </div>

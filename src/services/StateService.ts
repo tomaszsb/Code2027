@@ -22,6 +22,7 @@ export class StateService implements IStateService {
   private serverUrl: string = '';
   private syncEnabled: boolean = true;
   private isSyncing: boolean = false;
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(dataService: IDataService) {
     this.dataService = dataService;
@@ -51,7 +52,7 @@ export class StateService implements IStateService {
     };
   }
 
-  private notifyListeners(): void {
+  private notifyListeners(options: { skipSync?: boolean } = {}): void {
     const currentStateSnapshot = this.getGameState();
 
     // Notify all subscribers
@@ -63,9 +64,28 @@ export class StateService implements IStateService {
       }
     });
 
-    // Sync to server after notifying listeners
-    // Fire-and-forget (async without await)
-    this.syncToServer(currentStateSnapshot);
+    // Sync to server after notifying listeners (with debouncing)
+    // Skip sync if explicitly requested (e.g., when loading from server)
+    if (!options.skipSync) {
+      this.debouncedSyncToServer(currentStateSnapshot);
+    }
+  }
+
+  /**
+   * Debounced version of syncToServer to prevent spam during rapid state changes
+   * Batches multiple rapid changes into a single sync operation
+   */
+  private debouncedSyncToServer(state: GameState): void {
+    // Clear existing timer
+    if (this.syncTimer) {
+      clearTimeout(this.syncTimer);
+    }
+
+    // Debounce 500ms - batches rapid state changes
+    this.syncTimer = setTimeout(() => {
+      this.syncToServer(state);
+      this.syncTimer = null;
+    }, 500);
   }
 
   // State access methods
@@ -1375,7 +1395,8 @@ export class StateService implements IStateService {
 
       if (state) {
         this.currentState = state;
-        this.notifyListeners();
+        // Skip sync when loading from server to avoid syncing back what we just loaded
+        this.notifyListeners({ skipSync: true });
         console.log(`✅ State loaded from server (v${stateVersion})`);
         console.log(`   Players: ${state.players?.length || 0}`);
         console.log(`   Phase: ${state.gamePhase || 'UNKNOWN'}`);
@@ -1396,7 +1417,8 @@ export class StateService implements IStateService {
    */
   replaceState(newState: GameState): void {
     this.currentState = newState;
-    this.notifyListeners();
+    // Skip sync when replacing from server poll to avoid syncing back what we just received
+    this.notifyListeners({ skipSync: true });
   }
 
   /**
