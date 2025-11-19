@@ -150,6 +150,10 @@ export function GameLayout(): JSX.Element {
     return !(session?.deviceType === 'mobile');
   };
 
+  // Check if all players are on mobile devices
+  const allPlayersOnMobile = !viewPlayerId && players.length > 0 &&
+    players.every(p => activeSessions[p.id]?.deviceType === 'mobile');
+
   // Add responsive CSS styles to document head
   React.useEffect(() => {
     const styleId = 'game-layout-responsive';
@@ -469,10 +473,12 @@ export function GameLayout(): JSX.Element {
   };
 
   return (
-    <div 
+    <div
       className="game-interface-responsive"
       style={{
-        gridTemplateRows: gamePhase === 'PLAY' ? 'auto 1fr auto' : '1fr auto'
+        gridTemplateRows: gamePhase === 'PLAY' ? 'auto 1fr auto' : '1fr auto',
+        // Dynamic columns: 1 column if all players on mobile, 2 columns otherwise
+        gridTemplateColumns: allPlayersOnMobile ? '1fr' : undefined
       }}
     >
       {/* Mobile View Mode - Show only player panel */}
@@ -536,65 +542,62 @@ export function GameLayout(): JSX.Element {
           )}
 
           {/* Left Panel - Player Panels (showing non-mobile players) */}
-          <div
-            style={{
-              gridColumn: '1',
-              gridRow: gamePhase === 'PLAY' ? '2' : '1',
-              background: colors.background.light,
-              border: `3px solid ${colors.primary.main}`,
-              borderRadius: '8px',
-              padding: gamePhase === 'PLAY' ? '0' : '15px',
-              overflow: 'auto',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}
-          >
-            {gamePhase === 'PLAY' ? (
-              <>
-                {players.filter(p => shouldShowPlayerPanel(p.id)).map(player => (
-                  <PlayerPanel
-                    key={player.id}
-                    gameServices={gameServices}
-                    playerId={player.id}
-                    onToggleSpaceExplorer={handleToggleSpaceExplorer}
-                    onToggleMovementPath={handleToggleMovementPath}
-                    isSpaceExplorerVisible={isSpaceExplorerVisible}
-                    isMovementPathVisible={isMovementPathVisible}
-                    onTryAgain={handleTryAgain}
-                    playerNotification={playerNotifications[player.id]}
-                    onRollDice={handleRollDice}
-                    onAutomaticFunding={handleAutomaticFunding}
-                    onManualEffectResult={(result) => {
-                      if (result && result.effects && result.effects.length > 0) {
-                        setDiceResult(result);
-                        setIsDiceResultModalOpen(true);
-                      }
-                    }}
-                    completedActions={completedActions}
-                  />
-                ))}
-                {players.filter(p => shouldShowPlayerPanel(p.id)).length === 0 && (
-                  <div style={{ padding: '20px', textAlign: 'center', color: colors.text.secondary }}>
-                    All players are on mobile devices
+          {!allPlayersOnMobile && (
+            <div
+              style={{
+                gridColumn: '1',
+                gridRow: gamePhase === 'PLAY' ? '2' : '1',
+                background: colors.background.light,
+                border: `3px solid ${colors.primary.main}`,
+                borderRadius: '8px',
+                padding: gamePhase === 'PLAY' ? '0' : '15px',
+                overflow: 'auto',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              {gamePhase === 'PLAY' ? (
+                <>
+                  {players.filter(p => shouldShowPlayerPanel(p.id)).map(player => (
+                    <PlayerPanel
+                      key={player.id}
+                      gameServices={gameServices}
+                      playerId={player.id}
+                      onToggleSpaceExplorer={handleToggleSpaceExplorer}
+                      onToggleMovementPath={handleToggleMovementPath}
+                      isSpaceExplorerVisible={isSpaceExplorerVisible}
+                      isMovementPathVisible={isMovementPathVisible}
+                      onTryAgain={handleTryAgain}
+                      playerNotification={playerNotifications[player.id]}
+                      onRollDice={handleRollDice}
+                      onAutomaticFunding={handleAutomaticFunding}
+                      onManualEffectResult={(result) => {
+                        if (result && result.effects && result.effects.length > 0) {
+                          setDiceResult(result);
+                          setIsDiceResultModalOpen(true);
+                        }
+                      }}
+                      completedActions={completedActions}
+                    />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <h3>👤 Player Panel</h3>
+                  <div style={{ color: colors.text.secondary }}>
+                    Player information will be displayed here
                   </div>
-                )}
-              </>
-            ) : (
-              <>
-                <h3>👤 Player Panel</h3>
-                <div style={{ color: colors.text.secondary }}>
-                  Player information will be displayed here
-                </div>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Center Panel - Game Board */}
           <div
             style={{
-              gridColumn: '2',
+              gridColumn: allPlayersOnMobile ? '1' : '2',
               gridRow: gamePhase === 'PLAY' ? '2' : '1',
               background: colors.white,
               border: `3px solid ${colors.game.boardTitle}`,
