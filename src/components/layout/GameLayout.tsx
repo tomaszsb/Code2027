@@ -22,6 +22,7 @@ import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
+import { getBackendURL } from '../../utils/networkDetection';
 
 interface GameLayoutProps {
   /**
@@ -106,6 +107,9 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
   const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
   const [playerNotifications, setPlayerNotifications] = useState<{ [playerId: string]: string }>({});
 
+  // Smart layout adaptation - track which players are viewing on mobile
+  const [activeSessions, setActiveSessions] = useState<Record<string, { deviceType: string; lastSeen: number }>>({});
+
   // Use actual game state completed actions for UI display
   const completedActions = gameStateCompletedActions;
 
@@ -120,6 +124,32 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
       }
     );
   }, [notificationService]);
+
+  // Poll for active device sessions (smart layout adaptation)
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const backendURL = getBackendURL();
+        const response = await fetch(`${backendURL}/api/sessions`);
+
+        if (response.ok) {
+          const sessions = await response.json();
+          setActiveSessions(sessions);
+        }
+      } catch (error) {
+        // Non-critical - server may not be running
+        // Silently fail to avoid console spam
+      }
+    };
+
+    // Initial fetch
+    fetchSessions();
+
+    // Poll every 5 seconds
+    const sessionInterval = setInterval(fetchSessions, 5000);
+
+    return () => clearInterval(sessionInterval);
+  }, []);
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -433,10 +463,28 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
 
   // Helper function to check if any modal is open
   const isAnyModalOpen = () => {
-    return isRulesModalOpen || 
-           isNegotiationModalOpen || 
-           isCardDetailsModalOpen || 
+    return isRulesModalOpen ||
+           isNegotiationModalOpen ||
+           isCardDetailsModalOpen ||
            activeModal !== null;
+  };
+
+  /**
+   * Smart layout adaptation: Determine if player panel should be shown
+   * - If in mobile view (viewPlayerId set): Don't show in main desktop area
+   * - If in desktop view: Only show if player is NOT viewing on mobile
+   */
+  const shouldShowPlayerPanel = (playerId: string): boolean => {
+    // Mobile view: Don't render panels in desktop area
+    if (viewPlayerId) {
+      return false;
+    }
+
+    // Desktop view: Hide panel if player is actively viewing on mobile
+    const session = activeSessions[playerId];
+    const isPlayerOnMobile = session?.deviceType === 'mobile';
+
+    return !isPlayerOnMobile;
   };
 
   return (
@@ -461,7 +509,7 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
           />
         </div>
       )}
-      {/* Left Panel - Player Panel (Mobile-First UI) */}
+      {/* Left Panel - Player Panels (Smart Layout Adaptation) */}
       <div
         style={{
           gridColumn: '1',
@@ -470,35 +518,79 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
           border: `3px solid ${colors.primary.main}`,
           borderRadius: '8px',
           padding: gamePhase === 'PLAY' ? '0' : '15px',
-          overflow: 'visible',
-          position: 'relative'
+          overflow: viewPlayerId ? 'visible' : 'auto',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: viewPlayerId ? '0' : '8px'
         }}
       >
-        {gamePhase === 'PLAY' && displayPlayerId ? (
-          <PlayerPanel
-            gameServices={gameServices}
-            playerId={displayPlayerId}
-            onToggleSpaceExplorer={handleToggleSpaceExplorer}
-            onToggleMovementPath={handleToggleMovementPath}
-            isSpaceExplorerVisible={isSpaceExplorerVisible}
-            isMovementPathVisible={isMovementPathVisible}
-            onTryAgain={handleTryAgain}
-            playerNotification={playerNotifications[displayPlayerId]}
-            onRollDice={handleRollDice}
-            onAutomaticFunding={handleAutomaticFunding}
-            onManualEffectResult={(result) => {
-              if (result && result.effects && result.effects.length > 0) {
-                setDiceResult(result);
-                setIsDiceResultModalOpen(true);
-              }
-            }}
-            completedActions={completedActions}
-          />
+        {gamePhase === 'PLAY' ? (
+          viewPlayerId ? (
+            /* Mobile view: Show only the locked player's panel */
+            <PlayerPanel
+              gameServices={gameServices}
+              playerId={viewPlayerId}
+              onToggleSpaceExplorer={handleToggleSpaceExplorer}
+              onToggleMovementPath={handleToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
+              onTryAgain={handleTryAgain}
+              playerNotification={playerNotifications[viewPlayerId]}
+              onRollDice={handleRollDice}
+              onAutomaticFunding={handleAutomaticFunding}
+              onManualEffectResult={(result) => {
+                if (result && result.effects && result.effects.length > 0) {
+                  setDiceResult(result);
+                  setIsDiceResultModalOpen(true);
+                }
+              }}
+              completedActions={completedActions}
+            />
+          ) : (
+            /* Desktop view: Show panels for all players NOT on mobile */
+            <>
+              {players.filter(p => shouldShowPlayerPanel(p.id)).map(player => (
+                <PlayerPanel
+                  key={player.id}
+                  gameServices={gameServices}
+                  playerId={player.id}
+                  onToggleSpaceExplorer={handleToggleSpaceExplorer}
+                  onToggleMovementPath={handleToggleMovementPath}
+                  isSpaceExplorerVisible={isSpaceExplorerVisible}
+                  isMovementPathVisible={isMovementPathVisible}
+                  onTryAgain={handleTryAgain}
+                  playerNotification={playerNotifications[player.id]}
+                  onRollDice={handleRollDice}
+                  onAutomaticFunding={handleAutomaticFunding}
+                  onManualEffectResult={(result) => {
+                    if (result && result.effects && result.effects.length > 0) {
+                      setDiceResult(result);
+                      setIsDiceResultModalOpen(true);
+                    }
+                  }}
+                  completedActions={completedActions}
+                />
+              ))}
+              {players.filter(p => shouldShowPlayerPanel(p.id)).length === 0 && (
+                <div style={{
+                  padding: '2rem',
+                  textAlign: 'center',
+                  color: colors.text.secondary
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📱</div>
+                  <p style={{ margin: 0 }}>
+                    All players are viewing on mobile devices
+                  </p>
+                </div>
+              )}
+            </>
+          )
         ) : (
           <>
-            <h3>👤 Player Panel</h3>
+            <h3>👤 Player Panels</h3>
             <div style={{ color: colors.text.secondary }}>
-              {gamePhase === 'SETUP' ? 'Set up players to begin the game' : 'Player information will be displayed here'}
+              Set up players to begin the game
             </div>
           </>
         )}

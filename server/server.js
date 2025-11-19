@@ -16,6 +16,10 @@ app.use(express.json({ limit: '10mb' })); // Support large game states
 let gameState = null;
 let stateVersion = 0;
 
+// Active session tracking for smart layout adaptation
+const activeSessions = new Map();
+const SESSION_TIMEOUT = 10000; // 10 seconds
+
 /**
  * GET /health
  * Health check endpoint
@@ -126,6 +130,94 @@ app.delete('/api/gamestate', (req, res) => {
 });
 
 /**
+ * POST /api/heartbeat
+ * Register/update device session for smart layout adaptation
+ * Body: { playerId: string, deviceType: 'mobile' | 'desktop', sessionId?: string }
+ * Returns: { success: true, sessionId: string }
+ */
+app.post('/api/heartbeat', (req, res) => {
+  const { playerId, deviceType, sessionId } = req.body;
+
+  // Validation
+  if (!playerId || !deviceType) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      required: ['playerId', 'deviceType']
+    });
+  }
+
+  if (!['mobile', 'desktop'].includes(deviceType)) {
+    return res.status(400).json({
+      error: 'Invalid deviceType',
+      validValues: ['mobile', 'desktop']
+    });
+  }
+
+  // Generate session ID if not provided
+  const finalSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Update session
+  activeSessions.set(playerId, {
+    lastSeen: Date.now(),
+    deviceType,
+    sessionId: finalSessionId
+  });
+
+  console.log(`💓 Heartbeat: Player ${playerId.slice(0, 8)}... on ${deviceType}`);
+
+  // Cleanup stale sessions
+  cleanupStaleSessions();
+
+  res.json({
+    success: true,
+    sessionId: finalSessionId
+  });
+});
+
+/**
+ * GET /api/sessions
+ * Get all active device sessions
+ * Returns: { [playerId]: { deviceType, lastSeen } }
+ */
+app.get('/api/sessions', (req, res) => {
+  // Cleanup before returning
+  cleanupStaleSessions();
+
+  // Convert Map to object
+  const sessions = {};
+  activeSessions.forEach((data, playerId) => {
+    sessions[playerId] = {
+      deviceType: data.deviceType,
+      lastSeen: data.lastSeen
+    };
+  });
+
+  console.log(`📱 GET /api/sessions - ${activeSessions.size} active session(s)`);
+
+  res.json(sessions);
+});
+
+/**
+ * Cleanup stale sessions (haven't sent heartbeat in SESSION_TIMEOUT ms)
+ */
+function cleanupStaleSessions() {
+  const now = Date.now();
+  const stalePlayerIds = [];
+
+  activeSessions.forEach((data, playerId) => {
+    if (now - data.lastSeen > SESSION_TIMEOUT) {
+      stalePlayerIds.push(playerId);
+    }
+  });
+
+  // Remove stale sessions
+  stalePlayerIds.forEach(playerId => {
+    console.log(`🧹 Cleaned up stale session for player ${playerId.slice(0, 8)}...`);
+    activeSessions.delete(playerId);
+  });
+}
+
+/**
  * GET /api/debug/state
  * Debug endpoint to inspect raw state
  * Returns prettified JSON for troubleshooting
@@ -149,6 +241,8 @@ app.use((req, res) => {
       'GET /api/gamestate',
       'POST /api/gamestate',
       'DELETE /api/gamestate',
+      'POST /api/heartbeat',
+      'GET /api/sessions',
       'GET /api/debug/state'
     ]
   });
@@ -177,9 +271,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET    /api/gamestate       - Get current state`);
   console.log(`   POST   /api/gamestate       - Update state`);
   console.log(`   DELETE /api/gamestate       - Reset state`);
+  console.log(`   POST   /api/heartbeat       - Device session heartbeat`);
+  console.log(`   GET    /api/sessions        - Get active sessions`);
   console.log(`   GET    /api/debug/state     - Debug state dump`);
   console.log('');
   console.log('🔄 Server ready for multi-device sync');
+  console.log('📱 Smart layout adaptation enabled');
   console.log('');
 });
 

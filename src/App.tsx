@@ -7,6 +7,7 @@ import { useGameContext } from './context/GameContext';
 import { colors } from './styles/theme';
 import { getAppScreen, getURLParams } from './utils/getAppScreen';
 import { getBackendURL } from './utils/networkDetection';
+import { detectDeviceType, generateSessionId } from './utils/deviceDetection';
 
 /**
  * LoadingScreen component displays while the application initializes
@@ -118,6 +119,42 @@ function AppContent(): JSX.Element {
 
     return () => clearInterval(pollInterval);
   }, [stateService]);
+
+  // Send heartbeat for smart layout adaptation (tracks device type per player)
+  useEffect(() => {
+    const deviceType = detectDeviceType();
+    const sessionId = generateSessionId();
+
+    const sendHeartbeat = async () => {
+      const urlParams = getURLParams();
+      const playerId = urlParams.get('playerId') || gameState.currentPlayerId;
+
+      // Only send heartbeat if we have a player ID
+      if (!playerId) {
+        return;
+      }
+
+      try {
+        const backendURL = getBackendURL();
+        await fetch(`${backendURL}/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, deviceType, sessionId })
+        });
+      } catch (error) {
+        // Non-critical - server may not be running
+        // Silently fail to avoid console spam
+      }
+    };
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    // Send heartbeat every 3 seconds (well within 10s timeout)
+    const heartbeatInterval = setInterval(sendHeartbeat, 3000);
+
+    return () => clearInterval(heartbeatInterval);
+  }, [gameState.currentPlayerId]);
 
   if (isLoading) {
     return <LoadingScreen />;
