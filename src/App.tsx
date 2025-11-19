@@ -7,6 +7,7 @@ import { useGameContext } from './context/GameContext';
 import { colors } from './styles/theme';
 import { getAppScreen, getURLParams } from './utils/getAppScreen';
 import { getBackendURL } from './utils/networkDetection';
+import { detectDeviceType } from './utils/deviceDetection';
 
 /**
  * LoadingScreen component displays while the application initializes
@@ -117,6 +118,45 @@ function AppContent(): JSX.Element {
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(pollInterval);
+  }, [stateService]);
+
+  // Heartbeat sender for smart layout adaptation
+  useEffect(() => {
+    const deviceType = detectDeviceType();
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const sendHeartbeat = async () => {
+      // Get player ID from URL params or current game state
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPlayerId = urlParams.get('playerId');
+      const currentPlayerId = stateService.getGameState().currentPlayerId;
+      const playerId = urlPlayerId || currentPlayerId;
+
+      if (!playerId) {
+        console.log('⏭️ Skipping heartbeat - no player ID available');
+        return;
+      }
+
+      try {
+        await fetch(`${getBackendURL()}/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, deviceType, sessionId })
+        });
+        console.log(`💓 Sent heartbeat for ${playerId} (${deviceType})`);
+      } catch (error) {
+        // Non-critical error - just log it
+        console.log('⚠️ Failed to send heartbeat (non-critical):', error);
+      }
+    };
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    // Send heartbeat every 3 seconds
+    const interval = setInterval(sendHeartbeat, 3000);
+
+    return () => clearInterval(interval);
   }, [stateService]);
 
   if (isLoading) {

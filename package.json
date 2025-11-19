@@ -31,6 +31,7 @@
     "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
+    "server": "node server/server.js",
     "lint": "eslint src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit"
   },

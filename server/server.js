@@ -1,6 +1,8 @@
 // server/server.js
-// Game State Synchronization Server for Multi-Device Play
-// Provides REST API for state persistence across devices
+// Multi-Device Game Server for Code2027
+// Provides REST API for:
+// - Game state synchronization across devices
+// - Session tracking for smart layout adaptation
 
 import express from 'express';
 import cors from 'cors';
@@ -12,10 +14,34 @@ const PORT = 3001;
 app.use(cors()); // Allow all origins for development
 app.use(express.json({ limit: '10mb' })); // Support large game states
 
-// In-memory state storage
+// ===== GAME STATE STORAGE =====
 let gameState = null;
 let stateVersion = 0;
 
+// ===== SESSION TRACKING =====
+const activeSessions = new Map();
+const SESSION_TIMEOUT = 10000; // 10 seconds
+
+/**
+ * Clean up stale sessions that haven't sent a heartbeat recently
+ */
+function cleanupStaleSessions() {
+  const now = Date.now();
+  const stalePlayerIds = [];
+
+  activeSessions.forEach((data, playerId) => {
+    if (now - data.lastSeen > SESSION_TIMEOUT) {
+      stalePlayerIds.push(playerId);
+    }
+  });
+
+  stalePlayerIds.forEach(playerId => {
+    console.log(`🧹 Removing stale session for player: ${playerId}`);
+    activeSessions.delete(playerId);
+  });
+}
+
+// ===== HEALTH CHECK =====
 /**
  * GET /health
  * Health check endpoint
@@ -28,10 +54,12 @@ app.get('/health', (req, res) => {
     stateVersion,
     hasState: gameState !== null,
     playerCount: gameState?.players?.length || 0,
-    gamePhase: gameState?.gamePhase || 'unknown'
+    gamePhase: gameState?.gamePhase || 'unknown',
+    activeSessions: activeSessions.size
   });
 });
 
+// ===== GAME STATE ENDPOINTS =====
 /**
  * GET /api/gamestate
  * Retrieve current game state
@@ -139,6 +167,54 @@ app.get('/api/debug/state', (req, res) => {
   }, null, 2));
 });
 
+// ===== SESSION TRACKING ENDPOINTS =====
+/**
+ * POST /api/heartbeat
+ * Heartbeat endpoint - players send periodic updates about their device type
+ * Body: { playerId: string, deviceType: 'mobile' | 'desktop', sessionId: string }
+ */
+app.post('/api/heartbeat', (req, res) => {
+  const { playerId, deviceType, sessionId } = req.body;
+
+  if (!playerId || !deviceType) {
+    return res.status(400).json({
+      error: 'Missing required fields: playerId and deviceType'
+    });
+  }
+
+  activeSessions.set(playerId, {
+    lastSeen: Date.now(),
+    deviceType,
+    sessionId: sessionId || `session_${Date.now()}_${Math.random()}`
+  });
+
+  console.log(`💓 Heartbeat from ${playerId} (${deviceType})`);
+  cleanupStaleSessions();
+
+  res.json({ success: true });
+});
+
+/**
+ * GET /api/sessions
+ * Get all active sessions
+ * Returns: { [playerId]: { deviceType: string, lastSeen: number } }
+ */
+app.get('/api/sessions', (req, res) => {
+  cleanupStaleSessions();
+
+  const sessions = {};
+  activeSessions.forEach((data, playerId) => {
+    sessions[playerId] = {
+      deviceType: data.deviceType,
+      lastSeen: data.lastSeen
+    };
+  });
+
+  console.log(`📊 Active sessions: ${Object.keys(sessions).length}`);
+  res.json(sessions);
+});
+
+// ===== ERROR HANDLERS =====
 // 404 handler for unknown routes
 app.use((req, res) => {
   res.status(404).json({
@@ -149,7 +225,9 @@ app.use((req, res) => {
       'GET /api/gamestate',
       'POST /api/gamestate',
       'DELETE /api/gamestate',
-      'GET /api/debug/state'
+      'GET /api/debug/state',
+      'POST /api/heartbeat',
+      'GET /api/sessions'
     ]
   });
 });
@@ -164,9 +242,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// ===== START SERVER =====
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 Game State Synchronization Server Started');
+  console.log('🚀 Code2027 Multi-Device Server Started');
   console.log('');
   console.log(`   Port: ${PORT}`);
   console.log(`   Local: http://localhost:${PORT}`);
@@ -178,8 +256,13 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST   /api/gamestate       - Update state`);
   console.log(`   DELETE /api/gamestate       - Reset state`);
   console.log(`   GET    /api/debug/state     - Debug state dump`);
+  console.log(`   POST   /api/heartbeat       - Send device heartbeat`);
+  console.log(`   GET    /api/sessions        - Get active sessions`);
   console.log('');
-  console.log('🔄 Server ready for multi-device sync');
+  console.log('🔄 Features enabled:');
+  console.log('   ✅ Multi-device state synchronization');
+  console.log('   ✅ Session tracking for smart layout');
+  console.log(`   ✅ Auto-cleanup stale sessions (${SESSION_TIMEOUT}ms timeout)`);
   console.log('');
 });
 

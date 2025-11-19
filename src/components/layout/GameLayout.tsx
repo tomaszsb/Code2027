@@ -22,25 +22,13 @@ import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
-
-interface GameLayoutProps {
-  /**
-   * Optional player ID to lock the view to a specific player
-   * Used for mobile/multi-device play via QR codes
-   * If not provided, uses currentPlayerId from game state
-   */
-  viewPlayerId?: string;
-}
+import { getBackendURL } from '../../utils/networkDetection';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
  * This provides the main grid-based layout for the game application.
- *
- * Supports multi-device play:
- * - Without viewPlayerId: Normal desktop view (follows current player)
- * - With viewPlayerId: Locked to specific player (mobile view via QR code)
  */
-export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element {
+export function GameLayout(): JSX.Element {
   const {
     stateService,
     dataService,
@@ -76,10 +64,6 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
   const [gamePhase, setGamePhase] = useState<GamePhase>('SETUP');
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
-
-  // Determine which player to display
-  // If viewPlayerId is provided (multi-device mode), use it; otherwise use currentPlayerId
-  const displayPlayerId = viewPlayerId || currentPlayerId;
   const [isNegotiationModalOpen, setIsNegotiationModalOpen] = useState<boolean>(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isCardDetailsModalOpen, setIsCardDetailsModalOpen] = useState<boolean>(false);
@@ -106,6 +90,10 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
   const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
   const [playerNotifications, setPlayerNotifications] = useState<{ [playerId: string]: string }>({});
 
+  // Smart layout adaptation - track active sessions and view mode
+  const [activeSessions, setActiveSessions] = useState<Record<string, { deviceType: string }>>({});
+  const [viewPlayerId, setViewPlayerId] = useState<string | null>(null);
+
   // Use actual game state completed actions for UI display
   const completedActions = gameStateCompletedActions;
 
@@ -120,6 +108,47 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
       }
     );
   }, [notificationService]);
+
+  // Check for viewPlayerId in URL params (for mobile view mode)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerIdParam = urlParams.get('playerId');
+    if (playerIdParam) {
+      setViewPlayerId(playerIdParam);
+      console.log(`📱 Mobile view mode enabled for player: ${playerIdParam}`);
+    }
+  }, []);
+
+  // Fetch active sessions periodically for smart layout adaptation
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const response = await fetch(`${getBackendURL()}/api/sessions`);
+        if (response.ok) {
+          const sessions = await response.json();
+          setActiveSessions(sessions);
+          console.log('📊 Fetched active sessions:', sessions);
+        }
+      } catch (error) {
+        // Non-critical error - just log it
+        console.log('⚠️ Failed to fetch sessions (non-critical):', error);
+      }
+    };
+
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Helper function to determine if a player panel should be shown
+  const shouldShowPlayerPanel = (playerId: string): boolean => {
+    // In mobile view mode, don't show any panels in the main area
+    if (viewPlayerId) return false;
+
+    // On desktop, hide panels for players who are on mobile devices
+    const session = activeSessions[playerId];
+    return !(session?.deviceType === 'mobile');
+  };
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -446,113 +475,173 @@ export function GameLayout({ viewPlayerId }: GameLayoutProps = {}): JSX.Element 
         gridTemplateRows: gamePhase === 'PLAY' ? 'auto 1fr auto' : '1fr auto'
       }}
     >
-      {/* Top Panel - Project Progress (only in PLAY phase) */}
-      {gamePhase === 'PLAY' && (
-        <div style={{
-          gridColumn: '1 / -1',
-          gridRow: '1'
-        }}>
-          <ProjectProgress
-            players={players}
-            currentPlayerId={currentPlayerId}
-            dataService={dataService}
-            onToggleGameLog={handleToggleGameLog}
-            onOpenRulesModal={handleOpenRulesModal}
-          />
+      {/* Mobile View Mode - Show only player panel */}
+      {viewPlayerId && gamePhase === 'PLAY' && (
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            gridRow: '1',
+            background: colors.background.light,
+            border: `3px solid ${colors.primary.main}`,
+            borderRadius: '8px',
+            overflow: 'visible',
+            position: 'relative'
+          }}
+        >
+          {players.find(p => p.id === viewPlayerId) ? (
+            <PlayerPanel
+              gameServices={gameServices}
+              playerId={viewPlayerId}
+              onToggleSpaceExplorer={handleToggleSpaceExplorer}
+              onToggleMovementPath={handleToggleMovementPath}
+              isSpaceExplorerVisible={isSpaceExplorerVisible}
+              isMovementPathVisible={isMovementPathVisible}
+              onTryAgain={handleTryAgain}
+              playerNotification={playerNotifications[viewPlayerId]}
+              onRollDice={handleRollDice}
+              onAutomaticFunding={handleAutomaticFunding}
+              onManualEffectResult={(result) => {
+                if (result && result.effects && result.effects.length > 0) {
+                  setDiceResult(result);
+                  setIsDiceResultModalOpen(true);
+                }
+              }}
+              completedActions={completedActions}
+            />
+          ) : (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <h3>Player not found</h3>
+            </div>
+          )}
         </div>
       )}
-      {/* Left Panel - Player Panel (Mobile-First UI) */}
-      <div
-        style={{
-          gridColumn: '1',
-          gridRow: gamePhase === 'PLAY' ? '2' : '1',
-          background: colors.background.light,
-          border: `3px solid ${colors.primary.main}`,
-          borderRadius: '8px',
-          padding: gamePhase === 'PLAY' ? '0' : '15px',
-          overflow: 'visible',
-          position: 'relative'
-        }}
-      >
-        {gamePhase === 'PLAY' && displayPlayerId ? (
-          <PlayerPanel
-            gameServices={gameServices}
-            playerId={displayPlayerId}
-            onToggleSpaceExplorer={handleToggleSpaceExplorer}
-            onToggleMovementPath={handleToggleMovementPath}
-            isSpaceExplorerVisible={isSpaceExplorerVisible}
-            isMovementPathVisible={isMovementPathVisible}
-            onTryAgain={handleTryAgain}
-            playerNotification={playerNotifications[displayPlayerId]}
-            onRollDice={handleRollDice}
-            onAutomaticFunding={handleAutomaticFunding}
-            onManualEffectResult={(result) => {
-              if (result && result.effects && result.effects.length > 0) {
-                setDiceResult(result);
-                setIsDiceResultModalOpen(true);
-              }
-            }}
-            completedActions={completedActions}
-          />
-        ) : (
-          <>
-            <h3>👤 Player Panel</h3>
-            <div style={{ color: colors.text.secondary }}>
-              {gamePhase === 'SETUP' ? 'Set up players to begin the game' : 'Player information will be displayed here'}
-            </div>
-          </>
-        )}
-      </div>
 
-      {/* Center Panel - Game Board */}
-      <div 
-        style={{
-          gridColumn: '2',
-          gridRow: gamePhase === 'PLAY' ? '2' : '1',
-          background: colors.white,
-          border: `3px solid ${colors.game.boardTitle}`,
-          borderRadius: '8px',
-          padding: '0',
-          overflow: 'hidden',
-          maxWidth: '100%',
-          boxSizing: 'border-box'
-        }}
-      >
-        {gamePhase === 'PLAY' ? (
-          <GameBoard />
-        ) : (
-          <div 
+      {/* Desktop View Mode - Show progress, player panels (filtered), and board */}
+      {!viewPlayerId && (
+        <>
+          {/* Top Panel - Project Progress (only in PLAY phase) */}
+          {gamePhase === 'PLAY' && (
+            <div style={{
+              gridColumn: '1 / -1',
+              gridRow: '1'
+            }}>
+              <ProjectProgress
+                players={players}
+                currentPlayerId={currentPlayerId}
+                dataService={dataService}
+                onToggleGameLog={handleToggleGameLog}
+                onOpenRulesModal={handleOpenRulesModal}
+              />
+            </div>
+          )}
+
+          {/* Left Panel - Player Panels (showing non-mobile players) */}
+          <div
             style={{
+              gridColumn: '1',
+              gridRow: gamePhase === 'PLAY' ? '2' : '1',
+              background: colors.background.light,
+              border: `3px solid ${colors.primary.main}`,
+              borderRadius: '8px',
+              padding: gamePhase === 'PLAY' ? '0' : '15px',
+              overflow: 'auto',
+              position: 'relative',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              padding: '20px'
+              gap: '8px'
             }}
           >
-            <h2 style={{ color: colors.game.boardTitle }}>🎯 Game Board</h2>
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-              <div 
+            {gamePhase === 'PLAY' ? (
+              <>
+                {players.filter(p => shouldShowPlayerPanel(p.id)).map(player => (
+                  <PlayerPanel
+                    key={player.id}
+                    gameServices={gameServices}
+                    playerId={player.id}
+                    onToggleSpaceExplorer={handleToggleSpaceExplorer}
+                    onToggleMovementPath={handleToggleMovementPath}
+                    isSpaceExplorerVisible={isSpaceExplorerVisible}
+                    isMovementPathVisible={isMovementPathVisible}
+                    onTryAgain={handleTryAgain}
+                    playerNotification={playerNotifications[player.id]}
+                    onRollDice={handleRollDice}
+                    onAutomaticFunding={handleAutomaticFunding}
+                    onManualEffectResult={(result) => {
+                      if (result && result.effects && result.effects.length > 0) {
+                        setDiceResult(result);
+                        setIsDiceResultModalOpen(true);
+                      }
+                    }}
+                    completedActions={completedActions}
+                  />
+                ))}
+                {players.filter(p => shouldShowPlayerPanel(p.id)).length === 0 && (
+                  <div style={{ padding: '20px', textAlign: 'center', color: colors.text.secondary }}>
+                    All players are on mobile devices
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3>👤 Player Panel</h3>
+                <div style={{ color: colors.text.secondary }}>
+                  Player information will be displayed here
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Center Panel - Game Board */}
+          <div
+            style={{
+              gridColumn: '2',
+              gridRow: gamePhase === 'PLAY' ? '2' : '1',
+              background: colors.white,
+              border: `3px solid ${colors.game.boardTitle}`,
+              borderRadius: '8px',
+              padding: '0',
+              overflow: 'hidden',
+              maxWidth: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            {gamePhase === 'PLAY' ? (
+              <GameBoard />
+            ) : (
+              <div
                 style={{
-                  background: colors.primary.light,
-                  border: `3px solid ${colors.primary.main}`,
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '20px'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  padding: '20px'
                 }}
               >
-                <h3 style={{ margin: '0 0 10px 0', color: colors.primary.text }}>
-                  Current Space
-                </h3>
-                <p style={{ margin: '0', color: colors.text.secondary }}>
-                  Game board will be displayed here
-                </p>
+                <h2 style={{ color: colors.game.boardTitle }}>🎯 Game Board</h2>
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <div
+                    style={{
+                      background: colors.primary.light,
+                      border: `3px solid ${colors.primary.main}`,
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: '20px'
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 10px 0', color: colors.primary.text }}>
+                      Current Space
+                    </h3>
+                    <p style={{ margin: '0', color: colors.text.secondary }}>
+                      Game board will be displayed here
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Bottom Panel - Additional UI Elements */}
       {isGameLogVisible && (
