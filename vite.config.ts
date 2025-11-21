@@ -43,35 +43,35 @@ function wslPortForwardingPlugin(): Plugin {
         { encoding: 'utf-8', stdio: 'pipe' }
       );
 
-      // Get Windows IP for display using multiple methods
+      // Get Windows IP for display - use simple ipconfig parsing
       let windowsIp = 'your-windows-ip';
       try {
-        // Try method 1: Get-NetIPAddress filtering for common local network ranges
-        let ipResult = execSync(
-          `powershell.exe -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -eq 'Dhcp' -or $_.PrefixOrigin -eq 'Manual' } | Where-Object { $_.IPAddress -match '^(192\\.168\\.|10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)' } | Select-Object -First 1).IPAddress"`,
-          { encoding: 'utf-8', stdio: 'pipe' }
+        // Use cmd.exe with ipconfig for more reliable output
+        const ipResult = execSync(
+          `cmd.exe /c "ipconfig | findstr /C:\\"IPv4 Address\\" | findstr 192.168"`,
+          { encoding: 'utf-8' }
         );
-        windowsIp = ipResult.trim();
 
-        // If that didn't work, try simpler method
-        if (!windowsIp || windowsIp === '') {
-          ipResult = execSync(
-            `powershell.exe -Command "(Test-Connection -ComputerName (hostname) -Count 1).IPV4Address.IPAddressToString"`,
-            { encoding: 'utf-8', stdio: 'pipe' }
-          );
-          windowsIp = ipResult.trim() || 'your-windows-ip';
+        // Parse output like: "   IPv4 Address. . . . . . . . . . . : 192.168.1.100"
+        const match = ipResult.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (match && match[1]) {
+          windowsIp = match[1];
+        } else {
+          // Fallback to PowerShell with better error handling
+          try {
+            const psResult = execSync(
+              `powershell.exe -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -like '192.168.*' | Select-Object -First 1 -ExpandProperty IPAddress"`,
+              { encoding: 'utf-8' }
+            ).trim();
+            if (psResult && /^\d+\.\d+\.\d+\.\d+$/.test(psResult)) {
+              windowsIp = psResult;
+            }
+          } catch (e) {
+            console.warn('   Could not auto-detect Windows IP:', (e as Error).message);
+          }
         }
-      } catch {
-        // Fallback - try to get from route print
-        try {
-          const ipResult = execSync(
-            `powershell.exe -Command "ipconfig | Select-String 'IPv4.*192\\.168\\.' | ForEach-Object { ($_ -split ':')[1].Trim() } | Select-Object -First 1"`,
-            { encoding: 'utf-8', stdio: 'pipe' }
-          );
-          windowsIp = ipResult.trim() || 'your-windows-ip';
-        } catch {
-          windowsIp = 'your-windows-ip';
-        }
+      } catch (e) {
+        console.warn('   Could not auto-detect Windows IP:', (e as Error).message);
       }
 
       console.log(`✅ Port forwarding configured!`);
