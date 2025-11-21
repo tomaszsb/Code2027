@@ -46,28 +46,18 @@ function wslPortForwardingPlugin(): Plugin {
       // Get Windows IP for display - use simple ipconfig parsing
       let windowsIp = 'your-windows-ip';
       try {
-        // Use cmd.exe with ipconfig for more reliable output
-        const ipResult = execSync(
-          `cmd.exe /c "ipconfig | findstr /C:\\"IPv4 Address\\" | findstr 192.168"`,
-          { encoding: 'utf-8' }
-        );
+        // Get full ipconfig output and parse in Node.js
+        const ipResult = execSync('cmd.exe /c ipconfig', { encoding: 'utf-8' });
 
-        // Parse output like: "   IPv4 Address. . . . . . . . . . . : 192.168.1.100"
-        const match = ipResult.match(/(\d+\.\d+\.\d+\.\d+)/);
-        if (match && match[1]) {
-          windowsIp = match[1];
-        } else {
-          // Fallback to PowerShell with better error handling
-          try {
-            const psResult = execSync(
-              `powershell.exe -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -like '192.168.*' | Select-Object -First 1 -ExpandProperty IPAddress"`,
-              { encoding: 'utf-8' }
-            ).trim();
-            if (psResult && /^\d+\.\d+\.\d+\.\d+$/.test(psResult)) {
-              windowsIp = psResult;
+        // Look for IPv4 addresses in 192.168.x.x range
+        const lines = ipResult.split('\n');
+        for (const line of lines) {
+          if (line.includes('IPv4') && line.includes('192.168')) {
+            const match = line.match(/(\d+\.\d+\.\d+\.\d+)/);
+            if (match && match[1]) {
+              windowsIp = match[1];
+              break;
             }
-          } catch (e) {
-            console.warn('   Could not auto-detect Windows IP:', (e as Error).message);
           }
         }
       } catch (e) {
