@@ -22,7 +22,6 @@ import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { NotificationUtils } from '../../utils/NotificationUtils';
 import { GamePhase, Player } from '../../types/StateTypes';
 import { Card } from '../../types/DataTypes';
-import { getBackendURL } from '../../utils/networkDetection';
 
 /**
  * GameLayout component replicates the high-level structure of the legacy FixedApp.js
@@ -90,9 +89,16 @@ export function GameLayout(): JSX.Element {
   const [buttonFeedback, setButtonFeedback] = useState<{ [actionType: string]: string }>({});
   const [playerNotifications, setPlayerNotifications] = useState<{ [playerId: string]: string }>({});
 
-  // Smart layout adaptation - track active sessions and view mode
-  const [activeSessions, setActiveSessions] = useState<Record<string, { deviceType: string }>>({});
-  const [viewPlayerId, setViewPlayerId] = useState<string | null>(null);
+  // Smart layout adaptation - track view mode for mobile players
+  // Initialize synchronously from URL to prevent desktop layout flash on mobile
+  const [viewPlayerId, setViewPlayerId] = useState<string | null>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerIdParam = urlParams.get('playerId');
+    if (playerIdParam) {
+      console.log(`📱 Mobile view mode enabled for player: ${playerIdParam}`);
+    }
+    return playerIdParam;
+  });
 
   // Use actual game state completed actions for UI display
   const completedActions = gameStateCompletedActions;
@@ -109,50 +115,19 @@ export function GameLayout(): JSX.Element {
     );
   }, [notificationService]);
 
-  // Check for viewPlayerId in URL params (for mobile view mode)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const playerIdParam = urlParams.get('playerId');
-    if (playerIdParam) {
-      setViewPlayerId(playerIdParam);
-      console.log(`📱 Mobile view mode enabled for player: ${playerIdParam}`);
-    }
-  }, []);
-
-  // Fetch active sessions periodically for smart layout adaptation
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const response = await fetch(`${getBackendURL()}/api/sessions`);
-        if (response.ok) {
-          const sessions = await response.json();
-          setActiveSessions(sessions);
-          console.log('📊 Fetched active sessions:', sessions);
-        }
-      } catch (error) {
-        // Non-critical error - just log it
-        console.log('⚠️ Failed to fetch sessions (non-critical):', error);
-      }
-    };
-
-    fetchSessions();
-    const interval = setInterval(fetchSessions, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Helper function to determine if a player panel should be shown
   const shouldShowPlayerPanel = (playerId: string): boolean => {
     // In mobile view mode, don't show any panels in the main area
     if (viewPlayerId) return false;
 
     // On desktop, hide panels for players who are on mobile devices
-    const session = activeSessions[playerId];
-    return !(session?.deviceType === 'mobile');
+    const player = players.find(p => p.id === playerId);
+    return player?.deviceType !== 'mobile';
   };
 
   // Check if all players are on mobile devices
   const allPlayersOnMobile = !viewPlayerId && players.length > 0 &&
-    players.every(p => activeSessions[p.id]?.deviceType === 'mobile');
+    players.every(p => p.deviceType === 'mobile');
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
