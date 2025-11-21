@@ -4,27 +4,55 @@ import path from 'path';
 import { execSync } from 'child_process';
 import type { Plugin } from 'vite';
 
+// Detect if running in WSL
+function isWSL(): boolean {
+  try {
+    const release = execSync('cat /proc/version', { encoding: 'utf-8' });
+    return release.toLowerCase().includes('microsoft');
+  } catch {
+    return false;
+  }
+}
+
+// Get WSL IP address
+function getWslIp(): string | null {
+  try {
+    const result = execSync('hostname -I', { encoding: 'utf-8' });
+    const ip = result.trim().split(' ')[0];
+    if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+      return ip;
+    }
+  } catch (e) {
+    console.error('Failed to get WSL IP:', e);
+  }
+  return null;
+}
+
+// Get Windows IP address
+function getWindowsIp(): string | null {
+  try {
+    const ipResult = execSync('cmd.exe /c ipconfig', { encoding: 'utf-8' });
+    const lines = ipResult.split('\n');
+    for (const line of lines) {
+      if (line.includes('IPv4') && line.includes('192.168')) {
+        const match = line.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (match && match[1]) {
+          return match[1];
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Could not auto-detect Windows IP:', (e as Error).message);
+  }
+  return null;
+}
+
 // WSL Port Forwarding Plugin
 function wslPortForwardingPlugin(): Plugin {
   const PORT = 3000;
 
-  function getWslIp(): string | null {
+  function setupPortForwarding(wslIp: string, windowsIp: string): void {
     try {
-      // Get the WSL IP address from eth0 interface
-      const result = execSync('hostname -I', { encoding: 'utf-8' });
-      const ip = result.trim().split(' ')[0];
-      if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
-        return ip;
-      }
-    } catch (e) {
-      console.error('Failed to get WSL IP:', e);
-    }
-    return null;
-  }
-
-  function setupPortForwarding(wslIp: string): void {
-    try {
-      // Remove any existing port forwarding rule first
       console.log(`\n🔧 Setting up Windows port forwarding for port ${PORT}...`);
 
       // Delete existing rule (ignore errors if it doesn't exist)
@@ -43,27 +71,6 @@ function wslPortForwardingPlugin(): Plugin {
         { encoding: 'utf-8', stdio: 'pipe' }
       );
 
-      // Get Windows IP for display - use simple ipconfig parsing
-      let windowsIp = 'your-windows-ip';
-      try {
-        // Get full ipconfig output and parse in Node.js
-        const ipResult = execSync('cmd.exe /c ipconfig', { encoding: 'utf-8' });
-
-        // Look for IPv4 addresses in 192.168.x.x range
-        const lines = ipResult.split('\n');
-        for (const line of lines) {
-          if (line.includes('IPv4') && line.includes('192.168')) {
-            const match = line.match(/(\d+\.\d+\.\d+\.\d+)/);
-            if (match && match[1]) {
-              windowsIp = match[1];
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('   Could not auto-detect Windows IP:', (e as Error).message);
-      }
-
       console.log(`✅ Port forwarding configured!`);
       console.log(`   WSL IP: ${wslIp}`);
       console.log(`   Windows IP: ${windowsIp}`);
@@ -79,26 +86,25 @@ function wslPortForwardingPlugin(): Plugin {
     name: 'wsl-port-forwarding',
     configureServer(server) {
       server.httpServer?.once('listening', () => {
-        // Check if running in WSL
-        try {
-          const release = execSync('cat /proc/version', { encoding: 'utf-8' });
-          if (!release.toLowerCase().includes('microsoft')) {
-            return; // Not WSL, skip port forwarding
-          }
-        } catch {
-          return; // Can't detect, skip
-        }
+        if (!isWSL()) return;
 
         const wslIp = getWslIp();
-        if (wslIp) {
-          setupPortForwarding(wslIp);
+        const windowsIp = getWindowsIp();
+
+        if (wslIp && windowsIp) {
+          setupPortForwarding(wslIp, windowsIp);
         } else {
-          console.warn('⚠️  Could not detect WSL IP address');
+          console.warn('⚠️  Could not detect IP addresses for port forwarding');
         }
       });
     }
   };
 }
+
+// Detect network IP for browser opening
+const runningInWSL = isWSL();
+const networkIP = runningInWSL ? getWindowsIp() : null;
+const openURL = networkIP ? `http://${networkIP}:3000` : true;
 
 export default defineConfig({
   plugins: [react(), wslPortForwardingPlugin()],
@@ -106,7 +112,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true, // Bind to all interfaces for network access
-    open: true,
+    open: openURL, // Open network IP in WSL, localhost otherwise
   },
   build: {
     outDir: 'dist',
