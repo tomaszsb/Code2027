@@ -43,16 +43,35 @@ function wslPortForwardingPlugin(): Plugin {
         { encoding: 'utf-8', stdio: 'pipe' }
       );
 
-      // Get Windows IP for display
+      // Get Windows IP for display using multiple methods
       let windowsIp = 'your-windows-ip';
       try {
-        const ipResult = execSync(
-          `powershell.exe -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback' -and $_.InterfaceAlias -notmatch 'vEthernet' -and $_.IPAddress -like '192.168.*' }).IPAddress | Select-Object -First 1"`,
+        // Try method 1: Get-NetIPAddress filtering for common local network ranges
+        let ipResult = execSync(
+          `powershell.exe -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -eq 'Dhcp' -or $_.PrefixOrigin -eq 'Manual' } | Where-Object { $_.IPAddress -match '^(192\\.168\\.|10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)' } | Select-Object -First 1).IPAddress"`,
           { encoding: 'utf-8', stdio: 'pipe' }
         );
-        windowsIp = ipResult.trim() || windowsIp;
+        windowsIp = ipResult.trim();
+
+        // If that didn't work, try simpler method
+        if (!windowsIp || windowsIp === '') {
+          ipResult = execSync(
+            `powershell.exe -Command "(Test-Connection -ComputerName (hostname) -Count 1).IPV4Address.IPAddressToString"`,
+            { encoding: 'utf-8', stdio: 'pipe' }
+          );
+          windowsIp = ipResult.trim() || 'your-windows-ip';
+        }
       } catch {
-        // Use fallback
+        // Fallback - try to get from route print
+        try {
+          const ipResult = execSync(
+            `powershell.exe -Command "ipconfig | Select-String 'IPv4.*192\\.168\\.' | ForEach-Object { ($_ -split ':')[1].Trim() } | Select-Object -First 1"`,
+            { encoding: 'utf-8', stdio: 'pipe' }
+          );
+          windowsIp = ipResult.trim() || 'your-windows-ip';
+        } catch {
+          windowsIp = 'your-windows-ip';
+        }
       }
 
       console.log(`✅ Port forwarding configured!`);
