@@ -14,12 +14,22 @@ import { Choice } from '../types/CommonTypes';
 export class StateService implements IStateService {
   private currentState: GameState;
   private readonly dataService: IDataService;
+  private readonly gameId: string; // Unique identifier for this game instance
   private gameRulesService?: IGameRulesService; // Setter injection to avoid circular dependency
   private listeners: Array<(state: GameState) => void> = [];
 
-  constructor(dataService: IDataService) {
+  constructor(dataService: IDataService, gameId?: string) {
     this.dataService = dataService;
+    // Generate gameId if not provided (local/offline mode)
+    this.gameId = gameId || this.generateGameId();
     this.currentState = this.createInitialState();
+  }
+
+  /**
+   * Generate a unique game ID using timestamp and random string
+   */
+  private generateGameId(): string {
+    return `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
@@ -42,7 +52,19 @@ export class StateService implements IStateService {
     };
   }
 
+  /**
+   * Increment state version and update lastModified timestamp
+   * Call this before notifying listeners to track state changes
+   */
+  private incrementStateVersion(): void {
+    this.currentState.stateVersion++;
+    this.currentState.lastModified = new Date();
+  }
+
   private notifyListeners(): void {
+    // Increment version before notifying listeners
+    this.incrementStateVersion();
+
     const currentStateSnapshot = this.getGameState();
     this.listeners.forEach(callback => {
       try {
@@ -72,6 +94,30 @@ export class StateService implements IStateService {
 
   isStateLoaded(): boolean {
     return this.currentState !== undefined;
+  }
+
+  /**
+   * Get the game ID for this game instance
+   * @returns The unique game identifier
+   */
+  getGameId(): string {
+    return this.gameId;
+  }
+
+  /**
+   * Get the current state version (for optimistic locking)
+   * @returns The current state version number
+   */
+  getStateVersion(): number {
+    return this.currentState.stateVersion;
+  }
+
+  /**
+   * Get when the state was last modified
+   * @returns The last modification timestamp
+   */
+  getLastModified(): Date {
+    return new Date(this.currentState.lastModified);
   }
 
   // Player management methods
@@ -1019,8 +1065,14 @@ export class StateService implements IStateService {
   // Private helper methods
   private createInitialState(): GameState {
     const startingSpace = this.getStartingSpace();
-    
+
     return {
+      // Multi-game tracking fields
+      gameId: this.gameId,
+      serverSessionId: null, // null for local/offline mode, set by server in multiplayer
+      stateVersion: 1, // Start at version 1
+      lastModified: new Date(),
+
       players: [],
       currentPlayerId: null,
       gamePhase: 'SETUP',
@@ -1079,9 +1131,12 @@ export class StateService implements IStateService {
     const startingSpace = this.getStartingSpace();
     const defaultColor = this.getNextAvailableColor();
     const defaultAvatar = this.getNextAvailableAvatar();
-    
+
     return {
       id: this.generatePlayerId(),
+      gameId: this.gameId, // Associate player with this game instance
+      sessionId: null, // null for local mode, set by server in multiplayer
+      deviceId: undefined, // Optional, set by client in multiplayer
       name,
       currentSpace: startingSpace,
       visitType: 'First',

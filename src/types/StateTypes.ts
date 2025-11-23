@@ -67,6 +67,12 @@ export interface ActiveModal {
 }
 
 export interface GameState {
+  // Multi-game tracking (for server-based multiplayer support)
+  gameId: string; // Unique identifier for this game instance
+  serverSessionId: string | null; // Server session token (null for local/offline mode)
+  stateVersion: number; // Incrementing version for optimistic locking and conflict detection
+  lastModified: Date; // Timestamp of last state change (for stale state detection)
+
   players: Player[];
   currentPlayerId: string | null;
   gamePhase: GamePhase;

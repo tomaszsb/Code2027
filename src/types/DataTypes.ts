@@ -157,6 +157,9 @@ export interface SpaceVisitRecord {
 
 export interface Player {
   id: string;
+  gameId: string; // Which game this player belongs to (for multi-game server support)
+  sessionId: string | null; // Player's session token (null for local/offline mode)
+  deviceId?: string; // Optional device identifier for reconnection tracking
   name: string;
   currentSpace: string;
   visitType: 'First' | 'Subsequent';
