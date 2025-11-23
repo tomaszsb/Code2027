@@ -2,7 +2,7 @@
 // Multi-Device Game Server for Code2027
 // Provides REST API for:
 // - Game state synchronization across devices
-// - Session tracking for smart layout adaptation
+// - Version tracking for conflict detection (last-write-wins)
 
 import express from 'express';
 import cors from 'cors';
@@ -18,29 +18,6 @@ app.use(express.json({ limit: '10mb' })); // Support large game states
 let gameState = null;
 let stateVersion = 0;
 
-// ===== SESSION TRACKING =====
-const activeSessions = new Map();
-const SESSION_TIMEOUT = 10000; // 10 seconds
-
-/**
- * Clean up stale sessions that haven't sent a heartbeat recently
- */
-function cleanupStaleSessions() {
-  const now = Date.now();
-  const stalePlayerIds = [];
-
-  activeSessions.forEach((data, playerId) => {
-    if (now - data.lastSeen > SESSION_TIMEOUT) {
-      stalePlayerIds.push(playerId);
-    }
-  });
-
-  stalePlayerIds.forEach(playerId => {
-    console.log(`🧹 Removing stale session for player: ${playerId}`);
-    activeSessions.delete(playerId);
-  });
-}
-
 // ===== HEALTH CHECK =====
 /**
  * GET /health
@@ -54,8 +31,7 @@ app.get('/health', (req, res) => {
     stateVersion,
     hasState: gameState !== null,
     playerCount: gameState?.players?.length || 0,
-    gamePhase: gameState?.gamePhase || 'unknown',
-    activeSessions: activeSessions.size
+    gamePhase: gameState?.gamePhase || 'unknown'
   });
 });
 
@@ -167,53 +143,6 @@ app.get('/api/debug/state', (req, res) => {
   }, null, 2));
 });
 
-// ===== SESSION TRACKING ENDPOINTS =====
-/**
- * POST /api/heartbeat
- * Heartbeat endpoint - players send periodic updates about their device type
- * Body: { playerId: string, deviceType: 'mobile' | 'desktop', sessionId: string }
- */
-app.post('/api/heartbeat', (req, res) => {
-  const { playerId, deviceType, sessionId } = req.body;
-
-  if (!playerId || !deviceType) {
-    return res.status(400).json({
-      error: 'Missing required fields: playerId and deviceType'
-    });
-  }
-
-  activeSessions.set(playerId, {
-    lastSeen: Date.now(),
-    deviceType,
-    sessionId: sessionId || `session_${Date.now()}_${Math.random()}`
-  });
-
-  console.log(`💓 Heartbeat from ${playerId} (${deviceType})`);
-  cleanupStaleSessions();
-
-  res.json({ success: true });
-});
-
-/**
- * GET /api/sessions
- * Get all active sessions
- * Returns: { [playerId]: { deviceType: string, lastSeen: number } }
- */
-app.get('/api/sessions', (req, res) => {
-  cleanupStaleSessions();
-
-  const sessions = {};
-  activeSessions.forEach((data, playerId) => {
-    sessions[playerId] = {
-      deviceType: data.deviceType,
-      lastSeen: data.lastSeen
-    };
-  });
-
-  console.log(`📊 Active sessions: ${Object.keys(sessions).length}`);
-  res.json(sessions);
-});
-
 // ===== ERROR HANDLERS =====
 // 404 handler for unknown routes
 app.use((req, res) => {
@@ -225,9 +154,7 @@ app.use((req, res) => {
       'GET /api/gamestate',
       'POST /api/gamestate',
       'DELETE /api/gamestate',
-      'GET /api/debug/state',
-      'POST /api/heartbeat',
-      'GET /api/sessions'
+      'GET /api/debug/state'
     ]
   });
 });
@@ -256,13 +183,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST   /api/gamestate       - Update state`);
   console.log(`   DELETE /api/gamestate       - Reset state`);
   console.log(`   GET    /api/debug/state     - Debug state dump`);
-  console.log(`   POST   /api/heartbeat       - Send device heartbeat`);
-  console.log(`   GET    /api/sessions        - Get active sessions`);
   console.log('');
   console.log('🔄 Features enabled:');
   console.log('   ✅ Multi-device state synchronization');
-  console.log('   ✅ Session tracking for smart layout');
-  console.log(`   ✅ Auto-cleanup stale sessions (${SESSION_TIMEOUT}ms timeout)`);
+  console.log('   ✅ Version tracking (last-write-wins)');
   console.log('');
 });
 
