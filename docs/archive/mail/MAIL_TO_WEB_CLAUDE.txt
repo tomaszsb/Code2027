@@ -1,0 +1,165 @@
+Subject: URGENT: Smart Layout Adaptation Feature - Final Priority
+
+Hi Web Claude,
+
+Excellent work on the multi-device sync! It's working perfectly.
+
+We have a few hours left and need to maximize new feature development. The testing plan is deferred - our new top priority is implementing **Smart Layout Adaptation**.
+
+## The Problem
+
+Currently all devices show full UI (Progress + Player Panels + Board). But users want:
+- **Desktop**: Show game board + progress, HIDE player panels for players who are viewing on phones
+- **Mobile**: Show ONLY player panel, HIDE progress and board
+
+## Implementation Needed
+
+### 1. Backend Session Tracking (server/server.js)
+
+Add session tracking:
+```javascript
+const activeSessions = new Map();
+const SESSION_TIMEOUT = 10000;
+
+app.post('/api/heartbeat', (req, res) => {
+  const { playerId, deviceType, sessionId } = req.body;
+  if (!playerId || !deviceType) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  activeSessions.set(playerId, {
+    lastSeen: Date.now(),
+    deviceType,
+    sessionId: sessionId || `session_${Date.now()}_${Math.random()}`
+  });
+
+  cleanupStaleSessions();
+  res.json({ success: true });
+});
+
+app.get('/api/sessions', (req, res) => {
+  cleanupStaleSessions();
+  const sessions = {};
+  activeSessions.forEach((data, playerId) => {
+    sessions[playerId] = { deviceType: data.deviceType, lastSeen: data.lastSeen };
+  });
+  res.json(sessions);
+});
+
+function cleanupStaleSessions() {
+  const now = Date.now();
+  activeSessions.forEach((data, playerId) => {
+    if (now - data.lastSeen > SESSION_TIMEOUT) {
+      activeSessions.delete(playerId);
+    }
+  });
+}
+```
+
+### 2. Device Detection Utility (NEW FILE: src/utils/deviceDetection.ts)
+
+```typescript
+export type DeviceType = 'mobile' | 'desktop';
+
+export function detectDeviceType(): DeviceType {
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+  const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+
+  if (mobileRegex.test(userAgent)) return 'mobile';
+
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth < 768;
+
+  return (hasTouch && isSmallScreen) ? 'mobile' : 'desktop';
+}
+```
+
+### 3. Heartbeat Sender (src/App.tsx)
+
+Add alongside existing polling useEffect:
+```typescript
+import { detectDeviceType } from './utils/deviceDetection';
+
+useEffect(() => {
+  const deviceType = detectDeviceType();
+  const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const sendHeartbeat = async () => {
+    const urlParams = getURLParams();
+    const playerId = urlParams.get('playerId') || stateService.getGameState().currentPlayerId;
+    if (!playerId) return;
+
+    try {
+      await fetch(`${getBackendURL()}/api/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, deviceType, sessionId })
+      });
+    } catch (error) { /* non-critical */ }
+  };
+
+  sendHeartbeat();
+  const interval = setInterval(sendHeartbeat, 3000);
+  return () => clearInterval(interval);
+}, [stateService]);
+```
+
+### 4. Conditional Rendering (src/components/GameLayout.tsx)
+
+Fetch sessions and conditionally render:
+```typescript
+const [activeSessions, setActiveSessions] = useState<Record<string, {deviceType: string}>>({});
+
+useEffect(() => {
+  const fetchSessions = async () => {
+    try {
+      const response = await fetch(`${getBackendURL()}/api/sessions`);
+      if (response.ok) setActiveSessions(await response.json());
+    } catch (error) { /* non-critical */ }
+  };
+
+  fetchSessions();
+  const interval = setInterval(fetchSessions, 5000);
+  return () => clearInterval(interval);
+}, []);
+
+const shouldShowPlayerPanel = (playerId: string): boolean => {
+  if (viewPlayerId) return false; // Mobile view hides all panels in main area
+  const session = activeSessions[playerId];
+  return !(session?.deviceType === 'mobile'); // Hide if player is on mobile
+};
+
+// In render:
+{viewPlayerId && (
+  <PlayerPanel player={players.find(p => p.id === viewPlayerId)!} {...props} />
+)}
+
+{!viewPlayerId && (
+  <>
+    <ProjectProgress {...props} />
+    {players.map(p => shouldShowPlayerPanel(p.id) && <PlayerPanel key={p.id} player={p} {...props} />)}
+    <GameBoard {...props} />
+  </>
+)}
+```
+
+## Implementation Order
+1. Backend session tracking + endpoints
+2. Device detection utility
+3. Heartbeat sender in App.tsx
+4. Conditional rendering in GameLayout.tsx
+5. Test with desktop + 2 phones
+
+## Testing Checklist
+- Desktop only: Full UI visible
+- Desktop + 1 phone: Desktop hides that player's panel
+- Desktop + 2 phones: Desktop hides both panels, shows only Progress + Board
+- Close phone browser: Desktop shows panel again after 10s
+
+**Branch**: claude/server-state-sync-015vguQHiYncpGAGktxqnaPQ
+
+**Time Critical**: Implement immediately - this is the final feature to complete the multi-device experience.
+
+Full detailed spec available at: /mnt/d/unravel/current_game/code2027/PROMPT_FOR_WEB_CLAUDE.md
+
+Good luck! 🚀
