@@ -121,43 +121,22 @@ function AppContent(): JSX.Element {
     return () => clearInterval(pollInterval);
   }, [stateService]);
 
-  // Heartbeat sender for smart layout adaptation
+  // Detect and store device type when player connects via URL
   useEffect(() => {
-    const deviceType = detectDeviceType();
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPlayerId = urlParams.get('playerId');
 
-    const sendHeartbeat = async () => {
-      // Get player ID from URL params or current game state
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlPlayerId = urlParams.get('playerId');
-      const currentPlayerId = stateService.getGameState().currentPlayerId;
-      const playerId = urlPlayerId || currentPlayerId;
+    if (urlPlayerId) {
+      const deviceType = detectDeviceType();
+      const currentState = stateService.getGameState();
+      const player = currentState.players.find(p => p.id === urlPlayerId);
 
-      if (!playerId) {
-        console.log('⏭️ Skipping heartbeat - no player ID available');
-        return;
+      // Only update if player exists and doesn't already have deviceType set
+      if (player && !player.deviceType) {
+        console.log(`📱 Setting device type for ${urlPlayerId}: ${deviceType}`);
+        stateService.updatePlayer(urlPlayerId, { deviceType });
       }
-
-      try {
-        await fetch(`${getBackendURL()}/api/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId, deviceType, sessionId })
-        });
-        console.log(`💓 Sent heartbeat for ${playerId} (${deviceType})`);
-      } catch (error) {
-        // Non-critical error - just log it
-        console.log('⚠️ Failed to send heartbeat (non-critical):', error);
-      }
-    };
-
-    // Send initial heartbeat
-    sendHeartbeat();
-
-    // Send heartbeat every 3 seconds
-    const interval = setInterval(sendHeartbeat, 3000);
-
-    return () => clearInterval(interval);
+    }
   }, [stateService]);
 
   if (isLoading) {

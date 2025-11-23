@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Smart Layout Adaptation - Architecture Redesign (November 19, 2025)
+- **Problem Identified:**
+  - Initial implementation used continuous heartbeat polling (every 3 seconds)
+  - Backend session tracking with 10-second timeout caused flickering
+  - Player panels would disappear and reappear as sessions expired/recreated
+  - Overengineered solution for a simple problem
+
+- **Solution Implemented:**
+  - **Removed:** Heartbeat polling loop, session tracking, timeout logic
+  - **Added:** `deviceType?: 'mobile' | 'desktop'` field to Player interface (DataTypes.ts:170)
+  - **Approach:** One-time device detection when player connects via QR code URL
+  - Device type stored permanently in player state, synchronized via existing state sync
+
+- **Files Modified:**
+  - `src/types/DataTypes.ts` - Added deviceType to Player interface
+  - `src/App.tsx` - Replaced heartbeat loop with one-time detection on URL param presence
+  - `src/components/layout/GameLayout.tsx` - Removed session polling, uses player.deviceType directly
+  - `SMART_LAYOUT_ADAPTATION.md` - Updated documentation to reflect new architecture
+
+- **Benefits:**
+  - No polling overhead during gameplay
+  - No flickering issues
+  - Simpler, more maintainable architecture
+  - State persists across browser refreshes
+  - Leverages existing state sync infrastructure
+
 ### Movement System Refactor & Cleanup (November 14, 2025)
 - **CSV-Based Movement System Refactor:**
   - Fixed REG-FDNY-FEE-REVIEW data corruption (LOGIC movement now returns valid space names, not question text)

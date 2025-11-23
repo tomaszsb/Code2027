@@ -2,25 +2,26 @@
 
 ## Overview
 
-The Smart Layout Adaptation feature enables a multi-device gaming experience where the UI automatically adapts based on which devices players are using.
+The Smart Layout Adaptation feature enables a multi-device gaming experience where the UI automatically adapts based on which devices players are using. Device type is detected once when a player connects and stored permanently in their player state.
 
 ## How It Works
 
 ### Desktop View
 - Shows **Project Progress** (top panel)
-- Shows **Player Panels** for all players EXCEPT those on mobile devices
+- Shows **Player Panels** for players using desktop
+- Hides player panels for players using mobile devices
 - Shows **Game Board** (center/right panel)
 
 ### Mobile View
 - Shows **ONLY the player panel** for that specific player
 - Hides progress tracker and game board for focused mobile experience
-- Access via URL parameter: `?playerId=PLAYER_ID`
+- Access via URL parameter: `?playerId=PLAYER_ID` (typically via QR code)
 
-### Session Tracking
-- Backend server tracks active sessions via heartbeat mechanism
-- Heartbeats sent every 3 seconds from each client
-- Sessions expire after 10 seconds of inactivity
-- Desktop automatically hides panels for players on mobile devices
+### Device Detection (Simplified Approach)
+- **One-time detection**: When a player first connects via QR code URL, their device type is detected
+- **Permanent storage**: Device type stored in `player.deviceType` field in game state
+- **No polling**: Desktop reads device type directly from player state (no heartbeats or sessions needed)
+- **State synchronization**: Multi-device state sync (existing feature) handles updating all clients
 
 ## Setup Instructions
 
@@ -30,112 +31,144 @@ The Smart Layout Adaptation feature enables a multi-device gaming experience whe
 npm run server
 ```
 
-This starts the session tracking server on port 3001.
+This starts the state synchronization server on port 3001.
 
 ### 2. Start the Frontend
 
 ```bash
-npm run dev
+npm run dev -- --host
 ```
 
-This starts the Vite development server on port 3000.
+This starts the Vite development server on port 3000, accessible on your network.
 
 ### 3. Testing Multi-Device
 
 **Desktop Setup:**
-- Open in browser: `http://localhost:3000`
-- You'll see all player panels (initially)
+- Open in browser: `http://192.168.X.X:3000` (use your network IP)
+- Add players and start game
+- QR codes will appear for each player
 
 **Mobile Setup (for each player):**
-- Get the player ID from the game (e.g., "player1", "player2")
-- Open in mobile browser: `http://localhost:3000?playerId=PLAYER_ID`
-- Mobile will show ONLY that player's panel
+- Scan the QR code for a specific player
+- Opens URL like: `http://192.168.X.X:3000?playerId=PLAYER_ID`
+- Device type auto-detected and stored in player state
+- Mobile shows ONLY that player's panel
 
 **Expected Behavior:**
-- Desktop will automatically hide panels for players viewing on mobile
-- When a mobile player closes their browser, their panel reappears on desktop after ~10 seconds
+- Desktop automatically hides panels for players who connected via mobile
+- Panel visibility persists (no flickering or timeout issues)
+- All devices stay synchronized via state sync
 
 ## Architecture
 
 ### Backend (`server/server.js`)
 - Express server with CORS enabled
-- Session tracking via Map data structure
+- Multi-device state synchronization with version tracking
 - Endpoints:
-  - `POST /api/heartbeat` - Receive heartbeat from clients
-  - `GET /api/sessions` - Get all active sessions
+  - `GET /api/gamestate` - Get current game state
+  - `POST /api/gamestate` - Update game state
+  - `DELETE /api/gamestate` - Clear game state
   - `GET /api/health` - Health check
+
+**Note**: Session tracking endpoints (`/api/heartbeat`, `/api/sessions`) exist but are no longer used.
 
 ### Frontend
 
 **Device Detection (`src/utils/deviceDetection.ts`):**
 - Detects device type based on user agent and screen size
-- Provides backend URL helper function
+- Returns 'mobile' or 'desktop'
+- Detection happens once when player connects via URL
 
-**Heartbeat Sender (`src/App.tsx`):**
-- Sends heartbeat every 3 seconds
-- Reports device type and player ID
-- Non-blocking (failures don't affect gameplay)
+**One-Time Device Storage (`src/App.tsx`):**
+- Checks for `?playerId=XXX` in URL on load
+- If present, detects device type and stores in player state
+- Uses `stateService.updatePlayer(playerId, { deviceType })`
+- State sync propagates update to all connected devices
 
 **Conditional Rendering (`src/components/layout/GameLayout.tsx`):**
-- Fetches active sessions every 5 seconds
-- Conditionally renders panels based on device types
+- Reads `player.deviceType` directly from player state
+- Conditionally renders panels based on stored device types
 - Supports two view modes:
-  - **Desktop Mode**: Shows all panels except mobile players
-  - **Mobile Mode**: Shows only specified player panel
+  - **Desktop Mode**: Shows panels for desktop players only
+  - **Mobile Mode** (`viewPlayerId` set): Shows only specified player panel
+
+**Player Data Type (`src/types/DataTypes.ts`):**
+```typescript
+export interface Player {
+  // ... other fields
+  deviceType?: 'mobile' | 'desktop'; // Device type detected when player first connects
+}
+```
 
 ## Configuration
 
-### Environment Variables
+### State Sync Interval
 
-You can customize the backend URL:
-
-```bash
-REACT_APP_BACKEND_URL=http://your-backend-url:3001
-```
-
-### Session Timeout
-
-Default: 10 seconds (configurable in `server/server.js`)
+Default: 2 seconds (configured in `src/App.tsx`)
 
 ```javascript
-const SESSION_TIMEOUT = 10000; // milliseconds
-```
-
-### Heartbeat Interval
-
-Default: 3 seconds (configurable in `src/App.tsx`)
-
-```javascript
-const interval = setInterval(sendHeartbeat, 3000); // milliseconds
+const pollInterval = setInterval(async () => {
+  // Fetch latest state from server
+}, 2000);
 ```
 
 ## Testing Checklist
 
 - [ ] Desktop only: Full UI visible (Progress + All Player Panels + Board)
-- [ ] Desktop + 1 phone: Desktop hides that player's panel
-- [ ] Desktop + 2 phones: Desktop hides both panels, shows only Progress + Board
-- [ ] Close phone browser: Desktop shows panel again after ~10 seconds
+- [ ] Desktop + 1 phone via QR: Desktop hides that player's panel permanently
+- [ ] Desktop + 2 phones via QR: Desktop hides both panels, shows only Progress + Board
+- [ ] Refresh desktop: Panels stay hidden (deviceType persisted in state)
 - [ ] Mobile view: Shows only player panel, no progress or board
+- [ ] Clear game data: Resets all device types
+- [ ] No flickering: Panels don't appear/disappear continuously
 
 ## Troubleshooting
 
 **Issue: Desktop not hiding mobile panels**
 - Check if backend server is running (`npm run server`)
-- Check browser console for heartbeat/session fetch errors
-- Verify player IDs match between devices
+- Check browser console for state sync errors
+- Verify `player.deviceType === 'mobile'` in game state
+- Check that state sync is working (modify data on one device, verify it appears on other)
 
 **Issue: Mobile showing full UI**
 - Ensure URL includes `?playerId=PLAYER_ID` parameter
 - Check that player ID exists in game
+- Verify `player.deviceType` is being set (check console logs)
 
-**Issue: Panels not reappearing after mobile closes**
-- Wait 10 seconds for session timeout
-- Check backend console for session cleanup logs
+**Issue: Panels reappearing after some time**
+- This should NOT happen with the new implementation
+- If it does, check for errors in state synchronization
+- Verify `player.deviceType` is not being cleared
+
+**Issue: Port forwarding (Windows + WSL2)**
+- Need to forward ports 3000 and 3001 from Windows to WSL2
+- Use PowerShell (Admin): `netsh interface portproxy add v4tov4 listenport=3000 connectaddress=172.22.X.X connectport=3000`
+- Replace with your WSL2 IP (get via `ip addr show eth0` in WSL2)
+
+## Architecture Evolution
+
+### Previous Approach (Deprecated)
+- Continuous heartbeat polling every 3 seconds
+- Backend session tracking with 10-second timeout
+- **Problem**: Caused flickering as sessions expired and were recreated
+- **Removed**: Heartbeat loop, session polling, timeout logic
+
+### Current Approach (Implemented)
+- One-time device detection on initial connection
+- Device type stored permanently in player state
+- **Advantages**:
+  - No polling overhead
+  - No flickering issues
+  - Simpler architecture
+  - State persists across refreshes
+  - Leverages existing state sync infrastructure
 
 ## Future Enhancements
 
-- WebSocket support for real-time session updates
-- Persistent session storage (Redis/database)
+- ✅ QR code generation for easy mobile access (implemented)
+- ✅ Multi-device state synchronization (implemented)
+- ✅ Smart layout adaptation (implemented)
 - Player authentication and security
-- QR code generation for easy mobile access
-- Custom device type detection rules
+- Persistent storage (database instead of in-memory)
+- WebSocket support for real-time updates (instead of polling)
+- Device preference override (let players choose desktop/mobile view)

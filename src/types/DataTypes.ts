@@ -167,6 +167,7 @@ export interface Player {
   projectScope: number;
   color?: string;
   avatar?: string;
+  deviceType?: 'mobile' | 'desktop'; // Device type detected when player first connects
   hand: string[]; // All cards the player currently possesses
   activeCards: ActiveCard[];
   lastDiceRoll?: {
