@@ -17,6 +17,7 @@ import { MovementPathVisualization } from '../game/MovementPathVisualization';
 import { SpaceExplorerPanel } from '../game/SpaceExplorerPanel';
 import { GameLog } from '../game/GameLog';
 import { DataEditor } from '../editor/DataEditor';
+import { GameDisplaySettings } from '../settings/GameDisplaySettings';
 import { useGameContext } from '../../context/GameContext';
 import { formatDiceRollFeedback } from '../../utils/buttonFormatting';
 import { NotificationUtils } from '../../utils/NotificationUtils';
@@ -75,6 +76,17 @@ export function GameLayout(): JSX.Element {
   const [isDataEditorOpen, setIsDataEditorOpen] = useState<boolean>(false);
   const [isDiceResultModalOpen, setIsDiceResultModalOpen] = useState<boolean>(false);
   const [diceResult, setDiceResult] = useState<any>(null);
+  const [isDisplaySettingsOpen, setIsDisplaySettingsOpen] = useState<boolean>(false);
+  const [visiblePanels, setVisiblePanels] = useState<Record<string, boolean>>(() => {
+    // Load from localStorage on mount
+    try {
+      const saved = localStorage.getItem('game-display-settings');
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.error('Failed to load display settings:', error);
+      return {};
+    }
+  });
 
   // State tracking for processing and notifications
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
@@ -115,19 +127,43 @@ export function GameLayout(): JSX.Element {
     );
   }, [notificationService]);
 
+  // Persist visiblePanels to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('game-display-settings', JSON.stringify(visiblePanels));
+    } catch (error) {
+      console.error('Failed to save display settings:', error);
+    }
+  }, [visiblePanels]);
+
   // Helper function to determine if a player panel should be shown
   const shouldShowPlayerPanel = (playerId: string): boolean => {
     // In mobile view mode, don't show any panels in the main area
     if (viewPlayerId) return false;
 
-    // On desktop, hide panels for players who are on mobile devices
+    // Check user's display settings first (explicit visibility toggle)
+    // visiblePanels[playerId] === false means user explicitly hid it
+    // visiblePanels[playerId] === true means user explicitly showed it
+    // visiblePanels[playerId] === undefined means use default behavior
+    if (visiblePanels[playerId] === false) {
+      return false; // User explicitly hid this panel
+    }
+    if (visiblePanels[playerId] === true) {
+      return true; // User explicitly showed this panel
+    }
+
+    // Default behavior: hide panels for ANY connected players (mobile or desktop)
+    // Only show panels for players who haven't connected to their own view
     const player = players.find(p => p.id === playerId);
-    return player?.deviceType !== 'mobile';
+    return !player?.deviceType; // Show only if deviceType is undefined (not connected)
   };
 
-  // Check if all players are on mobile devices
-  const allPlayersOnMobile = !viewPlayerId && players.length > 0 &&
-    players.every(p => p.deviceType === 'mobile');
+  // Check if any player panels should be shown
+  const shouldShowAnyPanel = !viewPlayerId && players.length > 0 &&
+    players.some(p => shouldShowPlayerPanel(p.id));
+
+  // If no panels should be shown, hide the entire panel column
+  const hidePanelColumn = !viewPlayerId && !shouldShowAnyPanel;
 
   // Add responsive CSS styles to document head
   React.useEffect(() => {
@@ -291,6 +327,20 @@ export function GameLayout(): JSX.Element {
   // Handler for game log toggle
   const handleToggleGameLog = () => setIsGameLogVisible(prev => !prev);
 
+  // Handler for display settings
+  const handleTogglePanel = (playerId: string) => {
+    setVisiblePanels(prev => {
+      const currentValue = prev[playerId];
+      const isCurrentlyVisible = currentValue !== false; // Default to true if undefined
+
+      // Simple toggle: visible -> hidden, hidden -> visible
+      const newPanels = { ...prev };
+      newPanels[playerId] = !isCurrentlyVisible;
+
+      return newPanels;
+    });
+  };
+
   // Action handlers for TurnControlsWithActions component
   const handleRollDice = async () => {
     if (!currentPlayerId) return;
@@ -452,8 +502,8 @@ export function GameLayout(): JSX.Element {
       className="game-interface-responsive"
       style={{
         gridTemplateRows: gamePhase === 'PLAY' ? 'auto 1fr auto' : '1fr auto',
-        // Dynamic columns: 1 column if all players on mobile, 2 columns otherwise
-        gridTemplateColumns: allPlayersOnMobile ? '1fr' : undefined
+        // Dynamic columns: 1 column if no panels shown, 2 columns otherwise
+        gridTemplateColumns: hidePanelColumn ? '1fr' : undefined
       }}
     >
       {/* Mobile View Mode - Show only player panel */}
@@ -516,8 +566,8 @@ export function GameLayout(): JSX.Element {
             </div>
           )}
 
-          {/* Left Panel - Player Panels (showing non-mobile players) */}
-          {!allPlayersOnMobile && (
+          {/* Left Panel - Player Panels (only show if at least one panel is visible) */}
+          {!hidePanelColumn && (
             <div
               style={{
                 gridColumn: '1',
@@ -572,7 +622,7 @@ export function GameLayout(): JSX.Element {
           {/* Center Panel - Game Board */}
           <div
             style={{
-              gridColumn: allPlayersOnMobile ? '1' : '2',
+              gridColumn: hidePanelColumn ? '1' : '2',
               gridRow: gamePhase === 'PLAY' ? '2' : '1',
               background: colors.white,
               border: `3px solid ${colors.game.boardTitle}`,
@@ -712,6 +762,32 @@ export function GameLayout(): JSX.Element {
       
       {isDataEditorOpen && <DataEditor onClose={() => setIsDataEditorOpen(false)} />}
 
+      {/* Display Settings Button (show in desktop view during setup and play) */}
+      {!viewPlayerId && (
+        <button
+          onClick={() => setIsDisplaySettingsOpen(true)}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '60px',
+            zIndex: 1000,
+            background: colors.primary.main,
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            fontSize: '24px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+          }}
+          title="Display Settings"
+        >
+          👁️
+        </button>
+      )}
+
+      {/* Data Editor Button */}
       <button
         onClick={() => setIsDataEditorOpen(true)}
         style={{
@@ -733,7 +809,17 @@ export function GameLayout(): JSX.Element {
       >
         ⚙️
       </button>
-      
+
+      {/* Display Settings Modal */}
+      {isDisplaySettingsOpen && (
+        <GameDisplaySettings
+          players={players}
+          visiblePanels={visiblePanels}
+          onTogglePanel={handleTogglePanel}
+          onClose={() => setIsDisplaySettingsOpen(false)}
+        />
+      )}
+
     </div>
   );
 }

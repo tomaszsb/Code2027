@@ -5,6 +5,8 @@
  * Supports multi-device play via QR codes with player-specific views
  */
 
+import { Player } from '../types/StateTypes';
+
 export type AppScreen = 'setup' | 'player' | 'game';
 
 export interface AppScreenResult {
@@ -20,38 +22,54 @@ export interface AppScreenResult {
  * Determine which screen to show based on URL parameters and game state
  *
  * Routing logic:
- * - No playerId parameter → show normal game view (desktop experience)
- * - playerId parameter + valid ID → show player-specific panel (mobile experience)
- * - playerId parameter + invalid ID → show game view with warning
+ * - No player parameter → show normal game view (desktop experience)
+ * - Player parameter (short or full) + valid ID → show player-specific panel (mobile experience)
+ * - Player parameter + invalid ID → show game view with warning
  *
  * @param urlSearchParams URL search parameters (e.g., from window.location.search)
  * @param gamePhase Current game phase from state ('SETUP' | 'PLAY' | 'END')
- * @param playerIds List of valid player IDs from game state
- * @returns Object with screen type and playerId (if applicable)
+ * @param players List of players from game state (for resolving short IDs)
+ * @returns Object with screen type and full playerId (if applicable)
  *
  * @example
  * // Desktop: http://192.168.1.100:3000
- * getAppScreen(new URLSearchParams(''), 'PLAY', ['p1', 'p2'])
+ * getAppScreen(new URLSearchParams(''), 'PLAY', players)
  * // => { screen: 'game', playerId: undefined }
  *
  * @example
- * // Phone scans QR: http://192.168.1.100:3000?playerId=p1
- * getAppScreen(new URLSearchParams('?playerId=p1'), 'PLAY', ['p1', 'p2'])
- * // => { screen: 'player', playerId: 'p1', isValidPlayer: true }
+ * // Phone scans QR (short URL): http://192.168.1.100:3000?p=P1
+ * getAppScreen(new URLSearchParams('?p=P1'), 'PLAY', players)
+ * // => { screen: 'player', playerId: 'player_123_abc', isValidPlayer: true }
  *
  * @example
- * // Invalid player ID
- * getAppScreen(new URLSearchParams('?playerId=invalid'), 'PLAY', ['p1', 'p2'])
- * // => { screen: 'game', playerId: 'invalid', isValidPlayer: false }
+ * // Phone scans QR (old URL): http://192.168.1.100:3000?playerId=player_123_abc
+ * getAppScreen(new URLSearchParams('?playerId=player_123_abc'), 'PLAY', players)
+ * // => { screen: 'player', playerId: 'player_123_abc', isValidPlayer: true }
  */
 export function getAppScreen(
   urlSearchParams: URLSearchParams,
   gamePhase: 'SETUP' | 'PLAY' | 'END',
-  playerIds: string[]
+  players: Player[]
 ): AppScreenResult {
-  const playerId = urlSearchParams.get('playerId');
+  // Check for both short format (?p=P1) and old format (?playerId=...)
+  const shortId = urlSearchParams.get('p');
+  const fullPlayerId = urlSearchParams.get('playerId');
 
-  // No playerId parameter → show normal game view
+  // Resolve player ID (prefer short format if both are provided)
+  let playerId: string | undefined;
+  let player: Player | undefined;
+
+  if (shortId) {
+    // Look up player by short ID
+    player = players.find(p => p.shortId === shortId);
+    playerId = player?.id;
+  } else if (fullPlayerId) {
+    // Look up player by full ID
+    player = players.find(p => p.id === fullPlayerId);
+    playerId = player?.id;
+  }
+
+  // No player parameter → show normal game view
   if (!playerId) {
     return {
       screen: 'game',
@@ -59,8 +77,8 @@ export function getAppScreen(
     };
   }
 
-  // playerId parameter provided → check if it's valid
-  const isValidPlayer = playerIds.includes(playerId);
+  // Player parameter provided → check if it's valid
+  const isValidPlayer = !!player;
 
   // Valid player ID + game in PLAY phase → show player-specific panel
   if (isValidPlayer && gamePhase === 'PLAY') {
@@ -83,10 +101,11 @@ export function getAppScreen(
 
   // Invalid player ID → show game view (default fallback)
   if (!isValidPlayer) {
-    console.warn(`Invalid player ID in URL: ${playerId}. Available players:`, playerIds);
+    const requestedId = shortId || fullPlayerId;
+    console.warn(`Invalid player ID in URL: ${requestedId}. Available players:`, players.map(p => ({ id: p.id, shortId: p.shortId })));
     return {
       screen: 'game',
-      playerId,
+      playerId: requestedId,
       isValidPlayer: false
     };
   }

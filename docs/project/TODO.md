@@ -166,9 +166,46 @@ A full-stack refactor of the game logging system and core turn logic.
 
 # Current Tasks - Code2027 Project
 
-**Last Updated**: October 10, 2025
-**Current Phase**: PRODUCTION READY - Mobile UI Optimization Planned
-**Priority**: Maintain production system + prepare mobile-first UI redesign
+**Last Updated**: November 24, 2025
+**Current Phase**: PRODUCTION READY - Multi-Device Features Complete
+**Priority**: Maintain production system + plan multi-game sessions
+
+---
+
+## 📋 **PLANNED: Multi-Game Session Support**
+*Status: NOT STARTED - Prioritized for Future Implementation*
+*Estimated Effort: 45-60 minutes*
+
+**Objective**: Enable multiple independent game sessions on a single server instance, allowing different groups to play simultaneously without interference.
+
+### **Current Limitation**
+- Server stores single game state
+- All clients connecting to same server see/control same game
+- No concept of game rooms or sessions
+
+### **Required Implementation**
+1. **Game ID Generation**: Create short game IDs (G1, G2, G3, etc.)
+2. **Server State Management**: Store multiple game states in Map<gameId, GameState>
+3. **URL Routing**: Update URLs to include game ID parameter (`?g=G1&p=P1`)
+4. **Landing Page UI**: Create/join game selection interface
+5. **State Isolation**: Ensure complete separation between game sessions
+6. **API Endpoints**: Update all backend endpoints to accept gameId parameter
+7. **Frontend Routing**: Update App.tsx to load correct game based on URL
+
+### **Technical Changes Required**
+- **Backend**: `server/server.js` - Replace single state with Map<gameId, GameState>
+- **Frontend**: `src/App.tsx`, `src/utils/getAppScreen.ts` - Add game routing
+- **State Service**: `src/services/StateService.ts` - Generate game IDs
+- **Components**: New GameSelectionScreen component for landing page
+
+### **User Experience**
+- Home page shows "Create New Game" or "Join Existing Game" options
+- Creating game generates short game ID (G1, G2, etc.)
+- QR codes include game ID: `http://192.168.86.33:3000?g=G1&p=P1`
+- Multiple games run independently with no cross-contamination
+
+**Dependencies**: Short URL system (completed November 24, 2025)
+**Target**: TBD - User requested deferral to future session
 
 ---
 

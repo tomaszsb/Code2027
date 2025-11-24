@@ -117,7 +117,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 fontSize: '24px',
                 fontWeight: 'bold',
                 marginBottom: '16px',
-                color: colors.error.primary
+                color: colors.danger.main
               }}
             >
               ⚠️ Something went wrong

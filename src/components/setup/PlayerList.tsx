@@ -112,7 +112,7 @@ export function PlayerList({
   const renderPlayerCard = (player: Player) => {
     // ✅ CORRECT: Get state from component-level Record
     const showQR = qrVisibility[player.id] || false;
-    const playerURL = getServerURL(player.id);
+    const playerURL = getServerURL(player.id, player.shortId);
     const networkInfo = getNetworkInfo();
 
     return (
@@ -221,30 +221,51 @@ export function PlayerList({
           borderTop: `1px solid ${colors.secondary.light}`,
           paddingTop: '1rem'
         }}>
-          <button
-            onClick={() => toggleQR(player.id)}
-            style={{
-              background: showQR ? colors.primary.main : colors.primary.light,
-              color: showQR ? 'white' : colors.primary.text,
-              border: 'none',
+          {/* Show "Connected" badge if player is on mobile */}
+          {player.deviceType === 'mobile' ? (
+            <div style={{
+              background: colors.success.light,
+              color: colors.success.text,
+              border: `2px solid ${colors.success.main}`,
               borderRadius: '8px',
               padding: '0.75rem 1rem',
               fontSize: '0.9rem',
               fontWeight: 'bold',
-              cursor: 'pointer',
               width: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.3s ease'
-            }}
-            title={showQR ? 'Hide QR code' : 'Show QR code for mobile access'}
-          >
-            📱 {showQR ? 'Hide' : 'Show'} QR Code
-          </button>
+              gap: '0.5rem'
+            }}>
+              ✅ Connected on mobile
+            </div>
+          ) : (
+            /* Show QR code button if not connected via mobile */
+            <button
+              onClick={() => toggleQR(player.id)}
+              style={{
+                background: showQR ? colors.primary.main : colors.primary.light,
+                color: showQR ? 'white' : colors.primary.text,
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.75rem 1rem',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.3s ease'
+              }}
+              title={showQR ? 'Hide QR code' : 'Show QR code for mobile access'}
+            >
+              📱 {showQR ? 'Hide' : 'Show'} QR Code
+            </button>
+          )}
 
-          {showQR && (
+          {showQR && player.deviceType !== 'mobile' && (
             <div style={{
               marginTop: '1rem',
               padding: '1rem',

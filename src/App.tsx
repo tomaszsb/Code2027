@@ -124,20 +124,35 @@ function AppContent(): JSX.Element {
   // Detect and store device type when player connects via URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const urlPlayerId = urlParams.get('playerId');
+    const shortId = urlParams.get('p');
+    const fullPlayerId = urlParams.get('playerId');
 
-    if (urlPlayerId) {
-      const deviceType = detectDeviceType();
-      const currentState = stateService.getGameState();
-      const player = currentState.players.find(p => p.id === urlPlayerId);
+    if (!shortId && !fullPlayerId) return; // No player ID in URL, skip
+    if (!gameState || !gameState.players) return; // State not ready yet
 
-      // Only update if player exists and doesn't already have deviceType set
-      if (player && !player.deviceType) {
-        console.log(`📱 Setting device type for ${urlPlayerId}: ${deviceType}`);
-        stateService.updatePlayer(urlPlayerId, { deviceType });
-      }
+    const deviceType = detectDeviceType();
+
+    // Look up player by short ID or full ID
+    const player = shortId
+      ? gameState.players.find(p => p.shortId === shortId)
+      : gameState.players.find(p => p.id === fullPlayerId);
+
+    const urlPlayerId = player?.id;
+
+    console.log(`📱 Device detection triggered for playerId: ${urlPlayerId}`);
+    console.log(`📱 Detected device type: ${deviceType}`);
+    console.log(`📱 Current players in state:`, gameState.players.map(p => p.id));
+    console.log(`📱 Player found:`, player ? 'YES' : 'NO');
+    if (player) {
+      console.log(`📱 Player existing deviceType:`, player.deviceType);
     }
-  }, [stateService]);
+
+    // Only update if player exists and doesn't already have deviceType set
+    if (player && !player.deviceType) {
+      console.log(`📱 Setting device type for ${urlPlayerId}: ${deviceType}`);
+      stateService.updatePlayer({ id: urlPlayerId, deviceType });
+    }
+  }, [gameState?.players?.length, stateService]); // Only re-run when players array length changes
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -145,8 +160,7 @@ function AppContent(): JSX.Element {
 
   // Read URL parameters to determine routing
   const urlParams = getURLParams();
-  const playerIds = gameState.players.map(p => p.id);
-  const routeInfo = getAppScreen(urlParams, gameState.gamePhase, playerIds);
+  const routeInfo = getAppScreen(urlParams, gameState.gamePhase, gameState.players);
 
   console.log('🔍 Routing info:', routeInfo);
 

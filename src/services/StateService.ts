@@ -167,6 +167,7 @@ export class StateService implements IStateService {
 
     this.currentState = newState;
     this.notifyListeners();
+    this.debouncedSyncToServer(newState); // Sync to server for multi-device support
     return { ...newState };
   }
 
@@ -1114,9 +1115,11 @@ export class StateService implements IStateService {
     const startingSpace = this.getStartingSpace();
     const defaultColor = this.getNextAvailableColor();
     const defaultAvatar = this.getNextAvailableAvatar();
-    
+    const shortId = this.generateShortPlayerId();
+
     return {
       id: this.generatePlayerId(),
+      shortId,
       name,
       currentSpace: startingSpace,
       visitType: 'First',
@@ -1165,6 +1168,12 @@ export class StateService implements IStateService {
 
   private generatePlayerId(): string {
     return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateShortPlayerId(): string {
+    // Generate short player ID based on current player count (P1, P2, P3, etc.)
+    const playerNumber = this.currentState.players.length + 1;
+    return `P${playerNumber}`;
   }
 
   private getStartingSpace(): string {

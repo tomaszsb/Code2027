@@ -9,17 +9,18 @@
  * Get the current server URL using the actual network address
  * This ensures QR codes work from other devices on the same network
  *
- * @param playerId Optional player ID to include in URL
- * @returns Full URL to access the app (with optional playerId parameter)
+ * @param playerId Optional player ID or short ID to include in URL
+ * @param shortId Optional short ID to use for URL (e.g., "P1" instead of full ID)
+ * @returns Full URL to access the app (with optional player parameter)
  *
  * @example
  * getServerURL()
  * // => "http://192.168.1.100:3000"
  *
- * getServerURL("player_123")
- * // => "http://192.168.1.100:3000?playerId=player_123"
+ * getServerURL("player_123", "P1")
+ * // => "http://192.168.1.100:3000?p=P1"
  */
-export function getServerURL(playerId?: string): string {
+export function getServerURL(playerId?: string, shortId?: string): string {
   // Use window.location to get the actual hostname and port
   // This will be the network IP when running with `npm run dev -- --host`
   const protocol = window.location.protocol; // http: or https:
@@ -31,8 +32,10 @@ export function getServerURL(playerId?: string): string {
     ? `${protocol}//${hostname}:${port}`
     : `${protocol}//${hostname}`;
 
-  // Add playerId parameter if provided
-  if (playerId) {
+  // Add player parameter if provided (prefer shortId if available)
+  if (shortId) {
+    return `${baseURL}?p=${encodeURIComponent(shortId)}`;
+  } else if (playerId) {
     return `${baseURL}?playerId=${encodeURIComponent(playerId)}`;
   }
 

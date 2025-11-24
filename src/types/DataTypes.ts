@@ -157,6 +157,7 @@ export interface SpaceVisitRecord {
 
 export interface Player {
   id: string;
+  shortId?: string; // Short ID for URLs (e.g., "P1", "P2", "P3")
   name: string;
   currentSpace: string;
   visitType: 'First' | 'Subsequent';
