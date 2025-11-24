@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Multi-Device Enhancements (November 24, 2025)
+- **Short URL System:**
+  - Added `shortId` field to Player interface (P1, P2, P3, etc.)
+  - QR codes now use short URLs: `?p=P1` instead of `?playerId=player_1763967154004_92v28yshl`
+  - Backward compatible with old URL format
+  - URL length reduced by ~90% for easier manual entry
+
+- **Display Settings Feature:**
+  - New GameDisplaySettings component for per-player panel visibility control
+  - Available during both SETUP and PLAY phases
+  - Connection status badges show mobile vs desktop connections
+  - localStorage persistence for settings across sessions
+  - Quick preset buttons: "Show All Panels" and "Hide Connected Only"
+  - Addresses accessibility concerns for mixed-device scenarios (computer labs)
+
+- **Layout Optimization:**
+  - Automatically hide player panel column when all panels are hidden
+  - Game board expands to 100% width when no panels visible
+  - Improved space efficiency for all-remote player scenarios
+  - Smart default behavior: hide panels for connected players, show for disconnected
+
+- **Device Detection Improvements:**
+  - Support both mobile and desktop connection detection
+  - Proper badge labels for each device type
+  - Enhanced GameDisplaySettings with device-specific suggestions
+  - Fixed display logic to handle both connection types
+
+- **Files Modified:**
+  - `src/types/DataTypes.ts` - Added shortId to Player interface
+  - `src/services/StateService.ts` - Generate short player IDs
+  - `src/utils/networkDetection.ts` - Short URL support
+  - `src/utils/getAppScreen.ts` - Handle both URL formats
+  - `src/App.tsx` - Updated device detection for short URLs
+  - `src/components/layout/GameLayout.tsx` - Display settings + layout optimization
+  - `src/components/settings/GameDisplaySettings.tsx` - New component
+  - `src/components/setup/PlayerList.tsx` - Use short URLs in QR codes
+  - `docs/project/TODO.md` - Added multi-game session support task
+
+- **Branch Cleanup:**
+  - Deleted superseded branches: debug-stuck-session, fix-qr-player-routing, smart-layout-adaptation
+  - Main work consolidated in claude/server-state-sync-015vguQHiYncpGAGktxqnAPQ
+
 ### Smart Layout Adaptation - Architecture Redesign (November 19, 2025)
 - **Problem Identified:**
   - Initial implementation used continuous heartbeat polling (every 3 seconds)
